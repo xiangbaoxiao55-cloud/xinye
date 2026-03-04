@@ -291,7 +291,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .overlay.show{opacity:1;pointer-events:auto}
 .settings-panel{
   position:fixed;top:0;right:-480px;width:460px;max-width:94vw;
-  height:100vh;background:var(--warm-bg);z-index:101;
+  height:100vh;height:100svh;background:var(--warm-bg);z-index:101;
   transition:right .35s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;
   box-shadow:-4px 0 24px rgba(0,0,0,.12);
@@ -2072,6 +2072,7 @@ async function exportData(mode) {
     messages: messages.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
+      if (m.images) r.images = m.images;
       return r;
     }),
     images: {
@@ -2130,15 +2131,35 @@ async function doImport(jsonText) {
     return;
   }
 
-  // 导入设置
-  if (data.settings) await dbPut('settings', 'main', data.settings);
+  // 导入设置（兼容网页版 settings 或桌宠 cfg 格式）
+  if (data.settings) {
+    await dbPut('settings', 'main', data.settings);
+  } else if (data.cfg) {
+    const c = data.cfg;
+    const patch = {
+      apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model,
+      contextCount: c.ctx, shortReply: c.shortReply,
+      systemPrompt: c.sysPrompt, memoryArchive: c.memory,
+      ttsType: c.ttsType, ttsAutoPlay: c.ttsAutoPlay,
+      ttsUrl: c.ttsUrl, ttsRefPath: c.ttsRef, ttsRefText: c.ttsText,
+      ttsGptWeights: c.gptWeights, ttsSovitsWeights: c.sovitsWeights,
+      doubaoAppId: c.doubaoAppId, doubaoToken: c.doubaoToken,
+      doubaoVoice: c.doubaoVoice, doubaoCluster: c.doubaoCluster,
+      idleRemind: c.idleRemind, waterRemind: c.waterRemind, standRemind: c.standRemind,
+    };
+    const merged = { ...settings };
+    Object.keys(patch).forEach(k => { if (patch[k] !== undefined) merged[k] = patch[k]; });
+    await dbPut('settings', 'main', merged);
+  }
 
-  // 导入消息
-  if (data.messages) {
+  // 导入消息（兼容 messages / history 两种字段名）
+  const msgList = data.messages || data.history;
+  if (msgList) {
     await dbClear('messages');
-    for (const m of data.messages) {
-      const rec = { role: m.role, content: m.content, time: m.time };
+    for (const m of msgList) {
+      const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
       if (m.image) rec.image = m.image;
+      if (m.images) rec.images = m.images;
       await dbPut('messages', null, rec);
     }
   }
@@ -2177,26 +2198,20 @@ async function doImport(jsonText) {
   await saveToLocal();
 }
 
-// ---- 方式一：文件导入（带 alert 调试） ----
+// ---- 方式一：文件导入 ----
 $('#btnImport').onclick = () => $('#fileInputImport').click();
 $('#fileInputImport').onchange = async function() {
-  alert('onchange 已触发，选中文件数：' + this.files.length);
-  if (!this.files[0]) { alert('未选中任何文件'); return; }
-  const file = this.files[0];
-  alert('文件名：' + file.name + '\n大小：' + file.size + ' 字节\n类型：' + (file.type || '未知'));
-
+  if (!this.files[0]) return;
   if (!confirm('导入将覆盖当前所有数据（聊天、设置、图片、贴纸），确定继续吗？')) {
     this.value = ''; return;
   }
   try {
-    const text = await file.text();
-    alert('读取成功！长度 ' + text.length + ' 字符，正在覆盖数据...');
+    const text = await this.files[0].text();
     await doImport(text);
-    alert('导入完成，即将刷新页面');
     this.value = '';
     location.reload();
   } catch(e) {
-    alert('导入失败：' + e.message);
+    toast('导入失败：' + e.message);
     console.error(e);
     this.value = '';
   }
@@ -2209,10 +2224,9 @@ $('#btnPasteImport').onclick = async () => {
   if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
   try {
     await doImport(text);
-    alert('导入完成，即将刷新页面');
     location.reload();
   } catch(e) {
-    alert('导入失败：' + e.message + '\n\n请确认粘贴的是完整 JSON 内容');
+    toast('导入失败：' + e.message);
   }
 };
 
