@@ -189,16 +189,20 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 }
 .msg-row.user .msg-time{align-self:flex-end}
 
-.msg-edit-btn{
-  position:absolute;top:4px;right:4px;
+.msg-edit-btn,.msg-del-btn{
+  position:absolute;top:4px;
   width:24px;height:24px;border:none;border-radius:50%;
   background:rgba(255,255,255,.7);color:var(--text-light);
   font-size:12px;cursor:pointer;opacity:0;transition:opacity .2s;
   display:flex;align-items:center;justify-content:center;
 }
+.msg-edit-btn{right:4px}
+.msg-del-btn{right:32px}
 .msg-row.user .msg-edit-btn{right:auto;left:4px}
-.msg-content:hover .msg-edit-btn{opacity:1}
+.msg-row.user .msg-del-btn{right:auto;left:32px}
+.msg-content:hover .msg-edit-btn,.msg-content:hover .msg-del-btn{opacity:1}
 .msg-edit-btn:hover{background:var(--pink);color:#fff}
+.msg-del-btn:hover{background:#e05555;color:#fff}
 
 /* ---- TTS 语音按钮 ---- */
 .btn-tts{
@@ -989,10 +993,12 @@ function scheduleAutoSave() {
 
 async function saveToLocal() {
   try {
+    // 消息过多时只保留最近200条，避免 JSON.stringify 卡顿主线程
+    const recentMsgs = messages.length > 200 ? messages.slice(-200) : messages;
     const localData = {
       version: 3, type: 'auto-save', timestamp: Date.now(),
       settings,
-      messages: messages.map(m => {
+      messages: recentMsgs.map(m => {
         const r = { role: m.role, content: m.content, time: m.time };
         if (m.image) r.image = m.image;
         return r;
@@ -1003,24 +1009,22 @@ async function saveToLocal() {
       }
     };
     localStorage.setItem('fox_auto_save', JSON.stringify(localData));
-    console.log('[AutoSave] ✓ localStorage');
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
       try {
         const slim = {
           version: 3, type: 'auto-save', timestamp: Date.now(),
           settings,
-          messages: messages.map(m => ({ role: m.role, content: m.content, time: m.time })),
+          messages: [],
           images: {
             aiAvatar: await dbGet('images', 'aiAvatar') || null,
             userAvatar: await dbGet('images', 'userAvatar') || null,
           }
         };
         localStorage.setItem('fox_auto_save', JSON.stringify(slim));
-        console.warn('[AutoSave] 容量不足，已去除聊天图片后保存');
       } catch (_) { console.warn('[AutoSave] localStorage 写入彻底失败'); }
     } else {
-      console.warn('[AutoSave] localStorage 写入失败', e);
+      console.warn('[AutoSave] 写入失败', e);
     }
   }
 }
@@ -1155,6 +1159,7 @@ async function appendMsgDOM(msg) {
     <img class="msg-avatar" src="${escHtml(av)}" alt="">
     <div class="msg-content">
       <div class="msg-bubble">${isUser ? escHtml(msg.content) : ''}${imgHtml}</div>
+      <button class="msg-del-btn" data-id="${msg.id}" title="删除">❌</button>
       <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息">✏️</button>
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}</div>
     </div>`;
@@ -1169,7 +1174,21 @@ function scrollBottom() {
 
 // ======================== 编辑消息 & TTS 点击 ========================
 let editingId = -1;
+async function deleteMessage(id) {
+  await dbDelete('messages', id);
+  messages = messages.filter(m => m.id !== id);
+  chatArea.querySelector(`.msg-del-btn[data-id="${id}"]`)?.closest('.msg-row')?.remove();
+  scheduleAutoSave();
+}
+
 chatArea.addEventListener('click', e => {
+  // 删除消息
+  const delBtn = e.target.closest('.msg-del-btn');
+  if (delBtn) {
+    const id = Number(delBtn.dataset.id);
+    if (confirm('删除这条消息？')) deleteMessage(id);
+    return;
+  }
   // TTS 下载
   const dlBtn = e.target.closest('.btn-tts-dl');
   if (dlBtn) {
@@ -1692,7 +1711,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.standRemind = parseInt($('#setStandRemind').value) || 0;
 
   await saveSettings();
-  await applyUI();
+  await applyUI(true); // 跳过重建消息列表，避免大量记录时卡顿
   setupReminders();
   resetIdleTimer();
   closeSettings();
@@ -2231,7 +2250,7 @@ $('#btnPasteImport').onclick = async () => {
 };
 
 // ======================== 应用 UI ========================
-async function applyUI() {
+async function applyUI(skipRender = false) {
   const aiAv = await getAiAvatar();
   $('#headerAvatar').src = aiAv;
   $('#headerName').textContent = settings.aiName || '狐狸先生';
@@ -2239,8 +2258,10 @@ async function applyUI() {
   document.title = `${settings.aiName || '狐狸先生'}的小窝`;
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
   await applyBg();
-  await renderMessages();
-  renderStickers();
+  if (!skipRender) {
+    await renderMessages();
+    renderStickers();
+  }
 }
 
 // ======================== 启动 ========================
