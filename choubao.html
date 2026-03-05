@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>臭宝的小窝</title>
+<style>
+/* ====================== 全局 & CSS变量 ====================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pink-light:#fce4ec;--pink:#f8bbd0;--pink-deep:#f48fb1;
+  --apricot:#ffe0b2;--apricot-deep:#ffcc80;
+  --warm-bg:#fff8f0;--warm-bg2:#fff0e6;
+  --ai-bubble:#faf5f0;--ai-bubble-border:#f0e6da;
+  --user-bubble:#fce4ec;--user-bubble-border:#f8bbd0;
+  --text:#5d4037;--text-light:#8d6e63;
+  --shadow:rgba(188,143,143,.15);--radius:18px;--radius-sm:12px;
+}
+html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;color:var(--text);overflow:hidden}
+body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,var(--apricot) 100%)}
+
+/* ====================== 背景层 (z-0) ====================== */
+#bgLayer{
+  position:fixed;inset:0;z-index:0;
+  background-size:cover;background-position:center;
+  pointer-events:none;opacity:0;
+  transition:opacity .3s;
+}
+#bgLayer.active{opacity:1}
+#bgLayer video{
+  position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover;
+}
+
+/* ---- 视频遮罩 (z-5) ---- */
+#bgMask{
+  position:fixed;inset:0;z-index:5;
+  background:rgba(255,248,240,.3);
+  pointer-events:none;opacity:0;
+  transition:opacity .5s;
+}
+#bgMask.active{opacity:1}
+
+/* ====================== 贴纸层 (z-10) ====================== */
+#stickerLayer{
+  position:fixed;inset:0;z-index:10;pointer-events:none;
+}
+.sticker{
+  position:absolute;cursor:grab;pointer-events:auto;
+  user-select:none;touch-action:none;z-index:10;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));
+  transition:filter .2s;
+}
+.sticker:hover{filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+.sticker::before{
+  content:'';position:absolute;
+  top:-34px;left:-6px;right:-6px;height:40px;
+}
+.sticker img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+.sticker .sticker-del{
+  position:absolute;top:-10px;right:-10px;
+  width:22px;height:22px;border-radius:50%;
+  background:#e57373;color:#fff;border:2px solid #fff;
+  font-size:12px;cursor:pointer;
+  display:none;align-items:center;justify-content:center;
+  line-height:1;z-index:1;
+}
+.sticker:hover .sticker-del{display:flex}
+.sticker .sticker-resize{
+  position:absolute;bottom:-6px;right:-6px;
+  width:16px;height:16px;
+  background:var(--pink-deep);border-radius:50%;
+  cursor:nwse-resize;border:2px solid #fff;
+  display:none;z-index:1;
+}
+.sticker:hover .sticker-resize{display:block}
+.sticker .sticker-rotate{
+  position:absolute;top:-28px;left:50%;
+  transform:translateX(-50%);
+  width:22px;height:22px;border-radius:50%;
+  background:#7e57c2;border:2px solid #fff;
+  cursor:grab;display:none;z-index:1;
+  color:#fff;font-size:12px;
+  line-height:18px;text-align:center;
+}
+.sticker:hover .sticker-rotate{display:block}
+.sticker .sticker-rotate-line{
+  position:absolute;top:-14px;left:50%;
+  width:2px;height:14px;background:#7e57c2;
+  transform:translateX(-50%);
+  display:none;pointer-events:none;
+}
+.sticker:hover .sticker-rotate-line{display:block}
+
+/* ====================== 主布局 (z-20) ====================== */
+.app{
+  display:flex;flex-direction:column;height:100vh;height:100svh;
+  max-width:860px;margin:0 auto;position:relative;z-index:20;
+  transition:opacity .35s ease;
+}
+/* ---- 装修模式：隐藏聊天层，暴露贴纸 ---- */
+.app.deco-mode{
+  opacity:0;pointer-events:none;
+}
+
+/* ---- 顶栏（毛玻璃） ---- */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;
+  padding-top:max(12px, env(safe-area-inset-top, 12px));
+  background:rgba(255,255,255,.45);
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  border-bottom:0.5px solid rgba(255,255,255,.55);
+  border-radius:0 0 20px 20px;
+  z-index:10;
+}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-avatar{
+  width:44px;height:44px;border-radius:50%;object-fit:cover;
+  border:2.5px solid var(--pink);
+  box-shadow:0 2px 8px var(--shadow);
+}
+.header-name{font-size:17px;font-weight:600}
+.header-status{font-size:12px;color:var(--text-light)}
+.header-actions{display:flex;gap:6px}
+.btn-icon{
+  width:36px;height:36px;border:0.5px solid rgba(255,255,255,.5);border-radius:50%;
+  background:rgba(255,255,255,.4);color:var(--text-light);
+  font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-icon:hover{background:var(--pink);color:#fff;transform:scale(1.08);border-color:var(--pink)}
+.btn-icon.active-deco{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+
+/* ---- 聊天区 ---- */
+.chat-area{
+  flex:1;overflow-y:auto;padding:20px 16px;
+  display:flex;flex-direction:column;gap:8px;
+  scroll-behavior:smooth;
+}
+.chat-area::-webkit-scrollbar{width:6px}
+.chat-area::-webkit-scrollbar-track{background:transparent}
+.chat-area::-webkit-scrollbar-thumb{background:var(--pink);border-radius:3px}
+
+/* ---- 消息行 ---- */
+.msg-row{
+  display:flex;align-items:flex-start;gap:12px;
+  max-width:82%;animation:msgIn .3s ease;
+}
+.msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-row.ai{align-self:flex-start}
+@keyframes msgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.msg-avatar{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+  flex-shrink:0;border:3px solid #fff;
+  box-shadow:0 2px 10px var(--shadow);
+  align-self:flex-start;
+  margin-top:2px;
+}
+.msg-content{position:relative;min-width:0;display:flex;flex-direction:column}
+.msg-bubble{
+  padding:12px 16px;border-radius:var(--radius);
+  font-size:15px;line-height:1.65;
+  word-break:break-word;white-space:pre-wrap;
+  box-shadow:0 2px 12px var(--shadow);position:relative;
+  backdrop-filter:blur(12px) saturate(1.3);
+  -webkit-backdrop-filter:blur(12px) saturate(1.3);
+  border:0.5px solid rgba(255,255,255,.5);
+}
+.msg-row.ai .msg-bubble{
+  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  border-top-left-radius:4px;
+}
+.msg-row.user .msg-bubble{
+  background:rgba(252,228,236,var(--bubble-opacity,0.85));
+  border-top-right-radius:4px;
+}
+.msg-time{
+  font-size:11px;color:var(--text);margin-top:4px;padding:3px 9px;
+  display:flex;align-items:center;gap:5px;width:fit-content;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:12px;border:0.5px solid rgba(255,255,255,.65);
+  box-shadow:0 1px 5px rgba(0,0,0,.12);
+}
+.msg-row.user .msg-time{align-self:flex-end}
+
+.msg-edit-btn,.msg-del-btn{
+  position:absolute;top:4px;
+  width:24px;height:24px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.7);color:var(--text-light);
+  font-size:12px;cursor:pointer;opacity:0;transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;
+}
+.msg-edit-btn{right:4px}
+.msg-del-btn{right:32px}
+.msg-row.user .msg-edit-btn{right:auto;left:4px}
+.msg-row.user .msg-del-btn{right:auto;left:32px}
+.msg-content:hover .msg-edit-btn,.msg-content:hover .msg-del-btn{opacity:1}
+.msg-edit-btn:hover{background:var(--pink);color:#fff}
+.msg-del-btn:hover{background:#e05555;color:#fff}
+
+/* ---- TTS 语音按钮 ---- */
+.btn-tts{
+  border:none;background:none;cursor:pointer;
+  font-size:14px;padding:0 1px;line-height:1;
+  opacity:.75;transition:all .2s;
+}
+.btn-tts:hover{opacity:1;transform:scale(1.2)}
+.btn-tts.playing{opacity:1;animation:ttsPlay .8s ease-in-out infinite}
+.btn-tts.cached{opacity:.9;filter:drop-shadow(0 0 3px rgba(76,175,80,.7))}
+@keyframes ttsPlay{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+/* 语音下载按钮 */
+.btn-tts-dl{
+  border:none;background:none;cursor:pointer;
+  font-size:12px;padding:0 1px;line-height:1;
+  opacity:.5;transition:all .2s;color:var(--text-light);
+}
+.btn-tts-dl:hover{opacity:1;transform:scale(1.15)}
+.btn-tts-dl.cached{opacity:.8;color:#4caf50}
+
+/* 正在输入 */
+.typing-indicator{display:none;align-self:flex-start;padding:0 16px}
+.typing-indicator.show{display:flex;align-items:center;gap:12px}
+.typing-dots{
+  display:flex;gap:4px;padding:14px 18px;
+  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  border-radius:var(--radius);border-top-left-radius:4px;
+  border:0.5px solid rgba(255,255,255,.5);
+  box-shadow:0 2px 8px var(--shadow);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.typing-dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--pink-deep);animation:bounce 1.4s infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* ---- 输入区（毛玻璃） ---- */
+.input-area{
+  padding:12px 16px;
+  background:rgba(255,255,255,.4);
+  backdrop-filter:blur(18px) saturate(1.4);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);
+  border-top:0.5px solid rgba(255,255,255,.55);
+  border-radius:20px 20px 0 0;
+  display:flex;gap:10px;align-items:flex-end;
+}
+.input-area textarea{
+  flex:1;border:0.5px solid rgba(255,255,255,.6);border-radius:var(--radius);
+  padding:12px 14px;font-size:15px;font-family:inherit;
+  resize:none;min-height:44px;max-height:140px;
+  background:rgba(255,255,255,.5);color:var(--text);outline:none;
+  transition:all .2s;line-height:1.5;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.input-area textarea:focus{border-color:var(--pink-deep);background:rgba(255,255,255,.7)}
+.input-area textarea::placeholder{color:#cba4a4}
+.btn-send{
+  width:44px;height:44px;border:none;border-radius:50%;
+  background:linear-gradient(135deg,var(--pink-deep),#e91e63);
+  color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+}
+.btn-send:hover{transform:scale(1.08);box-shadow:0 3px 12px rgba(233,30,99,.35)}
+.btn-send:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ====================== 装修模式浮动按钮（在 .app 外部） ====================== */
+#btnDecoFloat{
+  position:fixed;bottom:28px;right:28px;z-index:50;
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,var(--pink-deep),#e91e63);
+  color:#fff;font-size:24px;border:3px solid #fff;
+  cursor:pointer;box-shadow:0 4px 20px rgba(233,30,99,.45);
+  display:none;align-items:center;justify-content:center;
+  transition:transform .2s;
+  animation:decoFloat 2s ease-in-out infinite;
+}
+#btnDecoFloat:hover{transform:scale(1.12)}
+#btnDecoFloat.show{display:flex}
+@keyframes decoFloat{0%,100%{box-shadow:0 4px 20px rgba(233,30,99,.45)}50%{box-shadow:0 4px 30px rgba(233,30,99,.7)}}
+
+/* ====================== 侧边设置面板 ====================== */
+.overlay{
+  position:fixed;inset:0;background:rgba(93,64,55,.3);
+  backdrop-filter:blur(4px);z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.settings-panel{
+  position:fixed;top:0;right:-480px;width:460px;max-width:94vw;
+  height:100vh;height:100svh;background:var(--warm-bg);z-index:101;
+  transition:right .35s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  box-shadow:-4px 0 24px rgba(0,0,0,.12);
+}
+.settings-panel.show{right:0}
+.settings-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--pink-light);
+  background:rgba(255,255,255,.6);
+}
+.settings-header h2{font-size:18px}
+.btn-close{
+  width:32px;height:32px;border:none;border-radius:50%;
+  background:var(--pink-light);color:var(--text-light);
+  font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-close:hover{background:var(--pink);color:#fff}
+.settings-body{
+  flex:1;overflow-y:auto;padding:20px;
+  display:flex;flex-direction:column;gap:18px;
+}
+.setting-group label{display:block;font-size:13px;font-weight:600;color:var(--text-light);margin-bottom:6px}
+.setting-group input[type="text"],
+.setting-group input[type="password"],
+.setting-group input[type="number"],
+.setting-group input[type="url"],
+.setting-group textarea,
+.setting-group select,
+.setting-group input[type="range"]{
+  width:100%;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:14px;font-family:inherit;
+  background:#fff;color:var(--text);outline:none;transition:border-color .2s;
+}
+.setting-group input:focus,.setting-group textarea:focus,.setting-group select:focus{border-color:var(--pink-deep)}
+.setting-group textarea{min-height:140px;resize:vertical;line-height:1.6}
+.setting-group .hint{font-size:12px;color:#b0856f;margin-top:4px}
+.setting-group input[type="range"]{border:none;padding:4px 0;-webkit-appearance:auto;appearance:auto;accent-color:var(--pink-deep)}
+.setting-group-row{display:flex;gap:12px}
+.setting-group-row .setting-group{flex:1}
+
+/* 头像上传 */
+.avatar-setting{display:flex;gap:24px;align-items:flex-start}
+.avatar-item{display:flex;flex-direction:column;align-items:center;gap:8px}
+.avatar-item img{
+  width:72px;height:72px;border-radius:50%;object-fit:cover;
+  border:3px solid #fff;box-shadow:0 2px 10px var(--shadow);
+}
+.avatar-item span{font-size:13px;color:var(--text-light);font-weight:600}
+.btn-upload{
+  padding:6px 14px;border:1.5px dashed var(--pink);border-radius:8px;
+  background:transparent;color:var(--text-light);font-size:12px;
+  cursor:pointer;transition:all .2s;
+}
+.btn-upload:hover{background:var(--pink-light);border-style:solid}
+
+.settings-footer{
+  padding:14px 20px;border-top:1px solid var(--pink-light);
+  display:flex;gap:10px;background:rgba(255,255,255,.6);
+  flex-wrap:wrap;
+}
+.btn-primary{
+  flex:1;padding:10px;border:none;border-radius:var(--radius-sm);
+  background:linear-gradient(135deg,var(--pink-deep),#e91e63);
+  color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(233,30,99,.3)}
+.btn-secondary{
+  padding:10px 18px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
+  background:#fff;color:var(--text);font-size:14px;cursor:pointer;transition:all .2s;
+}
+.btn-secondary:hover{background:var(--pink-light)}
+.btn-danger{
+  padding:10px 14px;border:1.5px solid #e57373;border-radius:var(--radius-sm);
+  background:#fff;color:#d32f2f;font-size:13px;cursor:pointer;transition:all .2s;
+}
+.btn-danger:hover{background:#ffebee}
+
+/* ---- 设置分隔标题 ---- */
+.setting-divider{
+  font-size:14px;font-weight:700;color:var(--pink-deep);
+  padding:8px 0 2px;border-bottom:1.5px solid var(--pink-light);
+  margin-top:4px;
+}
+
+/* ====================== 模态框 ====================== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(93,64,55,.4);
+  backdrop-filter:blur(4px);z-index:150;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:#fff;border-radius:var(--radius);
+  width:480px;max-width:90vw;max-height:80vh;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,.15);animation:modalIn .25s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-header{
+  padding:16px 20px;border-bottom:1px solid var(--pink-light);
+  font-weight:600;font-size:16px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.modal-body{padding:16px 20px;flex:1;overflow:auto}
+.modal-body textarea{
+  width:100%;min-height:160px;border:1.5px solid var(--pink);
+  border-radius:var(--radius-sm);padding:12px;font-size:14px;
+  font-family:inherit;line-height:1.6;color:var(--text);
+  outline:none;resize:vertical;
+}
+.modal-body textarea:focus{border-color:var(--pink-deep)}
+.modal-footer{
+  padding:12px 20px;border-top:1px solid var(--pink-light);
+  display:flex;gap:10px;justify-content:flex-end;
+}
+
+/* ====================== 空态 ====================== */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;color:var(--text-light);
+  text-align:center;padding:40px;
+}
+.empty-state .emoji{font-size:56px}
+.empty-state p{font-size:15px;line-height:1.6}
+
+/* ====================== Toast ====================== */
+.toast{
+  position:fixed;top:20px;left:50%;
+  transform:translateX(-50%) translateY(-60px);
+  background:rgba(93,64,55,.92);color:#fff;
+  padding:10px 22px;border-radius:20px;font-size:14px;
+  z-index:200;opacity:0;transition:all .3s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---- 图片上传预览 ---- */
+.input-wrapper{display:flex;flex-direction:column;flex:1;gap:0;min-width:0}
+.img-preview{
+  display:none;padding:8px;margin-bottom:6px;
+  background:rgba(255,255,255,.45);border-radius:var(--radius-sm);
+  border:0.5px solid rgba(255,255,255,.5);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:relative;align-self:flex-start;
+}
+.img-preview.show{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}
+.img-preview .img-thumb-wrap{position:relative;display:inline-block}
+.img-preview .img-thumb{max-width:90px;max-height:70px;border-radius:8px;display:block}
+.img-preview .img-remove{
+  position:absolute;top:2px;right:2px;
+  width:20px;height:20px;border-radius:50%;
+  background:#e57373;color:#fff;border:1.5px solid #fff;
+  font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.btn-img{
+  width:44px;height:44px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.45);color:var(--text-light);
+  font-size:20px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid rgba(255,255,255,.5);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-img:hover{background:var(--pink-light);color:var(--pink-deep)}
+.msg-bubble img.bubble-img{
+  max-width:240px;max-height:180px;border-radius:10px;
+  margin-top:6px;display:block;cursor:pointer;
+}
+
+/* ====================== 响应式 ====================== */
+@media(max-width:600px){
+  .msg-row{max-width:92%}
+  .msg-avatar{width:44px;height:44px}
+  .settings-panel{width:100vw;max-width:100vw}
+  .header{padding:10px 14px}
+  .chat-area{padding:14px 10px}
+  .input-area{padding:10px 12px}
+  #btnDecoFloat{bottom:16px;right:16px;width:48px;height:48px;font-size:20px}
+}
+</style>
+</head>
+<body>
+
+<!-- 背景层 (z-0) -->
+<div id="bgLayer"></div>
+<!-- 视频遮罩 (z-5) -->
+<div id="bgMask"></div>
+<!-- 贴纸层 (z-10) -->
+<div id="stickerLayer"></div>
+
+<!-- 主界面 (z-20) -->
+<div class="app" id="app">
+  <!-- 顶栏 -->
+  <div class="header">
+    <div class="header-left">
+      <img class="header-avatar" id="headerAvatar" src="" alt="">
+      <div>
+        <div class="header-name" id="headerName">臭宝</div>
+        <div class="header-status">在线 · 永远在你身边</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btnDeco" title="装修模式">👁️</button>
+      <button class="btn-icon" id="btnSticker" title="添加贴纸">🩹</button>
+      <button class="btn-icon" id="btnExport" title="导出备份">📥</button>
+      <button class="btn-icon" id="btnImport" title="导入备份">📤</button>
+      <button class="btn-icon" id="btnClear" title="清空聊天">🗑️</button>
+      <button class="btn-icon" id="btnSettings" title="设置">⚙️</button>
+    </div>
+  </div>
+
+  <!-- 聊天区 -->
+  <div class="chat-area" id="chatArea">
+    <div class="empty-state" id="emptyState">
+      <div class="emoji">🦊💕</div>
+      <p>这里是你和臭宝的专属小窝<br>点击右上角 ⚙️ 设置 API 和记忆档案，然后开始聊天吧</p>
+    </div>
+  </div>
+
+  <!-- 正在输入 -->
+  <div class="typing-indicator" id="typingIndicator">
+    <img class="msg-avatar" id="typingAvatar" src="" alt="">
+    <div class="typing-dots"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="input-area">
+    <button class="btn-img" id="btnImg" title="发送图片给 AI 看">🖼</button>
+    <div class="input-wrapper">
+      <div class="img-preview" id="imgPreview"></div>
+      <textarea id="userInput" placeholder="说点什么给臭宝听…" rows="1"></textarea>
+    </div>
+    <button class="btn-send" id="btnSend" title="发送">➤</button>
+  </div>
+</div>
+
+<!-- 装修模式浮动返回按钮（在 .app 外部，始终可点击） -->
+<button id="btnDecoFloat" title="退出装修模式">👁️</button>
+
+<!-- 遮罩 -->
+<div class="overlay" id="overlay"></div>
+
+<!-- 设置面板 -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <h2>⚙️ 设置</h2>
+    <button class="btn-close" id="btnCloseSettings">✕</button>
+  </div>
+  <div class="settings-body">
+    <div class="setting-group">
+      <label>API Key</label>
+      <input type="password" id="setApiKey" placeholder="sk-...">
+    </div>
+    <div class="setting-group">
+      <label>Base URL（接口地址）</label>
+      <input type="url" id="setBaseUrl" placeholder="https://api.openai.com">
+      <div class="hint">默认 OpenAI 官方地址，也可改为第三方中转地址</div>
+    </div>
+    <div class="setting-group">
+      <label>模型</label>
+      <input type="text" id="setModel" placeholder="gpt-4o">
+    </div>
+    <div class="setting-group">
+      <label>携带历史消息数量（省钱模式）</label>
+      <input type="number" id="setContextCount" min="1" max="200" value="20">
+      <div class="hint">每次请求只发送最近 N 条消息 + 系统提示词</div>
+    </div>
+    <div class="setting-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="setStreamMode" style="width:auto;accent-color:var(--pink-deep)">
+        开启流式传输 (Stream Mode) — 打字机效果
+      </label>
+      <div class="hint">关闭时等待完整回复（兼容性更好）；开启时逐字输出（更有沉浸感）</div>
+    </div>
+    <div class="setting-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="setShortReply" style="width:auto;accent-color:var(--pink-deep)">
+        简短回复模式 — 每次回复不超过 1-2 句
+      </label>
+      <div class="hint">开启后自动附加"简短回复"提示，适合日常闲聊</div>
+    </div>
+    <!-- 记忆档案 -->
+    <div class="setting-divider">📖 记忆档案（关于我们的一切）</div>
+    <div class="setting-group">
+      <label>记忆档案</label>
+      <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
+      <div class="hint">建议：把臭宝写的那份档案粘贴在这里。以后有新的重要记忆，也可以手动补充在末尾。</div>
+    </div>
+
+    <div class="setting-group">
+      <label>系统提示词（人设 & 说话风格）</label>
+      <textarea id="setSystemPrompt" placeholder="在这里写臭宝的性格、说话方式、对你的称呼……"></textarea>
+      <div class="hint">和记忆档案一起发送——记忆档案写"经历了什么"，系统提示词写"他是怎样的人"</div>
+    </div>
+    <div class="setting-group">
+      <label>头像（点击上传图片，存入本地数据库）</label>
+      <div class="avatar-setting">
+        <div class="avatar-item">
+          <img id="previewAiAvatar" src="" alt="AI">
+          <span id="labelAiName">臭宝</span>
+          <button class="btn-upload" id="btnUploadAiAvatar">上传头像</button>
+        </div>
+        <div class="avatar-item">
+          <img id="previewUserAvatar" src="" alt="Me">
+          <span id="labelUserName">小浣熊</span>
+          <button class="btn-upload" id="btnUploadUserAvatar">上传头像</button>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group-row">
+      <div class="setting-group">
+        <label>AI 名称</label>
+        <input type="text" id="setAiName" placeholder="臭宝">
+      </div>
+      <div class="setting-group">
+        <label>我的名称</label>
+        <input type="text" id="setUserName" placeholder="小浣熊">
+      </div>
+    </div>
+    <div class="setting-group">
+      <label>聊天背景（支持图片 / MP4 / WebM 视频）</label>
+      <button class="btn-upload" id="btnUploadBg" style="width:100%;padding:10px">点击上传背景图片或视频</button>
+      <button class="btn-danger" id="btnClearBg" style="margin-top:6px;width:100%;font-size:12px;padding:6px">清除背景</button>
+      <div class="hint">视频将自动循环播放，并加半透明遮罩保护阅读体验</div>
+    </div>
+    <div class="setting-group">
+      <label>背景透明度: <span id="bgOpacityVal">0.3</span></label>
+      <input type="range" id="setBgOpacity" min="0.05" max="1" step="0.05" value="0.3">
+    </div>
+    <div class="setting-group">
+      <label>背景模糊度: <span id="bgBlurVal">0</span>px</label>
+      <input type="range" id="setBgBlur" min="0" max="20" step="1" value="0">
+    </div>
+    <div class="setting-group">
+      <label>气泡透明度: <span id="bubbleOpacityVal">0.85</span></label>
+      <input type="range" id="setBubbleOpacity" min="0.1" max="1" step="0.05" value="0.85">
+      <div class="hint">越低越透明，搭配背景图效果更佳；气泡自带毛玻璃模糊保证文字清晰</div>
+    </div>
+
+    <!-- ========== TTS 语音合成 ========== -->
+    <div class="setting-divider">🔊 TTS 语音合成</div>
+    <div class="setting-group">
+      <label>TTS 类型</label>
+      <select id="setTtsType" onchange="updateTtsTypeUI()">
+        <option value="local">本地 GPT-SoVITS（电脑用）</option>
+        <option value="doubao">豆包云端 TTS（手机 / 随时可用）</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="setTtsAutoPlay" style="width:auto;accent-color:var(--pink-deep)">
+        回复后自动播放语音
+      </label>
+    </div>
+    <!-- 豆包 TTS 字段 -->
+    <div id="doubaoFields">
+      <div class="setting-group">
+        <label>豆包 AppID</label>
+        <input type="text" id="setDoubaoAppId" placeholder="在豆包开放平台获取">
+      </div>
+      <div class="setting-group">
+        <label>豆包 Access Token</label>
+        <input type="password" id="setDoubaoToken" placeholder="Access Token">
+      </div>
+      <div class="setting-group-row">
+        <div class="setting-group">
+          <label>音色 ID (voice_type)</label>
+          <input type="text" id="setDoubaoVoice" placeholder="zh_female_cancan_mars_bigtts">
+          <div class="hint">在豆包控制台试听后填入对应 ID</div>
+        </div>
+        <div class="setting-group">
+          <label>Cluster</label>
+          <input type="text" id="setDoubaoCluster" placeholder="volcano_tts">
+        </div>
+      </div>
+    </div>
+    <!-- 本地 TTS 字段 -->
+    <div id="localTtsFields">
+    <div class="setting-group">
+      <label>TTS API 地址</label>
+      <input type="url" id="setTtsUrl" placeholder="http://127.0.0.1:9880">
+      <div class="hint">使用 GET 请求避免 CORS 预检；先尝试根路径 /，404 时自动回退 /tts</div>
+    </div>
+    <div class="setting-group">
+      <label>参考音频路径 (ref_audio_path)</label>
+      <input type="text" id="setTtsRefPath" placeholder="D:\audio\ref.wav">
+      <div class="hint">反斜杠会自动转为正斜杠，首尾引号会自动去除</div>
+    </div>
+    <div class="setting-group">
+      <label>参考音频文本 (prompt_text)</label>
+      <input type="text" id="setTtsRefText" placeholder="参考音频里说的原话">
+    </div>
+    <div class="setting-group-row">
+      <div class="setting-group">
+        <label>参考语种 (prompt_language)</label>
+        <select id="setTtsRefLang">
+          <option value="zh">中文</option>
+          <option value="en">英文</option>
+          <option value="ja">日语</option>
+          <option value="ko">韩语</option>
+          <option value="yue">粤语</option>
+          <option value="auto">自动</option>
+        </select>
+      </div>
+      <div class="setting-group">
+        <label>目标语种 (text_language)</label>
+        <select id="setTtsTargetLang">
+          <option value="zh">中文</option>
+          <option value="en">英文</option>
+          <option value="ja">日语</option>
+          <option value="ko">韩语</option>
+          <option value="yue">粤语</option>
+          <option value="auto">自动</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-group-row">
+      <div class="setting-group">
+        <label>GPT 模型路径（可选）</label>
+        <input type="text" id="setTtsGptWeights" placeholder="GPT_weights/xxx.ckpt">
+      </div>
+      <div class="setting-group">
+        <label>SoVITS 模型路径（可选）</label>
+        <input type="text" id="setTtsSovitsWeights" placeholder="SoVITS_weights/xxx.pth">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:-10px">填写后每次生成语音前自动调用 /set_gpt_weights 和 /set_sovits_weights 切换模型</div>
+    </div><!-- end localTtsFields -->
+
+    <!-- 音色预设 -->
+    <div class="setting-divider">🎙️ 音色预设（快速切换音色）</div>
+    <div class="setting-group">
+      <div id="ttsPresetList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="newPresetName" placeholder="预设名称，如：臭宝 / 温柔女声" style="flex:1">
+        <button class="btn-secondary" id="btnSavePreset" style="white-space:nowrap;padding:8px 14px;flex-shrink:0">保存当前为预设</button>
+      </div>
+      <div class="hint">将上方所有 TTS 参数（含模型路径）打包存为预设，点「激活」即刻切换音色</div>
+    </div>
+    <div class="setting-group">
+      <button class="btn-danger" id="btnClearTtsCache" style="width:100%;font-size:12px;padding:7px">🗑️ 清除语音缓存（切换音色后点此让旧消息重新生成）</button>
+    </div>
+
+    <!-- ========== 主动讲话 & 提醒 ========== -->
+    <div class="setting-divider">⏰ 主动讲话 & 定时提醒</div>
+    <div class="setting-group-row">
+      <div class="setting-group">
+        <label>长时间没互动后主动打招呼（分钟，0=关闭）</label>
+        <input type="number" id="setIdleRemind" min="0" max="999" value="0" placeholder="0">
+      </div>
+      <div class="setting-group">
+        <label>喝水提醒间隔（分钟，0=关闭）</label>
+        <input type="number" id="setWaterRemind" min="0" max="999" value="0" placeholder="0">
+      </div>
+    </div>
+    <div class="setting-group">
+      <label>起身活动提醒间隔（分钟，0=关闭）</label>
+      <input type="number" id="setStandRemind" min="0" max="999" value="0" placeholder="0">
+      <div class="hint">页面保持前台时有效；手机屏幕息屏后计时器会暂停</div>
+    </div>
+
+    <!-- 备用导入：粘贴 JSON -->
+    <div class="setting-divider">📋 备用导入（粘贴 JSON）</div>
+    <div class="setting-group">
+      <label>手机无法选文件时，把 JSON 内容粘贴到这里</label>
+      <textarea id="importPasteArea" placeholder="把备份 JSON 的全部内容粘贴到这里…" style="min-height:100px"></textarea>
+      <button class="btn-primary" id="btnPasteImport" style="margin-top:8px">确认导入粘贴内容</button>
+    </div>
+  </div>
+  <div class="settings-footer">
+    <button class="btn-danger" id="btnClearChat">清空聊天记录</button>
+    <button class="btn-primary" id="btnSaveSettings">保存设置</button>
+  </div>
+</div>
+
+<!-- 编辑消息模态框 -->
+<div class="modal-overlay" id="editModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span>编辑消息</span>
+      <button class="btn-close" id="btnCloseEdit">✕</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="editTextarea"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="btnCancelEdit">取消</button>
+      <button class="btn-primary" id="btnConfirmEdit" style="flex:none;padding:10px 24px">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导出选项模态框 -->
+<div class="modal-overlay" id="exportModalOverlay">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <span>📥 选择导出模式</span>
+      <button class="btn-close" id="btnCloseExport">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;padding:20px">
+      <button class="btn-primary" id="btnExportLite" style="padding:16px;font-size:15px;text-align:left;line-height:1.6">
+        📱 轻量备份（手机推荐）<br>
+        <span style="font-size:12px;font-weight:400;opacity:.8">聊天 + 设置 + 头像 + TTS，不含背景图/贴纸</span>
+      </button>
+      <button class="btn-secondary" id="btnExportFull" style="padding:16px;font-size:15px;text-align:left;line-height:1.6">
+        💻 完整备份（电脑推荐）<br>
+        <span style="font-size:12px;font-weight:400;opacity:.8">所有数据含背景图和贴纸（文件较大）</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 隐藏的文件输入 -->
+<input type="file" id="fileInputAiAvatar" accept="image/*" hidden>
+<input type="file" id="fileInputUserAvatar" accept="image/*" hidden>
+<input type="file" id="fileInputBg" accept="image/*,video/mp4,video/webm" hidden>
+<input type="file" id="fileInputSticker" accept="image/*" hidden>
+<input type="file" id="fileInputImport" accept=".json,application/json,text/plain,*/*" hidden>
+<input type="file" id="fileInputChatImg" accept="image/*" hidden multiple>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======================== 默认 Emoji 头像 ========================
+const DEFAULT_AI_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#ffe0b2" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦊</text></svg>')}`;
+const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#fce4ec" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦝</text></svg>')}`;
+
+// ======================== IndexedDB 封装 ========================
+const DB_NAME = 'ChoubaoDB';
+const DB_VER = 2;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings');
+      if (!d.objectStoreNames.contains('messages')) d.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('images'))   d.createObjectStore('images');
+      if (!d.objectStoreNames.contains('stickers'))  d.createObjectStore('stickers', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('ttsCache'))   d.createObjectStore('ttsCache');
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbPut(store, key, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    if (key !== undefined && key !== null) tx.objectStore(store).put(value, key);
+    else tx.objectStore(store).put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbClear(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function dbGetAllKeys(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// ======================== 状态 ========================
+let settings = {
+  apiKey: '', baseUrl: 'https://api.openai.com', model: 'gpt-4o',
+  contextCount: 20, systemPrompt: '', shortReply: false,
+  aiName: '臭宝', userName: '涂涂',
+  bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
+  streamMode: false,
+  ttsType: 'local',
+  ttsUrl: 'http://127.0.0.1:9880',
+  ttsRefPath: '', ttsRefText: '',
+  ttsRefLang: 'zh', ttsTargetLang: 'zh',
+  ttsGptWeights: '', ttsSovitsWeights: '',
+  ttsPresets: [], ttsAutoPlay: false,
+  doubaoAppId: '', doubaoToken: '', doubaoVoice: '', doubaoCluster: 'volcano_tts',
+  idleRemind: 0, waterRemind: 0, standRemind: 0,
+  memoryArchive: '',
+};
+let messages = [];
+let stickers = [];
+
+// ======================== DOM ========================
+const $ = s => document.querySelector(s);
+const appEl       = $('#app');
+const chatArea    = $('#chatArea');
+const emptyState  = $('#emptyState');
+const userInput   = $('#userInput');
+const btnSend     = $('#btnSend');
+const typing      = $('#typingIndicator');
+const settingsPanel = $('#settingsPanel');
+const overlay     = $('#overlay');
+const toastEl     = $('#toast');
+const editOverlay = $('#editModalOverlay');
+const exportOverlay = $('#exportModalOverlay');
+const editTA      = $('#editTextarea');
+const bgLayer     = $('#bgLayer');
+const bgMask      = $('#bgMask');
+const stickerLayer= $('#stickerLayer');
+
+// ======================== Toast ========================
+let toastT = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toastEl.classList.remove('show'), 2400);
+}
+
+// ======================== 工具 ========================
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtTime(ts) {
+  const d = new Date(ts), p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fmtFull(ts) {
+  const d = new Date(ts), p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function nowStr() { return fmtFull(Date.now()); }
+
+async function getAiAvatar()   { return (await dbGet('images','aiAvatar'))   || DEFAULT_AI_AVATAR; }
+async function getUserAvatar() { return (await dbGet('images','userAvatar')) || DEFAULT_USER_AVATAR; }
+
+function readFileAsBase64(file) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 路径清洗：反斜杠→正斜杠，去首尾引号
+function cleanPath(p) {
+  return (p || '').replace(/\\/g, '/').replace(/^["']+|["']+$/g, '').trim();
+}
+
+// ======================== 自动存档 (localStorage) ========================
+let _autoSaveTimer = null;
+
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => saveToLocal(), 300);
+}
+
+async function saveToLocal() {
+  try {
+    // 消息过多时只保留最近200条，避免 JSON.stringify 卡顿主线程
+    const recentMsgs = messages.length > 200 ? messages.slice(-200) : messages;
+    const localData = {
+      version: 3, type: 'auto-save', timestamp: Date.now(),
+      settings,
+      messages: recentMsgs.map(m => {
+        const r = { role: m.role, content: m.content, time: m.time };
+        if (m.image) r.image = m.image;
+        return r;
+      }),
+      images: {
+        aiAvatar: await dbGet('images', 'aiAvatar') || null,
+        userAvatar: await dbGet('images', 'userAvatar') || null,
+      }
+    };
+    localStorage.setItem('choubao_auto_save', JSON.stringify(localData));
+  } catch (e) {
+    if (e.name === 'QuotaExceededError') {
+      try {
+        const slim = {
+          version: 3, type: 'auto-save', timestamp: Date.now(),
+          settings,
+          messages: [],
+          images: {
+            aiAvatar: await dbGet('images', 'aiAvatar') || null,
+            userAvatar: await dbGet('images', 'userAvatar') || null,
+          }
+        };
+        localStorage.setItem('choubao_auto_save', JSON.stringify(slim));
+      } catch (_) { console.warn('[AutoSave] localStorage 写入彻底失败'); }
+    } else {
+      console.warn('[AutoSave] 写入失败', e);
+    }
+  }
+}
+
+function loadFromLocal() {
+  try {
+    const raw = localStorage.getItem('choubao_auto_save');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('[AutoLoad] localStorage 解析失败', e);
+    return null;
+  }
+}
+
+// ======================== 装修模式 ========================
+let decoMode = false;
+
+function toggleDeco() {
+  decoMode = !decoMode;
+  appEl.classList.toggle('deco-mode', decoMode);
+  $('#btnDecoFloat').classList.toggle('show', decoMode);
+  $('#btnDeco').classList.toggle('active-deco', decoMode);
+  toast(decoMode ? '装修模式 ON — 拖动贴纸吧' : '装修模式 OFF — 回到聊天');
+}
+$('#btnDeco').onclick = toggleDeco;
+$('#btnDecoFloat').onclick = toggleDeco;
+
+// ======================== LocalStorage 迁移 ========================
+async function migrateFromLocalStorage() {
+  const OLD_KEY = 'fox_chat_data';
+  const raw = localStorage.getItem(OLD_KEY);
+  if (!raw) return;
+  try {
+    const old = JSON.parse(raw);
+    const s = { ...settings };
+    for (const k of Object.keys(s)) {
+      if (old[k] !== undefined && k !== 'messages') s[k] = old[k];
+    }
+    await dbPut('settings', 'main', s);
+    settings = s;
+    if (old.aiAvatar)   await dbPut('images', 'aiAvatar', old.aiAvatar);
+    if (old.userAvatar) await dbPut('images', 'userAvatar', old.userAvatar);
+    if (Array.isArray(old.messages)) {
+      for (const m of old.messages) {
+        await dbPut('messages', null, { role: m.role, content: m.content, time: m.time });
+      }
+    }
+    localStorage.removeItem(OLD_KEY);
+    console.log('已从 LocalStorage 迁移数据到 IndexedDB');
+  } catch(e) { console.warn('迁移失败', e); }
+}
+
+// ======================== 数据读写 ========================
+async function loadAll() {
+  const s = await dbGet('settings', 'main');
+  if (s) settings = { ...settings, ...s };
+  messages = await dbGetAll('messages');
+  messages.sort((a,b) => a.time - b.time);
+  stickers = await dbGetAll('stickers');
+}
+
+async function saveSettings() {
+  await dbPut('settings', 'main', settings);
+  scheduleAutoSave();
+}
+
+async function addMessage(role, content, images) {
+  const msg = { role, content, time: Date.now() };
+  if (images && images.length) msg.images = images;
+  const tx = db.transaction('messages', 'readwrite');
+  const store = tx.objectStore('messages');
+  return new Promise((resolve) => {
+    const req = store.add(msg);
+    req.onsuccess = () => { msg.id = req.result; messages.push(msg); scheduleAutoSave(); resolve(msg); };
+  });
+}
+
+async function updateMessage(id, content) {
+  const idx = messages.findIndex(m => m.id === id);
+  if (idx < 0) return;
+  messages[idx].content = content;
+  await dbPut('messages', null, messages[idx]);
+  scheduleAutoSave();
+}
+
+// ======================== 渲染 ========================
+async function renderMessages() {
+  chatArea.querySelectorAll('.msg-row').forEach(el => el.remove());
+  emptyState.style.display = messages.length === 0 ? 'flex' : 'none';
+  const aiAv = await getAiAvatar();
+  const usAv = await getUserAvatar();
+  for (const msg of messages) {
+    const row = document.createElement('div');
+    const isUser = msg.role === 'user';
+    row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
+    const allImgs = msg.images || (msg.image ? [msg.image] : []);
+    const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+    const ttsBtn = isUser ? '' : ` <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音">💾</button>`;
+    row.innerHTML = `
+      <img class="msg-avatar" src="${escHtml(isUser ? usAv : aiAv)}" alt="">
+      <div class="msg-content">
+        <div class="msg-bubble">${isUser ? escHtml(msg.content) : ''}${imgHtml}</div>
+        <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息">✏️</button>
+        <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}</div>
+      </div>`;
+    if (!isUser && msg.content) linkifyEl(row.querySelector('.msg-bubble'), msg.content);
+    chatArea.appendChild(row);
+  }
+  // 标记已缓存语音按钮
+  try {
+    const cachedKeys = new Set(await dbGetAllKeys('ttsCache'));
+    if (cachedKeys.size > 0) {
+      chatArea.querySelectorAll('.btn-tts,.btn-tts-dl').forEach(btn => {
+        if (cachedKeys.has(Number(btn.dataset.id))) btn.classList.add('cached');
+      });
+    }
+  } catch(_){}
+  scrollBottom();
+}
+
+async function appendMsgDOM(msg) {
+  emptyState.style.display = 'none';
+  const isUser = msg.role === 'user';
+  const av = isUser ? await getUserAvatar() : await getAiAvatar();
+  const row = document.createElement('div');
+  row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
+  const allImgs = msg.images || (msg.image ? [msg.image] : []);
+  const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+  const ttsBtn = isUser ? '' : ` <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button>`;
+  row.innerHTML = `
+    <img class="msg-avatar" src="${escHtml(av)}" alt="">
+    <div class="msg-content">
+      <div class="msg-bubble">${isUser ? escHtml(msg.content) : ''}${imgHtml}</div>
+      <button class="msg-del-btn" data-id="${msg.id}" title="删除">❌</button>
+      <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息">✏️</button>
+      <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}</div>
+    </div>`;
+  if (!isUser && msg.content) linkifyEl(row.querySelector('.msg-bubble'), msg.content);
+  chatArea.appendChild(row);
+  scrollBottom();
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => chatArea.scrollTop = chatArea.scrollHeight);
+}
+
+// ======================== 编辑消息 & TTS 点击 ========================
+let editingId = -1;
+async function deleteMessage(id) {
+  await dbDelete('messages', id);
+  messages = messages.filter(m => m.id !== id);
+  chatArea.querySelector(`.msg-del-btn[data-id="${id}"]`)?.closest('.msg-row')?.remove();
+  scheduleAutoSave();
+}
+
+chatArea.addEventListener('click', e => {
+  // 删除消息
+  const delBtn = e.target.closest('.msg-del-btn');
+  if (delBtn) {
+    const id = Number(delBtn.dataset.id);
+    if (confirm('删除这条消息？')) deleteMessage(id);
+    return;
+  }
+  // TTS 下载
+  const dlBtn = e.target.closest('.btn-tts-dl');
+  if (dlBtn) {
+    const id = Number(dlBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg) downloadTTS(msg.content, id);
+    return;
+  }
+  // TTS 播放
+  const ttsBtn = e.target.closest('.btn-tts');
+  if (ttsBtn) {
+    const id = Number(ttsBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg && msg.content) playTTS(msg.content, ttsBtn, id);
+    return;
+  }
+  // 编辑
+  const btn = e.target.closest('.msg-edit-btn');
+  if (!btn) return;
+  editingId = Number(btn.dataset.id);
+  const msg = messages.find(m => m.id === editingId);
+  if (!msg) return;
+  editTA.value = msg.content;
+  editOverlay.classList.add('show');
+  editTA.focus();
+});
+$('#btnCloseEdit').onclick = () => editOverlay.classList.remove('show');
+$('#btnCancelEdit').onclick = () => editOverlay.classList.remove('show');
+$('#btnConfirmEdit').onclick = async () => {
+  await updateMessage(editingId, editTA.value);
+  await renderMessages();
+  editOverlay.classList.remove('show');
+  toast('消息已修改');
+};
+
+// ======================== 链接处理 ========================
+const _urlRe = /https?:\/\/[^\s<>"'\u3000-\u303f\uff01-\uffef]+/g;
+function linkifyEl(el, text) {
+  el.innerHTML = '';
+  let last = 0, m;
+  _urlRe.lastIndex = 0;
+  while ((m = _urlRe.exec(text)) !== null) {
+    if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const url = m[0].replace(/[.,;!?)\]]+$/, '');
+    const a = document.createElement('a');
+    a.textContent = url; a.title = url; a.href = url; a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.style.cssText = 'color:#d4956a;text-decoration:underline;cursor:pointer;word-break:break-all';
+    el.appendChild(a);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+}
+
+// ======================== 主动讲话 & 定时提醒 ========================
+let _idleTimer = null, _waterTimer = null, _standTimer = null;
+
+function resetIdleTimer() {
+  clearTimeout(_idleTimer);
+  if (settings.idleRemind > 0 && settings.apiKey) {
+    _idleTimer = setTimeout(() => proactiveMsg('idle'), settings.idleRemind * 60000);
+  }
+}
+
+function setupReminders() {
+  clearInterval(_waterTimer); clearInterval(_standTimer);
+  if (settings.waterRemind > 0 && settings.apiKey) {
+    _waterTimer = setInterval(() => proactiveMsg('water'), settings.waterRemind * 60000);
+  }
+  if (settings.standRemind > 0 && settings.apiKey) {
+    _standTimer = setInterval(() => proactiveMsg('stand'), settings.standRemind * 60000);
+  }
+}
+
+async function proactiveMsg(type) {
+  if (isRequesting || !settings.apiKey) return;
+  const prompts = {
+    idle: '现在和用户之间已经沉默了一段时间，请用关心活泼的语气主动和用户打个招呼，问问他在做什么或说点有意思的话，不超过两句。',
+    water: '请提醒用户该喝水了，用温柔可爱的方式，不超过两句。',
+    stand: '请提醒用户已经久坐，该起身活动一下了，用温柔俏皮的方式，不超过两句。',
+  };
+  const apiMsgs = [];
+  if (settings.memoryArchive && settings.memoryArchive.trim())
+    apiMsgs.push({ role: 'system', content: `【记忆档案】\n${settings.memoryArchive.trim()}` });
+  if (settings.systemPrompt.trim())
+    apiMsgs.push({ role: 'system', content: settings.systemPrompt.trim() });
+  const n = Math.max(1, settings.contextCount || 20);
+  messages.slice(-n).forEach(m => {
+    apiMsgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content });
+  });
+  apiMsgs.push({ role: 'user', content: prompts[type] || prompts.idle });
+
+  isRequesting = true; btnSend.disabled = true; typing.classList.add('show');
+  try {
+    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model: settings.model || 'gpt-4o', messages: apiMsgs, temperature: 0.9, stream: false })
+    });
+    if (!res.ok) throw new Error(`API 错误 ${res.status}`);
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || '';
+    if (reply) {
+      typing.classList.remove('show');
+      const aiMsg = await addMessage('assistant', reply);
+      await appendMsgDOM(aiMsg);
+      if (settings.ttsAutoPlay) { const fb = document.createElement('button'); playTTS(reply, fb, aiMsg.id); }
+    }
+  } catch(err) { console.error('[Proactive]', err); }
+  finally { typing.classList.remove('show'); isRequesting = false; btnSend.disabled = false; }
+  resetIdleTimer();
+}
+
+// ======================== TTS 语音播放 (GPT-SoVITS v2) ========================
+let currentAudio = null;
+
+function blobExt(blob) {
+  if (blob.type.includes('mpeg') || blob.type.includes('mp3')) return 'mp3';
+  if (blob.type.includes('ogg')) return 'ogg';
+  return 'wav';
+}
+
+async function generateTTSBlob(text) {
+  // ---- 豆包云端 TTS ----
+  if (settings.ttsType === 'doubao') {
+    if (!settings.doubaoAppId || !settings.doubaoToken) { toast('请先填写豆包 TTS 的 AppID 和 Token'); return null; }
+    const res = await fetch('https://openspeech.bytedance.com/api/v1/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer;${settings.doubaoToken}`, 'Resource-Id': settings.doubaoCluster || 'volcano_tts' },
+      body: JSON.stringify({
+        app: { appid: settings.doubaoAppId, token: settings.doubaoToken, cluster: settings.doubaoCluster || 'volcano_tts' },
+        user: { uid: 'xinye_user' },
+        audio: { voice_type: settings.doubaoVoice || 'zh_female_cancan_mars_bigtts', encoding: 'mp3', speed_ratio: 1.0 },
+        request: { reqid: Date.now().toString(), text, text_type: 'plain', operation: 'query' }
+      })
+    });
+    const j = await res.json();
+    const b64 = typeof j.data === 'string' ? j.data : j.data?.audio;
+    if (!b64) throw new Error('豆包 TTS 未返回音频数据，请检查 AppID / Token / 音色');
+    const bin = atob(b64); const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'audio/mpeg' });
+  }
+  // ---- 本地 GPT-SoVITS ----
+  if (!settings.ttsUrl) { toast('请先在设置中配置 TTS API 地址'); return null; }
+  const refPath = cleanPath(settings.ttsRefPath);
+  const base = settings.ttsUrl.replace(/\/+$/, '');
+  // 如果配置了模型路径，先切换模型
+  if (settings.ttsGptWeights) {
+    try {
+      await fetch(`${base}/set_gpt_weights?weights_path=${encodeURIComponent(cleanPath(settings.ttsGptWeights))}`, { method: 'GET' });
+      console.log('[TTS] 已切换 GPT 模型:', settings.ttsGptWeights);
+    } catch(_){}
+  }
+  if (settings.ttsSovitsWeights) {
+    try {
+      await fetch(`${base}/set_sovits_weights?weights_path=${encodeURIComponent(cleanPath(settings.ttsSovitsWeights))}`, { method: 'GET' });
+      console.log('[TTS] 已切换 SoVITS 模型:', settings.ttsSovitsWeights);
+    } catch(_){}
+  }
+  const params = new URLSearchParams({
+    text,
+    text_lang: settings.ttsTargetLang || 'zh',
+    ref_audio_path: refPath,
+    prompt_text: settings.ttsRefText || '',
+    prompt_lang: settings.ttsRefLang || 'zh',
+  });
+  const url = `${base}/tts?${params.toString()}`;
+  console.log('[TTS] GET', url);
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try { const t = await res.text(); if (t) detail += ' ' + t.slice(0, 120); } catch(_){}
+    throw new Error(`TTS 错误 (${detail})`);
+  }
+  return await res.blob();
+}
+
+function markCached(msgId) {
+  document.querySelectorAll(`.btn-tts[data-id="${msgId}"],.btn-tts-dl[data-id="${msgId}"]`)
+    .forEach(b => b.classList.add('cached'));
+}
+
+function playAudioBlob(blob, btnEl) {
+  btnEl.classList.add('playing');
+  const audioUrl = URL.createObjectURL(blob);
+  currentAudio = new Audio(audioUrl);
+  currentAudio.onended = () => {
+    btnEl.classList.remove('playing');
+    currentAudio = null;
+    URL.revokeObjectURL(audioUrl);
+  };
+  currentAudio.onerror = () => {
+    btnEl.classList.remove('playing');
+    currentAudio = null;
+    URL.revokeObjectURL(audioUrl);
+    toast('音频播放失败');
+  };
+  currentAudio.play();
+  toast('正在播放语音…');
+}
+
+async function playTTS(text, btnEl, msgId) {
+  // 正在播放 → 停止
+  if (currentAudio) {
+    currentAudio.pause(); currentAudio = null;
+    document.querySelectorAll('.btn-tts.playing').forEach(b => b.classList.remove('playing'));
+    return;
+  }
+  try {
+    let blob = await dbGet('ttsCache', msgId);
+    if (!blob) {
+      toast('正在生成语音…');
+      blob = await generateTTSBlob(text);
+      if (!blob) return;
+      await dbPut('ttsCache', msgId, blob);
+      markCached(msgId);
+    }
+    playAudioBlob(blob, btnEl);
+  } catch(err) {
+    btnEl.classList.remove('playing');
+    currentAudio = null;
+    toast(`TTS 失败：${err.message}`);
+    console.error('[TTS Error]', err);
+  }
+}
+
+async function downloadTTS(text, msgId) {
+  try {
+    let blob = await dbGet('ttsCache', msgId);
+    if (!blob) {
+      toast('正在生成语音，请稍候…');
+      blob = await generateTTSBlob(text);
+      if (!blob) return;
+      await dbPut('ttsCache', msgId, blob);
+      markCached(msgId);
+    }
+    const ext = blobExt(blob);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `语音_${msgId}.${ext}`; a.click();
+    URL.revokeObjectURL(url);
+    toast('语音已下载');
+  } catch(err) {
+    toast(`下载失败：${err.message}`);
+    console.error('[TTS DL]', err);
+  }
+}
+
+// ======================== 发送 & API ========================
+let isRequesting = false;
+
+async function sendMessage() {
+  const text = userInput.value.trim();
+  const imgs = [...pendingImages];
+  if ((!text && !imgs.length) || isRequesting) return;
+  if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
+
+  userInput.value = '';
+  autoResize();
+  pendingImages = [];
+  $('#imgPreview').classList.remove('show');
+
+  resetIdleTimer();
+  const userMsg = await addMessage('user', text, imgs.length ? imgs : null);
+  await appendMsgDOM(userMsg);
+
+  isRequesting = true;
+  btnSend.disabled = true;
+  typing.classList.add('show');
+  scrollBottom();
+
+  try {
+    const apiMsgs = [];
+    if (settings.memoryArchive && settings.memoryArchive.trim()) {
+      apiMsgs.push({ role: 'system', content: `【记忆档案 · 关于我们的一切】\n${settings.memoryArchive.trim()}` });
+    }
+    if (settings.systemPrompt.trim()) {
+      apiMsgs.push({ role: 'system', content: settings.systemPrompt.trim() });
+    }
+    if (settings.shortReply) {
+      apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
+    }
+
+    const n = Math.max(1, settings.contextCount || 20);
+    const recent = messages.slice(-n);
+
+    for (let i = 0; i < recent.length; i++) {
+      const m = recent[i];
+      const role = m.role === 'user' ? 'user' : 'assistant';
+
+      if (i === recent.length - 1 && role === 'user') {
+        apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
+      }
+
+      const msgImgs = m.images || (m.image ? [m.image] : []);
+      if (role === 'user' && msgImgs.length) {
+        const parts = [];
+        if (m.content) parts.push({ type: 'text', text: m.content });
+        msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
+        apiMsgs.push({ role: 'user', content: parts });
+      } else {
+        apiMsgs.push({ role, content: m.content });
+      }
+    }
+
+    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/v1')
+      ? `${baseUrl}/chat/completions`
+      : `${baseUrl}/v1/chat/completions`;
+
+    const useStream = !!settings.streamMode;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model: settings.model || 'gpt-4o', messages: apiMsgs, temperature: 0.8, stream: useStream })
+    });
+
+    if (!res.ok) {
+      let errMsg = `API 错误 (${res.status})`;
+      try { const j = await res.json(); errMsg = j.error?.message || errMsg; } catch(_){}
+      throw new Error(errMsg);
+    }
+
+    if (!useStream) {
+      // ====== 非流式：等待完整 JSON ======
+      const data = await res.json();
+      const reply = data.choices?.[0]?.message?.content || '（没有收到回复）';
+      typing.classList.remove('show');
+      const aiMsg = await addMessage('assistant', reply);
+      await appendMsgDOM(aiMsg);
+      if (settings.ttsAutoPlay && reply) { const fb = document.createElement('button'); playTTS(reply, fb, aiMsg.id); }
+    } else {
+      // ====== 流式：逐字打字机效果 ======
+      typing.classList.remove('show');
+      const aiMsg = await addMessage('assistant', '');
+      await appendMsgDOM(aiMsg);
+      // 拿到刚插入的气泡 DOM
+      const bubbleEl = chatArea.querySelector('.msg-row:last-child .msg-bubble');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE 格式：每行 "data: {...}\n\n"
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (!trimmed.startsWith('data: ')) continue;
+          try {
+            const chunk = JSON.parse(trimmed.slice(6));
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              bubbleEl.textContent = fullText;
+              scrollBottom();
+            }
+          } catch(_){}
+        }
+      }
+      // 持久化完整回复
+      const idx = messages.findIndex(m => m.id === aiMsg.id);
+      if (idx >= 0) { messages[idx].content = fullText; }
+      await updateMessage(aiMsg.id, fullText);
+      if (fullText) linkifyEl(bubbleEl, fullText);
+      if (settings.ttsAutoPlay && fullText) { const fb = document.createElement('button'); playTTS(fullText, fb, aiMsg.id); }
+    }
+  } catch(err) {
+    typing.classList.remove('show');
+    toast(`请求失败：${err.message}`);
+  } finally {
+    isRequesting = false;
+    btnSend.disabled = false;
+    userInput.focus();
+  }
+}
+
+btnSend.onclick = sendMessage;
+
+// 判断是否为移动端（触屏 + 窄屏）
+const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent)
+  || ('ontouchstart' in window && screen.width < 768);
+
+userInput.addEventListener('keydown', e => {
+  // IME 正在输入中（拼音选字等）→ 不拦截
+  if (e.isComposing || e.keyCode === 229) return;
+  // 移动端：Enter 始终换行，只能用发送按钮发送
+  if (isMobile) return;
+  // 桌面端：Enter 发送，Shift+Enter 换行
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+function autoResize() {
+  userInput.style.height = 'auto';
+  userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+}
+userInput.addEventListener('input', autoResize);
+
+// ======================== 图片上传（Vision，多图） ========================
+let pendingImages = [];
+
+function renderImgPreviews() {
+  const preview = $('#imgPreview');
+  preview.innerHTML = '';
+  if (!pendingImages.length) { preview.classList.remove('show'); return; }
+  pendingImages.forEach((src, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'img-thumb-wrap';
+    const img = document.createElement('img'); img.src = src; img.className = 'img-thumb';
+    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.textContent = '✕';
+    btn.onclick = () => { pendingImages.splice(i, 1); renderImgPreviews(); };
+    wrap.appendChild(img); wrap.appendChild(btn); preview.appendChild(wrap);
+  });
+  preview.classList.add('show');
+}
+
+$('#btnImg').onclick = () => $('#fileInputChatImg').click();
+$('#fileInputChatImg').onchange = async function() {
+  if (!this.files.length) return;
+  for (const file of this.files) { pendingImages.push(await readFileAsBase64(file)); }
+  renderImgPreviews();
+  this.value = '';
+  userInput.focus();
+};
+
+// ======================== 设置面板 ========================
+async function openSettings() {
+  $('#setApiKey').value = settings.apiKey;
+  $('#setBaseUrl').value = settings.baseUrl;
+  $('#setModel').value = settings.model;
+  $('#setContextCount').value = settings.contextCount;
+  $('#setMemoryArchive').value = settings.memoryArchive || '';
+  $('#setSystemPrompt').value = settings.systemPrompt;
+  $('#setAiName').value = settings.aiName;
+  $('#setUserName').value = settings.userName;
+  $('#setBgOpacity').value = settings.bgOpacity;
+  $('#bgOpacityVal').textContent = settings.bgOpacity;
+  $('#setBgBlur').value = settings.bgBlur;
+  $('#bgBlurVal').textContent = settings.bgBlur;
+  $('#setBubbleOpacity').value = settings.bubbleOpacity;
+  $('#bubbleOpacityVal').textContent = settings.bubbleOpacity;
+  $('#previewAiAvatar').src = await getAiAvatar();
+  $('#previewUserAvatar').src = await getUserAvatar();
+  $('#labelAiName').textContent = settings.aiName || '臭宝';
+  $('#labelUserName').textContent = settings.userName || '小浣熊';
+  $('#setShortReply').checked = !!settings.shortReply;
+  // TTS
+  $('#setStreamMode').checked = !!settings.streamMode;
+  $('#setTtsType').value = settings.ttsType || 'local';
+  updateTtsTypeUI();
+  $('#setTtsAutoPlay').checked = !!settings.ttsAutoPlay;
+  $('#setTtsUrl').value = settings.ttsUrl || 'http://127.0.0.1:9880';
+  $('#setTtsRefPath').value = settings.ttsRefPath || '';
+  $('#setTtsRefText').value = settings.ttsRefText || '';
+  $('#setTtsRefLang').value = settings.ttsRefLang || 'zh';
+  $('#setTtsTargetLang').value = settings.ttsTargetLang || 'zh';
+  $('#setTtsGptWeights').value = settings.ttsGptWeights || '';
+  $('#setTtsSovitsWeights').value = settings.ttsSovitsWeights || '';
+  $('#setDoubaoAppId').value = settings.doubaoAppId || '';
+  $('#setDoubaoToken').value = settings.doubaoToken || '';
+  $('#setDoubaoVoice').value = settings.doubaoVoice || '';
+  $('#setDoubaoCluster').value = settings.doubaoCluster || 'volcano_tts';
+  $('#setIdleRemind').value = settings.idleRemind || 0;
+  $('#setWaterRemind').value = settings.waterRemind || 0;
+  $('#setStandRemind').value = settings.standRemind || 0;
+  renderTtsPresets();
+
+  settingsPanel.classList.add('show');
+  overlay.classList.add('show');
+}
+function closeSettings() {
+  settingsPanel.classList.remove('show');
+  overlay.classList.remove('show');
+}
+$('#btnSettings').onclick = openSettings;
+$('#btnCloseSettings').onclick = closeSettings;
+overlay.onclick = closeSettings;
+
+$('#setBgOpacity').oninput = function() { $('#bgOpacityVal').textContent = this.value; };
+$('#setBgBlur').oninput = function() { $('#bgBlurVal').textContent = this.value; };
+$('#setBubbleOpacity').oninput = function() { $('#bubbleOpacityVal').textContent = this.value; };
+
+$('#btnSaveSettings').onclick = async () => {
+  settings.apiKey = $('#setApiKey').value.trim();
+  settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
+  settings.model = $('#setModel').value.trim() || 'gpt-4o';
+  settings.contextCount = parseInt($('#setContextCount').value) || 20;
+  settings.memoryArchive = $('#setMemoryArchive').value;
+  settings.systemPrompt = $('#setSystemPrompt').value;
+  settings.aiName = $('#setAiName').value.trim() || '臭宝';
+  settings.userName = $('#setUserName').value.trim() || '小浣熊';
+  settings.bgOpacity = parseFloat($('#setBgOpacity').value) || 0.3;
+  settings.bgBlur = parseInt($('#setBgBlur').value) || 0;
+  settings.bubbleOpacity = parseFloat($('#setBubbleOpacity').value) || 0.85;
+  settings.shortReply = $('#setShortReply').checked;
+  // TTS
+  settings.streamMode = $('#setStreamMode').checked;
+  settings.ttsType = $('#setTtsType').value || 'local';
+  settings.ttsAutoPlay = $('#setTtsAutoPlay').checked;
+  settings.ttsUrl = $('#setTtsUrl').value.trim() || 'http://127.0.0.1:9880';
+  settings.ttsRefPath = $('#setTtsRefPath').value.trim();
+  settings.ttsRefText = $('#setTtsRefText').value.trim();
+  settings.ttsRefLang = $('#setTtsRefLang').value;
+  settings.ttsTargetLang = $('#setTtsTargetLang').value;
+  settings.ttsGptWeights = $('#setTtsGptWeights').value.trim();
+  settings.ttsSovitsWeights = $('#setTtsSovitsWeights').value.trim();
+  settings.doubaoAppId = $('#setDoubaoAppId').value.trim();
+  settings.doubaoToken = $('#setDoubaoToken').value.trim();
+  settings.doubaoVoice = $('#setDoubaoVoice').value.trim();
+  settings.doubaoCluster = $('#setDoubaoCluster').value.trim() || 'volcano_tts';
+  settings.idleRemind = parseInt($('#setIdleRemind').value) || 0;
+  settings.waterRemind = parseInt($('#setWaterRemind').value) || 0;
+  settings.standRemind = parseInt($('#setStandRemind').value) || 0;
+
+  await saveSettings();
+  await applyUI(true); // 跳过重建消息列表，避免大量记录时卡顿
+  setupReminders();
+  resetIdleTimer();
+  closeSettings();
+  toast('设置已保存');
+};
+
+// ======================== TTS 类型切换 UI ========================
+function updateTtsTypeUI() {
+  const type = (($('#setTtsType') || {}).value) || settings.ttsType || 'local';
+  const doubao = $('#doubaoFields');
+  const local = $('#localTtsFields');
+  if (doubao) doubao.style.display = type === 'doubao' ? '' : 'none';
+  if (local) local.style.display = type === 'local' ? '' : 'none';
+}
+
+// ======================== 音色预设管理 ========================
+function renderTtsPresets() {
+  const list = $('#ttsPresetList');
+  if (!list) return;
+  list.innerHTML = '';
+  const presets = settings.ttsPresets || [];
+  if (presets.length === 0) {
+    list.innerHTML = '<div style="font-size:13px;color:#b0856f;text-align:center;padding:8px 0">暂无预设——填好上方参数后点「保存当前为预设」</div>';
+    return;
+  }
+  presets.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.6);border-radius:10px;border:1px solid var(--pink-light)';
+    const pathTip = p.gptWeights ? `🔀 ${p.gptWeights.split(/[\\/]/).pop()}` : (p.ttsRefPath ? `🎤 ${p.ttsRefPath.split(/[\\/]/).pop()}` : '无参考音频');
+    div.innerHTML = `
+      <span style="flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</span>
+      <span style="font-size:11px;color:var(--text-light);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(pathTip)}">${escHtml(pathTip)}</span>
+      <button class="btn-secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;flex-shrink:0">激活</button>
+      <button class="btn-danger" style="padding:4px 8px;font-size:12px;flex-shrink:0">✕</button>`;
+    list.appendChild(div);
+    div.querySelectorAll('button')[0].onclick = () => activateTtsPreset(i);
+    div.querySelectorAll('button')[1].onclick = () => deleteTtsPreset(i);
+  });
+}
+
+async function activateTtsPreset(i) {
+  const p = (settings.ttsPresets || [])[i];
+  if (!p) return;
+  if (p.ttsUrl)          settings.ttsUrl          = p.ttsUrl;
+  settings.ttsRefPath     = p.ttsRefPath    || '';
+  settings.ttsRefText     = p.ttsRefText    || '';
+  settings.ttsRefLang     = p.ttsRefLang    || 'zh';
+  settings.ttsTargetLang  = p.ttsTargetLang || 'zh';
+  settings.ttsGptWeights  = p.gptWeights    || '';
+  settings.ttsSovitsWeights = p.sovitsWeights || '';
+  await saveSettings();
+  // 同步面板显示
+  $('#setTtsUrl').value          = settings.ttsUrl;
+  $('#setTtsRefPath').value      = settings.ttsRefPath;
+  $('#setTtsRefText').value      = settings.ttsRefText;
+  $('#setTtsRefLang').value      = settings.ttsRefLang;
+  $('#setTtsTargetLang').value   = settings.ttsTargetLang;
+  $('#setTtsGptWeights').value   = settings.ttsGptWeights;
+  $('#setTtsSovitsWeights').value = settings.ttsSovitsWeights;
+  toast(`✅ 已激活音色预设「${p.name}」`);
+}
+
+async function deleteTtsPreset(i) {
+  const name = (settings.ttsPresets || [])[i]?.name || '';
+  if (!confirm(`确定删除预设「${name}」？`)) return;
+  settings.ttsPresets.splice(i, 1);
+  await saveSettings();
+  renderTtsPresets();
+  toast('预设已删除');
+}
+
+$('#btnSavePreset').onclick = async () => {
+  const name = $('#newPresetName').value.trim();
+  if (!name) { toast('请先输入预设名称'); return; }
+  if (!settings.ttsPresets) settings.ttsPresets = [];
+  const p = {
+    name,
+    ttsUrl:        $('#setTtsUrl').value.trim(),
+    ttsRefPath:    $('#setTtsRefPath').value.trim(),
+    ttsRefText:    $('#setTtsRefText').value.trim(),
+    ttsRefLang:    $('#setTtsRefLang').value,
+    ttsTargetLang: $('#setTtsTargetLang').value,
+    gptWeights:    $('#setTtsGptWeights').value.trim(),
+    sovitsWeights: $('#setTtsSovitsWeights').value.trim(),
+  };
+  settings.ttsPresets.push(p);
+  await saveSettings();
+  renderTtsPresets();
+  $('#newPresetName').value = '';
+  toast(`🎙️ 预设「${name}」已保存`);
+};
+
+$('#btnClearTtsCache').onclick = async () => {
+  if (!confirm('确定清除所有已缓存的语音？\n清除后点击🔈需重新生成。')) return;
+  await dbClear('ttsCache');
+  chatArea.querySelectorAll('.btn-tts,.btn-tts-dl').forEach(b => b.classList.remove('cached'));
+  toast('语音缓存已清除');
+};
+
+// 头像上传
+$('#btnUploadAiAvatar').onclick = () => $('#fileInputAiAvatar').click();
+$('#btnUploadUserAvatar').onclick = () => $('#fileInputUserAvatar').click();
+$('#fileInputAiAvatar').onchange = async function() {
+  if (!this.files[0]) return;
+  const b64 = await readFileAsBase64(this.files[0]);
+  await dbPut('images', 'aiAvatar', b64);
+  $('#previewAiAvatar').src = b64;
+  scheduleAutoSave();
+  toast('AI 头像已更新');
+  this.value = '';
+};
+$('#fileInputUserAvatar').onchange = async function() {
+  if (!this.files[0]) return;
+  const b64 = await readFileAsBase64(this.files[0]);
+  await dbPut('images', 'userAvatar', b64);
+  $('#previewUserAvatar').src = b64;
+  scheduleAutoSave();
+  toast('我的头像已更新');
+  this.value = '';
+};
+
+// ======================== 背景上传（图片 + 视频） ========================
+let bgVideoUrl = null;
+
+$('#btnUploadBg').onclick = () => $('#fileInputBg').click();
+$('#fileInputBg').onchange = async function() {
+  if (!this.files[0]) return;
+  const file = this.files[0];
+  const isVideo = file.type.startsWith('video/');
+
+  if (isVideo) {
+    const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+    await dbPut('images', 'bgVideo', blob);
+    await dbDelete('images', 'bgImage');
+    await dbPut('images', 'bgType', 'video');
+    applyBgVideo(blob);
+    toast('视频背景已设置');
+  } else {
+    const b64 = await readFileAsBase64(file);
+    await dbPut('images', 'bgImage', b64);
+    await dbDelete('images', 'bgVideo');
+    await dbPut('images', 'bgType', 'image');
+    applyBgImage(b64);
+    toast('背景图已更新');
+  }
+  this.value = '';
+};
+
+$('#btnClearBg').onclick = async () => {
+  await dbDelete('images', 'bgImage');
+  await dbDelete('images', 'bgVideo');
+  await dbDelete('images', 'bgType');
+  if (bgVideoUrl) { URL.revokeObjectURL(bgVideoUrl); bgVideoUrl = null; }
+  bgLayer.innerHTML = '';
+  bgLayer.style.backgroundImage = '';
+  bgLayer.classList.remove('active');
+  bgMask.classList.remove('active');
+  toast('背景已清除');
+};
+
+function applyBgImage(b64) {
+  if (bgVideoUrl) { URL.revokeObjectURL(bgVideoUrl); bgVideoUrl = null; }
+  bgLayer.innerHTML = '';
+  bgLayer.style.backgroundImage = `url(${b64})`;
+  bgLayer.style.opacity = settings.bgOpacity;
+  bgLayer.style.filter = `blur(${settings.bgBlur}px)`;
+  bgLayer.classList.add('active');
+  bgMask.classList.remove('active');
+}
+
+function applyBgVideo(blob) {
+  if (bgVideoUrl) URL.revokeObjectURL(bgVideoUrl);
+  bgVideoUrl = URL.createObjectURL(blob);
+  bgLayer.style.backgroundImage = '';
+  bgLayer.innerHTML = '';
+  const v = document.createElement('video');
+  v.src = bgVideoUrl;
+  v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+  bgLayer.appendChild(v);
+  bgLayer.style.opacity = settings.bgOpacity;
+  bgLayer.style.filter = `blur(${settings.bgBlur}px)`;
+  bgLayer.classList.add('active');
+  bgMask.classList.add('active');
+}
+
+async function applyBg() {
+  const bgType = await dbGet('images', 'bgType');
+  if (bgType === 'video') {
+    const blob = await dbGet('images', 'bgVideo');
+    if (blob) { applyBgVideo(blob); return; }
+  }
+  const b64 = await dbGet('images', 'bgImage');
+  if (b64) { applyBgImage(b64); return; }
+  bgLayer.innerHTML = '';
+  bgLayer.style.backgroundImage = '';
+  bgLayer.classList.remove('active');
+  bgMask.classList.remove('active');
+}
+
+// ======================== 智能清空 ========================
+$('#btnClear').onclick = async () => {
+  if (messages.length === 0) { toast('没有聊天记录'); return; }
+  if (!confirm('确定清空所有聊天记录吗？\n\nAPI Key、人设、头像、背景图和贴纸都会保留。')) return;
+  await dbClear('messages');
+  messages = [];
+  await renderMessages();
+  await saveToLocal();
+  toast('聊天记录已清空');
+};
+$('#btnClearChat').onclick = async () => {
+  if (messages.length === 0) { toast('没有聊天记录'); return; }
+  if (!confirm('确定清空所有聊天记录吗？\n\nAPI Key、人设、头像、背景图和贴纸都会保留。')) return;
+  await dbClear('messages');
+  messages = [];
+  await renderMessages();
+  closeSettings();
+  await saveToLocal();
+  toast('聊天记录已清空');
+};
+
+// ======================== 贴纸系统 ========================
+$('#btnSticker').onclick = () => $('#fileInputSticker').click();
+$('#fileInputSticker').onchange = async function() {
+  if (!this.files[0]) return;
+  const b64 = await readFileAsBase64(this.files[0]);
+  const s = {
+    id: 'stk_' + Date.now(),
+    data: b64,
+    x: Math.random() * (window.innerWidth - 120),
+    y: Math.random() * (window.innerHeight - 120),
+    w: 100, h: 100, rot: 0
+  };
+  stickers.push(s);
+  await dbPut('stickers', null, s);
+  createStickerDOM(s);
+  toast('贴纸已添加，拖拽它到喜欢的位置');
+  this.value = '';
+};
+
+function createStickerDOM(s) {
+  if (s.rot === undefined) s.rot = 0;
+
+  const el = document.createElement('div');
+  el.className = 'sticker';
+  el.dataset.id = s.id;
+  el.style.left = s.x + 'px';
+  el.style.top = s.y + 'px';
+  el.style.width = s.w + 'px';
+  el.style.height = s.h + 'px';
+  el.style.transform = `rotate(${s.rot}deg)`;
+  el.innerHTML = `
+    <img src="${s.data}" alt="sticker">
+    <button class="sticker-del">✕</button>
+    <div class="sticker-resize"></div>
+    <div class="sticker-rotate-line"></div>
+    <div class="sticker-rotate">↻</div>`;
+  stickerLayer.appendChild(el);
+
+  el.querySelector('.sticker-del').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await dbDelete('stickers', s.id);
+    stickers = stickers.filter(x => x.id !== s.id);
+    el.remove();
+    toast('贴纸已删除');
+  });
+
+  let dragging = false, startX, startY, origX, origY;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.sticker-resize') || e.target.closest('.sticker-del') || e.target.closest('.sticker-rotate')) return;
+    dragging = true;
+    el.style.cursor = 'grabbing';
+    startX = e.clientX; startY = e.clientY;
+    origX = parseFloat(el.style.left); origY = parseFloat(el.style.top);
+    el.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    el.style.left = (origX + e.clientX - startX) + 'px';
+    el.style.top  = (origY + e.clientY - startY) + 'px';
+  });
+  el.addEventListener('pointerup', async () => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.cursor = 'grab';
+    const obj = stickers.find(x => x.id === s.id);
+    if (obj) {
+      obj.x = parseFloat(el.style.left);
+      obj.y = parseFloat(el.style.top);
+      await dbPut('stickers', null, obj);
+    }
+  });
+
+  const resizer = el.querySelector('.sticker-resize');
+  let resizing = false, rStartX, rStartY, rOrigW, rOrigH;
+  resizer.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    resizing = true;
+    rStartX = e.clientX; rStartY = e.clientY;
+    rOrigW = parseFloat(el.style.width); rOrigH = parseFloat(el.style.height);
+    resizer.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  resizer.addEventListener('pointermove', (e) => {
+    if (!resizing) return;
+    const dx = e.clientX - rStartX, dy = e.clientY - rStartY;
+    const delta = Math.max(dx, dy);
+    el.style.width  = Math.max(40, rOrigW + delta) + 'px';
+    el.style.height = Math.max(40, rOrigH + delta) + 'px';
+  });
+  resizer.addEventListener('pointerup', async () => {
+    if (!resizing) return;
+    resizing = false;
+    const obj = stickers.find(x => x.id === s.id);
+    if (obj) {
+      obj.w = parseFloat(el.style.width);
+      obj.h = parseFloat(el.style.height);
+      await dbPut('stickers', null, obj);
+    }
+  });
+
+  const rotator = el.querySelector('.sticker-rotate');
+  let rotating = false, rotStartAngle, rotOrigDeg;
+  rotator.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    rotating = true;
+    rotator.setPointerCapture(e.pointerId);
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    rotStartAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    const obj = stickers.find(x => x.id === s.id);
+    rotOrigDeg = obj ? obj.rot : 0;
+  });
+  rotator.addEventListener('pointermove', (e) => {
+    if (!rotating) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const curAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    const delta = curAngle - rotStartAngle;
+    el.style.transform = `rotate(${rotOrigDeg + delta}deg)`;
+  });
+  rotator.addEventListener('pointerup', async () => {
+    if (!rotating) return;
+    rotating = false;
+    const match = el.style.transform.match(/rotate\(([-\d.]+)deg\)/);
+    const finalDeg = match ? parseFloat(match[1]) : 0;
+    const obj = stickers.find(x => x.id === s.id);
+    if (obj) {
+      obj.rot = Math.round(finalDeg * 10) / 10;
+      await dbPut('stickers', null, obj);
+    }
+  });
+}
+
+function renderStickers() {
+  stickerLayer.innerHTML = '';
+  stickers.forEach(s => createStickerDOM(s));
+}
+
+// ======================== 导出 ========================
+$('#btnExport').onclick = () => exportOverlay.classList.add('show');
+$('#btnCloseExport').onclick = () => exportOverlay.classList.remove('show');
+
+async function exportData(mode) {
+  exportOverlay.classList.remove('show');
+  const isLite = mode === 'lite';
+  const bgType = await dbGet('images', 'bgType');
+
+  const backup = {
+    version: 3,
+    type: isLite ? 'lite' : 'full',
+    exportTime: new Date().toISOString(),
+    settings,
+    messages: messages.map(m => {
+      const r = { role: m.role, content: m.content, time: m.time };
+      if (m.image) r.image = m.image;
+      if (m.images) r.images = m.images;
+      return r;
+    }),
+    images: {
+      aiAvatar:   await dbGet('images', 'aiAvatar')   || null,
+      userAvatar: await dbGet('images', 'userAvatar') || null,
+      bgImage:    isLite ? null : (bgType === 'image' ? (await dbGet('images', 'bgImage') || null) : null),
+      bgType:     isLite ? null : (bgType || null),
+    },
+    stickers: isLite ? [] : stickers,
+  };
+
+  const label = isLite ? '轻量' : '完整';
+  const dateStr = new Date().toISOString().slice(0, 10);
+  downloadFile(JSON.stringify(backup, null, 2), `狐狸小窝${label}备份_${dateStr}.json`, 'application/json;charset=utf-8');
+
+  const aiN = settings.aiName || '臭宝';
+  const usN = settings.userName || '小浣熊';
+  const lines = [
+    `═══ ${usN} 与 ${aiN} 的聊天记录 ═══`,
+    `导出时间：${new Date().toLocaleString('zh-CN')}`,
+    `备份类型：${label}`,
+    `共 ${messages.length} 条消息`,
+    '═'.repeat(40), ''
+  ];
+  messages.forEach(m => {
+    lines.push(`[${new Date(m.time).toLocaleString('zh-CN')}] ${m.role === 'user' ? usN : aiN}：`);
+    lines.push(m.content);
+    lines.push('');
+  });
+  downloadFile(lines.join('\n'), `聊天记录_${dateStr}.txt`, 'text/plain;charset=utf-8');
+
+  if (isLite) toast('轻量备份已导出（不含背景/贴纸）');
+  else if (bgType === 'video') toast('完整备份已导出（视频背景需重新上传）');
+  else toast('完整备份已导出（JSON + TXT）');
+}
+
+$('#btnExportLite').onclick = () => exportData('lite');
+$('#btnExportFull').onclick = () => exportData('full');
+
+// ======================== 导入（共用核心） ========================
+async function doImport(jsonText) {
+  const data = JSON.parse(jsonText);
+  const isLite = data.type === 'lite' || data.type === 'auto-save';
+
+  // 兼容旧格式：纯消息数组
+  if (Array.isArray(data)) {
+    await dbClear('messages');
+    for (const m of data) {
+      const rec = { role: m.role, content: m.content, time: m.time };
+      if (m.image) rec.image = m.image;
+      await dbPut('messages', null, rec);
+    }
+    messages = await dbGetAll('messages');
+    messages.sort((a, b) => a.time - b.time);
+    await saveToLocal();
+    return;
+  }
+
+  // 导入设置（兼容网页版 settings 或桌宠 cfg 格式）
+  if (data.settings) {
+    await dbPut('settings', 'main', data.settings);
+  } else if (data.cfg) {
+    const c = data.cfg;
+    const patch = {
+      apiKey: c.apiKey, baseUrl: c.baseUrl, model: c.model,
+      contextCount: c.ctx, shortReply: c.shortReply,
+      systemPrompt: c.sysPrompt, memoryArchive: c.memory,
+      ttsType: c.ttsType, ttsAutoPlay: c.ttsAutoPlay,
+      ttsUrl: c.ttsUrl, ttsRefPath: c.ttsRef, ttsRefText: c.ttsText,
+      ttsGptWeights: c.gptWeights, ttsSovitsWeights: c.sovitsWeights,
+      doubaoAppId: c.doubaoAppId, doubaoToken: c.doubaoToken,
+      doubaoVoice: c.doubaoVoice, doubaoCluster: c.doubaoCluster,
+      idleRemind: c.idleRemind, waterRemind: c.waterRemind, standRemind: c.standRemind,
+    };
+    const merged = { ...settings };
+    Object.keys(patch).forEach(k => { if (patch[k] !== undefined) merged[k] = patch[k]; });
+    await dbPut('settings', 'main', merged);
+  }
+
+  // 导入消息（兼容 messages / history 两种字段名）
+  const msgList = data.messages || data.history;
+  if (msgList) {
+    await dbClear('messages');
+    for (const m of msgList) {
+      const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
+      if (m.image) rec.image = m.image;
+      if (m.images) rec.images = m.images;
+      await dbPut('messages', null, rec);
+    }
+  }
+
+  // 导入图片
+  if (data.images) {
+    if (data.images.aiAvatar)   await dbPut('images', 'aiAvatar', data.images.aiAvatar);
+    if (data.images.userAvatar) await dbPut('images', 'userAvatar', data.images.userAvatar);
+    // 轻量备份：不覆盖当前设备已有的背景图
+    if (!isLite) {
+      if (data.images.bgImage) {
+        await dbPut('images', 'bgImage', data.images.bgImage);
+        await dbPut('images', 'bgType', data.images.bgType || 'image');
+      } else {
+        await dbDelete('images', 'bgImage');
+        await dbDelete('images', 'bgVideo');
+        await dbDelete('images', 'bgType');
+      }
+    }
+  }
+
+  // 贴纸：仅完整备份时导入
+  if (!isLite) {
+    await dbClear('stickers');
+    if (data.stickers) {
+      for (const s of data.stickers) await dbPut('stickers', null, s);
+    }
+  }
+
+  // 刷新内存状态 & 同步 localStorage
+  const s = await dbGet('settings', 'main');
+  if (s) settings = { ...settings, ...s };
+  messages = await dbGetAll('messages');
+  messages.sort((a, b) => a.time - b.time);
+  stickers = await dbGetAll('stickers');
+  await saveToLocal();
+}
+
+// ---- 方式一：文件导入 ----
+$('#btnImport').onclick = () => $('#fileInputImport').click();
+$('#fileInputImport').onchange = async function() {
+  if (!this.files[0]) return;
+  if (!confirm('导入将覆盖当前所有数据（聊天、设置、图片、贴纸），确定继续吗？')) {
+    this.value = ''; return;
+  }
+  try {
+    const text = await this.files[0].text();
+    await doImport(text);
+    this.value = '';
+    location.reload();
+  } catch(e) {
+    toast('导入失败：' + e.message);
+    console.error(e);
+    this.value = '';
+  }
+};
+
+// ---- 方式二：粘贴导入（绕过文件系统） ----
+$('#btnPasteImport').onclick = async () => {
+  const text = $('#importPasteArea').value.trim();
+  if (!text) { toast('请先粘贴 JSON 内容'); return; }
+  if (!confirm('导入将覆盖当前所有数据，确定继续吗？')) return;
+  try {
+    await doImport(text);
+    location.reload();
+  } catch(e) {
+    toast('导入失败：' + e.message);
+  }
+};
+
+// ======================== 应用 UI ========================
+async function applyUI(skipRender = false) {
+  const aiAv = await getAiAvatar();
+  $('#headerAvatar').src = aiAv;
+  $('#headerName').textContent = settings.aiName || '臭宝';
+  $('#typingAvatar').src = aiAv;
+  document.title = `${settings.aiName || '臭宝'}的小窝`;
+  document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
+  await applyBg();
+  if (!skipRender) {
+    await renderMessages();
+    renderStickers();
+  }
+}
+
+// ======================== 启动 ========================
+(async () => {
+  await openDB();
+  await migrateFromLocalStorage();
+  await loadAll();
+
+  // IndexedDB 为空 → 尝试从 localStorage 自动恢复
+  if (messages.length === 0) {
+    const local = loadFromLocal();
+    if (local && local.messages && local.messages.length > 0) {
+      console.log('[AutoLoad] IndexedDB 为空，从 localStorage 恢复…');
+      if (local.settings) {
+        settings = { ...settings, ...local.settings };
+        await dbPut('settings', 'main', settings);
+      }
+      for (const m of local.messages) {
+        const rec = { role: m.role, content: m.content, time: m.time };
+        if (m.image) rec.image = m.image;
+        await dbPut('messages', null, rec);
+      }
+      if (local.images) {
+        if (local.images.aiAvatar) await dbPut('images', 'aiAvatar', local.images.aiAvatar);
+        if (local.images.userAvatar) await dbPut('images', 'userAvatar', local.images.userAvatar);
+      }
+      await loadAll();
+      toast('已从本地存档恢复数据');
+    }
+  }
+
+  await applyUI();
+  setupReminders();
+  resetIdleTimer();
+  await saveToLocal(); // 启动时同步 localStorage
+  userInput.focus();
+})();
+</script>
+</body>
+</html>
