@@ -76,7 +76,11 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 <div id="grid"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script>
+<script type="module">
+import { AutoModel, AutoProcessor, RawImage, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
+
+env.allowLocalModels = false;
+
 const dropZone    = document.getElementById('dropZone');
 const fileInput   = document.getElementById('fileInput');
 const grid        = document.getElementById('grid');
@@ -89,8 +93,7 @@ const progressTxt  = document.getElementById('progressTxt');
 
 let files   = [];
 let results = [];
-let modelLoaded = false;
-let AutoModel, AutoProcessor, RawImage, env;
+let _model = null, _processor = null;
 
 // ---- 拖放 & 选图 ----
 dropZone.addEventListener('click', () => fileInput.click());
@@ -130,28 +133,22 @@ function renderCard(file, idx) {
 }
 
 // ---- 加载模型 ----
-async function loadModel() {
-  if (modelLoaded) return;
+async function getModelProcessor() {
+  if (_model && _processor) return { model: _model, processor: _processor };
+
   progressArea.style.display = 'block';
-  progressTxt.textContent = '正在加载 Transformers.js 库…';
-
-  const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/dist/transformers.min.mjs');
-  AutoModel = mod.AutoModel; AutoProcessor = mod.AutoProcessor;
-  RawImage = mod.RawImage; env = mod.env;
-  env.allowLocalModels = false;
-
   progressTxt.textContent = '正在下载 AI 模型（首次约 170MB，请等待）…';
-  progressBar.style.width = '10%';
+  progressBar.style.width = '5%';
 
   const progressCb = (p) => {
     if (p.status === 'progress') {
       const pct = Math.round(p.progress || 0);
-      progressBar.style.width = Math.min(10 + pct * 0.4, 50) + '%';
+      progressBar.style.width = Math.min(5 + pct * 0.5, 55) + '%';
       progressTxt.textContent = '下载模型：' + pct + '%（' + (p.name || '') + '）';
     }
   };
 
-  await AutoModel.from_pretrained('briaai/RMBG-1.4', {
+  _model = await AutoModel.from_pretrained('briaai/RMBG-1.4', {
     config: { model_type: 'custom' },
     progress_callback: progressCb,
   });
@@ -159,26 +156,6 @@ async function loadModel() {
   progressBar.style.width = '60%';
   progressTxt.textContent = '加载处理器…';
 
-  await AutoProcessor.from_pretrained('briaai/RMBG-1.4', {
-    config: {
-      do_normalize: true, do_pad: false, do_rescale: true, do_resize: true,
-      image_mean: [0.5, 0.5, 0.5], image_std: [1, 1, 1],
-      feature_extractor_type: 'ImageFeatureExtractor',
-      resample: 2, rescale_factor: 0.00392156862745098,
-      size: { width: 1024, height: 1024 },
-    },
-  });
-
-  progressBar.style.width = '100%';
-  progressTxt.textContent = '模型加载完成！';
-  modelLoaded = true;
-}
-
-// 每次处理时重新获取实例（确保用已缓存的）
-let _model = null, _processor = null;
-async function getModelProcessor() {
-  if (_model && _processor) return { model: _model, processor: _processor };
-  _model = await AutoModel.from_pretrained('briaai/RMBG-1.4', { config: { model_type: 'custom' } });
   _processor = await AutoProcessor.from_pretrained('briaai/RMBG-1.4', {
     config: {
       do_normalize: true, do_pad: false, do_rescale: true, do_resize: true,
@@ -188,6 +165,9 @@ async function getModelProcessor() {
       size: { width: 1024, height: 1024 },
     },
   });
+
+  progressBar.style.width = '70%';
+  progressTxt.textContent = '模型加载完成！';
   return { model: _model, processor: _processor };
 }
 
@@ -220,14 +200,6 @@ btnProcess.addEventListener('click', async () => {
   btnProcess.disabled = true; btnClear.disabled = true;
   progressArea.style.display = 'block';
 
-  try {
-    await loadModel();
-  } catch(e) {
-    progressTxt.textContent = '模型加载失败：' + e.message;
-    btnProcess.disabled = false; btnClear.disabled = false;
-    return;
-  }
-
   const total = files.length;
   let done = 0;
 
@@ -256,9 +228,10 @@ btnProcess.addEventListener('click', async () => {
     }
 
     done++;
-    progressBar.style.width = (done / total * 100) + '%';
+    progressBar.style.width = (70 + done / total * 30) + '%';
   }
 
+  progressBar.style.width = '100%';
   progressTxt.textContent = '✅ 全部完成，共处理 ' + done + ' 张';
   btnProcess.disabled = false; btnClear.disabled = false;
   if (results.some(r => r)) btnDlAll.style.display = '';
@@ -276,7 +249,7 @@ btnDlAll.addEventListener('click', async () => {
 
 // ---- 清空 ----
 btnClear.addEventListener('click', () => {
-  files = []; results = []; _model = null; _processor = null; modelLoaded = false;
+  files = []; results = []; _model = null; _processor = null;
   grid.innerHTML = '';
   btnProcess.disabled = true; btnDlAll.style.display = 'none';
   progressArea.style.display = 'none'; progressBar.style.width = '0%';
