@@ -255,9 +255,9 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .input-area textarea{
   flex:1;border:0.5px solid rgba(255,255,255,.6);border-radius:var(--radius);
   padding:12px 14px;font-size:15px;font-family:inherit;
-  resize:none;min-height:44px;max-height:140px;
+  resize:none;min-height:44px;max-height:140px;overflow-y:hidden;
   background:rgba(255,255,255,.5);color:var(--text);outline:none;
-  transition:all .2s;line-height:1.5;
+  transition:border-color .2s,background .2s;line-height:1.5;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
 .input-area textarea:focus{border-color:var(--pink-deep);background:rgba(255,255,255,.7)}
@@ -758,6 +758,14 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
       <div class="hint">页面保持前台时有效；手机屏幕息屏后计时器会暂停</div>
     </div>
 
+    <!-- 显示条数限制 -->
+    <div class="setting-divider">📱 手机性能优化</div>
+    <div class="setting-group">
+      <label>最多显示最近几条消息（0 = 全部）</label>
+      <input type="number" id="setDisplayLimit" min="0" max="9999" step="50" placeholder="0">
+      <div class="hint">手机卡时建议填 200～500；全部聊天记录仍保存在本地，导出备份也是完整的。</div>
+    </div>
+
     <!-- 备用导入：粘贴 JSON -->
     <div class="setting-divider">📋 备用导入（粘贴 JSON）</div>
     <div class="setting-group">
@@ -916,6 +924,7 @@ let settings = {
   doubaoAppId: '', doubaoToken: '', doubaoVoice: '', doubaoCluster: 'volcano_tts',
   idleRemind: 0, waterRemind: 0, standRemind: 0,
   memoryArchive: '',
+  displayLimit: 0,
 };
 let messages = [];
 let stickers = [];
@@ -1117,7 +1126,9 @@ async function renderMessages() {
   emptyState.style.display = messages.length === 0 ? 'flex' : 'none';
   const aiAv = await getAiAvatar();
   const usAv = await getUserAvatar();
-  for (const msg of messages) {
+  const limit = settings.displayLimit || 0;
+  const displayMsgs = limit > 0 ? messages.slice(-limit) : messages;
+  for (const msg of displayMsgs) {
     const row = document.createElement('div');
     const isUser = msg.role === 'user';
     row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
@@ -1154,7 +1165,7 @@ async function appendMsgDOM(msg) {
   row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
   const allImgs = msg.images || (msg.image ? [msg.image] : []);
   const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
-  const ttsBtn = isUser ? '' : ` <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button>`;
+  const ttsBtn = isUser ? '' : ` <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音">💾</button>`;
   row.innerHTML = `
     <img class="msg-avatar" src="${escHtml(av)}" alt="">
     <div class="msg-content">
@@ -1658,6 +1669,7 @@ async function openSettings() {
   $('#setDoubaoToken').value = settings.doubaoToken || '';
   $('#setDoubaoVoice').value = settings.doubaoVoice || '';
   $('#setDoubaoCluster').value = settings.doubaoCluster || 'volcano_tts';
+  $('#setDisplayLimit').value = settings.displayLimit || 0;
   $('#setIdleRemind').value = settings.idleRemind || 0;
   $('#setWaterRemind').value = settings.waterRemind || 0;
   $('#setStandRemind').value = settings.standRemind || 0;
@@ -1709,6 +1721,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.idleRemind = parseInt($('#setIdleRemind').value) || 0;
   settings.waterRemind = parseInt($('#setWaterRemind').value) || 0;
   settings.standRemind = parseInt($('#setStandRemind').value) || 0;
+  settings.displayLimit = parseInt($('#setDisplayLimit').value) || 0;
 
   await saveSettings();
   await applyUI(true); // 跳过重建消息列表，避免大量记录时卡顿
