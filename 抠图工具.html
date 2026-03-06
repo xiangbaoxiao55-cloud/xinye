@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>批量抠图工具</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;padding:24px}
+h1{text-align:center;font-size:22px;margin-bottom:6px;color:#f8c8d4}
+.sub{text-align:center;font-size:13px;color:#aaa;margin-bottom:24px}
+
+/* 拖放区 */
+#dropZone{
+  border:2px dashed #c084a0;border-radius:16px;
+  padding:48px 24px;text-align:center;cursor:pointer;
+  background:rgba(255,255,255,.04);transition:.2s;margin-bottom:24px;
+}
+#dropZone:hover,#dropZone.over{border-color:#f48fb1;background:rgba(244,143,177,.08)}
+#dropZone .icon{font-size:48px;margin-bottom:12px}
+#dropZone p{color:#ccc;font-size:15px}
+#dropZone span{color:#f48fb1}
+#fileInput{display:none}
+
+/* 操作栏 */
+.toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;transition:.15s}
+#btnProcess{background:#c084a0;color:#fff}
+#btnProcess:hover{background:#a0638a}
+#btnProcess:disabled{background:#555;cursor:default}
+#btnDownloadAll{background:#6c8ebf;color:#fff}
+#btnDownloadAll:hover{background:#5070a0}
+#btnClear{background:rgba(255,255,255,.1);color:#ccc}
+#btnClear:hover{background:rgba(255,255,255,.18)}
+
+/* 进度 */
+#progressArea{margin-bottom:16px;display:none}
+.progress-bar-wrap{background:rgba(255,255,255,.1);border-radius:8px;height:10px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,#f48fb1,#c084a0);border-radius:8px;transition:width .3s;width:0%}
+#progressTxt{font-size:12px;color:#aaa;margin-top:6px;text-align:center}
+
+/* 图片网格 */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.card{background:rgba(255,255,255,.06);border-radius:14px;overflow:hidden;position:relative}
+.card-imgs{display:grid;grid-template-columns:1fr 1fr}
+.card-imgs img{width:100%;height:140px;object-fit:contain;background:#333;padding:4px}
+.card-imgs img.result{background:repeating-conic-gradient(#555 0% 25%,#444 0% 50%) 0 0/16px 16px}
+.card-label{font-size:10px;color:#888;padding:2px 6px;background:rgba(0,0,0,.3)}
+.card-footer{padding:8px;display:flex;align-items:center;gap:6px}
+.card-name{flex:1;font-size:11px;color:#bbb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-status{font-size:11px}
+.btn-dl{background:#c084a0;color:#fff;padding:4px 10px;font-size:11px;border-radius:6px}
+.btn-dl:hover{background:#a0638a}
+.btn-dl:disabled{background:#555;cursor:default}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #888;border-top-color:#f48fb1;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<h1>✂️ 批量抠图</h1>
+<p class="sub">拖入图片自动去除背景，生成透明底 PNG · 全部在本地处理，不上传服务器</p>
+
+<div id="dropZone">
+  <div class="icon">🖼️</div>
+  <p>把图片拖到这里，或者 <span>点击选择</span></p>
+  <p style="font-size:12px;color:#888;margin-top:8px">支持 JPG / PNG / WEBP，可多选</p>
+  <input type="file" id="fileInput" accept="image/*" multiple>
+</div>
+
+<div class="toolbar">
+  <button id="btnProcess" disabled>▶ 开始抠图</button>
+  <button id="btnDownloadAll" style="display:none">⬇ 全部下载 ZIP</button>
+  <button id="btnClear">🗑 清空</button>
+</div>
+
+<div id="progressArea">
+  <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  <div id="progressTxt"></div>
+</div>
+
+<div id="grid"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script type="module">
+import { removeBackground } from 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/browser/index.js';
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const grid = document.getElementById('grid');
+const btnProcess = document.getElementById('btnProcess');
+const btnDownloadAll = document.getElementById('btnDownloadAll');
+const btnClear = document.getElementById('btnClear');
+const progressArea = document.getElementById('progressArea');
+const progressBar = document.getElementById('progressBar');
+const progressTxt = document.getElementById('progressTxt');
+
+let files = [];     // 原始文件列表
+let results = [];   // 处理结果 blob
+
+const CONFIG = {
+  publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/browser/',
+  debug: false,
+};
+
+// ---- 拖放 & 选择 ----
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+});
+fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value=''; });
+
+function addFiles(newFiles) {
+  newFiles.forEach(f => {
+    if (files.find(x => x.name === f.name && x.size === f.size)) return;
+    const idx = files.length;
+    files.push(f);
+    results.push(null);
+    renderCard(f, idx);
+  });
+  btnProcess.disabled = files.length === 0;
+}
+
+function renderCard(file, idx) {
+  const url = URL.createObjectURL(file);
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `card-${idx}`;
+  card.innerHTML = `
+    <div class="card-imgs">
+      <div>
+        <div class="card-label">原图</div>
+        <img src="${url}" alt="原图">
+      </div>
+      <div>
+        <div class="card-label">抠图结果</div>
+        <img id="result-${idx}" class="result" src="" alt="" style="opacity:.3">
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="card-name" title="${file.name}">${file.name}</span>
+      <span class="card-status" id="status-${idx}">待处理</span>
+      <button class="btn-dl" id="dl-${idx}" disabled>下载</button>
+    </div>`;
+  grid.appendChild(card);
+}
+
+// ---- 开始抠图 ----
+btnProcess.addEventListener('click', async () => {
+  btnProcess.disabled = true;
+  btnClear.disabled = true;
+  progressArea.style.display = 'block';
+  btnDownloadAll.style.display = 'none';
+
+  const total = files.length;
+  let done = 0;
+
+  for (let i = 0; i < total; i++) {
+    if (results[i]) { done++; continue; } // 已处理过跳过
+
+    const statusEl = document.getElementById(`status-${i}`);
+    const resultImg = document.getElementById(`result-${i}`);
+    const dlBtn = document.getElementById(`dl-${i}`);
+
+    statusEl.innerHTML = '<span class="spinner"></span>';
+    progressTxt.textContent = `处理中 ${i+1} / ${total}：${files[i].name}`;
+
+    try {
+      const blob = await removeBackground(files[i], CONFIG);
+      results[i] = blob;
+      const url = URL.createObjectURL(blob);
+      resultImg.src = url;
+      resultImg.style.opacity = '1';
+      statusEl.textContent = '✅';
+      dlBtn.disabled = false;
+      dlBtn.onclick = () => downloadBlob(blob, baseName(files[i].name) + '_抠图.png');
+    } catch(e) {
+      statusEl.textContent = '❌ 失败';
+      console.error(e);
+    }
+
+    done++;
+    progressBar.style.width = (done / total * 100) + '%';
+  }
+
+  progressTxt.textContent = `完成！共处理 ${done} 张`;
+  btnProcess.disabled = false;
+  btnClear.disabled = false;
+  if (results.some(r => r)) btnDownloadAll.style.display = '';
+});
+
+// ---- 下载全部 ZIP ----
+btnDownloadAll.addEventListener('click', async () => {
+  btnDownloadAll.textContent = '打包中…';
+  btnDownloadAll.disabled = true;
+  const zip = new JSZip();
+  files.forEach((f, i) => {
+    if (results[i]) zip.file(baseName(f.name) + '_抠图.png', results[i]);
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(blob, '抠图结果.zip');
+  btnDownloadAll.textContent = '⬇ 全部下载 ZIP';
+  btnDownloadAll.disabled = false;
+});
+
+// ---- 清空 ----
+btnClear.addEventListener('click', () => {
+  files = []; results = [];
+  grid.innerHTML = '';
+  btnProcess.disabled = true;
+  btnDownloadAll.style.display = 'none';
+  progressArea.style.display = 'none';
+  progressBar.style.width = '0%';
+});
+
+function baseName(name) { return name.replace(/\.[^.]+$/, ''); }
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name; a.click();
+}
+</script>
+</body>
+</html>
