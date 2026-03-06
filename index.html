@@ -1601,8 +1601,8 @@ userInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 function autoResize() {
-  userInput.style.height = 'auto';
-  userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+  userInput.style.height = '0';
+  userInput.style.height = Math.max(44, Math.min(userInput.scrollHeight, 140)) + 'px';
 }
 userInput.addEventListener('input', autoResize);
 
