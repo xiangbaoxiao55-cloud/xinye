@@ -146,7 +146,7 @@ async function loadLib() {
   if (removeBackground) return removeBackground;
   progressTxt.textContent = '首次使用：正在加载 AI 模型，请稍候…';
   progressArea.style.display = 'block';
-  const mod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/browser/index.js');
+  const mod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs');
   removeBackground = mod.removeBackground;
   return removeBackground;
 }
@@ -169,7 +169,7 @@ btnProcess.addEventListener('click', async () => {
   }
 
   const CONFIG = {
-    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal/dist/browser/',
+    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
     debug: false,
   };
 
