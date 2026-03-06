@@ -34,6 +34,7 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 .progress-bar-wrap{background:rgba(255,255,255,.1);border-radius:8px;height:10px;overflow:hidden}
 .progress-bar{height:100%;background:linear-gradient(90deg,#f48fb1,#c084a0);border-radius:8px;transition:width .3s;width:0%}
 #progressTxt{font-size:12px;color:#aaa;margin-top:6px;text-align:center}
+#errorBox{display:none;background:rgba(239,68,68,.15);border:1px solid #ef4444;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#fca5a5;white-space:pre-wrap;word-break:break-all}
 #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
 .card{background:rgba(255,255,255,.06);border-radius:14px;overflow:hidden}
 .card-imgs{display:grid;grid-template-columns:1fr 1fr}
@@ -82,17 +83,15 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
   <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
   <div id="progressTxt"></div>
 </div>
+<div id="errorBox"></div>
 
 <div id="grid"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module">
-import { AutoModelForImageSegmentation, RawImage, Tensor } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
+import { AutoModelForImageSegmentation, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
 
 const MODEL_ID = 'ZhengPeng7/BiRefNet';
-const IMG_SIZE  = 1024;
-const MEAN = [0.485, 0.456, 0.406];
-const STD  = [0.229, 0.224, 0.225];
 
 const dropZone    = document.getElementById('dropZone');
 const fileInput   = document.getElementById('fileInput');
@@ -103,10 +102,12 @@ const btnClear    = document.getElementById('btnClear');
 const progressArea = document.getElementById('progressArea');
 const progressBar  = document.getElementById('progressBar');
 const progressTxt  = document.getElementById('progressTxt');
+const errorBox     = document.getElementById('errorBox');
 
 let files   = [];
 let results = [];
 let _model  = null;
+let _processor = null;
 
 // ---- 拖放 & 选图 ----
 dropZone.addEventListener('click', () => fileInput.click());
@@ -151,56 +152,53 @@ function renderCard(file, idx) {
 }
 
 // ---- 加载模型 ----
-async function getModel() {
-  if (_model) return _model;
+async function getModelProcessor() {
+  if (_model && _processor) return { model: _model, processor: _processor };
+
   progressArea.style.display = 'block';
   progressTxt.textContent = '正在下载 BiRefNet 模型（首次约 175MB，请等待）…';
   progressBar.style.width = '5%';
 
+  const progressCb = (p) => {
+    if (p.status === 'progress') {
+      const pct = Math.round(p.progress || 0);
+      progressBar.style.width = Math.min(5 + pct * 0.55, 60) + '%';
+      progressTxt.textContent = '下载模型：' + pct + '%（' + (p.name || '') + '）';
+    }
+  };
+
   _model = await AutoModelForImageSegmentation.from_pretrained(MODEL_ID, {
     dtype: 'fp16',
-    progress_callback: (p) => {
-      if (p.status === 'progress') {
-        const pct = Math.round(p.progress || 0);
-        progressBar.style.width = Math.min(5 + pct * 0.6, 65) + '%';
-        progressTxt.textContent = '下载模型：' + pct + '%（' + (p.name || '') + '）';
-      }
-    },
+    progress_callback: progressCb,
   });
+
+  progressBar.style.width = '65%';
+  progressTxt.textContent = '加载处理器…';
+  _processor = await AutoProcessor.from_pretrained(MODEL_ID);
 
   progressBar.style.width = '70%';
   progressTxt.textContent = '模型加载完成！';
-  return _model;
-}
-
-// ---- 预处理：resize + ImageNet 归一化 → Tensor[1,3,1024,1024] ----
-function preprocess(image) {
-  const nPx = IMG_SIZE * IMG_SIZE;
-  const f32  = new Float32Array(3 * nPx);
-  const ch   = image.channels;
-  for (let i = 0; i < nPx; i++) {
-    for (let c = 0; c < 3; c++) {
-      f32[c * nPx + i] = (image.data[i * ch + c] / 255 - MEAN[c]) / STD[c];
-    }
-  }
-  return new Tensor('float32', f32, [1, 3, IMG_SIZE, IMG_SIZE]);
+  return { model: _model, processor: _processor };
 }
 
 async function removeBackground(file) {
-  const model = await getModel();
+  const { model, processor } = await getModelProcessor();
   const url   = URL.createObjectURL(file);
   const image = await RawImage.fromURL(url);
   URL.revokeObjectURL(url);
 
-  const resized      = await image.resize(IMG_SIZE, IMG_SIZE);
-  const pixel_values = preprocess(resized);
-  const { output }   = await model({ pixel_values });
+  const { pixel_values } = await processor(image);
+  const result = await model({ pixel_values });
 
-  // output[0] 形状可能是 [1,1,H,W]，squeeze 到 [1,H,W] 供 RawImage 读取
-  let maskTensor = output[0];
+  // 兼容不同输出键名：output / logits
+  const raw = result.output ?? result.logits;
+  let maskTensor = Array.isArray(raw) ? raw[0] : raw;
+
+  // squeeze [1,1,H,W] → [1,H,W]
   while (maskTensor.dims.length > 2 && maskTensor.dims[0] === 1) {
     maskTensor = maskTensor.squeeze(0);
   }
+
   const mask = await RawImage.fromTensor(
     maskTensor.mul(255).clamp(0, 255).to('uint8')
   ).resize(image.width, image.height);
@@ -222,13 +220,15 @@ async function removeBackground(file) {
 btnProcess.addEventListener('click', async () => {
   btnProcess.disabled = true; btnClear.disabled = true;
   progressArea.style.display = 'block';
+  errorBox.style.display = 'none'; errorBox.textContent = '';
 
-  const total = files.length;
-  let done = 0;
+  const total  = files.length;
+  let done = 0, errCount = 0;
+  const errLines = [];
 
   for (let i = 0; i < total; i++) {
     if (results[i]) { done++; continue; }
-    const statusEl = document.getElementById('status-' + i);
+    const statusEl  = document.getElementById('status-' + i);
     const resultImg = document.getElementById('result-' + i);
     const dlBtn     = document.getElementById('dl-' + i);
 
@@ -250,7 +250,8 @@ btnProcess.addEventListener('click', async () => {
       dlov.onclick = () => downloadBlob(blob, name);
     } catch(e) {
       statusEl.textContent = '❌';
-      progressTxt.textContent = '处理失败：' + e.message;
+      errCount++;
+      errLines.push('• ' + files[i].name + '\n  ' + e.message);
       console.error(e);
     }
 
@@ -259,7 +260,14 @@ btnProcess.addEventListener('click', async () => {
   }
 
   progressBar.style.width = '100%';
-  progressTxt.textContent = '✅ 全部完成，共处理 ' + done + ' 张';
+  if (errCount === 0) {
+    progressTxt.textContent = '✅ 全部完成，共处理 ' + done + ' 张';
+  } else {
+    progressTxt.textContent = '完成，成功 ' + (done - errCount) + ' 张，失败 ' + errCount + ' 张';
+    errorBox.style.display = 'block';
+    errorBox.textContent = '处理失败的文件：\n' + errLines.join('\n');
+  }
+
   btnProcess.disabled = false; btnClear.disabled = false;
   if (results.some(r => r)) btnDlAll.disabled = false;
 });
@@ -276,8 +284,9 @@ btnDlAll.addEventListener('click', async () => {
 
 // ---- 清空 ----
 btnClear.addEventListener('click', () => {
-  files = []; results = []; _model = null;
+  files = []; results = []; _model = null; _processor = null;
   grid.innerHTML = '';
+  errorBox.style.display = 'none';
   btnProcess.disabled = true; btnDlAll.disabled = true;
   progressArea.style.display = 'none'; progressBar.style.width = '0%';
 });
