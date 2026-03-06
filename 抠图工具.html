@@ -63,7 +63,7 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 </head>
 <body>
 <h1>✂️ 批量抠图</h1>
-<p class="sub">RMBG-2.0 高精度模型 · 比 1.4 版更精准 · 全部在本地浏览器处理，不上传服务器</p>
+<p class="sub">AI 自动去除背景，生成透明底 PNG · 全部在本地浏览器处理，不上传服务器</p>
 <p class="sub2">⚠️ 首次使用会下载 AI 模型（约 175MB），请耐心等待，之后会缓存</p>
 
 <div id="dropZone">
@@ -91,7 +91,7 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 <script type="module">
 import { AutoModel, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
 
-const MODEL_ID = 'briaai/RMBG-2.0';
+const MODEL_ID = 'briaai/RMBG-1.4';
 
 const dropZone    = document.getElementById('dropZone');
 const fileInput   = document.getElementById('fileInput');
