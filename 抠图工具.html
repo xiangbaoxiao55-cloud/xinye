@@ -63,7 +63,7 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 </head>
 <body>
 <h1>✂️ 批量抠图</h1>
-<p class="sub">BiRefNet 高精度模型 · 发丝毛发更精准 · 全部在本地浏览器处理，不上传服务器</p>
+<p class="sub">RMBG-2.0 高精度模型 · 比 1.4 版更精准 · 全部在本地浏览器处理，不上传服务器</p>
 <p class="sub2">⚠️ 首次使用会下载 AI 模型（约 175MB），请耐心等待，之后会缓存</p>
 
 <div id="dropZone">
@@ -89,9 +89,9 @@ button{padding:9px 20px;border:none;border-radius:10px;cursor:pointer;font-size:
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="module">
-import { AutoModelForImageSegmentation, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
+import { AutoModel, AutoProcessor, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm';
 
-const MODEL_ID = 'ZhengPeng7/BiRefNet';
+const MODEL_ID = 'briaai/RMBG-2.0';
 
 const dropZone    = document.getElementById('dropZone');
 const fileInput   = document.getElementById('fileInput');
@@ -167,14 +167,22 @@ async function getModelProcessor() {
     }
   };
 
-  _model = await AutoModelForImageSegmentation.from_pretrained(MODEL_ID, {
-    dtype: 'fp16',
+  _model = await AutoModel.from_pretrained(MODEL_ID, {
+    config: { model_type: 'custom' },
     progress_callback: progressCb,
   });
 
   progressBar.style.width = '65%';
   progressTxt.textContent = '加载处理器…';
-  _processor = await AutoProcessor.from_pretrained(MODEL_ID);
+  _processor = await AutoProcessor.from_pretrained(MODEL_ID, {
+    config: {
+      do_normalize: true, do_pad: false, do_rescale: true, do_resize: true,
+      image_mean: [0.5, 0.5, 0.5], image_std: [1, 1, 1],
+      feature_extractor_type: 'ImageFeatureExtractor',
+      resample: 2, rescale_factor: 0.00392156862745098,
+      size: { width: 1024, height: 1024 },
+    },
+  });
 
   progressBar.style.width = '70%';
   progressTxt.textContent = '模型加载完成！';
@@ -188,19 +196,10 @@ async function removeBackground(file) {
   URL.revokeObjectURL(url);
 
   const { pixel_values } = await processor(image);
-  const result = await model({ pixel_values });
-
-  // 兼容不同输出键名：output / logits
-  const raw = result.output ?? result.logits;
-  let maskTensor = Array.isArray(raw) ? raw[0] : raw;
-
-  // squeeze [1,1,H,W] → [1,H,W]
-  while (maskTensor.dims.length > 2 && maskTensor.dims[0] === 1) {
-    maskTensor = maskTensor.squeeze(0);
-  }
+  const { output } = await model({ input: pixel_values });
 
   const mask = await RawImage.fromTensor(
-    maskTensor.mul(255).clamp(0, 255).to('uint8')
+    output[0].mul(255).to('uint8')
   ).resize(image.width, image.height);
 
   const canvas = document.createElement('canvas');
