@@ -199,6 +199,7 @@ btnProcess.addEventListener('click', async () => {
     } catch(e) {
       statusEl.textContent = '❌';
       console.error(e);
+      progressTxt.textContent = '错误：' + e.message;
     }
 
     done++;
