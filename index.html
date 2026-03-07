@@ -772,7 +772,18 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
     <div class="setting-group">
       <label>手机无法选文件时，把 JSON 内容粘贴到这里</label>
       <textarea id="importPasteArea" placeholder="把备份 JSON 的全部内容粘贴到这里…" style="min-height:100px"></textarea>
-      <button class="btn-primary" id="btnPasteImport" style="margin-top:8px">确认导入粘贴内容</button>
+      <button class="btn-primary" id="btnPasteImport" style="margin-top:8px">确认导入（覆盖）</button>
+    </div>
+
+    <!-- 合并导入 -->
+    <div class="setting-divider">🔀 合并导入（保留现有记录）</div>
+    <div class="setting-group">
+      <label>把旧备份的消息和现有记录合并，按时间去重，两边都不丢</label>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn-primary" id="btnMergeFile" style="flex:1">选文件合并</button>
+        <button class="btn-secondary" id="btnMergePaste" style="flex:1">粘贴合并</button>
+      </div>
+      <textarea id="mergePasteArea" placeholder="把备份 JSON 粘贴到这里，再点「粘贴合并」…" style="min-height:80px;margin-top:8px;display:none"></textarea>
     </div>
   </div>
   <div class="settings-footer">
@@ -824,6 +835,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 <input type="file" id="fileInputBg" accept="image/*,video/mp4,video/webm" hidden>
 <input type="file" id="fileInputSticker" accept="image/*" hidden>
 <input type="file" id="fileInputImport" accept=".json,application/json,text/plain,*/*" hidden>
+<input type="file" id="fileInputMerge" accept=".json,application/json,text/plain,*/*" hidden>
 <input type="file" id="fileInputChatImg" accept="image/*" hidden multiple>
 
 <div class="toast" id="toast"></div>
@@ -1003,8 +1015,8 @@ function scheduleAutoSave() {
 
 async function saveToLocal() {
   try {
-    // 消息过多时只保留最近200条，避免 JSON.stringify 卡顿主线程
-    const recentMsgs = messages.length > 200 ? messages.slice(-200) : messages;
+    // 本地备份保留最近2000条，作为 IndexedDB 被清除时的恢复来源
+    const recentMsgs = messages.length > 2000 ? messages.slice(-2000) : messages;
     const localData = {
       version: 3, type: 'auto-save', timestamp: Date.now(),
       settings,
@@ -2230,6 +2242,57 @@ async function doImport(jsonText) {
   stickers = await dbGetAll('stickers');
   await saveToLocal();
 }
+
+// ======================== 合并导入 ========================
+async function doMergeImport(jsonText) {
+  const data = JSON.parse(jsonText);
+  const msgList = data.messages || data.history;
+  if (!msgList || msgList.length === 0) { toast('备份中没有消息记录'); return; }
+
+  const existing = await dbGetAll('messages');
+  const existingTimes = new Set(existing.map(m => m.time));
+
+  let added = 0;
+  for (const m of msgList) {
+    if (!existingTimes.has(m.time)) {
+      const rec = { role: m.role, content: m.content, time: m.time };
+      if (m.image) rec.image = m.image;
+      await dbPut('messages', null, rec);
+      added++;
+    }
+  }
+
+  messages = await dbGetAll('messages');
+  messages.sort((a, b) => a.time - b.time);
+  await saveToLocal();
+  await renderMessages();
+  toast(`合并完成，新增 ${added} 条，共 ${messages.length} 条`);
+}
+
+$('#btnMergeFile').onclick = () => $('#fileInputMerge').click();
+$('#fileInputMerge').onchange = async function() {
+  if (!this.files[0]) return;
+  try {
+    const text = await this.files[0].text();
+    await doMergeImport(text);
+  } catch(e) {
+    toast('合并失败：' + e.message);
+  }
+  this.value = '';
+};
+
+$('#btnMergePaste').onclick = () => {
+  const area = $('#mergePasteArea');
+  if (area.style.display === 'none') {
+    area.style.display = 'block';
+    area.focus();
+    return;
+  }
+  const text = area.value.trim();
+  if (!text) { toast('请先粘贴 JSON 内容'); return; }
+  doMergeImport(text).then(() => { area.value = ''; area.style.display = 'none'; })
+    .catch(e => toast('合并失败：' + e.message));
+};
 
 // ---- 方式一：文件导入 ----
 $('#btnImport').onclick = () => $('#fileInputImport').click();
