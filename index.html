@@ -584,6 +584,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
       <label>记忆档案</label>
       <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
       <div class="hint">建议：把炘也写的那份档案粘贴在这里。以后有新的重要记忆，也可以手动补充在末尾。</div>
+      <button type="button" id="btnDigestMemory" style="margin-top:8px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">📝 从近期聊天里整理记忆</button>
     </div>
 
     <div class="setting-group">
@@ -1294,6 +1295,48 @@ function setupReminders() {
   }
 }
 
+async function digestMemory() {
+  if (!settings.apiKey) { toast('请先填写 API Key'); return; }
+  if (messages.length === 0) { toast('没有聊天记录可整理'); return; }
+  const btn = $('#btnDigestMemory');
+  btn.disabled = true; btn.textContent = '整理中…';
+  const ctxCount = Math.max(20, settings.contextCount || 20);
+  const targetMsgs = messages.slice(-Math.max(ctxCount * 2, 60));
+  const chatText = targetMsgs.map(m =>
+    `${m.role === 'user' ? (settings.userName || '用户') : (settings.aiName || 'AI')}：${m.content}`
+  ).join('\n');
+  const existingMemory = settings.memoryArchive || '';
+  const prompt = `你是一个记忆整理助手。请将现有记忆档案和最近聊天记录合并，输出一份新的精简记忆档案。
+要求：保留所有重要信息，去掉重复和过时内容，从聊天记录里补充新的重要信息（事件、情感、约定、个人信息等），格式简洁清晰。直接输出新的记忆档案内容，不要加任何前缀说明。
+
+现有记忆档案：
+${existingMemory || '（暂无）'}
+
+最近聊天记录：
+${chatText}`;
+  try {
+    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model: settings.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.3, stream: false })
+    });
+    if (!res.ok) throw new Error(`API 错误 ${res.status}`);
+    const data = await res.json();
+    const newMemory = data.choices?.[0]?.message?.content?.trim() || '';
+    if (!newMemory) {
+      toast('整理结果为空，未做修改');
+    } else {
+      settings.memoryArchive = newMemory;
+      $('#setMemoryArchive').value = newMemory;
+      await saveSettings();
+      toast('✅ 记忆档案已整合更新！');
+    }
+  } catch(err) { toast('整理失败：' + err.message); }
+  finally { btn.disabled = false; btn.textContent = '📝 从近期聊天里整理记忆'; }
+}
+
 async function proactiveMsg(type) {
   if (isRequesting || !settings.apiKey) return;
   const prompts = {
@@ -1438,6 +1481,7 @@ async function playTTS(text, btnEl, msgId) {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'zh-CN';
     utter.rate = 1.0;
+    // 优先选中文声音
     const voices = window.speechSynthesis.getVoices();
     const zhVoice = voices.find(v => v.lang.startsWith('zh'));
     if (zhVoice) utter.voice = zhVoice;
@@ -1732,6 +1776,15 @@ overlay.onclick = closeSettings;
 $('#setBgOpacity').oninput = function() { $('#bgOpacityVal').textContent = this.value; };
 $('#setBgBlur').oninput = function() { $('#bgBlurVal').textContent = this.value; };
 $('#setBubbleOpacity').oninput = function() { $('#bubbleOpacityVal').textContent = this.value; };
+
+$('#btnDigestMemory').onclick = async () => {
+  // 先把设置面板里当前填的 API 信息临时同步进 settings，确保用最新的 key/url/model
+  settings.apiKey = $('#setApiKey').value.trim() || settings.apiKey;
+  settings.baseUrl = $('#setBaseUrl').value.trim() || settings.baseUrl || 'https://api.openai.com';
+  settings.model = $('#setModel').value.trim() || settings.model || 'gpt-4o';
+  settings.memoryArchive = $('#setMemoryArchive').value;
+  await digestMemory();
+};
 
 $('#btnSaveSettings').onclick = async () => {
   settings.apiKey = $('#setApiKey').value.trim();
