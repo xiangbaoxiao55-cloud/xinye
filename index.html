@@ -641,8 +641,9 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
     <div class="setting-group">
       <label>TTS 类型</label>
       <select id="setTtsType" onchange="updateTtsTypeUI()">
+        <option value="browser">浏览器内置 TTS（手机 / 零配置）</option>
         <option value="local">本地 GPT-SoVITS（电脑用）</option>
-        <option value="doubao">豆包云端 TTS（手机 / 随时可用）</option>
+        <option value="doubao">豆包云端 TTS（需服务器中转）</option>
       </select>
     </div>
     <div class="setting-group">
@@ -671,6 +672,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
           <label>Cluster</label>
           <input type="text" id="setDoubaoCluster" placeholder="volcano_tts">
         </div>
+      </div>
+      <div class="setting-group">
+        <label>Cloudflare 代理地址（解决手机 CORS）</label>
+        <input type="url" id="setDoubaoProxy" placeholder="https://doubao-tts-proxy.你.workers.dev">
+        <div class="hint">填入 Cloudflare Worker 地址后，语音请求经代理发出，手机浏览器也能用豆包专用音色</div>
       </div>
     </div>
     <!-- 本地 TTS 字段 -->
@@ -935,6 +941,7 @@ let settings = {
   ttsGptWeights: '', ttsSovitsWeights: '',
   ttsPresets: [], ttsAutoPlay: false,
   doubaoAppId: '', doubaoToken: '', doubaoVoice: '', doubaoCluster: 'volcano_tts',
+  doubaoProxy: '',
   idleRemind: 0, waterRemind: 0, standRemind: 0,
   memoryArchive: '',
   displayLimit: 0,
@@ -1341,7 +1348,10 @@ async function generateTTSBlob(text) {
   // ---- 豆包云端 TTS ----
   if (settings.ttsType === 'doubao') {
     if (!settings.doubaoAppId || !settings.doubaoToken) { toast('请先填写豆包 TTS 的 AppID 和 Token'); return null; }
-    const res = await fetch('https://openspeech.bytedance.com/api/v1/tts', {
+    const endpoint = (settings.doubaoProxy || '').trim()
+      ? settings.doubaoProxy.trim().replace(/\/+$/, '')
+      : 'https://openspeech.bytedance.com/api/v1/tts';
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer;${settings.doubaoToken}`, 'Resource-Id': settings.doubaoCluster || 'volcano_tts' },
       body: JSON.stringify({
@@ -1418,6 +1428,25 @@ function playAudioBlob(blob, btnEl) {
 }
 
 async function playTTS(text, btnEl, msgId) {
+  // ---- 浏览器内置 speechSynthesis ----
+  if (settings.ttsType === 'browser') {
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      document.querySelectorAll('.btn-tts.playing').forEach(b => b.classList.remove('playing'));
+      return;
+    }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+    if (zhVoice) utter.voice = zhVoice;
+    btnEl.classList.add('playing');
+    utter.onend = () => btnEl.classList.remove('playing');
+    utter.onerror = () => { btnEl.classList.remove('playing'); toast('语音播放失败'); };
+    window.speechSynthesis.speak(utter);
+    return;
+  }
   // 正在播放 → 停止
   if (currentAudio) {
     currentAudio.pause(); currentAudio = null;
@@ -1682,6 +1711,7 @@ async function openSettings() {
   $('#setDoubaoToken').value = settings.doubaoToken || '';
   $('#setDoubaoVoice').value = settings.doubaoVoice || '';
   $('#setDoubaoCluster').value = settings.doubaoCluster || 'volcano_tts';
+  $('#setDoubaoProxy').value = settings.doubaoProxy || '';
   $('#setDisplayLimit').value = settings.displayLimit || 0;
   $('#setIdleRemind').value = settings.idleRemind || 0;
   $('#setWaterRemind').value = settings.waterRemind || 0;
@@ -1731,6 +1761,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.doubaoToken = $('#setDoubaoToken').value.trim();
   settings.doubaoVoice = $('#setDoubaoVoice').value.trim();
   settings.doubaoCluster = $('#setDoubaoCluster').value.trim() || 'volcano_tts';
+  settings.doubaoProxy = $('#setDoubaoProxy').value.trim();
   settings.idleRemind = parseInt($('#setIdleRemind').value) || 0;
   settings.waterRemind = parseInt($('#setWaterRemind').value) || 0;
   settings.standRemind = parseInt($('#setStandRemind').value) || 0;
