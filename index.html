@@ -2270,8 +2270,10 @@ async function exportData(mode) {
   };
 
   const label = isLite ? '轻量' : '完整';
-  const dateStr = new Date().toISOString().slice(0, 10);
-  downloadFile(JSON.stringify(backup, null, 2), `狐狸小窝${label}备份_${dateStr}.json`, 'application/json;charset=utf-8');
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+  downloadFile(JSON.stringify(backup, null, 2), `狐狸小窝${label}备份_${dateStr}_${timeStr}.json`, 'application/json;charset=utf-8');
 
   const aiN = settings.aiName || '狐狸先生';
   const usN = settings.userName || '小浣熊';
@@ -2287,7 +2289,7 @@ async function exportData(mode) {
     lines.push(m.content);
     lines.push('');
   });
-  downloadFile(lines.join('\n'), `聊天记录_${dateStr}.txt`, 'text/plain;charset=utf-8');
+  downloadFile(lines.join('\n'), `聊天记录_${dateStr}_${timeStr}.txt`, 'text/plain;charset=utf-8');
 
   if (isLite) toast('轻量备份已导出（不含背景/贴纸）');
   else if (bgType === 'video') toast('完整备份已导出（视频背景需重新上传）');
