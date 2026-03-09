@@ -1569,7 +1569,7 @@ async function sendMessage() {
   // 联网搜索（触发词：搜索/查一下/查查/搜一下/帮我查）
   let searchContext = '';
   if (settings.tavilyKey && text) {
-    const searchMatch = text.match(/^(?:搜索|查一下|查查|搜一下|帮我查)\s*(.+)/);
+    const searchMatch = text.match(/(?:搜索|查一下|查查|搜一下|帮我查)\s*([^\s，。？！,?.!][^，。？！,?.!]*)/);
     if (searchMatch) {
       toast('🔍 搜索中…');
       try {
@@ -1589,8 +1589,6 @@ async function sendMessage() {
           console.warn('[Tavily]', sRes.status, errText);
         }
       } catch(e) { toast('搜索请求失败：' + e.message); console.warn('[Tavily]', e); }
-    } else if (/搜索|查一下|查查|搜一下|帮我查/.test(text)) {
-      toast('提示：把要搜的内容放在触发词后面，如"查一下江门天气"');
     }
   }
 
