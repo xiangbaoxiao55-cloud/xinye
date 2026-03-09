@@ -551,6 +551,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
       <input type="password" id="setApiKey" placeholder="sk-...">
     </div>
     <div class="setting-group">
+      <label>Tavily 搜索 Key（可选，联网搜索用）</label>
+      <input type="password" id="setTavilyKey" placeholder="tvly-...">
+      <div class="hint">填写后，发消息时加"搜索 xxx"或"查一下 xxx"即可联网搜索</div>
+    </div>
+    <div class="setting-group">
       <label>Base URL（接口地址）</label>
       <input type="url" id="setBaseUrl" placeholder="https://api.openai.com">
       <div class="hint">默认 OpenAI 官方地址，也可改为第三方中转地址</div>
@@ -946,6 +951,7 @@ let settings = {
   idleRemind: 0, waterRemind: 0, standRemind: 0,
   memoryArchive: '',
   displayLimit: 0,
+  tavilyKey: '',
 };
 let messages = [];
 let stickers = [];
@@ -1560,6 +1566,26 @@ async function sendMessage() {
   typing.classList.add('show');
   scrollBottom();
 
+  // 联网搜索（触发词：搜索/查一下/查查/搜一下/帮我查）
+  let searchContext = '';
+  if (settings.tavilyKey && text) {
+    const searchMatch = text.match(/^(?:搜索|查一下|查查|搜一下|帮我查)\s*(.+)/);
+    if (searchMatch) {
+      try {
+        const sRes = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: settings.tavilyKey, query: searchMatch[1], search_depth: 'basic', max_results: 5 })
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          const snippets = (sData.results || []).map((r, i) => `${i+1}. 【${r.title}】${r.content}`).join('\n');
+          if (snippets) searchContext = `【联网搜索结果】\n${snippets}`;
+        }
+      } catch(e) { console.warn('[Tavily]', e); }
+    }
+  }
+
   try {
     const apiMsgs = [];
     if (settings.memoryArchive && settings.memoryArchive.trim()) {
@@ -1570,6 +1596,9 @@ async function sendMessage() {
     }
     if (settings.shortReply) {
       apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
+    }
+    if (searchContext) {
+      apiMsgs.push({ role: 'system', content: searchContext });
     }
 
     const n = Math.max(1, settings.contextCount || 20);
@@ -1721,6 +1750,7 @@ $('#fileInputChatImg').onchange = async function() {
 // ======================== 设置面板 ========================
 async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
+  $('#setTavilyKey').value = settings.tavilyKey || '';
   $('#setBaseUrl').value = settings.baseUrl;
   $('#setModel').value = settings.model;
   $('#setContextCount').value = settings.contextCount;
@@ -1788,6 +1818,7 @@ $('#btnDigestMemory').onclick = async () => {
 
 $('#btnSaveSettings').onclick = async () => {
   settings.apiKey = $('#setApiKey').value.trim();
+  settings.tavilyKey = $('#setTavilyKey').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.model = $('#setModel').value.trim() || 'gpt-4o';
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
