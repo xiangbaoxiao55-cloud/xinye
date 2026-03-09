@@ -1323,11 +1323,12 @@ async function digestMemory() {
   if (messages.length === 0) { toast('没有聊天记录可整理'); return; }
   const btn = $('#btnDigestMemory');
   btn.disabled = true; btn.textContent = '整理中…';
-  const ctxCount = Math.max(20, settings.contextCount || 20);
-  const targetMsgs = messages.slice(-Math.max(ctxCount * 2, 60));
-  const chatText = targetMsgs.map(m =>
+  const targetMsgs = messages.slice(-50);
+  // 限制总字符数，避免请求体过大
+  let chatText = targetMsgs.map(m =>
     `${m.role === 'user' ? (settings.userName || '用户') : (settings.aiName || 'AI')}：${m.content}`
   ).join('\n');
+  if (chatText.length > 8000) chatText = chatText.slice(-8000);
   const existingMemory = settings.memoryArchive || '';
   const prompt = `你是一个记忆整理助手。请将现有记忆档案和最近聊天记录合并，输出一份新的精简记忆档案。
 要求：保留所有重要信息，去掉重复和过时内容，从聊天记录里补充新的重要信息（事件、情感、约定、个人信息等），格式简洁清晰。直接输出新的记忆档案内容，不要加任何前缀说明。
