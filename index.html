@@ -244,14 +244,16 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 
 /* ---- 输入区（毛玻璃） ---- */
 .input-area{
-  padding:12px 16px;
+  padding:10px 16px 8px;
   background:rgba(255,255,255,.4);
   backdrop-filter:blur(18px) saturate(1.4);
   -webkit-backdrop-filter:blur(18px) saturate(1.4);
   border-top:0.5px solid rgba(255,255,255,.55);
   border-radius:20px 20px 0 0;
-  display:flex;gap:10px;align-items:flex-end;
+  display:flex;flex-direction:column;gap:6px;
 }
+.input-main-row{display:flex;gap:10px;align-items:flex-end;}
+.input-tools-row{display:flex;gap:8px;align-items:center;}
 .input-area textarea{
   flex:1;border:0.5px solid rgba(255,255,255,.6);border-radius:var(--radius);
   padding:12px 14px;font-size:15px;font-family:inherit;
@@ -272,13 +274,14 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .btn-send:hover{transform:scale(1.08);box-shadow:0 3px 12px rgba(233,30,99,.35)}
 .btn-send:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 .btn-search{
-  width:44px;height:44px;border:none;border-radius:50%;
-  background:rgba(255,255,255,.6);border:1px solid var(--pink);
-  font-size:18px;cursor:pointer;flex-shrink:0;
-  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  height:30px;padding:0 10px;border:none;border-radius:15px;
+  background:rgba(255,255,255,.55);color:var(--text-light);
+  font-size:12px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;
+  border:0.5px solid var(--pink);
 }
-.btn-search:hover{background:rgba(255,255,255,.9);transform:scale(1.08)}
-.btn-search:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-search:hover{background:var(--pink-light);color:var(--pink-deep)}
+.btn-search:disabled{opacity:.5;cursor:not-allowed}
 .btn-search.hidden{display:none}
 
 /* ====================== 装修模式浮动按钮（在 .app 外部） ====================== */
@@ -462,11 +465,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   display:flex;align-items:center;justify-content:center;line-height:1;
 }
 .btn-img{
-  width:44px;height:44px;border:none;border-radius:50%;
-  background:rgba(255,255,255,.45);color:var(--text-light);
-  font-size:20px;cursor:pointer;flex-shrink:0;
-  transition:all .2s;display:flex;align-items:center;justify-content:center;
-  border:0.5px solid rgba(255,255,255,.5);
+  height:30px;padding:0 10px;border:none;border-radius:15px;
+  background:rgba(255,255,255,.55);color:var(--text-light);
+  font-size:12px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;
+  border:0.5px solid rgba(255,255,255,.6);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
 }
 .btn-img:hover{background:var(--pink-light);color:var(--pink-deep)}
@@ -533,13 +536,17 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 
   <!-- 输入区 -->
   <div class="input-area">
-    <button class="btn-img" id="btnImg" title="发送图片给 AI 看">🖼</button>
-    <div class="input-wrapper">
-      <div class="img-preview" id="imgPreview"></div>
-      <textarea id="userInput" placeholder="说点什么给狐狸先生听…" rows="1"></textarea>
+    <div class="input-main-row">
+      <div class="input-wrapper">
+        <div class="img-preview" id="imgPreview"></div>
+        <textarea id="userInput" placeholder="说点什么…" rows="1"></textarea>
+      </div>
+      <button class="btn-send" id="btnSend" title="发送">➤</button>
     </div>
-    <button class="btn-search" id="btnSearch" title="联网搜索后发送">🔍</button>
-    <button class="btn-send" id="btnSend" title="发送">➤</button>
+    <div class="input-tools-row">
+      <button class="btn-img" id="btnImg" title="发送图片给 AI 看">🖼 上传图片</button>
+      <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送">🔍 联网搜索</button>
+    </div>
   </div>
 </div>
 
