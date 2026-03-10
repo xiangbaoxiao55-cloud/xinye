@@ -1618,6 +1618,11 @@ async function sendMessage() {
     if (settings.shortReply) {
       apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
     }
+    const _proactiveHint = localStorage.getItem('xinye_proactive_hint');
+    if (_proactiveHint) {
+      apiMsgs.push({ role: 'system', content: `【提示】你刚才主动给兔宝发了一条消息："${_proactiveHint}"，是你在她不在时发的，现在她回来了。自然地接续，不用重复那句话。` });
+      localStorage.removeItem('xinye_proactive_hint');
+    }
     if (searchContext) {
       apiMsgs.push({ role: 'system', content: searchContext });
     }
