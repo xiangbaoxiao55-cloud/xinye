@@ -1576,6 +1576,7 @@ async function sendMessage() {
   $('#imgPreview').classList.remove('show');
 
   resetIdleTimer();
+  fetch('https://xinye-push.xiangbaoxiao55.workers.dev/active').catch(()=>{});
   const userMsg = await addMessage('user', text, imgs.length ? imgs : null);
   await appendMsgDOM(userMsg);
 
