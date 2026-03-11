@@ -2494,9 +2494,9 @@ async function checkPendingMessage() {
   try {
     const res = await fetch('https://xinye-push.xiangbaoxiao55.workers.dev/get');
     const text = await res.text();
-    if (text && text.trim()) {
-      const msg = await addMessage('assistant', text.trim());
-      await appendMsgDOM(msg);
+    if (text && text.trim() === 'true') {
+      localStorage.setItem('xinye_proactive_hint', '你主动找了兔宝，她刚打开网页回来了');
+      await proactiveMsg('idle');
     }
   } catch(e) {}
 }
