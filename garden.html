@@ -110,6 +110,29 @@ html,body{height:100%;height:100svh;overflow:hidden;
   100%{opacity:0;transform:translateY(-100px) scale(1.6)}
 }
 
+/* 收获篮子 */
+#basket{
+  position:fixed;bottom:max(48px,env(safe-area-inset-bottom,48px));right:12px;
+  z-index:100;background:rgba(253,240,210,.95);
+  border:2px solid #c8a060;border-radius:16px;
+  padding:8px 10px;min-width:52px;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);
+  cursor:pointer;transition:all .25s;
+}
+#basket.empty{opacity:0.5;}
+#basketIcon{font-size:22px;text-align:center;}
+#basketItems{
+  font-size:11px;color:#7b5030;line-height:1.7;
+  display:none;margin-top:6px;
+  max-height:160px;overflow-y:auto;
+}
+#basket.open #basketItems{display:block;}
+.basket-clear{
+  font-size:10px;color:#c08060;text-align:center;
+  margin-top:4px;padding-top:4px;border-top:1px solid #e0c090;
+  cursor:pointer;
+}
+
 /* 炘也小提示 */
 #xinTip{
   position:fixed;top:max(64px,env(safe-area-inset-top,64px));
@@ -132,6 +155,10 @@ html,body{height:100%;height:100svh;overflow:hidden;
   <div id="lightOverlay"></div>
 </div>
 <div id="label">我们的院子 💙</div>
+<div id="basket" class="empty">
+  <div id="basketIcon">🧺</div>
+  <div id="basketItems"></div>
+</div>
 
 <!-- 种植弹窗 -->
 <div id="modal">
@@ -193,7 +220,47 @@ const PLOT_DEFS = [
 // ══════════════════════════════════════════
 // 状态（localStorage）
 // ══════════════════════════════════════════
-const STORAGE_KEY = 'xinye_garden_v1';
+const STORAGE_KEY    = 'xinye_garden_v1';
+const BASKET_KEY     = 'xinye_basket_v1';
+
+function loadBasket(){ try{ return JSON.parse(localStorage.getItem(BASKET_KEY))||{}; }catch(e){ return {}; } }
+function saveBasket(b){ localStorage.setItem(BASKET_KEY, JSON.stringify(b)); }
+
+function addToBasket(cropId){
+  const b=loadBasket();
+  b[cropId]=(b[cropId]||0)+1;
+  saveBasket(b);
+  renderBasket();
+}
+
+function renderBasket(){
+  const b=loadBasket();
+  const keys=Object.keys(b).filter(k=>b[k]>0);
+  const basket=document.getElementById('basket');
+  const items =document.getElementById('basketItems');
+  if(keys.length===0){
+    basket.classList.add('empty');
+    items.innerHTML='';
+    return;
+  }
+  basket.classList.remove('empty');
+  items.innerHTML = keys.map(k=>{
+    const c=CROPS.find(x=>x.id===k);
+    return `<div>${c?c.emoji:'?'} ${c?c.name:k} ×${b[k]}</div>`;
+  }).join('')+'<div class="basket-clear" id="clearBasketBtn">清空篮子</div>';
+  document.getElementById('clearBasketBtn')?.addEventListener('click', e=>{
+    e.stopPropagation();
+    saveBasket({});
+    renderBasket();
+    basket.classList.remove('open');
+  });
+}
+
+document.getElementById('basket').addEventListener('click', ()=>{
+  const b=loadBasket();
+  if(Object.keys(b).filter(k=>b[k]>0).length===0) return;
+  document.getElementById('basket').classList.toggle('open');
+});
 function loadPlots(){
   try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch(e){ return {}; }
 }
@@ -380,6 +447,7 @@ function harvestPlot(plotId){
   }
   delete plots[plotId];
   savePlots(plots);
+  addToBasket(state.crop);
   hideModal();
   renderPlots();
   showXinTip(rnd(HARVEST_TIPS).replace('{name}', crop_def.name));
@@ -541,6 +609,7 @@ window.addEventListener('resize', renderPlots);
 const ENTER_TIPS = [
   '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
 ];
+renderBasket();
 setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 1200);
 </script>
 </body>

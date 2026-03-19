@@ -106,6 +106,20 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 }
 #specialBanner.show{opacity:1;}
 
+/* 出口区域 */
+.exit-zone{
+  position:absolute;z-index:15;cursor:pointer;
+  width:8%;height:10%;bottom:0;
+  /* 调试时可加 background:rgba(255,0,0,.2); */
+}
+.exit-zone::after{
+  content:'🌿';
+  position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+  font-size:18px;opacity:0;transition:opacity .3s;
+  pointer-events:none;
+}
+.exit-zone:hover::after,.exit-zone:active::after{opacity:1;}
+
 /* 天气标签 */
 #weatherLabel{
   position:fixed;top:max(16px,env(safe-area-inset-top,16px));right:16px;z-index:100;
@@ -117,8 +131,6 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 </head>
 <body>
 <button class="back-btn" onclick="history.back()">←</button>
-<button class="back-btn" onclick="location.href='garden.html'"
-  style="left:auto;right:16px;font-size:15px;">🌱</button>
 <div id="specialBanner"></div>
 <div id="weatherLabel"></div>
 <div id="viewport">
@@ -131,6 +143,9 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
     <img id="sleepImg" src="sleep_together_pix.png" alt="一起睡">
     <img id="xinye" class="char" src="xinye_pix.png" alt="炘也">
     <img id="rabbit" class="char" src="tubao_pix.png" alt="兔宝">
+    <!-- 底部出口：左 ~28%x，右 ~61%x，y底部 -->
+    <div id="exitL" class="exit-zone"></div>
+    <div id="exitR" class="exit-zone"></div>
   </div>
 </div>
 <div id="timeLabel"></div>
@@ -658,6 +673,7 @@ function init(){
   scheduleLife();
   scheduleMurmur();
   scheduleRabbitMurmur();
+  placeExits();
 }
 
 // ══════════════════════════════════════════
@@ -842,12 +858,26 @@ function checkSpecialDay(){
 }
 
 // ══════════════════════════════════════════
+// ── 出口定位 ──
+function placeExits(){
+  const sw=sceneW(), sh=sceneH();
+  const eL=document.getElementById('exitL');
+  const eR=document.getElementById('exitR');
+  const w=sw*0.08, h=sh*0.10;
+  // 左出口 ~28% x，右出口 ~61% x
+  eL.style.left=(sw*0.26)+'px'; eL.style.width=w+'px'; eL.style.height=h+'px';
+  eR.style.left=(sw*0.59)+'px'; eR.style.width=w+'px'; eR.style.height=h+'px';
+}
+document.getElementById('exitL').addEventListener('click',()=>location.href='garden.html');
+document.getElementById('exitR').addEventListener('click',()=>location.href='garden.html');
+
 window.addEventListener('resize',()=>{
   placeEl(xinye,X.x,X.y);
   placeEl(rabbit,R.x,R.y);
   if(sleepImg.style.display!=='none') placeSleepImg();
   updateViewport();
   resizeWeatherCanvas();
+  placeExits();
 });
 window.addEventListener('load', ()=>{
   init();
