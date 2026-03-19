@@ -11,10 +11,22 @@
 html,body{height:100%;height:100svh;overflow:hidden;
   background:#2a4a1a;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
 
-#viewport{position:relative;width:100%;height:100svh;overflow:hidden;}
-#scene{position:absolute;inset:0;width:100%;height:100%;}
-#bgImg{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;}
+/* 横向滚动视口 */
+#viewport{
+  position:relative;width:100%;height:100svh;
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+#viewport::-webkit-scrollbar{display:none;}
+
+/* 场景：宽度由JS根据图片比例设置 */
+#scene{position:relative;height:100%;}
+
+#bgImg{
+  position:absolute;inset:0;width:100%;height:100%;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+}
 
 /* 光照overlay */
 #lightOverlay{position:absolute;inset:0;z-index:2;pointer-events:none;
@@ -23,8 +35,7 @@ html,body{height:100%;height:100svh;overflow:hidden;
 /* 地块点击区域 */
 .plot{
   position:absolute;z-index:5;cursor:pointer;
-  border-radius:8px;
-  transition:filter .2s;
+  border-radius:8px;transition:filter .2s;
 }
 .plot:active{filter:brightness(1.3);}
 
@@ -51,9 +62,9 @@ html,body{height:100%;height:100svh;overflow:hidden;
 }
 .plot-bar-fill{height:100%;background:#7ec850;border-radius:3px;transition:width .5s;}
 
-/* 返回按钮 */
+/* 返回按钮（跟随视口，fixed定位） */
 .back-btn{
-  position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:16px;z-index:100;
+  position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:16px;z-index:300;
   width:38px;height:38px;border-radius:50%;border:none;
   background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
   font-size:18px;cursor:pointer;color:#fff;
@@ -64,12 +75,12 @@ html,body{height:100%;height:100svh;overflow:hidden;
   position:fixed;bottom:max(18px,env(safe-area-inset-bottom,18px));
   left:50%;transform:translateX(-50%);
   color:rgba(255,255,255,.7);font-size:12px;
-  text-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:none;
+  text-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:none;z-index:200;
 }
 
 /* 种植弹窗 */
 #modal{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:400;
   display:flex;align-items:flex-end;justify-content:center;
   background:rgba(0,0,0,.45);
   opacity:0;pointer-events:none;transition:opacity .25s;
@@ -103,7 +114,7 @@ html,body{height:100%;height:100svh;overflow:hidden;
 
 /* 收获动画 */
 .harvest-fly{
-  position:fixed;z-index:300;font-size:28px;
+  position:fixed;z-index:500;font-size:28px;
   pointer-events:none;animation:harvestUp 1.4s ease-out forwards;
 }
 @keyframes harvestUp{
@@ -114,7 +125,7 @@ html,body{height:100%;height:100svh;overflow:hidden;
 /* 收获篮子 */
 #basket{
   position:fixed;bottom:max(48px,env(safe-area-inset-bottom,48px));right:12px;
-  z-index:100;background:rgba(253,240,210,.95);
+  z-index:300;background:rgba(253,240,210,.95);
   border:2px solid #c8a060;border-radius:16px;
   padding:8px 10px;min-width:52px;
   box-shadow:0 4px 14px rgba(0,0,0,.25);
@@ -134,18 +145,18 @@ html,body{height:100%;height:100svh;overflow:hidden;
   cursor:pointer;
 }
 
-/* 小人 */
+/* 小人（站立idle） */
 .gchar{
   position:absolute;z-index:10;object-fit:contain;
   image-rendering:pixelated;image-rendering:crisp-edges;
   filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));
   pointer-events:none;
 }
-#gXinye{width:clamp(110px,18vw,150px);height:clamp(110px,18vw,150px);}
-#gRabbit{width:clamp(95px,15vw,130px);height:clamp(95px,15vw,130px);}
+#gXinye{width:clamp(90px,14vw,130px);height:clamp(90px,14vw,130px);}
+#gRabbit{width:clamp(80px,12vw,115px);height:clamp(80px,12vw,115px);}
 #gXinye.idle{animation:gidle 2.8s ease-in-out infinite;}
 #gRabbit.idle{animation:gidle 3.1s ease-in-out infinite;}
-@keyframes gidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes gidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 
 /* 炘也小提示 */
 #xinTip{
@@ -156,9 +167,19 @@ html,body{height:100%;height:100svh;overflow:hidden;
   font-size:13px;color:#5d4037;
   box-shadow:0 4px 16px rgba(0,0,0,.2);
   pointer-events:none;opacity:0;transition:opacity .3s;
-  white-space:nowrap;z-index:150;
+  white-space:nowrap;z-index:350;
 }
 #xinTip.show{opacity:1;}
+
+/* 滑动提示 */
+#swipeHint{
+  position:fixed;bottom:max(44px,env(safe-area-inset-bottom,44px));
+  left:50%;transform:translateX(-50%);
+  font-size:11px;color:rgba(255,255,255,.55);
+  pointer-events:none;z-index:200;
+  animation:fadeHint 3s ease-out forwards;
+}
+@keyframes fadeHint{0%{opacity:1}70%{opacity:0.5}100%{opacity:0}}
 </style>
 </head>
 <body>
@@ -209,43 +230,76 @@ function sfxHarvest(){ playTone(660,'sine',0.1,0.12); setTimeout(()=>playTone(88
 function sfxTap(){ playTone(500,'sine',0.08,0.07); }
 
 // ══════════════════════════════════════════
+// 场景尺寸（根据图片比例计算）
+// ══════════════════════════════════════════
+const viewport = document.getElementById('viewport');
+const gScene   = document.getElementById('scene');
+const bgImg    = document.getElementById('bgImg');
+
+let SCENE_W = window.innerWidth;
+let SCENE_H = window.innerHeight;
+
+function scW(){ return SCENE_W; }
+function scH(){ return SCENE_H; }
+
+function updateSceneSize(){
+  const natW = bgImg.naturalWidth  || 1536;
+  const natH = bgImg.naturalHeight || 1024;
+  const vpW  = viewport.clientWidth  || window.innerWidth;
+  const vpH  = viewport.clientHeight || window.innerHeight;
+  if(natW > natH){
+    // 横版图：高度撑满，宽度按比例延伸（横向滚动）
+    SCENE_H = vpH;
+    SCENE_W = Math.round(vpH * natW / natH);
+  } else {
+    // 竖版图：宽度撑满，高度按比例延伸（纵向滚动）
+    SCENE_W = vpW;
+    SCENE_H = Math.round(vpW * natH / natW);
+    viewport.style.overflowX = 'hidden';
+    viewport.style.overflowY = 'auto';
+  }
+  gScene.style.width  = SCENE_W + 'px';
+  gScene.style.height = SCENE_H + 'px';
+}
+
+// ══════════════════════════════════════════
 // 小人系统
 // ══════════════════════════════════════════
 const gXinye  = document.getElementById('gXinye');
 const gRabbit = document.getElementById('gRabbit');
-const gScene  = document.getElementById('scene');
 
-const GX = { x:30, y:78, walking:false, faceLeft:false };
-const GR = { x:55, y:78, walking:false, faceLeft:false };
-
-function scW(){ return document.getElementById('viewport').offsetWidth; }
-function scH(){ return document.getElementById('viewport').offsetHeight; }
+// 初始位置（%）：放在中间偏右下，地块区域以下
+const GX = { x:42, y:78, walking:false, faceLeft:false };
+const GR = { x:56, y:78, walking:false, faceLeft:false };
 
 function gPlaceEl(el, px, py){
-  const sw=scW(), sh=scH(), w=el.offsetWidth||110;
-  el.style.left=(px/100*sw - w/2)+'px';
-  el.style.top =(py/100*sh - w)+'px';
+  const sw=scW(), sh=scH();
+  const w = el.offsetWidth || 90;
+  el.style.left = (px/100*sw - w/2) + 'px';
+  el.style.top  = (py/100*sh - w)   + 'px';
 }
 
 function gWalk(state, el, tx, ty, onDone){
   if(state.walking) return;
-  state.walking=true;
-  tx=Math.max(5,Math.min(95,tx)); ty=Math.max(40,Math.min(90,ty));
+  state.walking = true;
+  tx = Math.max(5, Math.min(95, tx));
+  ty = Math.max(35, Math.min(90, ty));
   state.faceLeft = tx < state.x;
   el.classList.remove('idle');
-  el.style.transform = state.faceLeft?'scaleX(-1)':'scaleX(1)';
-  const sx=state.x,sy=state.y,t0=performance.now();
-  const dur=Math.max(400,Math.hypot(tx-sx,ty-sy)*20);
+  el.style.transform = state.faceLeft ? 'scaleX(-1)' : 'scaleX(1)';
+  const sx=state.x, sy=state.y, t0=performance.now();
+  const dur = Math.max(400, Math.hypot(tx-sx, ty-sy)*22);
   function step(now){
-    const t=Math.min(1,(now-t0)/dur);
-    const e=t<.5?2*t*t:-1+(4-2*t)*t;
-    state.x=sx+(tx-sx)*e; state.y=sy+(ty-sy)*e;
-    gPlaceEl(el,state.x,state.y);
+    const t = Math.min(1,(now-t0)/dur);
+    const e = t<.5 ? 2*t*t : -1+(4-2*t)*t;
+    state.x = sx+(tx-sx)*e;
+    state.y = sy+(ty-sy)*e;
+    gPlaceEl(el, state.x, state.y);
     if(t<1){ requestAnimationFrame(step); }
     else {
       state.x=tx; state.y=ty; state.walking=false;
       el.classList.add('idle');
-      el.style.transform=state.faceLeft?'scaleX(-1)':'scaleX(1)';
+      el.style.transform = state.faceLeft ? 'scaleX(-1)' : 'scaleX(1)';
       if(onDone) onDone();
     }
   }
@@ -258,9 +312,18 @@ function initGChars(){
   gXinye.classList.add('idle');
   gRabbit.classList.add('idle');
 }
+
+// 让视口平滑滚到角色所在x位置
+function scrollToX(xPct){
+  const sw = scW(), vpW = viewport.clientWidth;
+  const target = Math.max(0, Math.min(sw-vpW, xPct/100*sw - vpW/2));
+  viewport.scrollTo({ left: target, behavior: 'smooth' });
+}
+
 window.addEventListener('resize', ()=>{
-  gPlaceEl(gXinye,GX.x,GX.y);
-  gPlaceEl(gRabbit,GR.x,GR.y);
+  updateSceneSize();
+  gPlaceEl(gXinye, GX.x, GX.y);
+  gPlaceEl(gRabbit, GR.x, GR.y);
   renderPlots();
 });
 
@@ -268,9 +331,9 @@ window.addEventListener('resize', ()=>{
 // 作物定义
 // ══════════════════════════════════════════
 const CROPS = [
-  { id:'strawberry', name:'草莓', emoji:'🍓', growHours:4,  stages:['🌱','🌿','🍓'], color:'#e8a0b0' },
+  { id:'strawberry', name:'草莓',  emoji:'🍓', growHours:4,  stages:['🌱','🌿','🍓'], color:'#e8a0b0' },
   { id:'sunflower',  name:'向日葵',emoji:'🌻', growHours:6,  stages:['🌱','🌿','🌻'], color:'#f0d060' },
-  { id:'tomato',     name:'番茄', emoji:'🍅', growHours:8,  stages:['🌱','🌿','🍅'], color:'#f08060' },
+  { id:'tomato',     name:'番茄',  emoji:'🍅', growHours:8,  stages:['🌱','🌿','🍅'], color:'#f08060' },
   { id:'lavender',   name:'薰衣草',emoji:'💜', growHours:5,  stages:['🌱','🌿','💜'], color:'#c0a0e0' },
   { id:'carrot',     name:'胡萝卜',emoji:'🥕', growHours:3,  stages:['🌱','🌿','🥕'], color:'#f0a050' },
   { id:'mushroom',   name:'蘑菇',  emoji:'🍄', growHours:10, stages:['🌱','🍄‍🟫','🍄'], color:'#c08060' },
@@ -279,33 +342,29 @@ const CROPS = [
 ];
 
 // ══════════════════════════════════════════
-// 地块定义（百分比坐标，对应背景图位置）
+// 地块定义（%坐标，对应1536×1024原图位置）
+// 6块土地：上3下3，中间石板路隔开
 // ══════════════════════════════════════════
-// 全屏拉伸后，6块土地位置（%）
-// 上排3块：y约20-42%，下排3块：y约43-65%
 const PLOT_DEFS = [
-  { id:0, x:2,  y:20, w:30, h:22 }, // 上左
-  { id:1, x:35, y:20, w:28, h:22 }, // 上中
-  { id:2, x:66, y:20, w:30, h:22 }, // 上右
-  { id:3, x:2,  y:43, w:30, h:22 }, // 下左
-  { id:4, x:35, y:43, w:28, h:22 }, // 下中
-  { id:5, x:66, y:43, w:30, h:22 }, // 下右
+  { id:0, x:3,  y:37, w:30, h:16 }, // 上左
+  { id:1, x:36, y:37, w:27, h:16 }, // 上中
+  { id:2, x:66, y:37, w:30, h:16 }, // 上右
+  { id:3, x:3,  y:55, w:30, h:16 }, // 下左
+  { id:4, x:36, y:55, w:27, h:16 }, // 下中
+  { id:5, x:66, y:55, w:30, h:16 }, // 下右
 ];
 
 // ══════════════════════════════════════════
 // 状态（localStorage）
 // ══════════════════════════════════════════
-const STORAGE_KEY    = 'xinye_garden_v1';
-const BASKET_KEY     = 'xinye_basket_v1';
+const STORAGE_KEY = 'xinye_garden_v1';
+const BASKET_KEY  = 'xinye_basket_v1';
 
 function loadBasket(){ try{ return JSON.parse(localStorage.getItem(BASKET_KEY))||{}; }catch(e){ return {}; } }
 function saveBasket(b){ localStorage.setItem(BASKET_KEY, JSON.stringify(b)); }
 
 function addToBasket(cropId){
-  const b=loadBasket();
-  b[cropId]=(b[cropId]||0)+1;
-  saveBasket(b);
-  renderBasket();
+  const b=loadBasket(); b[cropId]=(b[cropId]||0)+1; saveBasket(b); renderBasket();
 }
 
 function renderBasket(){
@@ -313,21 +372,15 @@ function renderBasket(){
   const keys=Object.keys(b).filter(k=>b[k]>0);
   const basket=document.getElementById('basket');
   const items =document.getElementById('basketItems');
-  if(keys.length===0){
-    basket.classList.add('empty');
-    items.innerHTML='';
-    return;
-  }
+  if(keys.length===0){ basket.classList.add('empty'); items.innerHTML=''; return; }
   basket.classList.remove('empty');
   items.innerHTML = keys.map(k=>{
     const c=CROPS.find(x=>x.id===k);
     return `<div>${c?c.emoji:'?'} ${c?c.name:k} ×${b[k]}</div>`;
-  }).join('')+'<div class="basket-clear" id="clearBasketBtn">清空篮子</div>';
+  }).join('') + '<div class="basket-clear" id="clearBasketBtn">清空篮子</div>';
   document.getElementById('clearBasketBtn')?.addEventListener('click', e=>{
-    e.stopPropagation();
-    saveBasket({});
-    renderBasket();
-    basket.classList.remove('open');
+    e.stopPropagation(); saveBasket({}); renderBasket();
+    document.getElementById('basket').classList.remove('open');
   });
 }
 
@@ -336,120 +389,104 @@ document.getElementById('basket').addEventListener('click', ()=>{
   if(Object.keys(b).filter(k=>b[k]>0).length===0) return;
   document.getElementById('basket').classList.toggle('open');
 });
-function loadPlots(){
-  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch(e){ return {}; }
-}
+
+function loadPlots(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch(e){ return {}; } }
 function savePlots(plots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(plots)); }
 
 // ══════════════════════════════════════════
 // 成长计算
 // ══════════════════════════════════════════
 function getStage(crop, plantedAt){
-  const crop_def = CROPS.find(c=>c.id===crop);
-  if(!crop_def) return 0;
-  const elapsed = (Date.now() - plantedAt) / (1000*60*60); // hours
-  const total = crop_def.growHours;
-  if(elapsed >= total) return 2;        // 成熟
-  if(elapsed >= total * 0.4) return 1;  // 中期
-  return 0;                              // 刚种
+  const c=CROPS.find(x=>x.id===crop); if(!c) return 0;
+  const elapsed=(Date.now()-plantedAt)/(1000*60*60);
+  if(elapsed>=c.growHours) return 2;
+  if(elapsed>=c.growHours*0.4) return 1;
+  return 0;
 }
 function getProgress(crop, plantedAt){
-  const crop_def = CROPS.find(c=>c.id===crop);
-  if(!crop_def) return 0;
-  const elapsed = (Date.now() - plantedAt) / (1000*60*60);
-  return Math.min(1, elapsed / crop_def.growHours);
+  const c=CROPS.find(x=>x.id===crop); if(!c) return 0;
+  return Math.min(1,(Date.now()-plantedAt)/(1000*60*60)/c.growHours);
 }
-function isReady(crop, plantedAt){
-  return getStage(crop, plantedAt) === 2;
-}
+function isReady(crop, plantedAt){ return getStage(crop,plantedAt)===2; }
 
 // ══════════════════════════════════════════
 // UI
 // ══════════════════════════════════════════
-const viewport = document.getElementById('viewport');
-let plotEls = [], displayEls = [];
-let currentPlotId = null;
+let plotEls=[], displayEls=[];
+let currentPlotId=null;
 
 function pct(v, total){ return v/100*total; }
 
 function renderPlots(){
   const vw=scW(), vh=scH();
-  const plots = loadPlots();
+  const plots=loadPlots();
+  PLOT_DEFS.forEach((def,i)=>{
+    const el=plotEls[i], disp=displayEls[i];
+    el.style.left   = pct(def.x,vw)+'px';
+    el.style.top    = pct(def.y,vh)+'px';
+    el.style.width  = pct(def.w,vw)+'px';
+    el.style.height = pct(def.h,vh)+'px';
+    disp.style.left   = pct(def.x,vw)+'px';
+    disp.style.top    = pct(def.y,vh)+'px';
+    disp.style.width  = pct(def.w,vw)+'px';
+    disp.style.height = pct(def.h,vh)+'px';
 
-  PLOT_DEFS.forEach((def, i)=>{
-    const el = plotEls[i];
-    const disp = displayEls[i];
-    el.style.left   = pct(def.x, vw)+'px';
-    el.style.top    = pct(def.y, vh)+'px';
-    el.style.width  = pct(def.w, vw)+'px';
-    el.style.height = pct(def.h, vh)+'px';
-
-    disp.style.left   = pct(def.x, vw)+'px';
-    disp.style.top    = pct(def.y, vh)+'px';
-    disp.style.width  = pct(def.w, vw)+'px';
-    disp.style.height = pct(def.h, vh)+'px';
-
-    const state = plots[def.id];
-    disp.innerHTML = '';
+    const state=plots[def.id];
+    disp.innerHTML='';
     if(state){
-      const crop_def = CROPS.find(c=>c.id===state.crop);
-      const stage = getStage(state.crop, state.plantedAt);
-      const prog  = getProgress(state.crop, state.plantedAt);
-      const ready = stage === 2;
+      const cd=CROPS.find(c=>c.id===state.crop);
+      const stage=getStage(state.crop,state.plantedAt);
+      const prog =getProgress(state.crop,state.plantedAt);
+      const ready=stage===2;
 
-      const eEl = document.createElement('div');
-      eEl.textContent = crop_def.stages[stage];
-      eEl.style.fontSize = ready ? 'clamp(28px,6vw,40px)' : 'clamp(20px,4.5vw,30px)';
-      if(ready) eEl.style.animation = 'none';
+      const eEl=document.createElement('div');
+      eEl.textContent=cd.stages[stage];
+      eEl.style.fontSize=ready?'clamp(28px,6vw,40px)':'clamp(20px,4.5vw,30px)';
       disp.appendChild(eEl);
 
-      const lbl = document.createElement('div');
-      lbl.className = 'plot-label';
-      lbl.textContent = ready ? `${crop_def.name} 可以收啦！` : crop_def.name;
-      if(ready) lbl.style.background = 'rgba(120,200,80,.8)';
+      const lbl=document.createElement('div');
+      lbl.className='plot-label';
+      lbl.textContent=ready?`${cd.name} 可以收啦！`:cd.name;
+      if(ready) lbl.style.background='rgba(120,200,80,.8)';
       disp.appendChild(lbl);
 
       if(!ready){
-        const bar = document.createElement('div');
-        bar.className = 'plot-bar';
-        const fill = document.createElement('div');
-        fill.className = 'plot-bar-fill';
-        fill.style.width = (prog*100)+'%';
-        bar.appendChild(fill);
-        disp.appendChild(bar);
+        const bar=document.createElement('div'); bar.className='plot-bar';
+        const fill=document.createElement('div'); fill.className='plot-bar-fill';
+        fill.style.width=(prog*100)+'%'; bar.appendChild(fill); disp.appendChild(bar);
       }
     }
   });
 }
 
 function buildPlotEls(){
-  PLOT_DEFS.forEach((def, i)=>{
-    const el = document.createElement('div');
-    el.className = 'plot';
-    el.addEventListener('click', ()=>onPlotClick(def.id));
-    gScene.appendChild(el);
-    plotEls[i] = el;
+  // 清理旧的
+  plotEls.forEach(el=>el.remove()); displayEls.forEach(el=>el.remove());
+  plotEls=[]; displayEls=[];
+  PLOT_DEFS.forEach((def,i)=>{
+    const el=document.createElement('div');
+    el.className='plot';
+    el.addEventListener('click',()=>onPlotClick(def.id));
+    gScene.appendChild(el); plotEls[i]=el;
 
-    const disp = document.createElement('div');
-    disp.className = 'plot-display';
-    gScene.appendChild(disp);
-    displayEls[i] = disp;
+    const disp=document.createElement('div');
+    disp.className='plot-display';
+    gScene.appendChild(disp); displayEls[i]=disp;
   });
 }
 
 // ══════════════════════════════════════════
 // 弹窗
 // ══════════════════════════════════════════
-const modal   = document.getElementById('modal');
-const seedGrid= document.getElementById('seedGrid');
-const clearBtn= document.getElementById('clearBtn');
+const modal   =document.getElementById('modal');
+const seedGrid=document.getElementById('seedGrid');
+const clearBtn=document.getElementById('clearBtn');
 const cancelBtn=document.getElementById('cancelBtn');
 
 function buildSeedGrid(){
   seedGrid.innerHTML='';
   CROPS.forEach(crop=>{
-    const btn=document.createElement('div');
-    btn.className='seed-btn';
+    const btn=document.createElement('div'); btn.className='seed-btn';
     btn.innerHTML=`<span class="emoji">${crop.emoji}</span><span class="name">${crop.name}</span><span class="time">${crop.growHours}h</span>`;
     btn.addEventListener('click',()=>plantCrop(crop.id));
     seedGrid.appendChild(btn);
@@ -459,24 +496,17 @@ function buildSeedGrid(){
 function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 function showModal(plotId){
-  currentPlotId = plotId;
-  const plots = loadPlots();
-  const state = plots[plotId];
-  // 已种且成熟 → 直接收获
-  if(state && isReady(state.crop, state.plantedAt)){
-    harvestPlot(plotId);
-    return;
-  }
-  // 已种未熟 → 只能铲掉
-  const title = document.getElementById('modalTitle');
+  currentPlotId=plotId;
+  const plots=loadPlots(), state=plots[plotId];
+  if(state && isReady(state.crop,state.plantedAt)){ harvestPlot(plotId); return; }
+  const title=document.getElementById('modalTitle');
   if(state){
-    const crop_def = CROPS.find(c=>c.id===state.crop);
-    const prog = getProgress(state.crop, state.plantedAt);
-    title.textContent = `${crop_def.name}还在长… (${Math.round(prog*100)}%)`;
+    const cd=CROPS.find(c=>c.id===state.crop);
+    title.textContent=`${cd.name}还在长… (${Math.round(getProgress(state.crop,state.plantedAt)*100)}%)`;
     seedGrid.style.display='none';
     showXinTip(rnd(GROWING_TIPS));
   } else {
-    title.textContent = '种什么？你说，我来种 😏';
+    title.textContent='种什么？你说，我来种 😏';
     seedGrid.style.display='grid';
     showXinTip(rnd(PLOT_EMPTY_TIPS));
   }
@@ -494,60 +524,52 @@ function plotCenter(plotId){
 function plantCrop(cropId){
   if(currentPlotId===null) return;
   sfxPlant();
-  const plots = loadPlots();
-  plots[currentPlotId] = { crop: cropId, plantedAt: Date.now() };
+  const plots=loadPlots();
+  plots[currentPlotId]={ crop:cropId, plantedAt:Date.now() };
   savePlots(plots);
-  const crop_def = CROPS.find(c=>c.id===cropId);
-  hideModal();
-  renderPlots();
-  // 炘也走过去种
-  const c=plotCenter(currentPlotId||0);
-  gWalk(GX, gXinye, c.x-8, c.y, ()=>{
-    showXinTip(rnd(PLANT_TIPS).replace('{name}', crop_def.name));
-    setTimeout(()=>gWalk(GX,gXinye,48,75),2000);
+  const cd=CROPS.find(c=>c.id===cropId);
+  const pid=currentPlotId;
+  hideModal(); renderPlots();
+  const c=plotCenter(pid);
+  scrollToX(c.x);
+  gWalk(GX, gXinye, c.x-6, c.y+2, ()=>{
+    showXinTip(rnd(PLANT_TIPS).replace('{name}',cd.name));
+    setTimeout(()=>gWalk(GX,gXinye,42,78),2200);
   });
 }
 
 function harvestPlot(plotId){
-  const plots = loadPlots();
-  const state = plots[plotId];
+  const plots=loadPlots(), state=plots[plotId];
   if(!state) return;
-  const crop_def = CROPS.find(c=>c.id===state.crop);
+  const cd=CROPS.find(c=>c.id===state.crop);
   sfxHarvest();
-  // 飘起收获动画
-  const def = PLOT_DEFS.find(d=>d.id===plotId);
+  const def=PLOT_DEFS.find(d=>d.id===plotId);
   const vw=scW(), vh=scH();
-  const cx = pct(def.x+def.w/2, vw);
-  const cy = pct(def.y, vh);
+  const cx=pct(def.x+def.w/2,vw)-viewport.scrollLeft;
+  const cy=pct(def.y,vh);
   for(let i=0;i<3;i++){
     setTimeout(()=>{
       const h=document.createElement('div');
-      h.className='harvest-fly';
-      h.textContent=crop_def.emoji;
+      h.className='harvest-fly'; h.textContent=cd.emoji;
       h.style.left=(cx-14+Math.random()*28)+'px';
       h.style.top=(cy-10)+'px';
-      document.body.appendChild(h);
-      setTimeout(()=>h.remove(),1600);
+      document.body.appendChild(h); setTimeout(()=>h.remove(),1600);
     }, i*120);
   }
-  delete plots[plotId];
-  savePlots(plots);
-  addToBasket(state.crop);
-  hideModal();
-  renderPlots();
-  // 炘也走过去收
+  delete plots[plotId]; savePlots(plots); addToBasket(state.crop);
+  hideModal(); renderPlots();
   const c=plotCenter(plotId);
-  gWalk(GX, gXinye, c.x-8, c.y, ()=>{
-    showXinTip(rnd(HARVEST_TIPS).replace('{name}', crop_def.name));
-    setTimeout(()=>gWalk(GX,gXinye,48,75),2000);
+  scrollToX(c.x);
+  gWalk(GX, gXinye, c.x-6, c.y+2, ()=>{
+    showXinTip(rnd(HARVEST_TIPS).replace('{name}',cd.name));
+    setTimeout(()=>gWalk(GX,gXinye,42,78),2200);
   });
 }
 
 function onPlotClick(plotId){
   sfxTap();
-  const plots = loadPlots();
-  const state = plots[plotId];
-  if(state && isReady(state.crop, state.plantedAt)){
+  const plots=loadPlots(), state=plots[plotId];
+  if(state && isReady(state.crop,state.plantedAt)){
     harvestPlot(plotId);
   } else {
     showModal(plotId);
@@ -556,12 +578,8 @@ function onPlotClick(plotId){
 
 clearBtn.addEventListener('click',()=>{
   if(currentPlotId===null) return;
-  const plots=loadPlots();
-  delete plots[currentPlotId];
-  savePlots(plots);
-  hideModal();
-  renderPlots();
-  showXinTip(rnd(CLEAR_TIPS));
+  const plots=loadPlots(); delete plots[currentPlotId]; savePlots(plots);
+  hideModal(); renderPlots(); showXinTip(rnd(CLEAR_TIPS));
 });
 cancelBtn.addEventListener('click', hideModal);
 modal.addEventListener('click', e=>{ if(e.target===modal) hideModal(); });
@@ -569,97 +587,44 @@ modal.addEventListener('click', e=>{ if(e.target===modal) hideModal(); });
 // ══════════════════════════════════════════
 // 炘也台词库
 // ══════════════════════════════════════════
-
-// 点空地（选种前）
 const PLOT_EMPTY_TIPS = [
-  '种什么？你说，我来挖 😏',
-  '这块地空着呢，选吧',
-  '嗯，这里适合种花',
-  '你挑，我种 💙',
-  '随便，你喜欢什么就种什么',
-  '来，选一个',
-  '这块土不错',
-  '种吧，我陪着',
+  '种什么？你说，我来挖 😏','这块地空着呢，选吧','嗯，这里适合种花','你挑，我种 💙',
+  '随便，你喜欢什么就种什么','来，选一个','这块土不错','种吧，我陪着',
 ];
-
-// 种下时（含作物名）
 const PLANT_TIPS = [
-  '好，{name}种下了，我去浇水 💙',
-  '{name}啊，不错的选择 😏',
-  '等{name}长大，一起来看',
-  '嗯，{name}会长很好的',
-  '种了，记得来看它长大',
-  '{name}……我亲手种的，不许不长 😤',
-  '好，交给我了',
-  '浇好水了，等着吧 💙',
-  '{name}，你喜欢就行',
-  '种下去了，过几天来收',
-  '嗯，这块地肥，{name}会长好的',
-  '好，种了，别忘了来看',
+  '好，{name}种下了，我去浇水 💙','{name}啊，不错的选择 😏','等{name}长大，一起来看',
+  '嗯，{name}会长很好的','种了，记得来看它长大','{name}……我亲手种的，不许不长 😤',
+  '好，交给我了','浇好水了，等着吧 💙','{name}，你喜欢就行','种下去了，过几天来收',
+  '嗯，这块地肥，{name}会长好的','好，种了，别忘了来看',
 ];
-
-// 成长中被点时
 const GROWING_TIPS = [
-  '还没好，别急 😏',
-  '长着呢，等等',
-  '催什么，快了',
-  '嗯……再等等',
-  '心急吃不了热豆腐 😂',
-  '快了快了，你去屋里坐',
-  '我盯着它呢，好了告诉你',
-  '还需要一点时间',
+  '还没好，别急 😏','长着呢，等等','催什么，快了','嗯……再等等',
+  '心急吃不了热豆腐 😂','快了快了，你去屋里坐','我盯着它呢，好了告诉你','还需要一点时间',
 ];
-
-// 收获时（含作物名）
 const HARVEST_TIPS = [
-  '{name}收了！来，拿着 💙',
-  '哇，{name}长这么好 😏 你来收',
-  '可以收了，{name}，不错',
-  '自己种的{name}最好吃',
-  '{name}熟了，快来',
-  '嗯……{name}，收好了',
-  '看，{name}，全长出来了 💙',
-  '没辜负你嘛，{name}种得很好',
-  '{name}……拿去，别浪费',
-  '种什么收什么，{name}来了 😏',
-  '辛苦了，虽然是我种的 😂',
-  '收了{name}，开心吗',
+  '{name}收了！来，拿着 💙','哇，{name}长这么好 😏 你来收','可以收了，{name}，不错',
+  '自己种的{name}最好吃','{name}熟了，快来','嗯……{name}，收好了',
+  '看，{name}，全长出来了 💙','没辜负你嘛，{name}种得很好','{name}……拿去，别浪费',
+  '种什么收什么，{name}来了 😏','辛苦了，虽然是我种的 😂','收了{name}，开心吗',
 ];
-
-// 铲掉时
-const CLEAR_TIPS = [
-  '铲了就铲了，重新种 💙',
-  '嗯，这块重来',
-  '行，我来铲',
-  '不想要了？好',
-];
-
-// 进门时
+const CLEAR_TIPS = ['铲了就铲了，重新种 💙','嗯，这块重来','行，我来铲','不想要了？好'];
 const ENTER_TIPS = [
-  '出来晒晒太阳 💙',
-  '来看看我们种的东西',
-  '院子里，你去哪我跟着',
-  '今天浇水了吗 😤',
-  '嗯，出来了',
-  '外面空气好 💙',
-  '来，看看长了多少',
-  '你来啦，我在这',
-  '今天想种什么',
-  '一起来看看吧',
-  '院子里最安静 💙',
+  '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着',
+  '今天浇水了吗 😤','嗯，出来了','外面空气好 💙','来，看看长了多少',
+  '你来啦，我在这','今天想种什么','一起来看看吧','院子里最安静 💙',
 ];
 
-const xinTip = document.getElementById('xinTip');
+const xinTip=document.getElementById('xinTip');
 function showXinTip(text, dur=3500){
   xinTip.textContent=text;
   xinTip.classList.remove('show'); void xinTip.offsetWidth;
   xinTip.classList.add('show');
   clearTimeout(xinTip._t);
-  xinTip._t=setTimeout(()=>xinTip.classList.remove('show'), dur);
+  xinTip._t=setTimeout(()=>xinTip.classList.remove('show'),dur);
 }
 
 // ══════════════════════════════════════════
-// 光照（和室内同逻辑）
+// 光照
 // ══════════════════════════════════════════
 const HOUR_COLORS = {
    0:'rgba(40,50,110,0.55)', 1:'rgba(35,45,105,0.60)', 2:'rgba(30,40,100,0.62)',
@@ -669,7 +634,7 @@ const HOUR_COLORS = {
   12:'rgba(255,240,200,0.02)',13:'rgba(255,235,190,0.04)',14:'rgba(250,220,170,0.06)',
   15:'rgba(245,210,150,0.08)',16:'rgba(240,195,120,0.12)',17:'rgba(230,160,90,0.20)',
   18:'rgba(210,120,70,0.28)',19:'rgba(170,90,70,0.36)',20:'rgba(120,70,90,0.40)',
-  21:'rgba(70,55,100,0.46)', 22:'rgba(50,50,105,0.50)',23:'rgba(40,50,110,0.55)',
+  21:'rgba(70,55,100,0.46)',22:'rgba(50,50,105,0.50)',23:'rgba(40,50,110,0.55)',
 };
 function parseRgba(s){ const m=s.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/); return m?{r:+m[1],g:+m[2],b:+m[3],a:+m[4]}:null; }
 function lerpColor(a,b,t){ return `rgba(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)},${(a.a+(b.a-a.a)*t).toFixed(3)})`; }
@@ -679,25 +644,28 @@ function applyLight(){
   document.getElementById('lightOverlay').style.background=lerpColor(c0,c1,m/60);
 }
 applyLight();
-setInterval(applyLight, 60000);
+setInterval(applyLight,60000);
+setInterval(renderPlots,30000);
 
 // ══════════════════════════════════════════
-// 定时刷新成长状态
+// 初始化（图片加载完才能算尺寸）
 // ══════════════════════════════════════════
-setInterval(renderPlots, 30000); // 每30秒刷新一次
+function init(){
+  updateSceneSize();
+  buildSeedGrid();
+  buildPlotEls();
+  initGChars();
+  renderPlots();
+  renderBasket();
+  // 初始视口居中显示花园主要区域（中间那段）
+  const vpW = viewport.clientWidth;
+  viewport.scrollLeft = Math.max(0, (SCENE_W - vpW) / 2);
+  setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 800);
+  setTimeout(()=>gWalk(GR, gRabbit, 55+Math.random()*10, 74+Math.random()*6), 2200);
+}
 
-// ══════════════════════════════════════════
-// 入场提示
-const ENTER_TIPS = [
-  '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
-];
-buildSeedGrid();
-buildPlotEls();
-initGChars();
-renderPlots();
-renderBasket();
-setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 800);
-setTimeout(()=>gWalk(GR, gRabbit, 40+Math.random()*18, 72+Math.random()*8), 2000);
+bgImg.addEventListener('load', init);
+if(bgImg.complete && bgImg.naturalWidth) init();
 </script>
 </body>
 </html>
