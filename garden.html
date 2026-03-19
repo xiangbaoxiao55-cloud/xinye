@@ -11,17 +11,14 @@
 html,body{height:100%;height:100svh;overflow:hidden;
   background:#2a4a1a;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
 
-/* 外层可上下滚动，内层宽=屏幕宽，高=宽*(图片比例) */
-#viewport{position:relative;width:100%;height:100svh;overflow-y:auto;overflow-x:hidden;}
-#scene{position:relative;width:100%;}
-#bgImg{display:block;width:100%;height:auto;
-  image-rendering:pixelated;image-rendering:crisp-edges;}
+#viewport{position:relative;width:100%;height:100svh;overflow:hidden;}
+#scene{position:absolute;inset:0;width:100%;height:100%;}
+#bgImg{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;}
 
 /* 光照overlay */
 #lightOverlay{position:absolute;inset:0;z-index:2;pointer-events:none;
   mix-blend-mode:multiply;transition:background 60s linear;}
-
-/* 地块/小人/显示层都在scene里，用绝对% */
 
 /* 地块点击区域 */
 .plot{
@@ -218,11 +215,11 @@ const gXinye  = document.getElementById('gXinye');
 const gRabbit = document.getElementById('gRabbit');
 const gScene  = document.getElementById('scene');
 
-const GX = { x:30, y:72, walking:false, faceLeft:false };
-const GR = { x:55, y:72, walking:false, faceLeft:false };
+const GX = { x:30, y:78, walking:false, faceLeft:false };
+const GR = { x:55, y:78, walking:false, faceLeft:false };
 
-function scW(){ return gScene.offsetWidth; }
-function scH(){ return gScene.offsetHeight||gScene.querySelector('img').offsetHeight||600; }
+function scW(){ return document.getElementById('viewport').offsetWidth; }
+function scH(){ return document.getElementById('viewport').offsetHeight; }
 
 function gPlaceEl(el, px, py){
   const sw=scW(), sh=scH(), w=el.offsetWidth||110;
@@ -284,14 +281,15 @@ const CROPS = [
 // ══════════════════════════════════════════
 // 地块定义（百分比坐标，对应背景图位置）
 // ══════════════════════════════════════════
-// 背景图6块土地：上排3块，下排3块
+// 全屏拉伸后，6块土地位置（%）
+// 上排3块：y约20-42%，下排3块：y约43-65%
 const PLOT_DEFS = [
-  { id:0, x:5,  y:28, w:26, h:20 }, // 上左
-  { id:1, x:36, y:28, w:26, h:20 }, // 上中
-  { id:2, x:67, y:28, w:26, h:20 }, // 上右
-  { id:3, x:5,  y:53, w:26, h:20 }, // 下左
-  { id:4, x:36, y:53, w:26, h:20 }, // 下中
-  { id:5, x:67, y:53, w:26, h:20 }, // 下右
+  { id:0, x:2,  y:20, w:30, h:22 }, // 上左
+  { id:1, x:35, y:20, w:28, h:22 }, // 上中
+  { id:2, x:66, y:20, w:30, h:22 }, // 上右
+  { id:3, x:2,  y:43, w:30, h:22 }, // 下左
+  { id:4, x:35, y:43, w:28, h:22 }, // 下中
+  { id:5, x:66, y:43, w:30, h:22 }, // 下右
 ];
 
 // ══════════════════════════════════════════
@@ -375,7 +373,7 @@ let currentPlotId = null;
 function pct(v, total){ return v/100*total; }
 
 function renderPlots(){
-  const vw = scW(), vh = scH();
+  const vw=scW(), vh=scH();
   const plots = loadPlots();
 
   PLOT_DEFS.forEach((def, i)=>{
@@ -519,9 +517,8 @@ function harvestPlot(plotId){
   // 飘起收获动画
   const def = PLOT_DEFS.find(d=>d.id===plotId);
   const vw=scW(), vh=scH();
-  const scrollTop=document.getElementById('viewport').scrollTop;
   const cx = pct(def.x+def.w/2, vw);
-  const cy = pct(def.y, vh) - scrollTop;
+  const cy = pct(def.y, vh);
   for(let i=0;i<3;i++){
     setTimeout(()=>{
       const h=document.createElement('div');
@@ -694,20 +691,13 @@ setInterval(renderPlots, 30000); // 每30秒刷新一次
 const ENTER_TIPS = [
   '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
 ];
-renderBasket();
 buildSeedGrid();
 buildPlotEls();
-
-// 等背景图加载完再定位（确保scH()有值）
-const bgEl = document.getElementById('bgImg');
-function afterBgLoad(){
-  initGChars();
-  renderPlots();
-  setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 800);
-  setTimeout(()=>gWalk(GR, gRabbit, 38+Math.random()*20, 65+Math.random()*12), 2000);
-}
-if(bgEl.complete) afterBgLoad();
-else bgEl.addEventListener('load', afterBgLoad);
+initGChars();
+renderPlots();
+renderBasket();
+setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 800);
+setTimeout(()=>gWalk(GR, gRabbit, 40+Math.random()*18, 72+Math.random()*8), 2000);
 </script>
 </body>
 </html>
