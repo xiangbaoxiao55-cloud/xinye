@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>我们的家</title>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  user-select:none;}
 html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
   font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
 #viewport{position:relative;width:100%;height:100svh;overflow:hidden;}
@@ -131,6 +134,43 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 <div id="timeLabel"></div>
 
 <script>
+// ── 音效 ──
+let audioCtx;
+function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+
+function playTone(freq, type, dur, vol=0.18, fadeStart=0.05){
+  try{
+    const ctx=getAudio();
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type=type; o.frequency.setValueAtTime(freq, ctx.currentTime);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+
+// 点炘也：低沉柔和的双音
+function sfxXinye(){
+  playTone(420,'sine',0.18,0.15);
+  setTimeout(()=>playTone(320,'sine',0.22,0.10),80);
+}
+// 点兔宝：清脆高一点
+function sfxRabbit(){
+  playTone(620,'sine',0.14,0.13);
+  setTimeout(()=>playTone(780,'sine',0.18,0.08),60);
+}
+// 飘心音效：轻柔星星音
+function sfxHeart(){
+  playTone(880,'sine',0.12,0.08);
+  setTimeout(()=>playTone(1100,'sine',0.14,0.05),70);
+}
+// 气泡出现：柔和pop
+function sfxBubble(){
+  playTone(520,'sine',0.10,0.07);
+}
+
 const scene    = document.getElementById('scene');
 const viewport = document.getElementById('viewport');
 const xinye    = document.getElementById('xinye');
@@ -244,6 +284,7 @@ function say(text, dur=3800){
   const sw=sceneW(), sh=sceneH();
   bX.textContent=text;
   bX.classList.remove('show'); void bX.offsetWidth;
+  sfxBubble();
   const cx=X.x/100*sw, cy=X.y/100*sh;
   let bx=cx-30, by=cy-xinye.offsetHeight-bX.offsetHeight-6;
   if(by<8) by=cy+24;
@@ -273,6 +314,7 @@ function rabbitSay(text, dur=3200){
 
 // ── 飘心 ──
 function spawnHeart(screenX, screenY){
+  sfxHeart();
   const h=document.createElement('div');
   h.className='heart-fly';
   const hearts=['💙','❤️','💗','💓','💛'];
@@ -555,14 +597,15 @@ viewport.addEventListener('click', e=>{
 // ── 点炘也 ──
 xinye.addEventListener('click', e=>{
   e.stopPropagation();
+  sfxXinye();
   say(clickSay());
-  // 飘心（小概率）
   if(Math.random()<0.3) spawnHeart(e.clientX, e.clientY);
 });
 
 // ── 点兔宝，炘也走过来 ──
 rabbit.addEventListener('click', e=>{
   e.stopPropagation();
+  sfxRabbit();
   rabbitSay(rabbitReply());
   if(!X.walking){
     walkChar(X, xinye, R.x + (R.x>50 ? -10 : 10), R.y, ()=>{
