@@ -14,10 +14,18 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 #bgImg{position:absolute;inset:0;width:100%;height:100%;
   object-fit:fill;image-rendering:pixelated;image-rendering:crisp-edges;}
 
+/* 光照overlay */
+#lightOverlay{
+  position:absolute;inset:0;z-index:6;
+  pointer-events:none;
+  transition:background 90s linear, opacity 4s ease;
+  mix-blend-mode:multiply;
+}
+
 /* 天气canvas固定在viewport上 */
 #weatherCanvas{
   position:absolute;inset:0;width:100%;height:100%;
-  pointer-events:none;z-index:5;
+  pointer-events:none;z-index:7;
 }
 
 .char{
@@ -109,6 +117,7 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 <div id="specialBanner"></div>
 <div id="weatherLabel"></div>
 <div id="viewport">
+  <div id="lightOverlay"></div>
   <canvas id="weatherCanvas"></canvas>
   <div id="scene">
     <img id="bgImg" src="ourhome_bg.png" alt="">
@@ -488,6 +497,60 @@ function init(){
   scheduleLife();
   scheduleMurmur();
 }
+
+// ══════════════════════════════════════════
+// 光照系统
+// ══════════════════════════════════════════
+const lightOverlay = document.getElementById('lightOverlay');
+
+// 每个小时对应的光照色（rgba）
+// 原理：用 multiply 混合模式，白色=不影响，暖黄=白天，深蓝=夜晚
+const HOUR_COLORS = {
+   0: 'rgba(40,50,110,0.55)',   // 深夜 深蓝
+   1: 'rgba(35,45,105,0.60)',
+   2: 'rgba(30,40,100,0.62)',
+   3: 'rgba(30,40,100,0.62)',
+   4: 'rgba(35,45,105,0.58)',
+   5: 'rgba(60,55,100,0.45)',   // 黎明 偏紫
+   6: 'rgba(200,140,80,0.28)',  // 早上 暖橙
+   7: 'rgba(210,160,90,0.22)',
+   8: 'rgba(220,175,100,0.18)',
+   9: 'rgba(235,200,130,0.12)',
+  10: 'rgba(245,220,160,0.08)',
+  11: 'rgba(255,240,200,0.04)', // 正午 接近白
+  12: 'rgba(255,240,200,0.04)',
+  13: 'rgba(255,235,190,0.06)',
+  14: 'rgba(250,220,170,0.08)',
+  15: 'rgba(245,210,150,0.10)',
+  16: 'rgba(240,195,120,0.14)',
+  17: 'rgba(230,160,90,0.22)',  // 傍晚 橙红
+  18: 'rgba(210,120,70,0.30)',
+  19: 'rgba(170,90,70,0.38)',   // 黄昏 深橙红
+  20: 'rgba(120,70,90,0.42)',   // 入夜 偏紫红
+  21: 'rgba(70,55,100,0.48)',
+  22: 'rgba(50,50,105,0.52)',
+  23: 'rgba(40,50,110,0.55)',
+};
+
+function parseRgba(s){
+  const m=s.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+  return m?{r:+m[1],g:+m[2],b:+m[3],a:+m[4]}:null;
+}
+function lerpColor(a,b,t){
+  return `rgba(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)},${(a.a+(b.a-a.a)*t).toFixed(3)})`;
+}
+
+function applyLighting(){
+  const now=new Date();
+  const h=now.getHours(), m=now.getMinutes();
+  const t=m/60; // 0~1，这个小时走了多少
+  const c0=parseRgba(HOUR_COLORS[h]);
+  const c1=parseRgba(HOUR_COLORS[(h+1)%24]);
+  lightOverlay.style.background=lerpColor(c0,c1,t);
+}
+
+applyLighting();
+setInterval(applyLighting, 60*1000); // 每分钟更新
 
 // ══════════════════════════════════════════
 // 天气系统
