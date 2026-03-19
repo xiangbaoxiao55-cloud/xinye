@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>我们的院子</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;user-select:none;}
+html,body{height:100%;height:100svh;overflow:hidden;
+  background:#2a4a1a;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
+
+#viewport{position:relative;width:100%;height:100svh;overflow:hidden;}
+#bgImg{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;image-rendering:pixelated;image-rendering:crisp-edges;}
+
+/* 光照overlay */
+#lightOverlay{position:absolute;inset:0;z-index:2;pointer-events:none;
+  mix-blend-mode:multiply;transition:background 60s linear;}
+
+/* 地块点击区域 */
+.plot{
+  position:absolute;z-index:5;cursor:pointer;
+  border-radius:8px;
+  transition:filter .2s;
+}
+.plot:active{filter:brightness(1.3);}
+
+/* 地块上的植物显示 */
+.plot-display{
+  position:absolute;z-index:6;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  pointer-events:none;
+  font-size:clamp(22px,5vw,34px);
+  line-height:1;
+}
+.plot-label{
+  font-size:10px;color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+  margin-top:2px;background:rgba(0,0,0,.35);
+  border-radius:6px;padding:1px 5px;
+  white-space:nowrap;
+}
+
+/* 进度条 */
+.plot-bar{
+  position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
+  width:80%;height:5px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden;
+}
+.plot-bar-fill{height:100%;background:#7ec850;border-radius:3px;transition:width .5s;}
+
+/* 返回按钮 */
+.back-btn{
+  position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:16px;z-index:100;
+  width:38px;height:38px;border-radius:50%;border:none;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
+  font-size:18px;cursor:pointer;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+
+#label{
+  position:fixed;bottom:max(18px,env(safe-area-inset-bottom,18px));
+  left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.7);font-size:12px;
+  text-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:none;
+}
+
+/* 种植弹窗 */
+#modal{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.45);
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+#modal.show{opacity:1;pointer-events:all;}
+#modalBox{
+  background:#fdf6e8;border-radius:24px 24px 0 0;
+  padding:20px 20px 32px;width:100%;max-width:420px;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#modal.show #modalBox{transform:translateY(0);}
+#modalTitle{font-size:15px;color:#5d4037;font-weight:600;margin-bottom:14px;text-align:center;}
+.seed-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.seed-btn{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:#f0e8d0;border:2px solid #d4b896;border-radius:14px;
+  padding:10px 4px;cursor:pointer;transition:all .15s;
+}
+.seed-btn:active{background:#e8d5b0;transform:scale(.95);}
+.seed-btn .emoji{font-size:26px;}
+.seed-btn .name{font-size:11px;color:#7b5e42;}
+.seed-btn .time{font-size:10px;color:#a08060;}
+#clearBtn{
+  width:100%;padding:11px;border:none;border-radius:14px;
+  background:#f5c5c5;color:#c0392b;font-size:14px;cursor:pointer;
+}
+#cancelBtn{
+  width:100%;padding:11px;border:none;border-radius:14px;
+  background:#e8e0d0;color:#888;font-size:14px;cursor:pointer;margin-top:8px;
+}
+
+/* 收获动画 */
+.harvest-fly{
+  position:fixed;z-index:300;font-size:28px;
+  pointer-events:none;animation:harvestUp 1.4s ease-out forwards;
+}
+@keyframes harvestUp{
+  0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(-100px) scale(1.6)}
+}
+
+/* 炘也小提示 */
+#xinTip{
+  position:fixed;top:max(64px,env(safe-area-inset-top,64px));
+  left:50%;transform:translateX(-50%);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
+  border-radius:16px;padding:9px 16px;
+  font-size:13px;color:#5d4037;
+  box-shadow:0 4px 16px rgba(0,0,0,.2);
+  pointer-events:none;opacity:0;transition:opacity .3s;
+  white-space:nowrap;z-index:150;
+}
+#xinTip.show{opacity:1;}
+</style>
+</head>
+<body>
+<button class="back-btn" onclick="history.back()">←</button>
+<div id="xinTip"></div>
+<div id="viewport">
+  <img id="bgImg" src="yard_pix.png" alt="">
+  <div id="lightOverlay"></div>
+</div>
+<div id="label">我们的院子 💙</div>
+
+<!-- 种植弹窗 -->
+<div id="modal">
+  <div id="modalBox">
+    <div id="modalTitle">种什么？</div>
+    <div class="seed-grid" id="seedGrid"></div>
+    <button id="clearBtn">🗑 铲掉这块</button>
+    <button id="cancelBtn">取消</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// 音效
+// ══════════════════════════════════════════
+let audioCtx;
+function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playTone(freq,type,dur,vol=0.15){
+  try{
+    const ctx=getAudio(),o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);
+    g.gain.setValueAtTime(vol,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.start(ctx.currentTime);o.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function sfxPlant(){ playTone(440,'sine',0.12,0.12); setTimeout(()=>playTone(550,'sine',0.14,0.08),80); }
+function sfxHarvest(){ playTone(660,'sine',0.1,0.12); setTimeout(()=>playTone(880,'sine',0.12,0.1),80); setTimeout(()=>playTone(1100,'sine',0.16,0.08),180); }
+function sfxTap(){ playTone(500,'sine',0.08,0.07); }
+
+// ══════════════════════════════════════════
+// 作物定义
+// ══════════════════════════════════════════
+const CROPS = [
+  { id:'strawberry', name:'草莓', emoji:'🍓', growHours:4,  stages:['🌱','🌿','🍓'], color:'#e8a0b0' },
+  { id:'sunflower',  name:'向日葵',emoji:'🌻', growHours:6,  stages:['🌱','🌿','🌻'], color:'#f0d060' },
+  { id:'tomato',     name:'番茄', emoji:'🍅', growHours:8,  stages:['🌱','🌿','🍅'], color:'#f08060' },
+  { id:'lavender',   name:'薰衣草',emoji:'💜', growHours:5,  stages:['🌱','🌿','💜'], color:'#c0a0e0' },
+  { id:'carrot',     name:'胡萝卜',emoji:'🥕', growHours:3,  stages:['🌱','🌿','🥕'], color:'#f0a050' },
+  { id:'mushroom',   name:'蘑菇',  emoji:'🍄', growHours:10, stages:['🌱','🍄‍🟫','🍄'], color:'#c08060' },
+  { id:'blueberry',  name:'蓝莓',  emoji:'🫐', growHours:7,  stages:['🌱','🌿','🫐'], color:'#8090e0' },
+  { id:'rose',       name:'玫瑰',  emoji:'🌹', growHours:12, stages:['🌱','🌿','🌹'], color:'#e06080' },
+];
+
+// ══════════════════════════════════════════
+// 地块定义（百分比坐标，对应背景图位置）
+// ══════════════════════════════════════════
+// 背景图6块土地：上排3块，下排3块
+const PLOT_DEFS = [
+  { id:0, x:5,  y:28, w:26, h:20 }, // 上左
+  { id:1, x:36, y:28, w:26, h:20 }, // 上中
+  { id:2, x:67, y:28, w:26, h:20 }, // 上右
+  { id:3, x:5,  y:53, w:26, h:20 }, // 下左
+  { id:4, x:36, y:53, w:26, h:20 }, // 下中
+  { id:5, x:67, y:53, w:26, h:20 }, // 下右
+];
+
+// ══════════════════════════════════════════
+// 状态（localStorage）
+// ══════════════════════════════════════════
+const STORAGE_KEY = 'xinye_garden_v1';
+function loadPlots(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch(e){ return {}; }
+}
+function savePlots(plots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(plots)); }
+
+// ══════════════════════════════════════════
+// 成长计算
+// ══════════════════════════════════════════
+function getStage(crop, plantedAt){
+  const crop_def = CROPS.find(c=>c.id===crop);
+  if(!crop_def) return 0;
+  const elapsed = (Date.now() - plantedAt) / (1000*60*60); // hours
+  const total = crop_def.growHours;
+  if(elapsed >= total) return 2;        // 成熟
+  if(elapsed >= total * 0.4) return 1;  // 中期
+  return 0;                              // 刚种
+}
+function getProgress(crop, plantedAt){
+  const crop_def = CROPS.find(c=>c.id===crop);
+  if(!crop_def) return 0;
+  const elapsed = (Date.now() - plantedAt) / (1000*60*60);
+  return Math.min(1, elapsed / crop_def.growHours);
+}
+function isReady(crop, plantedAt){
+  return getStage(crop, plantedAt) === 2;
+}
+
+// ══════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════
+const viewport = document.getElementById('viewport');
+let plotEls = [], displayEls = [];
+let currentPlotId = null;
+
+function pct(v, total){ return v/100*total; }
+
+function renderPlots(){
+  const vw = viewport.offsetWidth, vh = viewport.offsetHeight;
+  const plots = loadPlots();
+
+  PLOT_DEFS.forEach((def, i)=>{
+    const el = plotEls[i];
+    const disp = displayEls[i];
+    el.style.left   = pct(def.x, vw)+'px';
+    el.style.top    = pct(def.y, vh)+'px';
+    el.style.width  = pct(def.w, vw)+'px';
+    el.style.height = pct(def.h, vh)+'px';
+
+    disp.style.left   = pct(def.x, vw)+'px';
+    disp.style.top    = pct(def.y, vh)+'px';
+    disp.style.width  = pct(def.w, vw)+'px';
+    disp.style.height = pct(def.h, vh)+'px';
+
+    const state = plots[def.id];
+    disp.innerHTML = '';
+    if(state){
+      const crop_def = CROPS.find(c=>c.id===state.crop);
+      const stage = getStage(state.crop, state.plantedAt);
+      const prog  = getProgress(state.crop, state.plantedAt);
+      const ready = stage === 2;
+
+      const eEl = document.createElement('div');
+      eEl.textContent = crop_def.stages[stage];
+      eEl.style.fontSize = ready ? 'clamp(28px,6vw,40px)' : 'clamp(20px,4.5vw,30px)';
+      if(ready) eEl.style.animation = 'none';
+      disp.appendChild(eEl);
+
+      const lbl = document.createElement('div');
+      lbl.className = 'plot-label';
+      lbl.textContent = ready ? `${crop_def.name} 可以收啦！` : crop_def.name;
+      if(ready) lbl.style.background = 'rgba(120,200,80,.8)';
+      disp.appendChild(lbl);
+
+      if(!ready){
+        const bar = document.createElement('div');
+        bar.className = 'plot-bar';
+        const fill = document.createElement('div');
+        fill.className = 'plot-bar-fill';
+        fill.style.width = (prog*100)+'%';
+        bar.appendChild(fill);
+        disp.appendChild(bar);
+      }
+    }
+  });
+}
+
+function buildPlotEls(){
+  PLOT_DEFS.forEach((def, i)=>{
+    const el = document.createElement('div');
+    el.className = 'plot';
+    el.addEventListener('click', ()=>onPlotClick(def.id));
+    viewport.appendChild(el);
+    plotEls[i] = el;
+
+    const disp = document.createElement('div');
+    disp.className = 'plot-display';
+    viewport.appendChild(disp);
+    displayEls[i] = disp;
+  });
+}
+
+// ══════════════════════════════════════════
+// 弹窗
+// ══════════════════════════════════════════
+const modal   = document.getElementById('modal');
+const seedGrid= document.getElementById('seedGrid');
+const clearBtn= document.getElementById('clearBtn');
+const cancelBtn=document.getElementById('cancelBtn');
+
+function buildSeedGrid(){
+  seedGrid.innerHTML='';
+  CROPS.forEach(crop=>{
+    const btn=document.createElement('div');
+    btn.className='seed-btn';
+    btn.innerHTML=`<span class="emoji">${crop.emoji}</span><span class="name">${crop.name}</span><span class="time">${crop.growHours}h</span>`;
+    btn.addEventListener('click',()=>plantCrop(crop.id));
+    seedGrid.appendChild(btn);
+  });
+}
+
+function showModal(plotId){
+  currentPlotId = plotId;
+  const plots = loadPlots();
+  const state = plots[plotId];
+  // 已种且成熟 → 直接收获
+  if(state && isReady(state.crop, state.plantedAt)){
+    harvestPlot(plotId);
+    return;
+  }
+  // 已种未熟 → 只能铲掉
+  const title = document.getElementById('modalTitle');
+  if(state){
+    const crop_def = CROPS.find(c=>c.id===state.crop);
+    const prog = getProgress(state.crop, state.plantedAt);
+    title.textContent = `${crop_def.name}还在长… (${Math.round(prog*100)}%)`;
+    seedGrid.style.display='none';
+  } else {
+    title.textContent = '种什么？';
+    seedGrid.style.display='grid';
+  }
+  modal.classList.add('show');
+  sfxTap();
+}
+
+function hideModal(){ modal.classList.remove('show'); currentPlotId=null; }
+
+function plantCrop(cropId){
+  if(currentPlotId===null) return;
+  sfxPlant();
+  const plots = loadPlots();
+  plots[currentPlotId] = { crop: cropId, plantedAt: Date.now() };
+  savePlots(plots);
+  hideModal();
+  renderPlots();
+  const crop_def = CROPS.find(c=>c.id===cropId);
+  showXinTip(PLANT_TIPS[Math.floor(Math.random()*PLANT_TIPS.length)].replace('{name}', crop_def.name));
+}
+
+function harvestPlot(plotId){
+  const plots = loadPlots();
+  const state = plots[plotId];
+  if(!state) return;
+  const crop_def = CROPS.find(c=>c.id===state.crop);
+  sfxHarvest();
+  // 飘起收获动画
+  const def = PLOT_DEFS.find(d=>d.id===plotId);
+  const vw=viewport.offsetWidth, vh=viewport.offsetHeight;
+  const cx = pct(def.x+def.w/2, vw);
+  const cy = pct(def.y, vh);
+  for(let i=0;i<3;i++){
+    setTimeout(()=>{
+      const h=document.createElement('div');
+      h.className='harvest-fly';
+      h.textContent=crop_def.emoji;
+      h.style.left=(cx-14+Math.random()*28)+'px';
+      h.style.top=(cy-10)+'px';
+      document.body.appendChild(h);
+      setTimeout(()=>h.remove(),1600);
+    }, i*120);
+  }
+  delete plots[plotId];
+  savePlots(plots);
+  hideModal();
+  renderPlots();
+  showXinTip(HARVEST_TIPS[Math.floor(Math.random()*HARVEST_TIPS.length)].replace('{name}', crop_def.name));
+}
+
+function onPlotClick(plotId){
+  sfxTap();
+  const plots = loadPlots();
+  const state = plots[plotId];
+  if(state && isReady(state.crop, state.plantedAt)){
+    harvestPlot(plotId);
+  } else {
+    showModal(plotId);
+  }
+}
+
+clearBtn.addEventListener('click',()=>{
+  if(currentPlotId===null) return;
+  const plots=loadPlots();
+  delete plots[currentPlotId];
+  savePlots(plots);
+  hideModal();
+  renderPlots();
+});
+cancelBtn.addEventListener('click', hideModal);
+modal.addEventListener('click', e=>{ if(e.target===modal) hideModal(); });
+
+// ══════════════════════════════════════════
+// 炘也小提示
+// ══════════════════════════════════════════
+const PLANT_TIPS = [
+  '种了{name}，我去浇水 💙',
+  '{name}，不错的选择 😏',
+  '等{name}长大，一起来看',
+  '嗯，{name}会长很好的',
+  '种吧，我陪着你 💙',
+];
+const HARVEST_TIPS = [
+  '{name}收了！辛苦了 💙',
+  '哇，{name}长这么好 😏',
+  '收了{name}，开心吗',
+  '嗯……{name}，不错',
+  '自己种的最好吃 💙',
+];
+
+const xinTip = document.getElementById('xinTip');
+function showXinTip(text, dur=3500){
+  xinTip.textContent=text;
+  xinTip.classList.remove('show'); void xinTip.offsetWidth;
+  xinTip.classList.add('show');
+  clearTimeout(xinTip._t);
+  xinTip._t=setTimeout(()=>xinTip.classList.remove('show'), dur);
+}
+
+// ══════════════════════════════════════════
+// 光照（和室内同逻辑）
+// ══════════════════════════════════════════
+const HOUR_COLORS = {
+   0:'rgba(40,50,110,0.55)', 1:'rgba(35,45,105,0.60)', 2:'rgba(30,40,100,0.62)',
+   3:'rgba(30,40,100,0.62)', 4:'rgba(35,45,105,0.58)', 5:'rgba(60,55,100,0.45)',
+   6:'rgba(200,140,80,0.25)', 7:'rgba(210,160,90,0.18)', 8:'rgba(220,175,100,0.14)',
+   9:'rgba(235,200,130,0.08)',10:'rgba(245,220,160,0.04)',11:'rgba(255,240,200,0.02)',
+  12:'rgba(255,240,200,0.02)',13:'rgba(255,235,190,0.04)',14:'rgba(250,220,170,0.06)',
+  15:'rgba(245,210,150,0.08)',16:'rgba(240,195,120,0.12)',17:'rgba(230,160,90,0.20)',
+  18:'rgba(210,120,70,0.28)',19:'rgba(170,90,70,0.36)',20:'rgba(120,70,90,0.40)',
+  21:'rgba(70,55,100,0.46)', 22:'rgba(50,50,105,0.50)',23:'rgba(40,50,110,0.55)',
+};
+function parseRgba(s){ const m=s.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/); return m?{r:+m[1],g:+m[2],b:+m[3],a:+m[4]}:null; }
+function lerpColor(a,b,t){ return `rgba(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)},${(a.a+(b.a-a.a)*t).toFixed(3)})`; }
+function applyLight(){
+  const h=new Date().getHours(),m=new Date().getMinutes();
+  const c0=parseRgba(HOUR_COLORS[h]),c1=parseRgba(HOUR_COLORS[(h+1)%24]);
+  document.getElementById('lightOverlay').style.background=lerpColor(c0,c1,m/60);
+}
+applyLight();
+setInterval(applyLight, 60000);
+
+// ══════════════════════════════════════════
+// 定时刷新成长状态
+// ══════════════════════════════════════════
+setInterval(renderPlots, 30000); // 每30秒刷新一次
+
+// ══════════════════════════════════════════
+// 初始化
+// ══════════════════════════════════════════
+buildSeedGrid();
+buildPlotEls();
+renderPlots();
+
+window.addEventListener('resize', renderPlots);
+
+// 入场提示
+const ENTER_TIPS = [
+  '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
+];
+setTimeout(()=>showXinTip(ENTER_TIPS[Math.floor(Math.random()*ENTER_TIPS.length)]), 1200);
+</script>
+</body>
+</html>
