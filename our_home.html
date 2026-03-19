@@ -277,29 +277,47 @@ function setViewOffset(tx){
 
 // ── 手势滑动 ──
 let touchStartX=0, touchStartOffset=0, isSwiping=false;
+let _touchVel=0, _lastTX=0, _lastTT=0, _momentumRAF=null;
 viewport.addEventListener('touchstart', e=>{
   if(e.touches.length!==1) return;
   touchStartX = e.touches[0].clientX;
   touchStartOffset = manualOffset;
-  isSwiping = false;
+  _lastTX = touchStartX; _lastTT = performance.now();
+  _touchVel = 0; isSwiping = false;
+  if(_momentumRAF){ cancelAnimationFrame(_momentumRAF); _momentumRAF=null; }
 }, {passive:true});
 viewport.addEventListener('touchmove', e=>{
   if(e.touches.length!==1) return;
-  const dx = e.touches[0].clientX - touchStartX;
-  if(Math.abs(dx)>8){
-    isSwiping = true;
-    manualOverride = true;
-    setViewOffset(touchStartOffset + dx);
+  const now=performance.now(), cx=e.touches[0].clientX;
+  const dt=now-_lastTT;
+  if(dt>0) _touchVel=(cx-_lastTX)/dt;
+  _lastTX=cx; _lastTT=now;
+  const dx=cx-touchStartX;
+  if(Math.abs(dx)>6){
+    isSwiping=true; manualOverride=true;
+    setViewOffset(touchStartOffset+dx);
   }
 }, {passive:true});
 viewport.addEventListener('touchend', ()=>{
   if(manualOverride){
-    // 3秒后恢复跟随炘也
-    clearTimeout(viewport._followTimer);
-    viewport._followTimer = setTimeout(()=>{
-      manualOverride = false;
-      updateViewport(true);
-    }, 4000);
+    // 惯性滑动
+    let vel=_touchVel*16;
+    function doMomentum(){
+      vel*=0.90;
+      if(Math.abs(vel)>0.4){
+        setViewOffset(manualOffset+vel);
+        _momentumRAF=requestAnimationFrame(doMomentum);
+      } else {
+        _momentumRAF=null;
+        clearTimeout(viewport._followTimer);
+        viewport._followTimer=setTimeout(()=>{ manualOverride=false; updateViewport(true); },3500);
+      }
+    }
+    if(Math.abs(vel)>0.8) _momentumRAF=requestAnimationFrame(doMomentum);
+    else {
+      clearTimeout(viewport._followTimer);
+      viewport._followTimer=setTimeout(()=>{ manualOverride=false; updateViewport(true); },3500);
+    }
   }
 });
 

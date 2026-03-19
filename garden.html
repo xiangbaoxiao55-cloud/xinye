@@ -152,8 +152,8 @@ html,body{height:100%;height:100svh;overflow:hidden;
   filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));
   pointer-events:none;
 }
-#gXinye{width:clamp(90px,14vw,130px);height:clamp(90px,14vw,130px);}
-#gRabbit{width:clamp(80px,12vw,115px);height:clamp(80px,12vw,115px);}
+#gXinye{width:clamp(120px,18vh,155px);height:clamp(120px,18vh,155px);}
+#gRabbit{width:clamp(105px,15vh,135px);height:clamp(105px,15vh,135px);}
 #gXinye.idle{animation:gidle 2.8s ease-in-out infinite;}
 #gRabbit.idle{animation:gidle 3.1s ease-in-out infinite;}
 @keyframes gidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
@@ -268,9 +268,9 @@ function updateSceneSize(){
 const gXinye  = document.getElementById('gXinye');
 const gRabbit = document.getElementById('gRabbit');
 
-// 初始位置（%）：放在中间偏右下，地块区域以下
-const GX = { x:42, y:78, walking:false, faceLeft:false };
-const GR = { x:56, y:78, walking:false, faceLeft:false };
+// 初始位置（%）：石板路中间区域（两列地块之间）
+const GX = { x:38, y:64, walking:false, faceLeft:false };
+const GR = { x:57, y:60, walking:false, faceLeft:false };
 
 function gPlaceEl(el, px, py){
   const sw=scW(), sh=scH();
@@ -343,15 +343,13 @@ const CROPS = [
 
 // ══════════════════════════════════════════
 // 地块定义（%坐标，对应1536×1024原图位置）
-// 6块土地：上3下3，中间石板路隔开
+// 4块土地：左列2块 + 右列2块，中间是石板路
 // ══════════════════════════════════════════
 const PLOT_DEFS = [
-  { id:0, x:3,  y:37, w:30, h:16 }, // 上左
-  { id:1, x:36, y:37, w:27, h:16 }, // 上中
-  { id:2, x:66, y:37, w:30, h:16 }, // 上右
-  { id:3, x:3,  y:55, w:30, h:16 }, // 下左
-  { id:4, x:36, y:55, w:27, h:16 }, // 下中
-  { id:5, x:66, y:55, w:30, h:16 }, // 下右
+  { id:0, x:2,  y:12, w:30, h:33 }, // 左上
+  { id:3, x:2,  y:52, w:30, h:33 }, // 左下
+  { id:2, x:68, y:12, w:30, h:33 }, // 右上
+  { id:5, x:68, y:52, w:30, h:33 }, // 右下
 ];
 
 // ══════════════════════════════════════════
