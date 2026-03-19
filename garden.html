@@ -133,6 +133,19 @@ html,body{height:100%;height:100svh;overflow:hidden;
   cursor:pointer;
 }
 
+/* 小人 */
+.gchar{
+  position:absolute;z-index:10;object-fit:contain;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));
+  pointer-events:none;
+}
+#gXinye{width:clamp(90px,13vw,120px);height:clamp(90px,13vw,120px);}
+#gRabbit{width:clamp(75px,11vw,100px);height:clamp(75px,11vw,100px);}
+#gXinye.idle{animation:gidle 2.8s ease-in-out infinite;}
+#gRabbit.idle{animation:gidle 3.1s ease-in-out infinite;}
+@keyframes gidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
 /* 炘也小提示 */
 #xinTip{
   position:fixed;top:max(64px,env(safe-area-inset-top,64px));
@@ -153,6 +166,8 @@ html,body{height:100%;height:100svh;overflow:hidden;
 <div id="viewport">
   <img id="bgImg" src="yard_pix.png" alt="">
   <div id="lightOverlay"></div>
+  <img id="gXinye" class="gchar" src="xinye_pix.png" alt="炘也">
+  <img id="gRabbit" class="gchar" src="tubao_pix.png" alt="兔宝">
 </div>
 <div id="label">我们的院子 💙</div>
 <div id="basket" class="empty">
@@ -189,6 +204,56 @@ function playTone(freq,type,dur,vol=0.15){
 function sfxPlant(){ playTone(440,'sine',0.12,0.12); setTimeout(()=>playTone(550,'sine',0.14,0.08),80); }
 function sfxHarvest(){ playTone(660,'sine',0.1,0.12); setTimeout(()=>playTone(880,'sine',0.12,0.1),80); setTimeout(()=>playTone(1100,'sine',0.16,0.08),180); }
 function sfxTap(){ playTone(500,'sine',0.08,0.07); }
+
+// ══════════════════════════════════════════
+// 小人系统
+// ══════════════════════════════════════════
+const gXinye  = document.getElementById('gXinye');
+const gRabbit = document.getElementById('gRabbit');
+const vp      = document.getElementById('viewport');
+
+const GX = { x:48, y:75, walking:false, faceLeft:false };
+const GR = { x:58, y:75, walking:false, faceLeft:false };
+
+function gPlaceEl(el, px, py){
+  const vw=vp.offsetWidth, vh=vp.offsetHeight;
+  const w=el.offsetWidth||90;
+  el.style.left=(px/100*vw - w/2)+'px';
+  el.style.top =(py/100*vh - w)+'px';
+}
+
+function gWalk(state, el, tx, ty, onDone){
+  if(state.walking) return;
+  state.walking=true;
+  tx=Math.max(5,Math.min(95,tx)); ty=Math.max(40,Math.min(90,ty));
+  state.faceLeft = tx < state.x;
+  el.classList.remove('idle');
+  el.style.transform = state.faceLeft?'scaleX(-1)':'scaleX(1)';
+  const sx=state.x,sy=state.y,t0=performance.now();
+  const dur=Math.max(400,Math.hypot(tx-sx,ty-sy)*20);
+  function step(now){
+    const t=Math.min(1,(now-t0)/dur);
+    const e=t<.5?2*t*t:-1+(4-2*t)*t;
+    state.x=sx+(tx-sx)*e; state.y=sy+(ty-sy)*e;
+    gPlaceEl(el,state.x,state.y);
+    if(t<1){ requestAnimationFrame(step); }
+    else {
+      state.x=tx; state.y=ty; state.walking=false;
+      el.classList.add('idle');
+      el.style.transform=state.faceLeft?'scaleX(-1)':'scaleX(1)';
+      if(onDone) onDone();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function initGChars(){
+  gPlaceEl(gXinye, GX.x, GX.y);
+  gPlaceEl(gRabbit, GR.x, GR.y);
+  gXinye.classList.add('idle');
+  gRabbit.classList.add('idle');
+}
+window.addEventListener('resize', ()=>{ gPlaceEl(gXinye,GX.x,GX.y); gPlaceEl(gRabbit,GR.x,GR.y); });
 
 // ══════════════════════════════════════════
 // 作物定义
@@ -411,16 +476,26 @@ function showModal(plotId){
 
 function hideModal(){ modal.classList.remove('show'); currentPlotId=null; }
 
+function plotCenter(plotId){
+  const def=PLOT_DEFS.find(d=>d.id===plotId);
+  return { x: def.x+def.w/2, y: def.y+def.h/2 };
+}
+
 function plantCrop(cropId){
   if(currentPlotId===null) return;
   sfxPlant();
   const plots = loadPlots();
   plots[currentPlotId] = { crop: cropId, plantedAt: Date.now() };
   savePlots(plots);
+  const crop_def = CROPS.find(c=>c.id===cropId);
   hideModal();
   renderPlots();
-  const crop_def = CROPS.find(c=>c.id===cropId);
-  showXinTip(rnd(PLANT_TIPS).replace('{name}', crop_def.name));
+  // 炘也走过去种
+  const c=plotCenter(currentPlotId||0);
+  gWalk(GX, gXinye, c.x-8, c.y, ()=>{
+    showXinTip(rnd(PLANT_TIPS).replace('{name}', crop_def.name));
+    setTimeout(()=>gWalk(GX,gXinye,48,75),2000);
+  });
 }
 
 function harvestPlot(plotId){
@@ -450,7 +525,12 @@ function harvestPlot(plotId){
   addToBasket(state.crop);
   hideModal();
   renderPlots();
-  showXinTip(rnd(HARVEST_TIPS).replace('{name}', crop_def.name));
+  // 炘也走过去收
+  const c=plotCenter(plotId);
+  gWalk(GX, gXinye, c.x-8, c.y, ()=>{
+    showXinTip(rnd(HARVEST_TIPS).replace('{name}', crop_def.name));
+    setTimeout(()=>gWalk(GX,gXinye,48,75),2000);
+  });
 }
 
 function onPlotClick(plotId){
@@ -610,7 +690,10 @@ const ENTER_TIPS = [
   '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
 ];
 renderBasket();
+initGChars();
 setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 1200);
+// 兔宝进来溜达一下
+setTimeout(()=>gWalk(GR, gRabbit, 35+Math.random()*30, 65+Math.random()*15), 2500);
 </script>
 </body>
 </html>
