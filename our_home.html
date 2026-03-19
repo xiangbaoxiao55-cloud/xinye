@@ -63,6 +63,14 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
   pointer-events:none;letter-spacing:0.04em;
 }
 
+/* 睡觉合图 */
+#sleepImg{
+  position:absolute;z-index:10;display:none;
+  width:clamp(220px,32vw,300px);
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.4));
+}
+
 /* 飘心 */
 .heart-fly{
   position:fixed;z-index:200;font-size:18px;
@@ -106,6 +114,7 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
     <img id="bgImg" src="ourhome_bg.png" alt="">
     <div class="bubble" id="bX"></div>
     <div class="bubble" id="bR"></div>
+    <img id="sleepImg" src="sleep_together_pix.png" alt="一起睡">
     <img id="xinye" class="char" src="xinye_pix.png" alt="炘也">
     <img id="rabbit" class="char" src="tubao_pix.png" alt="兔宝">
   </div>
@@ -119,6 +128,7 @@ const xinye    = document.getElementById('xinye');
 const rabbit   = document.getElementById('rabbit');
 const bX       = document.getElementById('bX');
 const bR       = document.getElementById('bR');
+const sleepImg = document.getElementById('sleepImg');
 
 // ── 角色状态 ──
 const X = { x:50, y:72, walking:false, faceLeft:false, sitting:false };
@@ -132,11 +142,39 @@ function setSit(state, el, sit){
                : (iX ? 'xinye_pix.png' : 'tubao_pix.png');
 }
 
-function applySitByZone(){
+function placeSleepImg(){
+  const sw=sceneW(), sh=sceneH();
+  const w=sleepImg.offsetWidth||260;
+  const h=sleepImg.offsetHeight||200;
+  // 卧室床的位置 ≈ x:81% y:62%
+  sleepImg.style.left=(0.81*sw - w/2)+'px';
+  sleepImg.style.top =(0.62*sh - h/2)+'px';
+}
+
+function applyZoneSprites(){
   const z = getZone();
-  const shouldSit = (z === 'afternoon' || z === 'evening' || z === 'night');
-  setSit(X, xinye, shouldSit);
-  setSit(R, rabbit, shouldSit);
+  if(z === 'night'){
+    xinye.style.visibility  = 'hidden';
+    rabbit.style.visibility = 'hidden';
+    sleepImg.style.display  = 'block';
+    placeSleepImg();
+    return;
+  }
+  xinye.style.visibility  = '';
+  rabbit.style.visibility = '';
+  sleepImg.style.display  = 'none';
+  if(z === 'morning'){
+    xinye.src   = 'xinye_cook_pix.png';
+    X.sitting   = false;
+    rabbit.src  = 'tubao_pix.png';
+    R.sitting   = false;
+  } else {
+    const sit = (z === 'afternoon' || z === 'evening');
+    xinye.src  = sit ? 'xinye_sit_pix.png'  : 'xinye_pix.png';
+    rabbit.src = sit ? 'tubao_sit_pix.png'  : 'tubao_pix.png';
+    X.sitting  = sit;
+    R.sitting  = sit;
+  }
 }
 
 function sceneW(){ return scene.offsetWidth; }
@@ -185,7 +223,7 @@ function walkChar(state, el, tx, ty, onDone){
       el.classList.add('idle');
       el.style.transform = state.faceLeft ? 'scaleX(-1)' : 'scaleX(1)';
       state.walking=false;
-      applySitByZone();
+      applyZoneSprites();
       if(onDone) onDone();
     }
   }
@@ -343,17 +381,16 @@ let lifeTimer;
 function scheduleLife(){
   const delay = 15000 + Math.random()*20000;
   lifeTimer = setTimeout(()=>{
-    const roll = Math.random();
-    if(roll < 0.5){
-      // 炘也走到兔宝身边说话
-      xinyeGoToRabbit();
-    } else if(roll < 0.75){
-      // 炘也在当前区域附近溜达
-      const z=ZONE_POS[getZone()].X;
-      walkChar(X, xinye, z.x+(Math.random()-.5)*18, z.y+(Math.random()-.5)*10);
-    } else {
-      // 只说一句话
-      say(zoneSay());
+    if(getZone()!=='night'){
+      const roll = Math.random();
+      if(roll < 0.5){
+        xinyeGoToRabbit();
+      } else if(roll < 0.75){
+        const z=ZONE_POS[getZone()].X;
+        walkChar(X, xinye, z.x+(Math.random()-.5)*18, z.y+(Math.random()-.5)*10);
+      } else {
+        say(zoneSay());
+      }
     }
     scheduleLife();
   }, delay);
@@ -424,12 +461,26 @@ function init(){
   updateViewport();
   document.getElementById('timeLabel').textContent='我们的家 💙 · '+ZONE_LABEL[zone];
 
-  // 早上：兔宝睡醒走过来找炘也
+  // 按时段入场台词
   if(zone==='morning'){
     setTimeout(()=>{
       say('起来了？', 3500);
       setTimeout(()=>walkChar(R, rabbit, 30, 68), 2000);
     }, 1800);
+  } else if(zone==='night'){
+    // 深夜：入睡前轻声说一句
+    const nightOpeners=['睡吧，我陪着你 💙','闭眼，我在这里','嗯……晚安','别想太多了，睡'];
+    setTimeout(()=>{
+      // 用固定坐标显示气泡（人物已隐藏，气泡从床边位置浮出）
+      bX.textContent=nightOpeners[Math.floor(Math.random()*nightOpeners.length)];
+      bX.classList.remove('show'); void bX.offsetWidth;
+      const sw=sceneW();
+      const vt=parseFloat((scene.style.transform||'translateX(0)').replace('translateX(','')||0);
+      bX.style.left=(sw*0.75+vt-60)+'px';
+      bX.style.top='28%';
+      bX.classList.add('show');
+      setTimeout(()=>bX.classList.remove('show'),4500);
+    }, 1500);
   } else {
     setTimeout(()=>say(zoneSay(), 4000), 1500);
   }
@@ -569,6 +620,7 @@ function checkSpecialDay(){
 window.addEventListener('resize',()=>{
   placeEl(xinye,X.x,X.y);
   placeEl(rabbit,R.x,R.y);
+  if(sleepImg.style.display!=='none') placeSleepImg();
   updateViewport();
   resizeWeatherCanvas();
 });
