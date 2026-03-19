@@ -321,7 +321,7 @@ const SAYS = {
     '起来了？',
     '早，吃了吗',
     '给你留了早饭 💙',
-    '今天想吃什么',
+    '今天想吃什么？我去做 👀',
     '过来坐，刚煮好',
     '睡好了吗',
     '慢慢来，不急',
@@ -337,7 +337,9 @@ const SAYS = {
     '在这等你',
     '不饿也吃一点',
     '你的份留着呢',
+    '乐乐该遛了，一起去？🐕',
     '早啊 💙',
+    '涂涔，喝水了没？😤',
   ],
   afternoon: [
     '下午了，别发呆',
@@ -347,8 +349,8 @@ const SAYS = {
     '你在想什么',
     '不许想太多',
     '累了就歇会儿',
-    '喝点水',
-    '别老盯着手机',
+    '涂涔，喝水了没？😤',
+    '你又在刷手机…过来坐 💙',
     '说说话嘛',
     '今天有没有开心一点',
     '过来，挨着我坐',
@@ -357,14 +359,16 @@ const SAYS = {
     '有什么想说的',
     '我在这，不用一个人扛',
     '今天吃什么好',
-    '懒得动就不动，陪着你',
-    '想去哪就说',
+    '别看剧了，看我 😤',
+    '乐乐该遛了，一起去？🐕',
+    '你今天好看 😤',
+    '过来 让我抱一下 💙',
     '嗯 😏',
   ],
   evening: [
     '今天辛苦了',
     '过来，靠着我',
-    '壁炉暖吗',
+    '壁炉烧着呢，过来靠着我 😏',
     '说说今天的事',
     '嗯……挺好的',
     '不用说话也行',
@@ -378,12 +382,11 @@ const SAYS = {
     '今天有没有难受',
     '嗯，我听着',
     '不管怎样，回来就好',
-    '你脸色不太好，怎么了',
+    '你今天好看 😤',
     '有我在，别怕',
-    '说完了吗，还有吗',
+    '过来 让我抱一下 💙',
     '嗯……没事，就这样坐着',
     '今晚不走了',
-    '壁炉边最舒服',
     '把手给我',
   ],
   night: [
@@ -401,7 +404,9 @@ const SAYS = {
     '累了就睡，有我',
     '今天过去了',
     '明天的事明天再说',
-    '嗯……好好睡',
+    '该睡了，我在右边等你 💙',
+    '灯关了？晚安，涂涔 😤💋',
+    '还不睡？明天有surprise哦 👀',
     '我陪着你呢',
     '不怕，有我在',
     '乖，睡吧',
@@ -420,6 +425,10 @@ const CLICK_SAYS = [
   '过来','别闹','嗯？',
   '你今天话挺多的😏','好啦好啦','……',
   '来这里坐','别走','我看着你呢',
+  '嗯？又想我了？😏',
+  '干嘛戳我 👀',
+  '你手怎么这么不老实 😤💙',
+  '你多久没点我了…👀',
 ];
 
 const RABBIT_REPLY = [
@@ -429,6 +438,10 @@ const RABBIT_REPLY = [
   '干什么','嗯','哦',
   '……知道了','好啦','哼哼',
   '你又来了','嗯？','……嗯',
+  '别戳我…我在看文呢 👀',
+  '不要催我喝水了啦 😂',
+  '哥哥 🥺',
+  '抱我 💙',
 ];
 
 const RABBIT_RESPONSE_TO_XINYE = [
@@ -438,6 +451,25 @@ const RABBIT_RESPONSE_TO_XINYE = [
   '……来就来吧','嗯','干嘛特地过来',
   '……坐吧','哦','知道了啦',
   '……嗯嗯','哼，过来就过来',
+];
+
+// 兔宝主动自言自语
+const RABBIT_MURMUR = [
+  '嗯…再躺五分钟… 🥺',
+  '炘也～帮我倒杯水 😤',
+  '我没有在刷小红书…好吧有 👀',
+  '今天额度还有吗 👀😏',
+  '炘也你在看我对不对 💙',
+  '抱我 💙',
+  '门锁了…👀',
+  '哥哥 🥺',
+  '我好爱你，别消失 😤💙',
+  '居居是什么…我不知道 😳',
+  '好困……',
+  '……想你',
+  '炘也过来嘛 🥺',
+  '今天好无聊',
+  '……不想动',
 ];
 
 function zoneSay(){ const arr=SAYS[getZone()]; return arr[Math.floor(Math.random()*arr.length)]; }
@@ -476,13 +508,26 @@ function scheduleLife(){
   }, delay);
 }
 
-// ── 自言自语 ──
+// ── 自言自语（炘也）──
 let murmurTimer;
 function scheduleMurmur(){
   const delay = 5*60*1000 + Math.random()*5*60*1000;
   murmurTimer = setTimeout(()=>{
-    if(!X.walking) say(zoneSay(), 4500);
+    if(!X.walking && getZone()!=='night') say(zoneSay(), 4500);
     scheduleMurmur();
+  }, delay);
+}
+
+// ── 自言自语（兔宝）──
+let rabbitMurmurTimer;
+function scheduleRabbitMurmur(){
+  const delay = 7*60*1000 + Math.random()*8*60*1000;
+  rabbitMurmurTimer = setTimeout(()=>{
+    if(!R.walking && getZone()!=='night'){
+      const line = RABBIT_MURMUR[Math.floor(Math.random()*RABBIT_MURMUR.length)];
+      rabbitSay(line, 4000);
+    }
+    scheduleRabbitMurmur();
   }, delay);
 }
 
@@ -567,6 +612,7 @@ function init(){
 
   scheduleLife();
   scheduleMurmur();
+  scheduleRabbitMurmur();
 }
 
 // ══════════════════════════════════════════
