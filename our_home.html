@@ -109,16 +109,18 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
 /* 出口区域 */
 .exit-zone{
   position:absolute;z-index:15;cursor:pointer;
-  width:8%;height:10%;bottom:0;
-  /* 调试时可加 background:rgba(255,0,0,.2); */
+  width:10%;height:12%;bottom:0;
+  display:flex;align-items:flex-end;justify-content:center;
+  padding-bottom:4px;
 }
-.exit-zone::after{
-  content:'🌿';
-  position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
-  font-size:18px;opacity:0;transition:opacity .3s;
+.exit-label{
+  font-size:11px;color:rgba(255,255,255,.9);
+  background:rgba(80,140,60,.75);
+  border-radius:8px;padding:2px 7px;
+  text-shadow:0 1px 3px rgba(0,0,0,.5);
   pointer-events:none;
+  white-space:nowrap;
 }
-.exit-zone:hover::after,.exit-zone:active::after{opacity:1;}
 
 /* 天气标签 */
 #weatherLabel{
@@ -143,9 +145,9 @@ html,body{height:100%;height:100svh;overflow:hidden;background:#1a1208;
     <img id="sleepImg" src="sleep_together_pix.png" alt="一起睡">
     <img id="xinye" class="char" src="xinye_pix.png" alt="炘也">
     <img id="rabbit" class="char" src="tubao_pix.png" alt="兔宝">
-    <!-- 底部出口：左 ~28%x，右 ~61%x，y底部 -->
-    <div id="exitL" class="exit-zone"></div>
-    <div id="exitR" class="exit-zone"></div>
+    <!-- 底部出口 -->
+    <div id="exitL" class="exit-zone"><span class="exit-label">🌿 院子</span></div>
+    <div id="exitR" class="exit-zone"><span class="exit-label">🌿 院子</span></div>
   </div>
 </div>
 <div id="timeLabel"></div>
@@ -252,13 +254,54 @@ function placeEl(el, px, py){
   el.style.top  = (py/100*sh - w)+'px';
 }
 
-function updateViewport(){
+// 手动偏移（滑动产生）
+let manualOffset = 0;
+let manualOverride = false; // 用户手动滑后暂时脱离跟随
+
+function updateViewport(force=false){
   const sw=sceneW(), vw=viewport.offsetWidth;
+  if(!force && manualOverride) return; // 手动模式时不自动跟随
   const cx = X.x/100*sw;
   let tx = vw/2 - cx;
   tx = Math.min(0, Math.max(vw-sw, tx));
+  manualOffset = tx;
   scene.style.transform = `translateX(${tx}px)`;
 }
+
+function setViewOffset(tx){
+  const sw=sceneW(), vw=viewport.offsetWidth;
+  tx = Math.min(0, Math.max(vw-sw, tx));
+  manualOffset = tx;
+  scene.style.transform = `translateX(${tx}px)`;
+}
+
+// ── 手势滑动 ──
+let touchStartX=0, touchStartOffset=0, isSwiping=false;
+viewport.addEventListener('touchstart', e=>{
+  if(e.touches.length!==1) return;
+  touchStartX = e.touches[0].clientX;
+  touchStartOffset = manualOffset;
+  isSwiping = false;
+}, {passive:true});
+viewport.addEventListener('touchmove', e=>{
+  if(e.touches.length!==1) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  if(Math.abs(dx)>8){
+    isSwiping = true;
+    manualOverride = true;
+    setViewOffset(touchStartOffset + dx);
+  }
+}, {passive:true});
+viewport.addEventListener('touchend', ()=>{
+  if(manualOverride){
+    // 3秒后恢复跟随炘也
+    clearTimeout(viewport._followTimer);
+    viewport._followTimer = setTimeout(()=>{
+      manualOverride = false;
+      updateViewport(true);
+    }, 4000);
+  }
+});
 
 // ── 走路（通用） ──
 function walkChar(state, el, tx, ty, onDone){
@@ -593,6 +636,7 @@ function scheduleRabbitMurmur(){
 // ── 兔宝跟随（点地板） ──
 let rabbitFollowTimer;
 viewport.addEventListener('click', e=>{
+  if(isSwiping) return; // 滑动不触发走路
   if(e.target===xinye||e.target===rabbit) return;
   const rect=viewport.getBoundingClientRect();
   const vt=parseFloat((scene.style.transform||'').replace('translateX(','')||0);
@@ -863,10 +907,10 @@ function placeExits(){
   const sw=sceneW(), sh=sceneH();
   const eL=document.getElementById('exitL');
   const eR=document.getElementById('exitR');
-  const w=sw*0.08, h=sh*0.10;
-  // 左出口 ~28% x，右出口 ~61% x
-  eL.style.left=(sw*0.26)+'px'; eL.style.width=w+'px'; eL.style.height=h+'px';
-  eR.style.left=(sw*0.59)+'px'; eR.style.width=w+'px'; eR.style.height=h+'px';
+  const w=sw*0.10, h=sh*0.13;
+  // 背景图两个缺口：左 ~31%，右 ~63%
+  eL.style.left=(sw*0.29 - w/2)+'px'; eL.style.width=w+'px'; eL.style.height=h+'px';
+  eR.style.left=(sw*0.63 - w/2)+'px'; eR.style.width=w+'px'; eR.style.height=h+'px';
 }
 document.getElementById('exitL').addEventListener('click',()=>location.href='garden.html');
 document.getElementById('exitR').addEventListener('click',()=>location.href='garden.html');
