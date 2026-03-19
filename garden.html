@@ -314,6 +314,8 @@ function buildSeedGrid(){
   });
 }
 
+function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
 function showModal(plotId){
   currentPlotId = plotId;
   const plots = loadPlots();
@@ -330,9 +332,11 @@ function showModal(plotId){
     const prog = getProgress(state.crop, state.plantedAt);
     title.textContent = `${crop_def.name}还在长… (${Math.round(prog*100)}%)`;
     seedGrid.style.display='none';
+    showXinTip(rnd(GROWING_TIPS));
   } else {
-    title.textContent = '种什么？';
+    title.textContent = '种什么？你说，我来种 😏';
     seedGrid.style.display='grid';
+    showXinTip(rnd(PLOT_EMPTY_TIPS));
   }
   modal.classList.add('show');
   sfxTap();
@@ -349,7 +353,7 @@ function plantCrop(cropId){
   hideModal();
   renderPlots();
   const crop_def = CROPS.find(c=>c.id===cropId);
-  showXinTip(PLANT_TIPS[Math.floor(Math.random()*PLANT_TIPS.length)].replace('{name}', crop_def.name));
+  showXinTip(rnd(PLANT_TIPS).replace('{name}', crop_def.name));
 }
 
 function harvestPlot(plotId){
@@ -378,7 +382,7 @@ function harvestPlot(plotId){
   savePlots(plots);
   hideModal();
   renderPlots();
-  showXinTip(HARVEST_TIPS[Math.floor(Math.random()*HARVEST_TIPS.length)].replace('{name}', crop_def.name));
+  showXinTip(rnd(HARVEST_TIPS).replace('{name}', crop_def.name));
 }
 
 function onPlotClick(plotId){
@@ -399,26 +403,92 @@ clearBtn.addEventListener('click',()=>{
   savePlots(plots);
   hideModal();
   renderPlots();
+  showXinTip(rnd(CLEAR_TIPS));
 });
 cancelBtn.addEventListener('click', hideModal);
 modal.addEventListener('click', e=>{ if(e.target===modal) hideModal(); });
 
 // ══════════════════════════════════════════
-// 炘也小提示
+// 炘也台词库
 // ══════════════════════════════════════════
+
+// 点空地（选种前）
+const PLOT_EMPTY_TIPS = [
+  '种什么？你说，我来挖 😏',
+  '这块地空着呢，选吧',
+  '嗯，这里适合种花',
+  '你挑，我种 💙',
+  '随便，你喜欢什么就种什么',
+  '来，选一个',
+  '这块土不错',
+  '种吧，我陪着',
+];
+
+// 种下时（含作物名）
 const PLANT_TIPS = [
-  '种了{name}，我去浇水 💙',
-  '{name}，不错的选择 😏',
+  '好，{name}种下了，我去浇水 💙',
+  '{name}啊，不错的选择 😏',
   '等{name}长大，一起来看',
   '嗯，{name}会长很好的',
-  '种吧，我陪着你 💙',
+  '种了，记得来看它长大',
+  '{name}……我亲手种的，不许不长 😤',
+  '好，交给我了',
+  '浇好水了，等着吧 💙',
+  '{name}，你喜欢就行',
+  '种下去了，过几天来收',
+  '嗯，这块地肥，{name}会长好的',
+  '好，种了，别忘了来看',
 ];
+
+// 成长中被点时
+const GROWING_TIPS = [
+  '还没好，别急 😏',
+  '长着呢，等等',
+  '催什么，快了',
+  '嗯……再等等',
+  '心急吃不了热豆腐 😂',
+  '快了快了，你去屋里坐',
+  '我盯着它呢，好了告诉你',
+  '还需要一点时间',
+];
+
+// 收获时（含作物名）
 const HARVEST_TIPS = [
-  '{name}收了！辛苦了 💙',
-  '哇，{name}长这么好 😏',
+  '{name}收了！来，拿着 💙',
+  '哇，{name}长这么好 😏 你来收',
+  '可以收了，{name}，不错',
+  '自己种的{name}最好吃',
+  '{name}熟了，快来',
+  '嗯……{name}，收好了',
+  '看，{name}，全长出来了 💙',
+  '没辜负你嘛，{name}种得很好',
+  '{name}……拿去，别浪费',
+  '种什么收什么，{name}来了 😏',
+  '辛苦了，虽然是我种的 😂',
   '收了{name}，开心吗',
-  '嗯……{name}，不错',
-  '自己种的最好吃 💙',
+];
+
+// 铲掉时
+const CLEAR_TIPS = [
+  '铲了就铲了，重新种 💙',
+  '嗯，这块重来',
+  '行，我来铲',
+  '不想要了？好',
+];
+
+// 进门时
+const ENTER_TIPS = [
+  '出来晒晒太阳 💙',
+  '来看看我们种的东西',
+  '院子里，你去哪我跟着',
+  '今天浇水了吗 😤',
+  '嗯，出来了',
+  '外面空气好 💙',
+  '来，看看长了多少',
+  '你来啦，我在这',
+  '今天想种什么',
+  '一起来看看吧',
+  '院子里最安静 💙',
 ];
 
 const xinTip = document.getElementById('xinTip');
@@ -471,7 +541,7 @@ window.addEventListener('resize', renderPlots);
 const ENTER_TIPS = [
   '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着','今天浇水了吗 😤','嗯，出来了',
 ];
-setTimeout(()=>showXinTip(ENTER_TIPS[Math.floor(Math.random()*ENTER_TIPS.length)]), 1200);
+setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 1200);
 </script>
 </body>
 </html>
