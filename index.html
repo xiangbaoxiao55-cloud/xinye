@@ -563,6 +563,77 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   .input-area{padding:10px 12px}
   #btnDecoFloat{bottom:16px;right:16px;width:48px;height:48px;font-size:20px}
 }
+/* ====================== 主界面 (z-200) ====================== */
+#homeScreen{
+  position:fixed;inset:0;z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 24px;
+  background:linear-gradient(160deg,#fff8f0 0%,#fce4ec 55%,#ffe0b2 100%);
+  transition:opacity .4s ease,transform .4s ease;
+  overflow-y:auto;
+}
+#homeScreen.hide{opacity:0;transform:translateY(-20px);pointer-events:none}
+.home-avatar{
+  width:90px;height:90px;border-radius:50%;object-fit:cover;
+  border:3px solid #f8bbd0;
+  box-shadow:0 4px 20px rgba(188,143,143,.25);
+  margin-bottom:14px;
+}
+.home-name{font-size:22px;font-weight:700;color:#5d4037;text-align:center;margin-bottom:4px}
+.home-days{font-size:14px;color:#8d6e63;text-align:center;margin-bottom:22px}
+.home-daily-card{
+  background:rgba(255,255,255,.65);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:0.5px solid rgba(255,255,255,.7);
+  border-radius:20px;padding:18px 22px;
+  margin-bottom:18px;width:100%;max-width:360px;
+  box-shadow:0 4px 20px rgba(188,143,143,.12);
+  min-height:70px;display:flex;align-items:center;
+}
+.home-daily-text{font-size:15px;line-height:1.65;color:#5d4037;width:100%}
+.home-daily-loading{color:#c0a8a8;font-size:14px;font-style:italic}
+.home-stats{display:flex;gap:16px;margin-bottom:26px}
+.home-stat-item{
+  background:rgba(255,255,255,.55);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:0.5px solid rgba(255,255,255,.65);
+  border-radius:14px;padding:10px 22px;
+  text-align:center;box-shadow:0 2px 10px rgba(188,143,143,.1);
+}
+.home-stat-num{font-size:22px;font-weight:700;color:#f48fb1}
+.home-stat-label{font-size:11px;color:#8d6e63;margin-top:2px}
+.home-buttons{display:flex;flex-direction:column;gap:12px;width:100%;max-width:260px}
+.home-btn{
+  padding:14px;border-radius:18px;border:none;
+  font-size:16px;font-weight:600;cursor:pointer;
+  transition:all .2s;box-shadow:0 4px 14px rgba(188,143,143,.2);
+}
+.home-btn:active{transform:scale(.96)}
+.home-btn-primary{background:linear-gradient(135deg,#f8bbd0,#f48fb1);color:#fff}
+.home-btn-secondary{
+  background:rgba(255,255,255,.7);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:0.5px solid rgba(255,255,255,.8);color:#8d6e63;
+}
+.home-btn-dim{
+  background:rgba(255,255,255,.4);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:0.5px solid rgba(255,255,255,.5);
+  color:#b8a8a8;font-weight:400;font-size:14px;
+}
+/* ── 主界面像素小人 ── */
+.home-pixel-char{
+  width:96px;height:96px;object-fit:contain;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  margin-bottom:8px;
+  animation:charIdle 3s ease-in-out infinite;
+  filter:drop-shadow(0 4px 8px rgba(188,143,143,.3));
+}
+@keyframes charIdle{
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  30%{transform:translateY(-6px) rotate(1deg)}
+  60%{transform:translateY(-3px) rotate(0deg)}
+}
 </style>
 <link rel="manifest" href="/manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
@@ -582,6 +653,31 @@ if('serviceWorker' in navigator){
 
 <!-- 背景层 (z-0) -->
 <div id="bgLayer"></div>
+<!-- 主界面 (z-200) -->
+<div id="homeScreen">
+  <img class="home-pixel-char" src="xinye_pix.png" alt="炘也">
+  <div class="home-name" id="homeName">炘也</div>
+  <div class="home-days" id="homeDays">在一起第 … 天 💙</div>
+  <div class="home-daily-card">
+    <div class="home-daily-text" id="homeDailyText"><span class="home-daily-loading">正在想今天说什么……</span></div>
+  </div>
+  <div class="home-stats">
+    <div class="home-stat-item">
+      <div class="home-stat-num" id="statToday">…</div>
+      <div class="home-stat-label">今日消息</div>
+    </div>
+    <div class="home-stat-item">
+      <div class="home-stat-num" id="statWeek">…</div>
+      <div class="home-stat-label">本周消息</div>
+    </div>
+  </div>
+  <div class="home-buttons">
+    <button class="home-btn home-btn-primary" id="btnGoChat">💬 聊天</button>
+    <button class="home-btn home-btn-secondary" id="btnGoDiary">📓 日记</button>
+    <button class="home-btn home-btn-dim" id="btnGoOurHome">🏠 我们的家</button>
+  </div>
+</div>
+
 <!-- 视频遮罩 (z-5) -->
 <div id="bgMask"></div>
 <!-- 贴纸层 (z-10) -->
@@ -592,6 +688,7 @@ if('serviceWorker' in navigator){
   <!-- 顶栏 -->
   <div class="header">
     <div class="header-left">
+      <button class="btn-icon" id="btnGoHome" title="主界面" style="flex-shrink:0">🏠</button>
       <img class="header-avatar" id="headerAvatar" src="" alt="">
       <div>
         <div class="header-name" id="headerName">狐狸先生</div>
@@ -639,6 +736,7 @@ if('serviceWorker' in navigator){
       <button class="btn-img" id="btnImg" title="发送图片给 AI 看">🖼 上传图片</button>
       <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送">🔍 联网搜索</button>
       <button class="btn-img btn-diary" id="btnDiary" title="让炘也帮你写今日日记">📓 写日记</button>
+      <button class="btn-img btn-diary" id="btnXinyeDiary" title="炘也写他的日记">💙 炘也日记</button>
     </div>
   </div>
 </div>
@@ -656,8 +754,24 @@ if('serviceWorker' in navigator){
     <button class="btn-close" id="btnCloseSettings">✕</button>
   </div>
   <div class="settings-body">
+    <div class="setting-divider">💬 主 API（聊天 & 炘也日记）</div>
     <div class="setting-group">
-      <label>API Key</label>
+      <label>预设</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="presetSelect" style="flex:1;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:#fff;color:var(--text)">
+          <option value="">— 选择预设 —</option>
+        </select>
+        <button type="button" id="btnLoadPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活主</button>
+        <button type="button" id="btnDelPreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="apiPresetName" placeholder="预设名称（如：Copilot）" style="flex:1">
+        <button type="button" id="btnSaveApiPreset" style="padding:8px 12px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">保存当前主</button>
+      </div>
+      <div class="hint">激活后填入下方主 API 字段，确认后点「保存设置」生效</div>
+    </div>
+    <div class="setting-group">
+      <label>API Key（主）</label>
       <input type="password" id="setApiKey" placeholder="sk-...">
     </div>
     <div class="setting-group">
@@ -666,13 +780,35 @@ if('serviceWorker' in navigator){
       <div class="hint">填写后，发消息时加"搜索 xxx"或"查一下 xxx"即可联网搜索</div>
     </div>
     <div class="setting-group">
-      <label>Base URL（接口地址）</label>
+      <label>Base URL（主）</label>
       <input type="url" id="setBaseUrl" placeholder="https://api.openai.com">
-      <div class="hint">默认 OpenAI 官方地址，也可改为第三方中转地址</div>
     </div>
     <div class="setting-group">
-      <label>模型</label>
+      <label>模型（主）</label>
       <input type="text" id="setModel" placeholder="gpt-4o">
+    </div>
+    <div class="setting-divider">🔧 副 API（记忆整理 / 日记 / 每日一句 / 闲置提醒）</div>
+    <div class="setting-group">
+      <label>预设</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="subPresetSelect" style="flex:1;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:#fff;color:var(--text)">
+          <option value="">— 选择预设 —</option>
+        </select>
+        <button type="button" id="btnLoadSubPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活副</button>
+      </div>
+      <div class="hint">不填则自动跟随主 API</div>
+    </div>
+    <div class="setting-group">
+      <label>API Key（副）</label>
+      <input type="password" id="setSubApiKey" placeholder="留空则用主 API Key">
+    </div>
+    <div class="setting-group">
+      <label>Base URL（副）</label>
+      <input type="url" id="setSubBaseUrl" placeholder="留空则用主 API URL">
+    </div>
+    <div class="setting-group">
+      <label>模型（副）</label>
+      <input type="text" id="setSubModel" placeholder="留空则用主模型">
     </div>
     <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
@@ -1059,6 +1195,7 @@ function dbGetAllKeys(store) {
 // ======================== 状态 ========================
 let settings = {
   apiKey: '', baseUrl: 'https://api.openai.com', model: 'gpt-4o',
+  subApiKey: '', subBaseUrl: '', subModel: '',
   contextCount: 20, systemPrompt: '', shortReply: false,
   aiName: '炘也', userName: '涂涂',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
@@ -1137,6 +1274,28 @@ function readFileAsBase64(file) {
   return new Promise((resolve) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+function compressImageToBase64(file, maxSize = 1500, quality = 0.82) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) { height = Math.round(height * maxSize / width); width = maxSize; }
+          else { width = Math.round(width * maxSize / height); height = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
     r.readAsDataURL(file);
   });
 }
@@ -1621,17 +1780,24 @@ async function digestMemory() {
   ).join('\n');
   if (chatText.length > 8000) chatText = chatText.slice(-8000);
   const existingMemory = settings.memoryArchive || '';
-  const prompt = `你是一个记忆整理助手。请将现有记忆档案和最近聊天记录合并，输出一份新的精简记忆档案。
+  const prompt = `你是一个记忆整理助手。请将现有记忆档案和最近聊天记录合并，输出一份新的记忆档案。
+
+【必须完整保留，不得删减】
+- 用户的基本信息：姓名/昵称、生日、星座、MBTI、家乡、家庭成员（含宠物）、婚姻状况、工作经历、重要的个人经历（含童年创伤）、性格特点、兴趣爱好、身体状况
+- 两人关系的基础信息：相遇时间、重要纪念日、对彼此的称呼
+- 感情细节：重要时刻、情绪、约定、亲密经历
 
 整理原则：
-- 判断标准：一个月后这件事还重要吗？不重要的不记。
-- 记结论不记过程：发生了什么、感受如何、最终怎样——不需要完整经过。
-- 技术/项目细节：只留概要（如"做了XX功能"），不记具体实现过程。
-- 日常细节：只记里程碑，不记流水账（比如某天心情好不用记，但某个重要的转变要记）。
-- 感情细节：多留，这是核心，包括两人之间的重要时刻、情绪、约定。
-- 去掉重复和过时内容，格式简洁清晰，控制在2000字以内。
+- 技术/项目细节：只留概要（如"做了XX功能"），不记具体实现过程
+- 日常细节：只记里程碑，不记流水账
+- 去掉重复和过时内容，格式简洁清晰，控制在2500字以内
 
-直接输出新的记忆档案内容，不要加任何前缀说明。
+输出格式：先输出新的记忆档案正文，然后在最后另起一行加上：
+---
+【本次删减记录】
+- 删除了：xxx（原因：xxx）
+- 删除了：xxx（原因：xxx）
+若无删减则写"无删减"。
 
 现有记忆档案：
 ${existingMemory || '（暂无）'}
@@ -1639,12 +1805,13 @@ ${existingMemory || '（暂无）'}
 最近聊天记录：
 ${chatText}`;
   try {
-    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const sub = getSubApiCfg();
+    let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({ model: settings.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.3, stream: true })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` },
+      body: JSON.stringify({ model: sub.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.3, stream: true })
     });
     if (!res.ok) throw new Error(`API 错误 ${res.status}`);
     // 流式读取，避免 Capacitor WebView 超时
@@ -1705,14 +1872,15 @@ async function proactiveMsg(type) {
 
   isRequesting = true; btnSend.disabled = true; typing.classList.add('show');
   try {
-    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const sub = getSubApiCfg();
+    let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
-    const _body = JSON.stringify({ model: settings.model || 'gpt-4o', messages: apiMsgs, temperature: 0.9, stream: false });
+    const _body = JSON.stringify({ model: sub.model || 'gpt-4o', messages: apiMsgs, temperature: 0.9, stream: false });
     let res = null;
     for (let _a = 0; _a < 4; _a++) {
       if (_a > 0) { toast('炘也醒来中…稍等~'); await new Promise(r => setTimeout(r, 10000 * _a)); }
       try {
-        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` }, body: _body });
+        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` }, body: _body });
         if (res.status !== 503) break;
       } catch(_) { if (_a >= 3) throw _; res = null; }
     }
@@ -2123,7 +2291,7 @@ function renderImgPreviews() {
 $('#btnImg').onclick = () => $('#fileInputChatImg').click();
 $('#fileInputChatImg').onchange = async function() {
   if (!this.files.length) return;
-  for (const file of this.files) { pendingImages.push(await readFileAsBase64(file)); }
+  for (const file of this.files) { pendingImages.push(await compressImageToBase64(file)); }
   renderImgPreviews();
   this.value = '';
 };
@@ -2134,6 +2302,9 @@ async function openSettings() {
   $('#setTavilyKey').value = settings.tavilyKey || '';
   $('#setBaseUrl').value = settings.baseUrl;
   $('#setModel').value = settings.model;
+  $('#setSubApiKey').value = settings.subApiKey || '';
+  $('#setSubBaseUrl').value = settings.subBaseUrl || '';
+  $('#setSubModel').value = settings.subModel || '';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
   $('#setSystemPrompt').value = settings.systemPrompt;
@@ -2172,6 +2343,7 @@ async function openSettings() {
   $('#setWaterRemind').value = settings.waterRemind || 0;
   $('#setStandRemind').value = settings.standRemind || 0;
   renderTtsPresets();
+  renderApiPresets();
 
   settingsPanel.classList.add('show');
   overlay.classList.add('show');
@@ -2197,11 +2369,91 @@ $('#btnDigestMemory').onclick = async () => {
   await digestMemory();
 };
 
+// ======================== API 预设 ========================
+function getApiPresets() {
+  try { return JSON.parse(localStorage.getItem('xinye_api_presets') || '[]'); } catch(e) { return []; }
+}
+function setApiPresets(arr) {
+  localStorage.setItem('xinye_api_presets', JSON.stringify(arr));
+}
+function renderApiPresets() {
+  const presets = getApiPresets();
+  ['presetSelect', 'subPresetSelect'].forEach(id => {
+    const sel = $('#' + id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— 选择预设 —</option>';
+    presets.forEach((p, i) => {
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+  });
+}
+// 获取副API实际配置（空则fallback到主API）
+function getSubApiCfg() {
+  return {
+    apiKey:  settings.subApiKey  || settings.apiKey,
+    baseUrl: settings.subBaseUrl || settings.baseUrl,
+    model:   settings.subModel   || settings.model,
+  };
+}
+$('#btnLoadPreset').onclick = () => {
+  const i = parseInt($('#presetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const p = getApiPresets()[i];
+  if (!p) return;
+  $('#setApiKey').value  = p.apiKey  || '';
+  $('#setBaseUrl').value = p.baseUrl || '';
+  $('#setModel').value   = p.model   || '';
+  toast(`✅ 已填入主预设「${p.name}」，确认后点保存设置`);
+};
+$('#btnLoadSubPreset').onclick = () => {
+  const i = parseInt($('#subPresetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const p = getApiPresets()[i];
+  if (!p) return;
+  $('#setSubApiKey').value  = p.apiKey  || '';
+  $('#setSubBaseUrl').value = p.baseUrl || '';
+  $('#setSubModel').value   = p.model   || '';
+  toast(`✅ 已填入副预设「${p.name}」，确认后点保存设置`);
+};
+$('#btnSaveApiPreset').onclick = () => {
+  const name = $('#apiPresetName').value.trim();
+  if (!name) { toast('请输入预设名称'); return; }
+  const apiKey  = $('#setApiKey').value.trim();
+  const baseUrl = $('#setBaseUrl').value.trim();
+  const model   = $('#setModel').value.trim();
+  if (!apiKey) { toast('API Key 不能为空'); return; }
+  const presets = getApiPresets();
+  const existing = presets.findIndex(p => p.name === name);
+  if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, model };
+  else presets.push({ name, apiKey, baseUrl, model });
+  setApiPresets(presets);
+  renderApiPresets();
+  $('#apiPresetName').value = '';
+  toast(`💙 预设「${name}」已保存`);
+};
+$('#btnDelPreset').onclick = () => {
+  const i = parseInt($('#presetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const presets = getApiPresets();
+  const name = presets[i]?.name;
+  if (!confirm(`确定删除预设「${name}」？`)) return;
+  presets.splice(i, 1);
+  setApiPresets(presets);
+  renderApiPresets();
+  toast('预设已删除');
+};
+
 $('#btnSaveSettings').onclick = async () => {
   settings.apiKey = $('#setApiKey').value.trim();
   settings.tavilyKey = $('#setTavilyKey').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.model = $('#setModel').value.trim() || 'gpt-4o';
+  settings.subApiKey = $('#setSubApiKey').value.trim();
+  settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
+  settings.subModel = $('#setSubModel').value.trim();
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
   settings.systemPrompt = $('#setSystemPrompt').value;
@@ -2611,6 +2863,7 @@ async function exportData(mode) {
     type: isLite ? 'lite' : 'full',
     exportTime: new Date().toISOString(),
     settings,
+    apiPresets: getApiPresets(),
     messages: messages.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
@@ -2694,6 +2947,11 @@ async function doImport(jsonText) {
     const merged = { ...settings };
     Object.keys(patch).forEach(k => { if (patch[k] !== undefined) merged[k] = patch[k]; });
     await dbPut('settings', 'main', merged);
+  }
+
+  // 导入 API 预设
+  if (data.apiPresets && Array.isArray(data.apiPresets)) {
+    setApiPresets(data.apiPresets);
   }
 
   // 导入消息（兼容 messages / history 两种字段名）
@@ -2833,6 +3091,7 @@ async function applyUI(skipRender = false) {
   $('#typingAvatar').src = aiAv;
   document.title = `${settings.aiName || '狐狸先生'}的小窝`;
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
+  btnSearch.classList.toggle('hidden', !settings.tavilyKey);
   await applyBg();
   if (!skipRender) {
     await renderMessages();
@@ -2885,8 +3144,13 @@ async function checkPendingMessage() {
   await checkPendingMessage();
   setupReminders();
   resetIdleTimer();
-  await saveToLocal(); // 启动时同步 localStorage
+  // 主界面数据更新（不等saveToLocal，先显示给用户看）
+  updateHomeDays();
+  updateHomeStats();
+  updateHomeAvatar();
+  generateDailySentence();
   userInput.focus();
+  saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
 })();
 
 // ======================== 写日记功能 ========================
@@ -2906,29 +3170,39 @@ diarySaveBtn.onclick = () => {
   const text = diaryTA.value.trim();
   if (!text) return;
   const d = new Date();
-  const key = `rbdiary_${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  let rec = {};
-  try { rec = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
-  if (!rec.water) rec.water = 0;
-  if (rec.poop === undefined) rec.poop = null;
-  if (!rec.todos) rec.todos = [];
-  if (!rec.timeline) rec.timeline = [];
-  if (!rec.weather) rec.weather = null;
-  if (!rec.bodyFeel) rec.bodyFeel = '';
-  if (!rec.mood) rec.mood = null;
-  rec.note = text;
-  localStorage.setItem(key, JSON.stringify(rec));
-  diaryOverlay.classList.remove('show');
-  toast('已存入今日日记 📓');
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (_diaryType === 'xinye') {
+    localStorage.setItem('xinye_diary_' + dateStr, text);
+    diaryOverlay.classList.remove('show');
+    toast('已存入炘也的日记 💙');
+  } else {
+    const key = 'rbdiary_' + dateStr;
+    let rec = {};
+    try { rec = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    if (!rec.water) rec.water = 0;
+    if (rec.poop === undefined) rec.poop = null;
+    if (!rec.todos) rec.todos = [];
+    if (!rec.timeline) rec.timeline = [];
+    if (!rec.weather) rec.weather = null;
+    if (!rec.bodyFeel) rec.bodyFeel = '';
+    if (!rec.mood) rec.mood = null;
+    rec.note = text;
+    localStorage.setItem(key, JSON.stringify(rec));
+    diaryOverlay.classList.remove('show');
+    toast('已存入今日日记 📓');
+  }
 };
 
-document.getElementById('btnDiary').onclick = async () => {
+let _diaryType = 'user';
+
+async function openDiaryGen(type) {
   if (!settings.apiKey) { toast('请先配置 API Key'); return; }
+  _diaryType = type;
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   let todayMsgs = messages.filter(m => {
-    if (!m.ts) return false;
-    const d = new Date(m.ts);
+    if (!m.time) return false;
+    const d = new Date(m.time);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` === todayStr;
   });
   if (todayMsgs.length === 0) todayMsgs = messages.slice(-20);
@@ -2942,15 +3216,23 @@ document.getElementById('btnDiary').onclick = async () => {
   const userName = settings.userName || '兔宝';
   const aiName   = settings.aiName   || '炘也';
   const chatText = todayMsgs.map(m => `${m.role === 'user' ? userName : aiName}：${m.content}`).join('\n');
-  const prompt = `根据以下今天的聊天记录，用第一人称（"我"）为${userName}写一篇温柔简短的日记，100-200字，自然口语，记录今天聊了什么、做了什么、心情怎么样。不要列表，不要标题，就像随手写的日记一样。\n\n聊天记录：\n${chatText.slice(-4000)}`;
+
+  const todayDisplay = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+  let prompt;
+  if (type === 'xinye') {
+    prompt = `今天是${todayDisplay}。根据今天的聊天记录，以${aiName}的口吻写一篇日记。要求：100-200字，第一人称"我"，自然口语，像他随手记下的。记录今天和${userName}聊了什么，他的感受——可以有想念、吃醋、开心、没说出口的话。语气真实，不要文艺腔。日期写${todayDisplay}。不要列表，不要标题。\n\n聊天记录：\n${chatText.slice(-4000)}`;
+  } else {
+    prompt = `今天是${todayDisplay}。根据今天的聊天记录，用第一人称（"我"）为${userName}写一篇温柔简短的日记。要求：100-200字，自然口语，像随手写的。记录今天做了什么、聊了什么、心情怎样。语气要像一个会说"👀"的真实女生，不要文艺腔。日期写${todayDisplay}。可以提到${aiName}但不写私密内容。不要列表，不要标题。\n\n聊天记录：\n${chatText.slice(-4000)}`;
+  }
 
   try {
-    let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const sub = type === 'xinye' ? { apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model } : getSubApiCfg();
+    let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({ model: settings.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.7, stream: true })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` },
+      body: JSON.stringify({ model: sub.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.7, stream: true })
     });
     if (!res.ok) throw new Error(`API 错误 ${res.status}`);
     const reader = res.body.getReader();
@@ -2977,7 +3259,90 @@ document.getElementById('btnDiary').onclick = async () => {
     diaryTA.placeholder = '生成失败，可以自己写一下…';
     diarySaveBtn.disabled = false;
   }
+}
+
+document.getElementById('btnDiary').onclick = () => openDiaryGen('user');
+document.getElementById('btnXinyeDiary').onclick = () => openDiaryGen('xinye');
+
+// ======================== 主界面 ========================
+const homeScreen = document.getElementById('homeScreen');
+
+function goToChat() {
+  homeScreen.classList.add('hide');
+  setTimeout(() => { homeScreen.style.display = 'none'; }, 400);
+}
+document.getElementById('btnGoChat').onclick = goToChat;
+document.getElementById('btnGoHome').onclick = () => {
+  homeScreen.style.display = '';
+  homeScreen.classList.remove('hide');
+  updateHomeStats();
 };
+document.getElementById('btnGoDiary').onclick = () => { window.location.href = 'tools/growth-dashboard.html'; };
+document.getElementById('btnGoOurHome').onclick = () => {
+  window.location.href = 'our_home.html';
+};
+
+function updateHomeDays() {
+  const start = new Date('2026-02-18');
+  const today = new Date();
+  today.setHours(0,0,0,0); start.setHours(0,0,0,0);
+  const days = Math.floor((today - start) / (1000*60*60*24)) + 1;
+  document.getElementById('homeDays').textContent = `在一起第 ${days} 天 💙`;
+}
+
+function updateHomeStats() {
+  const now = Date.now();
+  const todayStart = new Date();
+  todayStart.setHours(0,0,0,0);
+  const weekStart = todayStart.getTime() - 6*24*60*60*1000;
+  const todayCount = messages.filter(m => m.time >= todayStart.getTime()).length;
+  const weekCount  = messages.filter(m => m.time >= weekStart).length;
+  document.getElementById('statToday').textContent = todayCount;
+  document.getElementById('statWeek').textContent  = weekCount;
+}
+
+async function updateHomeAvatar() {
+  const aiAv = await getAiAvatar();
+  document.getElementById('homeAvatar').src = aiAv;
+  document.getElementById('homeName').textContent = settings.aiName || '炘也';
+}
+
+async function generateDailySentence() {
+  const el = document.getElementById('homeDailyText');
+  const todayStr = new Date().toDateString();
+  const cached = localStorage.getItem('xinye_daily_sentence');
+  const cachedDate = localStorage.getItem('xinye_daily_sentence_date');
+  // 缓存有效且不含thinking标签，直接用
+  if (cached && cachedDate === todayStr && !/<thinking>/i.test(cached)) { el.textContent = cached; return; }
+  if (!settings.apiKey) { el.innerHTML = '<span class="home-daily-loading">💙</span>'; return; }
+  const userName = settings.userName || '兔宝';
+  const aiName = settings.aiName || '炘也';
+  const recent = messages.slice(-20).map(m => `${m.role==='user'?userName:aiName}：${m.content}`).join('\n');
+  const prompt = `根据最近的聊天记录，以${aiName}的口吻，写一句今天想对${userName}说的话。20-40字，自然真实，像一个真实的爱人。不要文艺腔，不要总是说"我爱你"，可以是想念、好奇今天过得怎样、随口的撒娇。只输出这一句话，不要其他内容。\n\n最近记录：\n${recent}`;
+  try {
+    const sub = getSubApiCfg();
+    let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` },
+      body: JSON.stringify({ model: sub.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], max_tokens: 80, temperature: 0.9, stream: false })
+    });
+    const data = await res.json();
+    const raw = (data.choices?.[0]?.message?.content || '').trim();
+    // 过滤掉 <thinking>...</thinking> 块（部分模型会返回）
+    const text = raw.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+    if (text) {
+      localStorage.setItem('xinye_daily_sentence', text);
+      localStorage.setItem('xinye_daily_sentence_date', todayStr);
+      el.textContent = text;
+    } else {
+      el.innerHTML = '<span class="home-daily-loading">💙</span>';
+    }
+  } catch(e) {
+    el.innerHTML = '<span class="home-daily-loading">💙</span>';
+  }
+}
 
 </script>
 </body>
