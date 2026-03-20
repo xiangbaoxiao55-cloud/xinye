@@ -696,19 +696,21 @@ function closeAnn() {
 }
 
 async function saveAnn() {
-  if (!pendingSel) return;
+  if (!pendingSel) { alert('没有选中文字，重新选一下'); return; }
   const note = document.getElementById('annInput').value.trim();
+  const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
+    selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
+    endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
   if (editingAnnId) {
     const a = curAnns.find(x => x.id === editingAnnId);
     if (a) a.note = note;
   } else {
-    curAnns.push({ id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
-      selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
-      endOffset:pendingSel.endOffset, note, createdAt:Date.now() });
+    curAnns.push(newAnn);
   }
   await dbPut('annotations', { bookId:curBook.id, list:curAnns });
   curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
   closeAnn(); renderChapter();
+  setTimeout(() => alert('批注已保存 ✅\n「' + newAnn.selectedText.slice(0,20) + '」\n位置：' + newAnn.startOffset), 100);
 }
 
 async function deleteAnn() {
