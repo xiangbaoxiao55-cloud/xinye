@@ -204,6 +204,13 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 .menu-item:active { background: var(--pink-light); }
 .menu-item.danger { color: #e57373; }
 
+/* ---- 书架菜单 ---- */
+#shelfMenuModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
+}
+#shelfMenuModal.show { display: flex; }
+
 /* ---- loading ---- */
 #loadingMask {
   display: none; position: fixed; inset: 0;
@@ -228,7 +235,10 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
       <button class="btn-icon" onclick="goHome()">←</button>
       <span class="shelf-heading">📚 书架</span>
     </div>
-    <button class="btn-add" onclick="openUpload()">＋ 添加书</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-icon" onclick="openShelfMenu()" style="font-size:18px">⋯</button>
+      <button class="btn-add" onclick="openUpload()">＋ 添加书</button>
+    </div>
   </div>
   <div class="book-list" id="bookList"></div>
 </div>
@@ -301,6 +311,17 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
     <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>
   </div>
 </div>
+
+<!-- 书架全局菜单 -->
+<div id="shelfMenuModal" onclick="closeShelfMenu()">
+  <div class="book-menu-sheet" onclick="event.stopPropagation()">
+    <div class="book-menu-title">书架管理</div>
+    <div class="menu-item" onclick="exportAll()">📤 全部导出（含批注）</div>
+    <div class="menu-item" onclick="document.getElementById('importAllInput').click();closeShelfMenu()">📥 全部导入</div>
+    <div class="menu-item" onclick="closeShelfMenu()" style="color:#aaa">取消</div>
+  </div>
+</div>
+<input type="file" id="importAllInput" accept=".json" hidden>
 
 <!-- loading -->
 <div id="loadingMask">
@@ -506,7 +527,8 @@ function renderChapter() {
   const chAnns = curAnns.filter(a => a.chapterIndex === curChapterIdx);
   const content = document.getElementById('readerContent');
   content.innerHTML = `<div class="chapter-title">${esc(ch.title)}</div>` + renderWithAnns(ch.content, chAnns);
-  content.scrollTop = 0;
+  // 同一章节恢复滚动位置，切换章节则回顶
+  content.scrollTop = (curBook.lastScrollTop && curBook.lastChapter === curChapterIdx) ? curBook.lastScrollTop : 0;
   const pct = Math.round((curChapterIdx+1)/curChapters.length*100);
   document.getElementById('footerChap').textContent = ch.title;
   document.getElementById('progFill').style.width = pct+'%';
@@ -629,7 +651,7 @@ function openChapters() {
 }
 function closeChapters() { document.getElementById('chapModal').classList.remove('show'); }
 async function goChapter(idx) {
-  curChapterIdx = idx; curBook.lastChapter = idx; await dbPut('books', curBook);
+  curChapterIdx = idx; curBook.lastChapter = idx; curBook.lastScrollTop = 0; await dbPut('books', curBook);
   closeChapters(); renderChapter();
 }
 
@@ -683,6 +705,59 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 
 document.getElementById('annModal').addEventListener('click', e => { if(e.target===document.getElementById('annModal')) closeAnn(); });
 document.getElementById('uploadModal').addEventListener('click', e => { if(e.target===document.getElementById('uploadModal')) closeUpload(); });
+
+// ==================== 书架菜单 ====================
+function openShelfMenu()  { document.getElementById('shelfMenuModal').classList.add('show'); }
+function closeShelfMenu() { document.getElementById('shelfMenuModal').classList.remove('show'); }
+
+// ==================== 全部导出 ====================
+async function exportAll() {
+  closeShelfMenu();
+  showLoading('打包中…');
+  try {
+    const allBooks    = await dbGetAll('books');
+    const allChapters = await dbGetAll('chapters');
+    const allAnns     = await dbGetAll('annotations');
+    const data = { version: 1, exportedAt: Date.now(), books: allBooks, chapters: allChapters, annotations: allAnns };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = '书架全部备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json'; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('导出失败：' + e.message); }
+  hideLoading();
+}
+
+// ==================== 全部导入 ====================
+document.getElementById('importAllInput').onchange = async function() {
+  if (!this.files.length) return;
+  const file = this.files[0]; this.value = '';
+  if (!confirm('导入会覆盖同名书籍的数据，继续吗？')) return;
+  showLoading('导入中…');
+  try {
+    const text = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsText(file); });
+    const data = JSON.parse(text);
+    if (!data.books) throw new Error('格式不正确');
+    for (const b of data.books)    await dbPut('books', b);
+    for (const c of data.chapters) await dbPut('chapters', c);
+    for (const a of data.annotations) await dbPut('annotations', a);
+    books = await dbGetAll('books');
+    renderShelf();
+    alert('导入成功！共 ' + data.books.length + ' 本书');
+  } catch(e) { alert('导入失败：' + e.message); }
+  hideLoading();
+};
+
+// ==================== 滚动位置保存 ====================
+let scrollSaveTimer;
+document.getElementById('readerContent').addEventListener('scroll', function() {
+  clearTimeout(scrollSaveTimer);
+  scrollSaveTimer = setTimeout(async () => {
+    if (!curBook) return;
+    curBook.lastScrollTop = this.scrollTop;
+    await dbPut('books', curBook);
+  }, 500);
+});
 
 init();
 </script>
