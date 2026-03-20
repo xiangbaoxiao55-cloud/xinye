@@ -753,14 +753,29 @@ function sendMsg(msg) {
 }
 
 // ==================== 导出 ====================
+async function saveFile(content, filename) {
+  if (window.Capacitor?.Plugins?.Filesystem) {
+    try {
+      const base64 = btoa(unescape(encodeURIComponent(content)));
+      await window.Capacitor.Plugins.Filesystem.writeFile({
+        path: 'Download/' + filename, data: base64,
+        directory: 'EXTERNAL_STORAGE', recursive: true,
+      });
+      alert('已保存到手机 Download 文件夹 💙');
+    } catch(e) { alert('保存失败：' + e.message); }
+    return;
+  }
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function exportBook(bookId) {
   const b = books.find(x => x.id === bookId); if (!b) return;
   const cd = await dbGet('chapters', bookId);
   const ad = await dbGet('annotations', bookId);
-  const blob = new Blob([JSON.stringify({ book:b, chapters:cd?.chapters, annotations:ad?.list }, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=`${b.title}_批注.json`; a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(JSON.stringify({ book:b, chapters:cd?.chapters, annotations:ad?.list }, null, 2), `${b.title}_批注.json`);
 }
 
 // ==================== 工具 ====================
@@ -932,11 +947,7 @@ async function exportAll() {
     const allChapters = await dbGetAll('chapters');
     const allAnns     = await dbGetAll('annotations');
     const data = { version: 1, exportedAt: Date.now(), books: allBooks, chapters: allChapters, annotations: allAnns };
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = '书架全部备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json'; a.click();
-    URL.revokeObjectURL(url);
+    await saveFile(JSON.stringify(data), '书架全部备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json');
   } catch(e) { alert('导出失败：' + e.message); }
   hideLoading();
 }
