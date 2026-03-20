@@ -674,6 +674,7 @@ if('serviceWorker' in navigator){
   <div class="home-buttons">
     <button class="home-btn home-btn-primary" id="btnGoChat">💬 聊天</button>
     <button class="home-btn home-btn-secondary" id="btnGoDiary">📓 日记</button>
+    <button class="home-btn home-btn-dim" id="btnGoReading">📚 共读</button>
     <button class="home-btn home-btn-dim" id="btnGoOurHome">🏠 我们的家</button>
   </div>
 </div>
@@ -3278,9 +3279,25 @@ document.getElementById('btnGoHome').onclick = () => {
   updateHomeStats();
 };
 document.getElementById('btnGoDiary').onclick = () => { window.location.href = 'tools/growth-dashboard.html'; };
+document.getElementById('btnGoReading').onclick = () => { window.location.href = 'reading.html'; };
 document.getElementById('btnGoOurHome').onclick = () => {
   window.location.href = 'our_home.html';
 };
+
+// 从共读页跳回来时自动填入消息
+(function() {
+  const msg = localStorage.getItem('sendToXinye');
+  if (msg) {
+    localStorage.removeItem('sendToXinye');
+    // 跳过主屏，直接进聊天
+    const homeScreen = document.getElementById('homeScreen');
+    homeScreen.style.display = 'none';
+    setTimeout(() => {
+      const input = document.getElementById('userInput');
+      if (input) { input.value = msg; input.dispatchEvent(new Event('input')); input.focus(); }
+    }, 100);
+  }
+})();
 
 function updateHomeDays() {
   const start = new Date('2026-02-18');

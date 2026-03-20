@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>共读</title>
+<style>
+:root {
+  --pink: #f06292;
+  --pink-light: #fce4ec;
+  --pink-deep: #e91e8c;
+  --blue: #90caf9;
+  --bg: #fff9fb;
+  --text: #4a4a4a;
+  --border: #f8bbd0;
+  --radius: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; }
+
+/* ---- 页面切换 ---- */
+.page { display: none; height: 100dvh; flex-direction: column; }
+.page.active { display: flex; }
+
+/* ---- 顶栏 ---- */
+.top-bar {
+  display: flex; align-items: center; padding: 12px 16px;
+  background: white; border-bottom: 1px solid var(--border);
+  gap: 10px; min-height: 52px; flex-shrink: 0;
+}
+.btn-icon {
+  background: none; border: none; font-size: 20px; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px; color: var(--text);
+}
+.btn-icon:active { background: var(--pink-light); }
+.top-title { flex: 1; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- 书架 ---- */
+.shelf-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 8px; flex-shrink: 0;
+}
+.shelf-heading { font-size: 20px; font-weight: 700; }
+.btn-add {
+  background: var(--pink); color: white; border: none;
+  border-radius: 20px; padding: 8px 18px; font-size: 14px; cursor: pointer;
+}
+.book-list {
+  flex: 1; overflow-y: auto; padding: 8px 16px 20px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.book-card {
+  background: white; border-radius: var(--radius); padding: 14px;
+  border: 1px solid var(--border); cursor: pointer; position: relative;
+  transition: box-shadow .15s;
+}
+.book-card:active { box-shadow: 0 2px 12px rgba(240,98,146,.2); }
+.book-cover {
+  width: 100%; aspect-ratio: 3/4; border-radius: 10px;
+  background: linear-gradient(135deg, #fce4ec, #e3f2fd);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px; margin-bottom: 10px;
+}
+.book-title { font-size: 13px; font-weight: 600; line-height: 1.4; }
+.book-author { font-size: 11px; color: #aaa; margin-top: 2px; }
+.book-meta { font-size: 11px; color: var(--pink); margin-top: 4px; }
+.book-menu-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: none; font-size: 16px; color: #bbb; cursor: pointer; padding: 4px;
+}
+.empty-shelf {
+  grid-column: 1/-1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 60px 0;
+  color: #ccc; gap: 12px; font-size: 14px; text-align: center;
+}
+
+/* ---- 阅读器 ---- */
+.reader-content {
+  flex: 1; overflow-y: auto; padding: 20px 20px 80px;
+  line-height: 1.9; font-size: 16px;
+  -webkit-user-select: text; user-select: text;
+}
+.reader-content .chapter-title {
+  font-size: 18px; font-weight: 700; margin-bottom: 24px;
+  color: var(--pink); line-height: 1.4;
+}
+.reader-content p { margin-bottom: .9em; }
+.annotation-mark {
+  background: rgba(240,98,146,.18); border-bottom: 2px solid var(--pink);
+  cursor: pointer; border-radius: 2px;
+}
+.reader-footer {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: white; border-top: 1px solid var(--border);
+  padding: 8px 20px; display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #aaa; flex-shrink: 0;
+}
+.progress-bar { flex: 1; height: 3px; background: #f0f0f0; border-radius: 2px; }
+.progress-fill { height: 100%; background: var(--pink); border-radius: 2px; transition: width .3s; }
+
+/* ---- 选中工具栏 ---- */
+#selBar {
+  display: none; position: fixed; background: #333; color: white;
+  border-radius: 20px; padding: 4px 6px; gap: 2px; z-index: 100; flex-direction: row;
+}
+#selBar.show { display: flex; }
+.sel-btn {
+  background: none; border: none; color: white; padding: 5px 10px;
+  cursor: pointer; font-size: 13px; border-radius: 14px; white-space: nowrap;
+}
+.sel-btn:active { background: rgba(255,255,255,.15); }
+
+/* ---- 批注弹窗 ---- */
+#annModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
+}
+#annModal.show { display: flex; }
+.ann-sheet {
+  background: white; border-radius: 24px 24px 0 0; padding: 20px;
+  width: 100%; max-height: 72dvh; overflow-y: auto;
+}
+.ann-quote {
+  font-size: 13px; color: #999; border-left: 3px solid var(--pink);
+  padding: 6px 10px; margin-bottom: 14px; line-height: 1.6;
+  max-height: 72px; overflow: hidden;
+}
+.ann-input {
+  width: 100%; border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px; font-size: 15px; resize: none; height: 90px;
+  font-family: inherit; outline: none;
+}
+.ann-input:focus { border-color: var(--pink); }
+.ann-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-save-ann {
+  flex: 1; background: var(--pink); color: white; border: none;
+  border-radius: 12px; padding: 12px; cursor: pointer; font-size: 15px;
+}
+.btn-cancel-ann, .btn-del-ann {
+  background: #f5f5f5; color: var(--text); border: none;
+  border-radius: 12px; padding: 12px 14px; cursor: pointer; font-size: 15px;
+}
+.btn-del-ann { color: #e57373; }
+
+/* ---- 章节弹窗 ---- */
+#chapModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200;
+}
+#chapModal.show { display: flex; flex-direction: column; }
+.chap-sheet {
+  margin-top: auto; background: white;
+  border-radius: 24px 24px 0 0; height: 70dvh; display: flex; flex-direction: column;
+}
+.chap-header { padding: 18px 20px; font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.chap-list { flex: 1; overflow-y: auto; }
+.chap-item {
+  padding: 13px 20px; border-bottom: 1px solid #f5f5f5;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px;
+}
+.chap-item.active { color: var(--pink); font-weight: 600; }
+.chap-item:active { background: var(--pink-light); }
+.chap-ann-badge {
+  margin-left: auto; background: var(--pink); color: white;
+  font-size: 10px; border-radius: 10px; padding: 1px 6px; flex-shrink: 0;
+}
+
+/* ---- 上传弹窗 ---- */
+#uploadModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200;
+  align-items: center; justify-content: center;
+}
+#uploadModal.show { display: flex; }
+.upload-sheet {
+  background: white; border-radius: 24px; padding: 24px;
+  width: calc(100% - 48px); max-width: 380px;
+}
+.upload-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 14px; padding: 28px 16px;
+  text-align: center; cursor: pointer; color: #bbb; font-size: 14px; line-height: 1.8;
+}
+.upload-zone:active { border-color: var(--pink); color: var(--pink); }
+.btn-close-modal {
+  width: 100%; margin-top: 14px; background: #f5f5f5;
+  border: none; border-radius: 12px; padding: 12px; cursor: pointer; font-size: 15px;
+}
+
+/* ---- 书籍菜单 ---- */
+#bookMenuModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
+}
+#bookMenuModal.show { display: flex; }
+.book-menu-sheet {
+  background: white; border-radius: 24px 24px 0 0; padding: 16px;
+  width: 100%;
+}
+.book-menu-title { font-size: 14px; color: #999; padding: 8px 8px 12px; }
+.menu-item {
+  padding: 14px 12px; font-size: 15px; cursor: pointer; border-radius: 12px;
+}
+.menu-item:active { background: var(--pink-light); }
+.menu-item.danger { color: #e57373; }
+
+/* ---- loading ---- */
+#loadingMask {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 999;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; color: white; font-size: 16px;
+}
+#loadingMask.show { display: flex; }
+.spinner {
+  width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.3);
+  border-top-color: white; border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- 书架 -->
+<div class="page active" id="shelfPage">
+  <div class="shelf-header">
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn-icon" onclick="goHome()">←</button>
+      <span class="shelf-heading">📚 书架</span>
+    </div>
+    <button class="btn-add" onclick="openUpload()">＋ 添加书</button>
+  </div>
+  <div class="book-list" id="bookList"></div>
+</div>
+
+<!-- 阅读器 -->
+<div class="page" id="readerPage">
+  <div class="top-bar">
+    <button class="btn-icon" onclick="goShelf()">←</button>
+    <div class="top-title" id="readerTitle"></div>
+    <button class="btn-icon" onclick="openChapters()" title="目录">☰</button>
+    <button class="btn-icon" onclick="sendCurrentToChat()" title="发给炘也" style="font-size:16px;color:var(--pink)">💬</button>
+  </div>
+  <div class="reader-content" id="readerContent"
+       onmouseup="onSelect()" ontouchend="onSelect()"></div>
+  <div class="reader-footer">
+    <span id="footerChap" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+    <span id="footerPct">0%</span>
+  </div>
+</div>
+
+<!-- 选中工具栏 -->
+<div id="selBar">
+  <button class="sel-btn" onclick="doAnnotate()">✏️ 批注</button>
+  <button class="sel-btn" onclick="doSendSelected()">💬 发给炘也</button>
+  <button class="sel-btn" onclick="clearSel()">✕</button>
+</div>
+
+<!-- 批注弹窗 -->
+<div id="annModal">
+  <div class="ann-sheet">
+    <div class="ann-quote" id="annQuote"></div>
+    <textarea class="ann-input" id="annInput" placeholder="写下你的想法……"></textarea>
+    <div class="ann-actions">
+      <button class="btn-cancel-ann" onclick="closeAnn()">取消</button>
+      <button class="btn-del-ann" id="btnDelAnn" onclick="deleteAnn()" style="display:none">删除</button>
+      <button class="btn-save-ann" onclick="saveAnn()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 章节弹窗 -->
+<div id="chapModal" onclick="closeChapters()">
+  <div class="chap-sheet" onclick="event.stopPropagation()">
+    <div class="chap-header">目录</div>
+    <div class="chap-list" id="chapList"></div>
+  </div>
+</div>
+
+<!-- 上传弹窗 -->
+<div id="uploadModal">
+  <div class="upload-sheet">
+    <div class="upload-title">📥 添加书籍</div>
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:40px;margin-bottom:8px">📖</div>
+      <div>点击选择文件</div>
+      <div style="font-size:12px;color:#ccc;margin-top:4px">支持 .epub / .txt</div>
+    </div>
+    <input type="file" id="fileInput" accept=".epub,.txt" hidden>
+    <button class="btn-close-modal" onclick="closeUpload()">取消</button>
+  </div>
+</div>
+
+<!-- 书籍菜单 -->
+<div id="bookMenuModal" onclick="closeBookMenu()">
+  <div class="book-menu-sheet" onclick="event.stopPropagation()">
+    <div class="book-menu-title" id="bookMenuTitle"></div>
+    <div class="menu-item" onclick="menuExport()">📤 导出（含批注）</div>
+    <div class="menu-item danger" onclick="menuDelete()">🗑️ 删除这本书</div>
+    <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>
+  </div>
+</div>
+
+<!-- loading -->
+<div id="loadingMask">
+  <div class="spinner"></div>
+  <div id="loadingText">解析中…</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ==================== DB ====================
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('ReadingDB', 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('books'))       d.createObjectStore('books', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('chapters'))    d.createObjectStore('chapters', { keyPath: 'bookId' });
+      if (!d.objectStoreNames.contains('annotations')) d.createObjectStore('annotations', { keyPath: 'bookId' });
+    };
+    req.onsuccess = e => { db = e.target.result; res(); };
+    req.onerror = rej;
+  });
+}
+const dbOp = (store, mode, fn) => new Promise((res, rej) => {
+  const tx = db.transaction(store, mode);
+  const s = tx.objectStore(store);
+  const r = fn(s); r.onsuccess = e => res(e.target.result); r.onerror = rej;
+});
+const dbGet    = (store, key) => dbOp(store, 'readonly',  s => s.get(key));
+const dbPut    = (store, val) => dbOp(store, 'readwrite', s => s.put(val));
+const dbDel    = (store, key) => dbOp(store, 'readwrite', s => s.delete(key));
+const dbGetAll = (store)      => dbOp(store, 'readonly',  s => s.getAll());
+
+// ==================== STATE ====================
+let books = [];
+let curBook = null, curChapters = [], curChapterIdx = 0, curAnns = [];
+let pendingSel = null, editingAnnId = null;
+let menuBookId = null;
+
+// ==================== INIT ====================
+async function init() {
+  await openDB();
+  books = await dbGetAll('books');
+  renderShelf();
+}
+
+// ==================== SHELF ====================
+function renderShelf() {
+  const list = document.getElementById('bookList');
+  if (!books.length) {
+    list.innerHTML = '<div class="empty-shelf"><div style="font-size:52px">📖</div><div>还没有书<br>点右上角添加</div></div>';
+    return;
+  }
+  list.innerHTML = books
+    .sort((a,b) => (b.lastRead||0) - (a.lastRead||0))
+    .map(b => `
+      <div class="book-card" onclick="openBook('${b.id}')">
+        <div class="book-cover">${b.format==='epub'?'📘':'📄'}</div>
+        <div class="book-title">${esc(b.title)}</div>
+        <div class="book-author">${esc(b.author||'')}</div>
+        <div class="book-meta">${b.annotationCount?b.annotationCount+' 条批注':'暂无批注'}</div>
+        <button class="book-menu-btn" onclick="openBookMenu(event,'${b.id}')">⋯</button>
+      </div>`).join('');
+}
+
+// ==================== BOOK MENU ====================
+function openBookMenu(e, bookId) {
+  e.stopPropagation();
+  menuBookId = bookId;
+  const b = books.find(x => x.id === bookId);
+  document.getElementById('bookMenuTitle').textContent = '《' + b.title + '》';
+  document.getElementById('bookMenuModal').classList.add('show');
+}
+function closeBookMenu() {
+  document.getElementById('bookMenuModal').classList.remove('show');
+  menuBookId = null;
+}
+async function menuExport() {
+  closeBookMenu();
+  await exportBook(menuBookId || '');
+}
+async function menuDelete() {
+  closeBookMenu();
+  const b = books.find(x => x.id === menuBookId);
+  if (!b || !confirm(`删除《${b.title}》及全部批注？`)) return;
+  await dbDel('books', menuBookId);
+  await dbDel('chapters', menuBookId);
+  await dbDel('annotations', menuBookId);
+  books = books.filter(x => x.id !== menuBookId);
+  renderShelf();
+}
+
+// ==================== UPLOAD ====================
+function openUpload()  { document.getElementById('uploadModal').classList.add('show'); }
+function closeUpload() { document.getElementById('uploadModal').classList.remove('show'); }
+
+document.getElementById('fileInput').onchange = async function() {
+  if (!this.files.length) return;
+  const file = this.files[0]; this.value = '';
+  closeUpload();
+  showLoading('解析中…');
+  try {
+    if (file.name.toLowerCase().endsWith('.epub')) await parseEpub(file);
+    else if (file.name.toLowerCase().endsWith('.txt')) await parseTxt(file);
+    else alert('只支持 .epub 和 .txt');
+  } catch(e) { alert('解析失败：' + e.message); console.error(e); }
+  hideLoading();
+  renderShelf();
+};
+
+// ==================== EPUB ====================
+async function parseEpub(file) {
+  const zip = await JSZip.loadAsync(file);
+  const containerXml = await zip.file('META-INF/container.xml').async('string');
+  const opfPath = containerXml.match(/full-path="([^"]+\.opf)"/)?.[1];
+  if (!opfPath) throw new Error('找不到 OPF 文件');
+  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/')+1) : '';
+  const opfXml = await zip.file(opfPath).async('string');
+
+  const title  = opfXml.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/)?.[1]?.trim()   || file.name.replace(/\.epub$/i,'');
+  const author = opfXml.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/)?.[1]?.trim() || '';
+
+  const manifest = {};
+  for (const m of opfXml.matchAll(/<item\s[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g))
+    manifest[m[1]] = m[2];
+
+  const spineIds = [...opfXml.matchAll(/<itemref\s[^>]*\bidref="([^"]+)"/g)].map(m=>m[1]);
+  const chapters = [];
+  for (const id of spineIds) {
+    const href = manifest[id]; if (!href) continue;
+    const f = zip.file(opfDir+href) || zip.file(href); if (!f) continue;
+    const html = await f.async('string');
+    const text = htmlToText(html);
+    if (text.trim().length < 20) continue;
+    const chTitle = html.match(/<h[1-3][^>]*>([^<]+)<\/h[1-3]>/)?.[1]?.replace(/<[^>]+>/g,'').trim()
+                  || `第${chapters.length+1}章`;
+    chapters.push({ title: chTitle, content: text.trim() });
+  }
+  if (!chapters.length) throw new Error('未能提取章节内容');
+  await saveBook({ title, author, format:'epub' }, chapters);
+}
+
+function htmlToText(html) {
+  html = html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'');
+  html = html.replace(/<\/p>/gi,'\n').replace(/<br\s*\/?>/gi,'\n').replace(/<\/div>/gi,'\n').replace(/<\/h[1-6]>/gi,'\n');
+  html = html.replace(/<[^>]+>/g,'');
+  html = html.replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(n));
+  return html.replace(/\n{3,}/g,'\n\n').trim();
+}
+
+// ==================== TXT ====================
+async function parseTxt(file) {
+  const text = await new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.readAsText(file, 'UTF-8');
+  });
+  const title = file.name.replace(/\.txt$/i,'');
+  const lines = text.split('\n');
+  let chapters = [], cur = { title:'全文', content:'' }, hasChap = false;
+  for (const line of lines) {
+    if (/^第[零一二三四五六七八九十百千万\d]+[章节卷集部回篇]/.test(line.trim()) ||
+        /^Chapter\s+\d+/i.test(line.trim()) ||
+        /^[序前后附][言记章]/i.test(line.trim())) {
+      if (cur.content.trim()) chapters.push(cur);
+      cur = { title: line.trim(), content:'' }; hasChap = true;
+    } else { cur.content += line + '\n'; }
+  }
+  if (cur.content.trim()) chapters.push(cur);
+  if (!hasChap || chapters.length <= 1) {
+    chapters = [];
+    for (let i = 0; i < text.length; i += 4000)
+      chapters.push({ title:`第${chapters.length+1}段`, content: text.slice(i, i+4000) });
+  }
+  await saveBook({ title, author:'', format:'txt' }, chapters);
+}
+
+async function saveBook(meta, chapters) {
+  const id = 'book_' + Date.now();
+  const book = { id, ...meta, addedAt:Date.now(), lastRead:null, lastChapter:0, annotationCount:0 };
+  await dbPut('books', book);
+  await dbPut('chapters', { bookId:id, chapters });
+  await dbPut('annotations', { bookId:id, list:[] });
+  books.push(book);
+}
+
+// ==================== READER ====================
+async function openBook(bookId) {
+  curBook = books.find(b => b.id === bookId); if (!curBook) return;
+  const cd = await dbGet('chapters', bookId); curChapters = cd?.chapters || [];
+  const ad = await dbGet('annotations', bookId); curAnns = ad?.list || [];
+  curChapterIdx = curBook.lastChapter || 0;
+  showPage('readerPage');
+  document.getElementById('readerTitle').textContent = curBook.title;
+  renderChapter();
+  curBook.lastRead = Date.now(); await dbPut('books', curBook);
+}
+
+function renderChapter() {
+  if (!curChapters.length) return;
+  const ch = curChapters[curChapterIdx];
+  const chAnns = curAnns.filter(a => a.chapterIndex === curChapterIdx);
+  const content = document.getElementById('readerContent');
+  content.innerHTML = `<div class="chapter-title">${esc(ch.title)}</div>` + renderWithAnns(ch.content, chAnns);
+  content.scrollTop = 0;
+  const pct = Math.round((curChapterIdx+1)/curChapters.length*100);
+  document.getElementById('footerChap').textContent = ch.title;
+  document.getElementById('progFill').style.width = pct+'%';
+  document.getElementById('footerPct').textContent = pct+'%';
+  content.querySelectorAll('.annotation-mark').forEach(el =>
+    el.addEventListener('click', () => openExistingAnn(el.dataset.annId)));
+}
+
+function renderWithAnns(text, anns) {
+  if (!anns.length)
+    return text.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${esc(p.trim())}</p>`).join('');
+  // 插入占位符（逆序避免偏移）
+  const sorted = [...anns].sort((a,b)=>b.startOffset-a.startOffset);
+  let result = text;
+  for (const a of sorted) {
+    result = result.slice(0,a.startOffset)
+      + `\x01${a.id}\x01`
+      + result.slice(a.startOffset, a.endOffset)
+      + `\x02`
+      + result.slice(a.endOffset);
+  }
+  let html = '';
+  for (const p of result.split('\n\n').filter(p=>p.trim())) {
+    let s = esc(p.trim());
+    s = s.replace(/\x01([^\x01]+)\x01/g, (_,id) => `<span class="annotation-mark" data-ann-id="${id}">`);
+    s = s.replace(/\x02/g, '</span>');
+    html += `<p>${s}</p>`;
+  }
+  return html;
+}
+
+// ==================== 文字选中 ====================
+let selTimer;
+function onSelect() {
+  clearTimeout(selTimer);
+  selTimer = setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) { hideSelBar(); return; }
+    const range = sel.getRangeAt(0);
+    const rect  = range.getBoundingClientRect();
+    const selectedText = sel.toString().trim();
+    const chContent = curChapters[curChapterIdx]?.content || '';
+    const startOffset = chContent.indexOf(selectedText);
+    pendingSel = { selectedText, startOffset: startOffset>=0?startOffset:0, endOffset: (startOffset>=0?startOffset:0)+selectedText.length };
+    showSelBar(rect);
+  }, 200);
+}
+
+function showSelBar(rect) {
+  const bar = document.getElementById('selBar');
+  bar.classList.add('show');
+  const top  = Math.max(8, rect.top - 52);
+  const left = Math.max(8, Math.min(window.innerWidth - 220, rect.left + rect.width/2 - 90));
+  bar.style.top = top+'px'; bar.style.left = left+'px';
+}
+function hideSelBar() { document.getElementById('selBar').classList.remove('show'); }
+function clearSel()   { window.getSelection()?.removeAllRanges(); hideSelBar(); pendingSel = null; }
+
+// ==================== 批注 ====================
+function doAnnotate() {
+  if (!pendingSel) return;
+  editingAnnId = null;
+  document.getElementById('annQuote').textContent = '「' + pendingSel.selectedText + '」';
+  document.getElementById('annInput').value = '';
+  document.getElementById('btnDelAnn').style.display = 'none';
+  document.getElementById('annModal').classList.add('show');
+  hideSelBar();
+  setTimeout(() => document.getElementById('annInput').focus(), 300);
+}
+
+function openExistingAnn(annId) {
+  const a = curAnns.find(x => x.id === annId); if (!a) return;
+  editingAnnId = annId;
+  pendingSel = { selectedText: a.selectedText, startOffset: a.startOffset, endOffset: a.endOffset };
+  document.getElementById('annQuote').textContent = '「' + a.selectedText + '」';
+  document.getElementById('annInput').value = a.note;
+  document.getElementById('btnDelAnn').style.display = 'block';
+  document.getElementById('annModal').classList.add('show');
+}
+
+function closeAnn() {
+  document.getElementById('annModal').classList.remove('show');
+  pendingSel = null; editingAnnId = null;
+}
+
+async function saveAnn() {
+  if (!pendingSel) return;
+  const note = document.getElementById('annInput').value.trim();
+  if (editingAnnId) {
+    const a = curAnns.find(x => x.id === editingAnnId);
+    if (a) a.note = note;
+  } else {
+    curAnns.push({ id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
+      selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
+      endOffset:pendingSel.endOffset, note, createdAt:Date.now() });
+  }
+  await dbPut('annotations', { bookId:curBook.id, list:curAnns });
+  curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
+  closeAnn(); renderChapter();
+}
+
+async function deleteAnn() {
+  if (!editingAnnId) return;
+  curAnns = curAnns.filter(a => a.id !== editingAnnId);
+  await dbPut('annotations', { bookId:curBook.id, list:curAnns });
+  curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
+  closeAnn(); renderChapter();
+}
+
+// ==================== 章节列表 ====================
+function openChapters() {
+  const annsByChap = {};
+  curAnns.forEach(a => { annsByChap[a.chapterIndex] = (annsByChap[a.chapterIndex]||0)+1; });
+  document.getElementById('chapList').innerHTML = curChapters.map((ch,i) => `
+    <div class="chap-item ${i===curChapterIdx?'active':''}" onclick="goChapter(${i})">
+      ${esc(ch.title)}
+      ${annsByChap[i] ? `<span class="chap-ann-badge">${annsByChap[i]}</span>` : ''}
+    </div>`).join('');
+  document.getElementById('chapModal').classList.add('show');
+}
+function closeChapters() { document.getElementById('chapModal').classList.remove('show'); }
+async function goChapter(idx) {
+  curChapterIdx = idx; curBook.lastChapter = idx; await dbPut('books', curBook);
+  closeChapters(); renderChapter();
+}
+
+// ==================== 发给炘也 ====================
+function sendCurrentToChat() {
+  const ch = curChapters[curChapterIdx];
+  const chAnns = curAnns.filter(a => a.chapterIndex === curChapterIdx);
+  let msg = `📖《${curBook.title}》${ch.title}\n`;
+  if (chAnns.length) {
+    msg += `\n我的批注：\n`;
+    chAnns.forEach(a => { msg += `\n「${a.selectedText}」\n${a.note||'（无文字）'}\n`; });
+  } else {
+    msg += '\n（这章我还没有写批注）';
+  }
+  sendMsg(msg);
+}
+
+function doSendSelected() {
+  if (!pendingSel) return;
+  const ch = curChapters[curChapterIdx];
+  sendMsg(`📖《${curBook.title}》${ch.title}\n\n我选了这段：\n「${pendingSel.selectedText}」`);
+  clearSel();
+}
+
+function sendMsg(msg) {
+  localStorage.setItem('sendToXinye', msg);
+  window.location.href = '炘也.html';
+}
+
+// ==================== 导出 ====================
+async function exportBook(bookId) {
+  const b = books.find(x => x.id === bookId); if (!b) return;
+  const cd = await dbGet('chapters', bookId);
+  const ad = await dbGet('annotations', bookId);
+  const blob = new Blob([JSON.stringify({ book:b, chapters:cd?.chapters, annotations:ad?.list }, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`${b.title}_批注.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ==================== 工具 ====================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goHome()  { window.location.href = '炘也.html'; }
+function goShelf() { showPage('shelfPage'); }
+function showLoading(t) { document.getElementById('loadingText').textContent=t; document.getElementById('loadingMask').classList.add('show'); }
+function hideLoading()  { document.getElementById('loadingMask').classList.remove('show'); }
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+document.getElementById('annModal').addEventListener('click', e => { if(e.target===document.getElementById('annModal')) closeAnn(); });
+document.getElementById('uploadModal').addEventListener('click', e => { if(e.target===document.getElementById('uploadModal')) closeUpload(); });
+
+init();
+</script>
+</body>
+</html>
