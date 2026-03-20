@@ -768,7 +768,7 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-function goHome()  { window.location.href = '炘也.html'; }
+function goHome()  { window.location.href = window.location.href.replace(/reading\.html.*/, '炘也.html'); }
 function goShelf() { showPage('shelfPage'); }
 function showLoading(t) { document.getElementById('loadingText').textContent=t; document.getElementById('loadingMask').classList.add('show'); }
 function hideLoading()  { document.getElementById('loadingMask').classList.remove('show'); }
