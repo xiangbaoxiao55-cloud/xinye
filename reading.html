@@ -100,15 +100,17 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 
 /* ---- 选中工具栏 ---- */
 #selBar {
-  display: none; position: fixed; bottom: 60px; left: 0; right: 0;
+  display: none; position: fixed; bottom: 72px;
+  left: 50%; transform: translateX(-50%);
   background: #333; color: white; z-index: 100;
-  flex-direction: row; justify-content: center; gap: 4px;
-  padding: 10px 16px; border-radius: 20px 20px 0 0;
+  flex-direction: row; gap: 2px;
+  padding: 4px 8px; border-radius: 24px;
+  white-space: nowrap;
 }
 #selBar.show { display: flex; }
 .sel-btn {
-  background: none; border: none; color: white; padding: 8px 16px;
-  cursor: pointer; font-size: 14px; border-radius: 14px; white-space: nowrap;
+  background: none; border: none; color: white; padding: 8px 14px;
+  cursor: pointer; font-size: 14px; border-radius: 20px; white-space: nowrap;
 }
 .sel-btn:active { background: rgba(255,255,255,.15); }
 
