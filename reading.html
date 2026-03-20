@@ -642,14 +642,23 @@ function renderWithAnns(text, anns) {
 
 // ==================== 文字选中 ====================
 function onSelect() {
-  // 稍等让系统完成selection
   setTimeout(() => {
     const sel = window.getSelection();
-    const txt = sel ? sel.toString().trim() : '';
-    if (!txt) return;
+    let txt = sel ? sel.toString() : '';
+    if (!txt.trim()) return;
+    // 跨段落时截到第一段
+    const firstPara = txt.split(/\n\n+/)[0].trim();
+    txt = firstPara || txt.trim();
     const chContent = curChapters[curChapterIdx]?.content || '';
-    const startOffset = chContent.indexOf(txt);
-    pendingSel = { selectedText: txt, startOffset: startOffset>=0?startOffset:0, endOffset: (startOffset>=0?startOffset:0)+txt.length };
+    // 宽松查找：规范化空白后再搜索
+    let startOffset = chContent.indexOf(txt);
+    if (startOffset < 0) {
+      const normalized = txt.replace(/\s+/g, ' ');
+      const normContent = chContent.replace(/\s+/g, ' ');
+      startOffset = normContent.indexOf(normalized);
+    }
+    if (startOffset < 0) startOffset = 0;
+    pendingSel = { selectedText: txt, startOffset, endOffset: startOffset + txt.length };
     document.getElementById('selBar').classList.add('show');
   }, 50);
 }
@@ -710,7 +719,6 @@ async function saveAnn() {
   await dbPut('annotations', { bookId:curBook.id, list:curAnns });
   curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
   closeAnn(); renderChapter();
-  setTimeout(() => alert('批注已保存 ✅\n「' + newAnn.selectedText.slice(0,20) + '」\n位置：' + newAnn.startOffset), 100);
 }
 
 async function deleteAnn() {
