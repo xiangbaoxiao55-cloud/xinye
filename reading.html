@@ -636,24 +636,15 @@ function onSelect() {
   clearTimeout(selTimer);
   selTimer = setTimeout(() => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) { hideSelBar(); return; }
-    const range = sel.getRangeAt(0);
-    const rect  = range.getBoundingClientRect();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
     const selectedText = sel.toString().trim();
     const chContent = curChapters[curChapterIdx]?.content || '';
     const startOffset = chContent.indexOf(selectedText);
     pendingSel = { selectedText, startOffset: startOffset>=0?startOffset:0, endOffset: (startOffset>=0?startOffset:0)+selectedText.length };
-    showSelBar(rect);
-  }, 200);
+    document.getElementById('selBar').classList.add('show');
+  }, 300);
 }
 
-function showSelBar(rect) {
-  const bar = document.getElementById('selBar');
-  bar.classList.add('show');
-  const top  = Math.max(8, rect.top - 52);
-  const left = Math.max(8, Math.min(window.innerWidth - 220, rect.left + rect.width/2 - 90));
-  bar.style.top = top+'px'; bar.style.left = left+'px';
-}
 function hideSelBar() { document.getElementById('selBar').classList.remove('show'); }
 function clearSel()   { window.getSelection()?.removeAllRanges(); hideSelBar(); pendingSel = null; }
 
