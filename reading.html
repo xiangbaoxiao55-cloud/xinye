@@ -87,7 +87,6 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 }
 .reader-content p { margin-bottom: .9em; }
 .annotation-mark {
-  background: rgba(240,98,146,.18); border-bottom: 2px solid var(--pink);
   cursor: pointer; border-radius: 2px;
 }
 .reader-footer {
@@ -110,6 +109,11 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   cursor: pointer; font-size: 13px; border-radius: 14px; white-space: nowrap;
 }
 .sel-btn:active { background: rgba(255,255,255,.15); }
+
+/* ---- 批注高亮颜色 ---- */
+.annotation-mark.user-ann  { background: rgba(240,98,146,.18); border-bottom: 2px solid var(--pink); }
+.annotation-mark.xinye-ann { background: rgba(100,181,246,.18); border-bottom: 2px solid #64b5f6; }
+.annotation-mark.both-ann  { background: rgba(200,140,220,.15); border-bottom: 2px solid #ba68c8; }
 
 /* ---- 批注弹窗 ---- */
 #annModal {
@@ -205,6 +209,13 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 .menu-item:active { background: var(--pink-light); }
 .menu-item.danger { color: #e57373; }
 
+/* ---- 问炘也弹窗 ---- */
+#askModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
+}
+#askModal.show { display: flex; }
+
 /* ---- 书架菜单 ---- */
 #shelfMenuModal {
   display: none; position: fixed; inset: 0;
@@ -265,7 +276,7 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 <!-- 选中工具栏 -->
 <div id="selBar">
   <button class="sel-btn" onclick="doAnnotate()">✏️ 批注</button>
-  <button class="sel-btn" onclick="doSendSelected()">💬 发给炘也</button>
+  <button class="sel-btn" onclick="doAskXinye()">💙 问炘也</button>
   <button class="sel-btn" onclick="clearSel()">✕</button>
 </div>
 
@@ -278,6 +289,24 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
       <button class="btn-cancel-ann" onclick="closeAnn()">取消</button>
       <button class="btn-del-ann" id="btnDelAnn" onclick="deleteAnn()" style="display:none">删除</button>
       <button class="btn-save-ann" onclick="saveAnn()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 问炘也弹窗 -->
+<div id="askModal">
+  <div class="ann-sheet">
+    <div style="font-size:13px;color:#999;margin-bottom:10px">💙 问炘也</div>
+    <div class="ann-quote" id="askQuote"></div>
+    <div id="askReply" style="display:none;background:#f0f7ff;border-radius:12px;padding:12px;font-size:14px;line-height:1.8;margin-bottom:12px;color:#3a3a5a;white-space:pre-wrap"></div>
+    <div id="askLoading" style="display:none;text-align:center;padding:16px;color:#90caf9;font-size:14px">炘也在想……</div>
+    <div class="ann-actions" id="askActions">
+      <button class="btn-cancel-ann" onclick="closeAsk()">取消</button>
+      <button class="btn-save-ann" onclick="doAsk()">问他</button>
+    </div>
+    <div class="ann-actions" id="askSaveActions" style="display:none">
+      <button class="btn-cancel-ann" onclick="closeAsk()">关闭</button>
+      <button class="btn-save-ann" style="background:#64b5f6" onclick="saveAskReply()">存进书里 💙</button>
     </div>
   </div>
 </div>
@@ -586,7 +615,11 @@ function renderWithAnns(text, anns) {
   let html = '';
   for (const p of result.split('\n\n').filter(p=>p.trim())) {
     let s = esc(p.trim());
-    s = s.replace(/\x01([^\x01]+)\x01/g, (_,id) => `<span class="annotation-mark" data-ann-id="${id}">`);
+    s = s.replace(/\x01([^\x01]+)\x01/g, (_, id) => {
+      const a = anns.find(x => x.id === id);
+      const cls = a ? (a.note && a.xinye_note ? 'both-ann' : a.xinye_note ? 'xinye-ann' : 'user-ann') : 'user-ann';
+      return `<span class="annotation-mark ${cls}" data-ann-id="${id}">`;
+    });
     s = s.replace(/\x02/g, '</span>');
     html += `<p>${s}</p>`;
   }
@@ -637,13 +670,24 @@ function openExistingAnn(annId) {
   editingAnnId = annId;
   pendingSel = { selectedText: a.selectedText, startOffset: a.startOffset, endOffset: a.endOffset };
   document.getElementById('annQuote').textContent = '「' + a.selectedText + '」';
-  document.getElementById('annInput').value = a.note;
+  document.getElementById('annInput').value = a.note || '';
   document.getElementById('btnDelAnn').style.display = 'block';
+  // 如果有炘也批注，显示在下方
+  const xinyeArea = document.getElementById('annXinyeNote');
+  if (xinyeArea) xinyeArea.remove();
+  if (a.xinye_note) {
+    const div = document.createElement('div');
+    div.id = 'annXinyeNote';
+    div.style.cssText = 'background:#f0f7ff;border-radius:12px;padding:10px;font-size:13px;color:#3a3a5a;margin-bottom:12px;line-height:1.8;white-space:pre-wrap';
+    div.innerHTML = '💙 炘也：' + esc(a.xinye_note);
+    document.querySelector('.ann-sheet').insertBefore(div, document.getElementById('annInput'));
+  }
   document.getElementById('annModal').classList.add('show');
 }
 
 function closeAnn() {
   document.getElementById('annModal').classList.remove('show');
+  document.getElementById('annXinyeNote')?.remove();
   pendingSel = null; editingAnnId = null;
 }
 
@@ -794,6 +838,91 @@ async function archiveToMemory() {
     hideLoading();
     alert('已整理进记忆档案 💙\n\n' + newMemory);
   } catch(e) { hideLoading(); alert('整理失败：' + e.message); console.error(e); }
+}
+
+// ==================== 问炘也 ====================
+let askingAnnId = null;
+let askReplyText = '';
+
+function doAskXinye() {
+  if (!pendingSel) return;
+  askingAnnId = null; askReplyText = '';
+  document.getElementById('askQuote').textContent = '「' + pendingSel.selectedText + '」';
+  document.getElementById('askReply').style.display = 'none';
+  document.getElementById('askReply').textContent = '';
+  document.getElementById('askLoading').style.display = 'none';
+  document.getElementById('askActions').style.display = 'flex';
+  document.getElementById('askSaveActions').style.display = 'none';
+  document.getElementById('askModal').classList.add('show');
+  hideSelBar();
+}
+
+function closeAsk() {
+  document.getElementById('askModal').classList.remove('show');
+  askingAnnId = null; askReplyText = '';
+}
+
+async function doAsk() {
+  if (!pendingSel) return;
+  document.getElementById('askActions').style.display = 'none';
+  document.getElementById('askLoading').style.display = 'block';
+  document.getElementById('askReply').style.display = 'none';
+  try {
+    const xinyeDB = await new Promise((res, rej) => {
+      const req = indexedDB.open('XinyeChatDB'); req.onsuccess = e => res(e.target.result); req.onerror = rej;
+    });
+    const cfg = await new Promise((res, rej) => {
+      const tx = xinyeDB.transaction('settings','readonly');
+      const r = tx.objectStore('settings').get('main'); r.onsuccess = e => res(e.target.result); r.onerror = rej;
+    });
+    if (!cfg) throw new Error('找不到炘也设置');
+    const apiKey = cfg.apiKey; if (!apiKey) throw new Error('没有API Key');
+    const baseUrl = (cfg.baseUrl || 'https://api.anthropic.com').replace(/\/+$/,'');
+    const model = cfg.model || 'claude-sonnet-4-6';
+    const sysPrompt = cfg.systemPrompt || '';
+    const memory = cfg.memoryArchive || '';
+
+    const ch = curChapters[curChapterIdx];
+    const userNote = curAnns.find(a => a.startOffset === pendingSel.startOffset)?.note || '';
+    const prompt = `我在读《${curBook.title}》，选了这段文字：\n\n「${pendingSel.selectedText}」\n\n${userNote ? `我的想法：${userNote}\n\n` : ''}你怎么看这段？`;
+
+    const msgs = [];
+    if (memory) msgs.push({ role:'user', content:`【记忆档案】\n${memory}` }, { role:'assistant', content:'好，我记住了。' });
+    msgs.push({ role:'user', content: prompt });
+
+    const resp = await fetch(`${baseUrl}/v1/messages`, {
+      method:'POST',
+      headers:{ 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'content-type':'application/json', 'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model, max_tokens:400, system: sysPrompt, messages: msgs })
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
+    const result = await resp.json();
+    askReplyText = result.content?.[0]?.text?.trim() || '';
+    document.getElementById('askLoading').style.display = 'none';
+    document.getElementById('askReply').textContent = askReplyText;
+    document.getElementById('askReply').style.display = 'block';
+    document.getElementById('askSaveActions').style.display = 'flex';
+  } catch(e) {
+    document.getElementById('askLoading').style.display = 'none';
+    document.getElementById('askActions').style.display = 'flex';
+    alert('出错了：' + e.message);
+  }
+}
+
+async function saveAskReply() {
+  if (!askReplyText || !pendingSel) return;
+  // 找已有批注或新建
+  let ann = curAnns.find(a => a.startOffset === pendingSel.startOffset && a.chapterIndex === curChapterIdx);
+  if (ann) {
+    ann.xinye_note = askReplyText;
+  } else {
+    ann = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx, selectedText:pendingSel.selectedText,
+      startOffset:pendingSel.startOffset, endOffset:pendingSel.endOffset, note:'', xinye_note:askReplyText, createdAt:Date.now() };
+    curAnns.push(ann);
+  }
+  await dbPut('annotations', { bookId:curBook.id, list:curAnns });
+  curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
+  closeAsk(); clearSel(); renderChapter();
 }
 
 // ==================== 书架菜单 ====================
