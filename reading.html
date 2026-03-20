@@ -249,6 +249,7 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
     <button class="btn-icon" onclick="goShelf()">←</button>
     <div class="top-title" id="readerTitle"></div>
     <button class="btn-icon" onclick="openChapters()" title="目录">☰</button>
+    <button class="btn-icon" onclick="archiveToMemory()" title="整理进记忆" style="font-size:16px">🧠</button>
     <button class="btn-icon" onclick="sendCurrentToChat()" title="发给炘也" style="font-size:16px;color:var(--pink)">💬</button>
   </div>
   <div class="reader-content" id="readerContent"
@@ -705,6 +706,63 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 
 document.getElementById('annModal').addEventListener('click', e => { if(e.target===document.getElementById('annModal')) closeAnn(); });
 document.getElementById('uploadModal').addEventListener('click', e => { if(e.target===document.getElementById('uploadModal')) closeUpload(); });
+
+// ==================== 整理进记忆 ====================
+async function archiveToMemory() {
+  if (!curBook) return;
+  if (!curAnns.length) { alert('这本书还没有批注，先写几条吧～'); return; }
+  if (!confirm(`把《${curBook.title}》的批注整理进记忆档案？`)) return;
+
+  showLoading('炘也整理中…');
+  try {
+    // 读炘也的设置
+    const xinyeDB = await new Promise((res, rej) => {
+      const req = indexedDB.open('XinyeChatDB');
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = rej;
+    });
+    const cfg = await new Promise((res, rej) => {
+      const tx = xinyeDB.transaction('settings', 'readonly');
+      const r = tx.objectStore('settings').get('main');
+      r.onsuccess = e => res(e.target.result); r.onerror = rej;
+    });
+    if (!cfg) { hideLoading(); alert('找不到炘也的设置，先打开炘也聊天界面一次再试'); return; }
+
+    const apiKey = cfg.subApiKey || cfg.apiKey;
+    const baseUrl = (cfg.subBaseUrl || cfg.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const model = cfg.subModel || cfg.model || 'claude-sonnet-4-6';
+    if (!apiKey) { hideLoading(); alert('没有找到API Key，请在炘也设置里填写'); return; }
+
+    // 构建批注摘要
+    const annText = curAnns.map(a =>
+      `【${curChapters[a.chapterIndex]?.title||''}】\n"${a.selectedText}"\n→ ${a.note}`
+    ).join('\n\n');
+
+    const prompt = `兔宝在读《${curBook.title}》${curBook.author?`（${curBook.author}）`:''}，写了以下批注：\n\n${annText}\n\n请用100字以内，以"兔宝读《${curBook.title}》时……"开头，整理成一段适合放进记忆档案的文字。只输出那一段话，不要其他内容。`;
+
+    const resp = await fetch(`${baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model, max_tokens: 300, messages: [{ role:'user', content: prompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
+    const result = await resp.json();
+    const newMemory = result.content?.[0]?.text?.trim();
+    if (!newMemory) throw new Error('API 没有返回内容');
+
+    // 追加进记忆档案
+    const existing = cfg.memoryArchive || '';
+    const today = new Date().toLocaleDateString('zh');
+    cfg.memoryArchive = existing + (existing ? '\n\n' : '') + `[${today}] ${newMemory}`;
+    await new Promise((res, rej) => {
+      const tx = xinyeDB.transaction('settings', 'readwrite');
+      const r = tx.objectStore('settings').put(cfg);
+      r.onsuccess = res; r.onerror = rej;
+    });
+    hideLoading();
+    alert('已整理进记忆档案 💙\n\n' + newMemory);
+  } catch(e) { hideLoading(); alert('整理失败：' + e.message); console.error(e); }
+}
 
 // ==================== 书架菜单 ====================
 function openShelfMenu()  { document.getElementById('shelfMenuModal').classList.add('show'); }
