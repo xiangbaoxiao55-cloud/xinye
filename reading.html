@@ -364,6 +364,15 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   <div id="loadingText">解析中…</div>
 </div>
 
+<script>
+// 加载 Capacitor（APK环境）
+if (typeof window !== 'undefined') {
+  const s = document.createElement('script');
+  s.src = 'capacitor.js';
+  s.onerror = () => {}; // 浏览器环境没有此文件，忽略
+  document.head.appendChild(s);
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 // ==================== DB ====================
