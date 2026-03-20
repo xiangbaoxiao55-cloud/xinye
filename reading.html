@@ -446,22 +446,53 @@ async function parseEpub(file) {
   const title  = opfXml.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/)?.[1]?.trim()   || file.name.replace(/\.epub$/i,'');
   const author = opfXml.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/)?.[1]?.trim() || '';
 
+  // 逐个 <item> 标签解析，不依赖属性顺序
   const manifest = {};
-  for (const m of opfXml.matchAll(/<item\s[^>]*\bid="([^"]+)"[^>]*\bhref="([^"]+)"/g))
-    manifest[m[1]] = m[2];
+  for (const m of opfXml.matchAll(/<item\b([^>]+)>/gi)) {
+    const attrs = m[1];
+    const idM   = attrs.match(/\bid="([^"]+)"/);
+    const hrefM = attrs.match(/\bhref="([^"]+)"/);
+    const mediaM = attrs.match(/\bmedia-type="([^"]+)"/);
+    if (idM && hrefM) manifest[idM[1]] = { href: hrefM[1], media: mediaM?.[1] || '' };
+  }
 
-  const spineIds = [...opfXml.matchAll(/<itemref\s[^>]*\bidref="([^"]+)"/g)].map(m=>m[1]);
+  const spineIds = [...opfXml.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/g)].map(m=>m[1]);
   const chapters = [];
+
+  // 路径解析：处理相对路径和URL编码
+  function resolveHref(base, href) {
+    href = decodeURIComponent(href).split('#')[0]; // 去掉锚点
+    if (!base || href.startsWith('/')) return href;
+    return base + href;
+  }
+
   for (const id of spineIds) {
-    const href = manifest[id]; if (!href) continue;
-    const f = zip.file(opfDir+href) || zip.file(href); if (!f) continue;
+    const item = manifest[id]; if (!item) continue;
+    const fullPath = resolveHref(opfDir, item.href);
+    const f = zip.file(fullPath) || zip.file(item.href) || zip.file(fullPath.replace(/^\//, '')); if (!f) continue;
     const html = await f.async('string');
     const text = htmlToText(html);
-    if (text.trim().length < 20) continue;
-    const chTitle = html.match(/<h[1-3][^>]*>([^<]+)<\/h[1-3]>/)?.[1]?.replace(/<[^>]+>/g,'').trim()
+    if (text.trim().length < 10) continue;
+    const chTitle = html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
                   || `第${chapters.length+1}章`;
     chapters.push({ title: chTitle, content: text.trim() });
   }
+
+  // 如果spine没有内容，直接遍历所有xhtml文件
+  if (!chapters.length) {
+    for (const [id, item] of Object.entries(manifest)) {
+      if (!item.media.includes('html') && !item.href.match(/\.(xhtml|html|htm)$/i)) continue;
+      const fullPath = resolveHref(opfDir, item.href);
+      const f = zip.file(fullPath) || zip.file(item.href); if (!f) continue;
+      const html = await f.async('string');
+      const text = htmlToText(html);
+      if (text.trim().length < 10) continue;
+      const chTitle = html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
+                    || `第${chapters.length+1}章`;
+      chapters.push({ title: chTitle, content: text.trim() });
+    }
+  }
+
   if (!chapters.length) throw new Error('未能提取章节内容');
   await saveBook({ title, author, format:'epub' }, chapters);
 }
