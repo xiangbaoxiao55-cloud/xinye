@@ -631,18 +631,17 @@ function renderWithAnns(text, anns) {
 }
 
 // ==================== 文字选中 ====================
-let selTimer;
 function onSelect() {
-  clearTimeout(selTimer);
-  selTimer = setTimeout(() => {
+  // 稍等让系统完成selection
+  setTimeout(() => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
-    const selectedText = sel.toString().trim();
+    const txt = sel ? sel.toString().trim() : '';
+    if (!txt) return;
     const chContent = curChapters[curChapterIdx]?.content || '';
-    const startOffset = chContent.indexOf(selectedText);
-    pendingSel = { selectedText, startOffset: startOffset>=0?startOffset:0, endOffset: (startOffset>=0?startOffset:0)+selectedText.length };
+    const startOffset = chContent.indexOf(txt);
+    pendingSel = { selectedText: txt, startOffset: startOffset>=0?startOffset:0, endOffset: (startOffset>=0?startOffset:0)+txt.length };
     document.getElementById('selBar').classList.add('show');
-  }, 300);
+  }, 50);
 }
 
 function hideSelBar() { document.getElementById('selBar').classList.remove('show'); }
