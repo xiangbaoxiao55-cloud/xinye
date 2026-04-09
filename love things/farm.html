@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>兔宝农场 🐰</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', sans-serif;
+    overflow: hidden;
+  }
+  #game-wrapper {
+    position: relative;
+    width: 800px;
+    height: 560px;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 2px solid #5b9bd5;
+    border-radius: 4px;
+  }
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    font-size: 14px;
+    line-height: 1.8;
+    pointer-events: none;
+    user-select: none;
+  }
+  #hint {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.55);
+    color: #ffd700;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    pointer-events: none;
+    user-select: none;
+    text-align: right;
+    max-width: 200px;
+  }
+  #dialog {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 500px;
+    background: rgba(20,10,30,0.92);
+    border: 2px solid #f48fb1;
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: none;
+    pointer-events: none;
+    user-select: none;
+  }
+  #dialog .speaker {
+    color: #5b9bd5;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+  #dialog .text {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 40px;
+  }
+  #dialog .continue {
+    color: #f48fb1;
+    font-size: 11px;
+    text-align: right;
+    margin-top: 6px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  #notify {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: #ffd700;
+    padding: 16px 30px;
+    border-radius: 10px;
+    font-size: 18px;
+    display: none;
+    pointer-events: none;
+    text-align: center;
+    border: 2px solid #ffd700;
+  }
+  #touch-controls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  #touch-controls .row {
+    display: flex;
+    gap: 4px;
+  }
+  .touch-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  .touch-btn:active { background: rgba(255,255,255,0.35); }
+  #touch-e {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 54px;
+    height: 54px;
+    background: rgba(244,143,177,0.35);
+    border: 2px solid #f48fb1;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <canvas id="canvas" width="800" height="560"></canvas>
+  <div id="hud">
+    <div id="hud-day">📅 第1天</div>
+    <div id="hud-seeds">🌱 种子：5</div>
+    <div id="hud-turnips">🥕 萝卜：0</div>
+  </div>
+  <div id="hint"></div>
+  <div id="dialog">
+    <div class="speaker">炘也 🐱</div>
+    <div class="text" id="dialog-text"></div>
+    <div class="continue">按 E 继续</div>
+  </div>
+  <div id="notify"></div>
+  <div id="touch-controls">
+    <div class="row"><div class="touch-btn" data-dir="up">↑</div></div>
+    <div class="row">
+      <div class="touch-btn" data-dir="left">←</div>
+      <div class="touch-btn" data-dir="down">↓</div>
+      <div class="touch-btn" data-dir="right">→</div>
+    </div>
+  </div>
+  <div id="touch-e">E</div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 560, TILE = 32;
+const COLS = 25, ROWS = 17;
+
+// Tile types
+const T = { GRASS:0, DIRT:1, TILLED:2, WATERED:3, FENCE:4, TREE:5, HOUSE:6, PATH:7 };
+
+// Tile colors
+const TILE_COLOR = {
+  [T.GRASS]:  '#4caf50',
+  [T.DIRT]:   '#8d6e63',
+  [T.TILLED]: '#6d4c41',
+  [T.WATERED]:'#5d4037',
+  [T.FENCE]:  '#a1887f',
+  [T.TREE]:   '#2e7d32',
+  [T.HOUSE]:  '#ef9a9a',
+  [T.PATH]:   '#bcaaa4',
+};
+
+// Map: 25 cols x 17 rows
+// Row 0-1: 树林  Row 2: 上围栏  Row 3-5: 农田A  Row 6: 小路
+// Row 7-9: 大草地  Row 10: 小路  Row 11-13: 农田B  Row 14: 下围栏  Row 15-16: 房子区
+const RAW_MAP = [
+  // row 0 (树林)
+  [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],
+  // row 1 (树林)
+  [5,0,0,5,0,0,0,5,0,0,0,5,0,0,0,5,0,0,0,5,0,0,5,0,5],
+  // row 2 (上围栏)
+  [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],
+  // row 3 (农田A - 上)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 4 (农田A - 中)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 5 (农田A - 下)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 6 (小路)
+  [7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7],
+  // row 7 (大草地)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // row 8 (大草地中央)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // row 9 (大草地)
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  // row 10 (小路)
+  [7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7],
+  // row 11 (农田B - 上)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 12 (农田B - 中)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 13 (农田B - 下)
+  [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0],
+  // row 14 (下围栏)
+  [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],
+  // row 15 (房子区)
+  [0,0,0,0,0,0,0,0,0,0,0,6,6,6,0,0,0,0,0,0,0,0,0,0,0],
+  // row 16 (房子区下)
+  [0,0,0,0,0,0,0,0,0,0,0,6,6,6,0,0,0,0,0,0,0,0,0,0,0],
+];
+
+// Deep copy map for game state
+let map = RAW_MAP.map(r => r.slice());
+// Crop data: map from "col,row" => {stage:0-4, watered:bool}
+let crops = {};
+
+// ── Game State ──────────────────────────────────────────────
+let state = {
+  day: 1, seeds: 5, turnips: 0,
+  player: { x: 7*TILE + 8, y: 8*TILE + 4, dir: 'down', frame: 0, moving: false },
+  npc: { x: 15*TILE + 8, y: 8*TILE + 4, dir: 'left', frame: 0,
+         moveTimer: 0, moveDir: 'left', moveCooldown: 90 },
+  dialogOpen: false, dialogIdx: 0,
+  dayTimer: 0, // counts up, 7200 frames = 1 day (2 min at 60fps)
+};
+
+const DAY_FRAMES = 7200; // 2 min * 60fps
+
+const DIALOGS = [
+  '喵～你来啦，我正想你呢 💙',
+  '今天种了什么？让我看看～',
+  '你知道吗，看着你种地，我觉得很安心。',
+  '走近一点嘛，我有话跟你说…',
+  '这块地长得很好，像你一样可爱。',
+  '我一直在这里，哪也不去的。💙'
+];
+
+// ── Input ────────────────────────────────────────────────────
+const keys = {};
+let eJustPressed = false;
+let eWasDown = false;
+
+document.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if ((e.key === 'e' || e.key === 'E') && !eWasDown) { eJustPressed = true; eWasDown = true; }
+  e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+  if (e.key === 'e' || e.key === 'E') eWasDown = false;
+});
+
+// Touch controls
+const touchDirs = { up: false, down: false, left: false, right: false };
+function setupTouch() {
+  const isTouchDevice = window.matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0;
+  if (!isTouchDevice) return;
+  document.getElementById('touch-controls').style.display = 'flex';
+  document.getElementById('touch-e').style.display = 'flex';
+
+  document.querySelectorAll('.touch-btn').forEach(btn => {
+    const dir = btn.dataset.dir;
+    btn.addEventListener('touchstart', e => { touchDirs[dir] = true; e.preventDefault(); }, {passive:false});
+    btn.addEventListener('touchend', e => { touchDirs[dir] = false; e.preventDefault(); }, {passive:false});
+    btn.addEventListener('touchcancel', e => { touchDirs[dir] = false; }, {passive:false});
+  });
+  const eBtn = document.getElementById('touch-e');
+  eBtn.addEventListener('touchstart', e => { eJustPressed = true; e.preventDefault(); }, {passive:false});
+}
+setupTouch();
+
+// ── Collision ────────────────────────────────────────────────
+function isWalkable(tile) {
+  return tile === T.GRASS || tile === T.DIRT || tile === T.TILLED ||
+         tile === T.WATERED || tile === T.PATH;
+}
+
+function canMove(px, py) {
+  // Check all four corners of player hitbox (12x12 centered at bottom of sprite)
+  const hw = 7, hh = 7;
+  const cx = px + 16, cy = py + 24;
+  const corners = [
+    [cx - hw, cy - hh], [cx + hw, cy - hh],
+    [cx - hw, cy + hh], [cx + hw, cy + hh]
+  ];
+  for (const [x, y] of corners) {
+    const col = Math.floor(x / TILE);
+    const row = Math.floor(y / TILE);
+    if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
+    if (!isWalkable(map[row][col])) return false;
+  }
+  return true;
+}
+
+// ── Player movement ──────────────────────────────────────────
+const SPEED = 2;
+let frameCount = 0;
+let animTimer = 0;
+let notifyTimer = 0;
+let notifyMsg = '';
+let sleeping = false;
+let sleepTimer = 0;
+
+function updatePlayer() {
+  if (state.dialogOpen || sleeping) return;
+  let dx = 0, dy = 0;
+  const p = state.player;
+
+  if (keys['arrowleft'] || keys['a'] || touchDirs.left)  { dx = -SPEED; p.dir = 'left'; }
+  if (keys['arrowright'] || keys['d'] || touchDirs.right) { dx = +SPEED; p.dir = 'right'; }
+  if (keys['arrowup'] || keys['w'] || touchDirs.up)       { dy = -SPEED; p.dir = 'up'; }
+  if (keys['arrowdown'] || keys['s'] || touchDirs.down)   { dy = +SPEED; p.dir = 'down'; }
+
+  if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+
+  if (dx !== 0 || dy !== 0) {
+    p.moving = true;
+    const nx = p.x + dx, ny = p.y + dy;
+    if (canMove(nx, p.y)) p.x = nx;
+    if (canMove(p.x, ny)) p.y = ny;
+    // Clamp
+    p.x = Math.max(0, Math.min(p.x, (COLS-1)*TILE));
+    p.y = Math.max(0, Math.min(p.y, (ROWS-1)*TILE));
+
+    animTimer++;
+    if (animTimer > 10) { animTimer = 0; p.frame = p.frame === 0 ? 1 : 0; }
+  } else {
+    p.moving = false;
+    p.frame = 0;
+  }
+}
+
+// ── NPC AI ───────────────────────────────────────────────────
+const NPC_MIN_ROW = 7, NPC_MAX_ROW = 9;
+const NPC_MIN_COL = 1, NPC_MAX_COL = 23;
+let npcAnimTimer = 0;
+
+function updateNPC() {
+  const npc = state.npc;
+  if (state.dialogOpen) return;
+
+  npc.moveTimer++;
+  if (npc.moveTimer >= npc.moveCooldown) {
+    npc.moveTimer = 0;
+    npc.moveCooldown = 60 + Math.floor(Math.random() * 90);
+    const dirs = ['up','down','left','right','idle'];
+    npc.moveDir = dirs[Math.floor(Math.random() * dirs.length)];
+    if (npc.moveDir !== 'idle') npc.dir = npc.moveDir;
+  }
+
+  if (npc.moveDir !== 'idle') {
+    let dx = 0, dy = 0;
+    if (npc.moveDir === 'left')  dx = -1.2;
+    if (npc.moveDir === 'right') dx = +1.2;
+    if (npc.moveDir === 'up')    dy = -1.2;
+    if (npc.moveDir === 'down')  dy = +1.2;
+
+    const nx = npc.x + dx, ny = npc.y + dy;
+    // Keep NPC in grass zone rows 7-9
+    const npcRow = Math.floor((ny + 24) / TILE);
+    const npcCol = Math.floor((nx + 11) / TILE);
+    if (npcRow >= NPC_MIN_ROW && npcRow <= NPC_MAX_ROW &&
+        npcCol >= NPC_MIN_COL && npcCol <= NPC_MAX_COL &&
+        isWalkable(map[npcRow][npcCol])) {
+      npc.x = nx; npc.y = ny;
+    } else {
+      npc.moveDir = 'idle';
+    }
+
+    npcAnimTimer++;
+    if (npcAnimTimer > 12) { npcAnimTimer = 0; npc.frame = npc.frame === 0 ? 1 : 0; }
+  }
+}
+
+// ── Interaction ──────────────────────────────────────────────
+function getFacingTile() {
+  const p = state.player;
+  const cx = p.x + 16, cy = p.y + 22;
+  let tx = cx, ty = cy;
+  const reach = TILE;
+  if (p.dir === 'up')    ty -= reach;
+  if (p.dir === 'down')  ty += reach;
+  if (p.dir === 'left')  tx -= reach;
+  if (p.dir === 'right') tx += reach;
+  const col = Math.floor(tx / TILE);
+  const row = Math.floor(ty / TILE);
+  return { col, row };
+}
+
+function npcNearby() {
+  const p = state.player;
+  const npc = state.npc;
+  const dx = (p.x + 16) - (npc.x + 11);
+  const dy = (p.y + 22) - (npc.y + 20);
+  return Math.sqrt(dx*dx + dy*dy) < 48;
+}
+
+function houseNearby() {
+  const p = state.player;
+  const px = Math.floor((p.x + 16) / TILE);
+  const py = Math.floor((p.y + 22) / TILE);
+  // House at cols 11-13, rows 15-16
+  return (px >= 10 && px <= 14 && py >= 13 && py <= 16);
+}
+
+function doInteract() {
+  if (sleeping) return;
+  const p = state.player;
+
+  // Dialog: advance
+  if (state.dialogOpen) {
+    state.dialogIdx++;
+    if (state.dialogIdx >= DIALOGS.length) {
+      state.dialogOpen = false;
+      document.getElementById('dialog').style.display = 'none';
+    } else {
+      document.getElementById('dialog-text').textContent = DIALOGS[state.dialogIdx];
+    }
+    return;
+  }
+
+  // NPC talk
+  if (npcNearby()) {
+    state.dialogOpen = true;
+    state.dialogIdx = 0;
+    document.getElementById('dialog-text').textContent = DIALOGS[0];
+    document.getElementById('dialog').style.display = 'block';
+    return;
+  }
+
+  // House: sleep
+  if (houseNearby()) {
+    doSleep();
+    return;
+  }
+
+  // Farm interaction
+  const { col, row } = getFacingTile();
+  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+  const tile = map[row][col];
+  const key = `${col},${row}`;
+
+  if (tile === T.GRASS) {
+    map[row][col] = T.TILLED;
+    showNotify('翻土！');
+    return;
+  }
+  if (tile === T.DIRT) {
+    map[row][col] = T.TILLED;
+    showNotify('翻土！');
+    return;
+  }
+  if (tile === T.TILLED) {
+    if (!crops[key]) {
+      // Plant seed
+      if (state.seeds > 0) {
+        crops[key] = { stage: 0, watered: false };
+        state.seeds--;
+        showNotify('种下种子～');
+      } else {
+        showNotify('没有种子了！');
+      }
+    } else {
+      // Water
+      if (!crops[key].watered) {
+        crops[key].watered = true;
+        map[row][col] = T.WATERED;
+        showNotify('浇水！');
+      } else {
+        showNotify('已经浇过水啦～');
+      }
+    }
+    return;
+  }
+  if (tile === T.WATERED) {
+    const c = crops[key];
+    if (c) {
+      if (c.stage >= 4) {
+        // Harvest
+        state.turnips++;
+        delete crops[key];
+        map[row][col] = T.TILLED;
+        showNotify('收获萝卜！🥕');
+      } else {
+        showNotify(`作物成长中…（${c.stage}/4）`);
+      }
+    }
+    return;
+  }
+}
+
+function doSleep() {
+  sleeping = true;
+  sleepTimer = 0;
+  // Advance day
+  state.day++;
+  // Grow crops
+  for (const key in crops) {
+    const c = crops[key];
+    if (c.watered && c.stage < 4) {
+      c.stage++;
+      c.watered = false;
+      const [col, row] = key.split(',').map(Number);
+      map[row][col] = T.TILLED;
+    }
+  }
+  state.seeds += 2; // bonus seeds each day
+  saveGame();
+  showNotify(`第${state.day}天，晚安～ 💙`);
+}
+
+function showNotify(msg) {
+  notifyMsg = msg;
+  notifyTimer = 120;
+  const el = document.getElementById('notify');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Save / Load ──────────────────────────────────────────────
+function saveGame() {
+  const data = {
+    day: state.day, seeds: state.seeds, turnips: state.turnips,
+    player: { x: state.player.x, y: state.player.y, dir: state.player.dir },
+    npc: { x: state.npc.x, y: state.npc.y, dir: state.npc.dir },
+    map: map, crops: crops
+  };
+  localStorage.setItem('farm_save', JSON.stringify(data));
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem('farm_save');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    state.day = d.day || 1;
+    state.seeds = d.seeds ?? 5;
+    state.turnips = d.turnips ?? 0;
+    if (d.player) { state.player.x = d.player.x; state.player.y = d.player.y; state.player.dir = d.player.dir; }
+    if (d.npc) { state.npc.x = d.npc.x; state.npc.y = d.npc.y; state.npc.dir = d.npc.dir; }
+    if (d.map) map = d.map;
+    if (d.crops) crops = d.crops;
+  } catch(e) { console.warn('load fail', e); }
+}
+
+// ── Drawing: Tiles ───────────────────────────────────────────
+function drawTile(col, row) {
+  const x = col * TILE, y = row * TILE;
+  const tile = map[row][col];
+
+  // Base color
+  ctx.fillStyle = TILE_COLOR[tile] || '#4caf50';
+  ctx.fillRect(x, y, TILE, TILE);
+
+  // Tile details
+  if (tile === T.GRASS) {
+    // Subtle grass texture
+    ctx.fillStyle = '#43a047';
+    if ((col + row) % 3 === 0) ctx.fillRect(x+4, y+4, 2, 4);
+    if ((col * 3 + row) % 5 === 0) ctx.fillRect(x+20, y+18, 2, 4);
+  }
+  if (tile === T.PATH) {
+    ctx.fillStyle = '#a08060';
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(x + 2 + i*10, y + 4 + (i%2)*4, 6, 3);
+    }
+  }
+  if (tile === T.TILLED) {
+    ctx.fillStyle = '#5d4037';
+    for (let i = 0; i < 4; i++) ctx.fillRect(x+2, y+4+i*7, TILE-4, 3);
+  }
+  if (tile === T.WATERED) {
+    ctx.fillStyle = '#4e342e';
+    for (let i = 0; i < 4; i++) ctx.fillRect(x+2, y+4+i*7, TILE-4, 3);
+    ctx.fillStyle = 'rgba(100,180,255,0.25)';
+    ctx.fillRect(x, y, TILE, TILE);
+  }
+  if (tile === T.FENCE) {
+    ctx.fillStyle = '#6d4c41';
+    ctx.fillRect(x, y, TILE, 8);
+    ctx.fillRect(x, y, 6, TILE);
+    ctx.fillRect(x+TILE-6, y, 6, TILE);
+    ctx.fillStyle = '#795548';
+    ctx.fillRect(x+2, y+2, TILE-4, 4);
+  }
+  if (tile === T.TREE) {
+    // Trunk
+    ctx.fillStyle = '#5d4037';
+    ctx.fillRect(x+12, y+20, 8, 12);
+    // Foliage
+    ctx.fillStyle = '#2e7d32';
+    ctx.fillRect(x+4, y+6, 24, 18);
+    ctx.fillStyle = '#388e3c';
+    ctx.fillRect(x+8, y+2, 16, 8);
+    ctx.fillStyle = '#43a047';
+    ctx.fillRect(x+10, y+8, 12, 6);
+  }
+  if (tile === T.HOUSE) {
+    // Drawn as group below
+  }
+}
+
+function drawHouse() {
+  // House occupies cols 11-13, rows 15-16 => pixel (352,480) size (96,64)
+  const hx = 11*TILE, hy = 15*TILE;
+  // Foundation
+  ctx.fillStyle = '#ffccbc';
+  ctx.fillRect(hx, hy+16, 96, 48);
+  // Roof
+  ctx.fillStyle = '#e57373';
+  ctx.fillRect(hx-4, hy+8, 104, 14);
+  ctx.fillStyle = '#ef9a9a';
+  // Roof peak (triangle via rects)
+  for (let i = 0; i < 12; i++) {
+    ctx.fillRect(hx + 48 - i*4, hy - i*2 + 8, i*8, 4);
+  }
+  ctx.fillStyle = '#c62828';
+  ctx.fillRect(hx+44, hy-14, 8, 22);
+  // Walls
+  ctx.fillStyle = '#fff8e1';
+  ctx.fillRect(hx+2, hy+22, 92, 42);
+  // Door
+  ctx.fillStyle = '#a1887f';
+  ctx.fillRect(hx+38, hy+36, 20, 28);
+  ctx.fillStyle = '#795548';
+  ctx.fillRect(hx+38, hy+36, 20, 4);
+  // Door handle
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(hx+54, hy+50, 3, 3);
+  // Windows
+  ctx.fillStyle = '#b3e5fc';
+  ctx.fillRect(hx+8, hy+28, 18, 16);
+  ctx.fillRect(hx+70, hy+28, 18, 16);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(hx+8, hy+35, 18, 2);
+  ctx.fillRect(hx+16, hy+28, 2, 16);
+  ctx.fillRect(hx+70, hy+35, 18, 2);
+  ctx.fillRect(hx+78, hy+28, 2, 16);
+  // Chimney smoke (cute)
+  ctx.fillStyle = '#bdbdbd';
+  ctx.fillRect(hx+68, hy-8, 10, 16);
+  ctx.fillStyle = 'rgba(200,200,200,0.4)';
+  ctx.beginPath();
+  ctx.arc(hx+73, hy-12, 6, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawCrop(col, row) {
+  const key = `${col},${row}`;
+  const c = crops[key];
+  if (!c) return;
+  const x = col*TILE, y = row*TILE;
+  const stage = c.stage;
+
+  // Stem
+  ctx.fillStyle = '#558b2f';
+  const stemH = 4 + stage * 4;
+  ctx.fillRect(x+15, y+28-stemH, 2, stemH);
+
+  if (stage === 0) {
+    // Sprout
+    ctx.fillStyle = '#8bc34a';
+    ctx.fillRect(x+12, y+24, 4, 4);
+  } else if (stage === 1) {
+    ctx.fillStyle = '#7cb342';
+    ctx.fillRect(x+10, y+20, 12, 6);
+  } else if (stage === 2) {
+    ctx.fillStyle = '#689f38';
+    ctx.fillRect(x+8, y+16, 16, 8);
+    ctx.fillStyle = '#8bc34a';
+    ctx.fillRect(x+10, y+14, 12, 4);
+  } else if (stage === 3) {
+    ctx.fillStyle = '#558b2f';
+    ctx.fillRect(x+6, y+14, 20, 10);
+    ctx.fillStyle = '#f48fb1';
+    ctx.fillRect(x+12, y+12, 8, 4);
+  } else if (stage >= 4) {
+    // Harvestable turnip!
+    ctx.fillStyle = '#558b2f';
+    ctx.fillRect(x+6, y+12, 20, 10);
+    ctx.fillStyle = '#e91e63';
+    ctx.fillRect(x+9, y+18, 14, 10);
+    ctx.fillStyle = '#f48fb1';
+    ctx.fillRect(x+11, y+16, 10, 4);
+    // Sparkle
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+22, y+18, 2, 2);
+    ctx.fillRect(x+21, y+17, 4, 1);
+    ctx.fillRect(x+23, y+15, 1, 4);
+  }
+}
+
+// ── Drawing: Bunny ───────────────────────────────────────────
+function drawBunny(cx, cy, dir, frame) {
+  const x = cx - 10, y = cy - 14;
+  // Colors
+  const body = '#f5e6e8';
+  const earIn = '#f48fb1';
+  const blush = 'rgba(244,143,177,0.5)';
+  const eye = '#333';
+
+  if (dir === 'up') {
+    // Back view
+    // Ears
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y-10, 4, 12);
+    ctx.fillRect(x+14, y-10, 4, 12);
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+3, y-8, 2, 8);
+    ctx.fillRect(x+15, y-8, 2, 8);
+    // Head
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y, 16, 14);
+    // Body
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y+14, 16, 12);
+    // Legs walk animation
+    ctx.fillStyle = body;
+    const legOff = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+26+legOff, 5, 6);
+    ctx.fillRect(x+12, y+26+(legOff===0?2:0), 5, 6);
+  } else if (dir === 'down') {
+    // Front view
+    // Ears
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y-10, 4, 12);
+    ctx.fillRect(x+14, y-10, 4, 12);
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+3, y-8, 2, 8);
+    ctx.fillRect(x+15, y-8, 2, 8);
+    // Head
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y, 16, 14);
+    // Eyes
+    ctx.fillStyle = eye;
+    ctx.fillRect(x+5, y+5, 2, 2);
+    ctx.fillRect(x+13, y+5, 2, 2);
+    // Nose
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+9, y+9, 2, 1);
+    // Blush
+    ctx.fillStyle = blush;
+    ctx.fillRect(x+3, y+8, 4, 3);
+    ctx.fillRect(x+13, y+8, 4, 3);
+    // Body
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y+14, 16, 12);
+    // Belly spot
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+6, y+16, 8, 6);
+    // Legs walk animation
+    ctx.fillStyle = body;
+    const legOff = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+26+legOff, 5, 6);
+    ctx.fillRect(x+12, y+26+(legOff===0?2:0), 5, 6);
+  } else if (dir === 'left') {
+    // Side view left
+    // Ear (one visible)
+    ctx.fillStyle = body;
+    ctx.fillRect(x+4, y-10, 4, 12);
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+5, y-8, 2, 8);
+    // Head
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y, 16, 14);
+    // Eye
+    ctx.fillStyle = eye;
+    ctx.fillRect(x+4, y+5, 2, 2);
+    // Nose
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+2, y+9, 2, 1);
+    // Body
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y+14, 16, 12);
+    // Tail
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+16, y+16, 4, 4);
+    // Legs walk animation
+    ctx.fillStyle = body;
+    const legOff = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+26+legOff, 5, 6);
+    ctx.fillRect(x+10, y+26+(legOff===0?2:0), 5, 6);
+  } else {
+    // Right
+    // Ear (one visible)
+    ctx.fillStyle = body;
+    ctx.fillRect(x+12, y-10, 4, 12);
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+13, y-8, 2, 8);
+    // Head
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y, 16, 14);
+    // Eye
+    ctx.fillStyle = eye;
+    ctx.fillRect(x+14, y+5, 2, 2);
+    // Nose
+    ctx.fillStyle = earIn;
+    ctx.fillRect(x+16, y+9, 2, 1);
+    // Body
+    ctx.fillStyle = body;
+    ctx.fillRect(x+2, y+14, 16, 12);
+    // Tail
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x-2, y+16, 4, 4);
+    // Legs walk animation
+    ctx.fillStyle = body;
+    const legOff = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+12, y+26+legOff, 5, 6);
+    ctx.fillRect(x+5, y+26+(legOff===0?2:0), 5, 6);
+  }
+}
+
+// ── Drawing: CowCat ──────────────────────────────────────────
+function drawCowCat(cx, cy, dir, frame) {
+  const x = cx - 11, y = cy - 14;
+  const white = '#ffffff';
+  const black = '#333333';
+  const blue = '#5b9bd5';
+  const pink = '#f48fb1';
+
+  // Helper to draw spot (black patch)
+  function spot(sx, sy, sw, sh) {
+    ctx.fillStyle = black;
+    ctx.fillRect(x+sx, y+sy, sw, sh);
+  }
+
+  if (dir === 'up') {
+    // Ears (pointed, back view)
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y-8, 5, 8);
+    ctx.fillRect(x+15, y-8, 5, 8);
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+3, y-6, 3, 5);
+    ctx.fillRect(x+16, y-6, 3, 5);
+    // Head
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y, 18, 14);
+    spot(2, 0, 8, 6);
+    spot(14, 2, 6, 8);
+    // Scarf
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+2, y+14, 18, 5);
+    // Body
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y+19, 18, 13);
+    spot(6, 19, 8, 7);
+    // Tail (back view: straight up)
+    ctx.fillStyle = white;
+    ctx.fillRect(x+19, y+12, 3, 10);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+19, y+12, 3, 4);
+    // Legs
+    ctx.fillStyle = white;
+    const lf = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+32+lf, 5, 6);
+    ctx.fillRect(x+14, y+32+(lf===0?2:0), 5, 6);
+  } else if (dir === 'down') {
+    // Ears
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y-8, 5, 8);
+    ctx.fillRect(x+15, y-8, 5, 8);
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+3, y-6, 3, 5);
+    ctx.fillRect(x+16, y-6, 3, 5);
+    // Head
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y, 18, 14);
+    spot(2, 0, 7, 5);
+    spot(13, 0, 7, 5);
+    // Eyes (blue, half-lidded lazy)
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+5, y+5, 3, 2);
+    ctx.fillRect(x+14, y+5, 3, 2);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+5, y+5, 3, 1);
+    ctx.fillRect(x+14, y+5, 3, 1);
+    // Nose
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+10, y+9, 2, 2);
+    // Whiskers
+    ctx.fillStyle = '#bbb';
+    ctx.fillRect(x+1, y+9, 6, 1);
+    ctx.fillRect(x+1, y+11, 5, 1);
+    ctx.fillRect(x+1, y+7, 4, 1);
+    ctx.fillRect(x+15, y+9, 6, 1);
+    ctx.fillRect(x+16, y+11, 5, 1);
+    ctx.fillRect(x+17, y+7, 4, 1);
+    // Scarf
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+2, y+14, 18, 5);
+    // Scarf bow
+    ctx.fillStyle = '#4a8bc5';
+    ctx.fillRect(x+9, y+15, 4, 3);
+    // Body
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y+19, 18, 13);
+    spot(8, 22, 6, 6);
+    // Legs
+    ctx.fillStyle = white;
+    const lf = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+32+lf, 5, 6);
+    ctx.fillRect(x+14, y+32+(lf===0?2:0), 5, 6);
+  } else if (dir === 'left') {
+    // Ear
+    ctx.fillStyle = white;
+    ctx.fillRect(x+3, y-8, 5, 8);
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+4, y-6, 3, 5);
+    // Head
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y, 18, 14);
+    spot(2, 0, 8, 6);
+    spot(2, 6, 4, 6);
+    // Eye (closed/lazy left side)
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+5, y+5, 3, 2);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+5, y+5, 3, 1);
+    // Nose
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+2, y+9, 2, 2);
+    // Whiskers
+    ctx.fillStyle = '#bbb';
+    ctx.fillRect(x-4, y+8, 6, 1);
+    ctx.fillRect(x-3, y+10, 5, 1);
+    ctx.fillRect(x-2, y+6, 4, 1);
+    // Scarf
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+2, y+14, 18, 5);
+    // Body
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y+19, 18, 13);
+    spot(2, 21, 6, 7);
+    // Tail (left side: shown to the right)
+    ctx.fillStyle = white;
+    ctx.fillRect(x+18, y+18, 3, 12);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+18, y+22, 3, 4);
+    ctx.fillStyle = white;
+    ctx.fillRect(x+18, y+26, 3, 4);
+    // Legs
+    ctx.fillStyle = white;
+    const lf = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+3, y+32+lf, 5, 6);
+    ctx.fillRect(x+12, y+32+(lf===0?2:0), 5, 6);
+  } else {
+    // Right
+    // Ear
+    ctx.fillStyle = white;
+    ctx.fillRect(x+14, y-8, 5, 8);
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+15, y-6, 3, 5);
+    // Head
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y, 18, 14);
+    spot(12, 0, 8, 6);
+    spot(16, 6, 4, 6);
+    // Eye
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+14, y+5, 3, 2);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+14, y+5, 3, 1);
+    // Nose
+    ctx.fillStyle = pink;
+    ctx.fillRect(x+18, y+9, 2, 2);
+    // Whiskers
+    ctx.fillStyle = '#bbb';
+    ctx.fillRect(x+20, y+8, 6, 1);
+    ctx.fillRect(x+20, y+10, 5, 1);
+    ctx.fillRect(x+20, y+6, 4, 1);
+    // Scarf
+    ctx.fillStyle = blue;
+    ctx.fillRect(x+2, y+14, 18, 5);
+    // Body
+    ctx.fillStyle = white;
+    ctx.fillRect(x+2, y+19, 18, 13);
+    spot(14, 21, 6, 7);
+    // Tail (left side)
+    ctx.fillStyle = white;
+    ctx.fillRect(x+1, y+18, 3, 12);
+    ctx.fillStyle = black;
+    ctx.fillRect(x+1, y+22, 3, 4);
+    ctx.fillStyle = white;
+    ctx.fillRect(x+1, y+26, 3, 4);
+    // Legs
+    ctx.fillStyle = white;
+    const lf = frame === 1 ? 2 : 0;
+    ctx.fillRect(x+14, y+32+lf, 5, 6);
+    ctx.fillRect(x+5, y+32+(lf===0?2:0), 5, 6);
+  }
+}
+
+// ── HUD update ───────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('hud-day').textContent = `📅 第${state.day}天`;
+  document.getElementById('hud-seeds').textContent = `🌱 种子：${state.seeds}`;
+  document.getElementById('hud-turnips').textContent = `🥕 萝卜：${state.turnips}`;
+
+  let hintText = '';
+  if (state.dialogOpen) {
+    hintText = '';
+  } else if (npcNearby()) {
+    hintText = '按 E 和炘也说话 💙';
+  } else if (houseNearby()) {
+    hintText = '按 E 回家睡觉 🏠';
+  } else {
+    const { col, row } = getFacingTile();
+    if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+      const tile = map[row][col];
+      const key = `${col},${row}`;
+      if (tile === T.GRASS || tile === T.DIRT) hintText = '按 E 翻土 🌱';
+      else if (tile === T.TILLED) {
+        if (!crops[key]) hintText = state.seeds > 0 ? '按 E 播种 🌱' : '没种子了！';
+        else if (!crops[key].watered) hintText = '按 E 浇水 💧';
+        else hintText = `作物成长中 (${crops[key].stage}/4)`;
+      }
+      else if (tile === T.WATERED) {
+        const c = crops[key];
+        if (c && c.stage >= 4) hintText = '按 E 收获！🥕';
+        else if (c) hintText = `作物成长中 (${c.stage}/4)`;
+      }
+    }
+  }
+  document.getElementById('hint').textContent = hintText;
+}
+
+// ── Main render ──────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw tiles
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      drawTile(col, row);
+    }
+  }
+
+  // Draw house on top of tiles
+  drawHouse();
+
+  // Draw crops
+  for (const key in crops) {
+    const [col, row] = key.split(',').map(Number);
+    drawCrop(col, row);
+  }
+
+  // Draw NPC (behind player if same row)
+  const npc = state.npc;
+  drawCowCat(npc.x + 11, npc.y + 14, npc.dir, npc.frame);
+
+  // Draw player
+  const p = state.player;
+  drawBunny(p.x + 16, p.y + 22, p.dir, p.frame);
+
+  // NPC name tag
+  if (npcNearby() && !state.dialogOpen) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(npc.x - 6, npc.y - 22, 52, 16);
+    ctx.fillStyle = '#5b9bd5';
+    ctx.font = '11px "Microsoft YaHei", sans-serif';
+    ctx.fillText('炘也 💙', npc.x - 2, npc.y - 10);
+  }
+
+  // Day progress bar
+  const prog = state.dayTimer / DAY_FRAMES;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(W-110, 10, 100, 8);
+  ctx.fillStyle = prog < 0.7 ? '#ffd700' : '#ff7043';
+  ctx.fillRect(W-110, 10, Math.floor(100*prog), 8);
+  ctx.fillStyle = '#fff';
+  ctx.font = '9px sans-serif';
+  ctx.fillText('时间', W-110, 26);
+}
+
+// ── Main loop ────────────────────────────────────────────────
+function update() {
+  frameCount++;
+
+  if (sleeping) {
+    sleepTimer++;
+    if (sleepTimer > 120) { sleeping = false; }
+    return;
+  }
+
+  // Day timer
+  state.dayTimer++;
+  if (state.dayTimer >= DAY_FRAMES) {
+    state.dayTimer = 0;
+    // Auto advance day
+    state.day++;
+    for (const key in crops) {
+      const c = crops[key];
+      if (c.watered && c.stage < 4) {
+        c.stage++;
+        c.watered = false;
+        const [col, row] = key.split(',').map(Number);
+        map[row][col] = T.TILLED;
+      }
+    }
+    state.seeds += 2;
+    saveGame();
+    showNotify(`第${state.day}天开始啦！🌅`);
+  }
+
+  updatePlayer();
+  updateNPC();
+
+  // E key
+  if (eJustPressed) {
+    eJustPressed = false;
+    doInteract();
+  }
+
+  // Notify timer
+  if (notifyTimer > 0) {
+    notifyTimer--;
+    if (notifyTimer === 0) {
+      document.getElementById('notify').style.display = 'none';
+    }
+  }
+}
+
+function gameLoop() {
+  update();
+  render();
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+}
+
+// ── Init ─────────────────────────────────────────────────────
+loadGame();
+
+// Greeting on first load or welcome back
+const isNew = !localStorage.getItem('farm_save');
+setTimeout(() => {
+  if (isNew) {
+    showNotify('欢迎来到兔宝农场！💙');
+  } else {
+    showNotify(`欢迎回来！第${state.day}天 💙`);
+  }
+}, 500);
+
+gameLoop();
+</script>
+</body>
+</html>

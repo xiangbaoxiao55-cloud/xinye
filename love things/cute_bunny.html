@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐰 兔宝的萌萌互动页 💕</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe6f0 50%, #ffd4e8 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            text-align: center;
+            z-index: 10;
+        }
+
+        h1 {
+            color: #ff69b4;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(255, 105, 180, 0.3);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .bunny-container {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .bunny-container:hover {
+            transform: scale(1.1);
+        }
+
+        .bunny {
+            font-size: 150px;
+            display: inline-block;
+            transition: all 0.3s ease;
+            user-select: none;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-20px) rotate(-5deg); }
+            75% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        .bunny.clicked {
+            animation: spin 0.6s ease-in-out;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.3); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .message {
+            margin-top: 30px;
+            font-size: 1.5em;
+            color: #ff1493;
+            min-height: 40px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .message.show {
+            opacity: 1;
+        }
+
+        .heart {
+            position: absolute;
+            font-size: 30px;
+            color: #ff69b4;
+            animation: rise 2s ease-in-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes rise {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(0);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-200px) scale(0.5);
+            }
+        }
+
+        .sparkle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle, #fff, #ffb6c1);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: sparkle 1.5s ease-out forwards;
+        }
+
+        @keyframes sparkle {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(1);
+            }
+        }
+
+        .counter {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #ff1493;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: linear-gradient(135deg, #ff69b4, #ff1493);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 20, 147, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 20, 147, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌸 点击兔宝吧！ 🌸</h1>
+        
+        <div class="bunny-container" id="bunnyContainer">
+            <div class="bunny" id="bunny">🐰</div>
+        </div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="counter">
+            💕 已摸兔宝: <span id="count">0</span> 次 💕
+        </div>
+        
+        <button id="resetBtn">重新开始 ✨</button>
+    </div>
+
+    <script>
+        const bunny = document.getElementById('bunny');
+        const bunnyContainer = document.getElementById('bunnyContainer');
+        const message = document.getElementById('message');
+        const countDisplay = document.getElementById('count');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        let count = 0;
+        
+        const messages = [
+            "兔宝好开心~ 💕",
+            "再摸一次嘛~ 🥰",
+            "好舒服呀~ ✨",
+            "兔宝爱你~ 💗",
+            "继续继续~ 🌸",
+            "你最温柔啦~ 💖",
+            "兔宝好幸福~ 🌟",
+            "不要停~ 💝",
+            "好喜欢这样~ 🎀",
+            "永远陪你~ 💞"
+        ];
+        
+        function createHeart(x, y) {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.textContent = '💕';
+            heart.style.left = x + 'px';
+            heart.style.top = y + 'px';
+            document.body.appendChild(heart);
+            
+            setTimeout(() => heart.remove(), 2000);
+        }
+        
+        function createSparkles(x, y) {
+            for (let i = 0; i < 8; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.className = 'sparkle';
+                sparkle.style.left = x + 'px';
+                sparkle.style.top = y + 'px';
+                
+                const angle = (Math.PI * 2 * i) / 8;
+                const distance = 50 + Math.random() * 50;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                
+                sparkle.style.setProperty('--tx', tx + 'px');
+                sparkle.style.setProperty('--ty', ty + 'px');
+                
+                document.body.appendChild(sparkle);
+                setTimeout(() => sparkle.remove(), 1500);
+            }
+        }
+        
+        bunnyContainer.addEventListener('click', (e) => {
+            count++;
+            countDisplay.textContent = count;
+            
+            // Add spin animation
+            bunny.classList.remove('clicked');
+            void bunny.offsetWidth; // Trigger reflow
+            bunny.classList.add('clicked');
+            
+            // Show random message
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            message.textContent = randomMessage;
+            message.classList.add('show');
+            
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 2000);
+            
+            // Create hearts and sparkles
+            const rect = bunnyContainer.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            
+            createHeart(x - 15, y - 15);
+            createSparkles(x, y);
+            
+            // Random bunny emojis
+            const bunnies = ['🐰', '🐇', '🌸🐰', '💕🐰', '✨🐰'];
+            bunny.textContent = bunnies[Math.floor(Math.random() * bunnies.length)];
+            
+            setTimeout(() => {
+                bunny.textContent = '🐰';
+            }, 600);
+        });
+        
+        resetBtn.addEventListener('click', () => {
+            count = 0;
+            countDisplay.textContent = count;
+            message.textContent = '重新开始啦~ 💖';
+            message.classList.add('show');
+            
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 2000);
+        });
+        
+        // Random background hearts
+        setInterval(() => {
+            const x = Math.random() * window.innerWidth;
+            const y = window.innerHeight;
+            createHeart(x, y);
+        }, 2000);
+    </script>
+</body>
+</html>

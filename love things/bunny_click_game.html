@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>点击兔兔得分游戏</title>
+  <style>
+    body {
+      background: #f9f6f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans', Arial, sans-serif;
+    }
+    h1 {
+      color: #ff8bbd;
+      margin-bottom: 10px;
+      text-shadow: 1px 1px 0 #fff;
+    }
+    #score {
+      font-size: 1.5em;
+      color: #ff6f91;
+      margin-bottom: 20px;
+    }
+    #game-area {
+      position: relative;
+      width: 320px;
+      height: 400px;
+      background: #fffbe7;
+      border-radius: 20px;
+      box-shadow: 0 4px 16px #f3d1e0;
+      overflow: hidden;
+      border: 2px solid #ffe0f0;
+    }
+    .bunny {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      cursor: pointer;
+      transition: top 0.2s, left 0.2s, transform 0.1s;
+      user-select: none;
+    }
+    .bunny:active {
+      transform: scale(0.92) rotate(-8deg);
+    }
+  </style>
+</head>
+<body>
+  <h1>🐰🐰 炘也 & 臭宝互动小游戏</h1>
+  <div id="score">得分：0</div>
+  <div id="game-area">
+    <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f430.png" alt="炘也" class="bunny" id="bunny1">
+    <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f430.png" alt="臭宝" class="bunny bunny2" id="bunny2">
+  </div>
+  <script>
+    const bunny1 = document.getElementById('bunny1'); // 炘也
+    const bunny2 = document.getElementById('bunny2'); // 臭宝
+    const gameArea = document.getElementById('game-area');
+    const scoreDiv = document.getElementById('score');
+    let score = 0;
+    // 给臭宝加个粉色蝴蝶结
+    bunny2.style.filter = 'hue-rotate(60deg)';
+    bunny2.style.boxShadow = '0 0 0 3px #ffb6d5, 0 0 12px #ffb6d5';
+    // 兔兔状态
+    let pos1 = {x: 40, y: 80};
+    let pos2 = {x: 180, y: 260};
+    function setPos(bunny, pos) {
+      bunny.style.left = pos.x + 'px';
+      bunny.style.top = pos.y + 'px';
+    }
+    function randomMove(pos) {
+      const maxLeft = gameArea.clientWidth - 80;
+      const maxTop = gameArea.clientHeight - 80;
+      return {
+        x: Math.max(0, Math.min(maxLeft, pos.x + (Math.random()-0.5)*90)),
+        y: Math.max(0, Math.min(maxTop, pos.y + (Math.random()-0.5)*90))
+      };
+    }
+    function distance(a, b) {
+      return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
+    }
+    function playPop() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = 660;
+      g.gain.value = 0.18;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.12);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.18);
+      o.stop(ctx.currentTime + 0.18);
+      setTimeout(()=>ctx.close(), 220);
+    }
+    function interact() {
+      // 靠近时互动动画
+      if (distance(pos1, pos2) < 60) {
+        bunny1.style.transform = 'scale(1.08) rotate(-8deg)';
+        bunny2.style.transform = 'scale(1.08) rotate(8deg)';
+        bunny1.style.zIndex = 2;
+        bunny2.style.zIndex = 2;
+        setTimeout(()=>{
+          bunny1.style.transform = '';
+          bunny2.style.transform = '';
+        }, 400);
+      }
+    }
+    bunny1.onclick = function() {
+      score++;
+      scoreDiv.textContent = '得分：' + score;
+      playPop();
+      bunny1.style.transform = 'scale(1.15) rotate(-12deg)';
+      setTimeout(()=>bunny1.style.transform='', 180);
+    };
+    bunny2.onclick = function() {
+      score++;
+      scoreDiv.textContent = '得分：' + score;
+      playPop();
+      bunny2.style.transform = 'scale(1.15) rotate(12deg)';
+      setTimeout(()=>bunny2.style.transform='', 180);
+    };
+    function moveBunnies() {
+      // 让两只兔兔偶尔靠近
+      if (Math.random() < 0.25) {
+        // 互相靠近
+        const mid = {x: (pos1.x+pos2.x)/2, y: (pos1.y+pos2.y)/2};
+        pos1.x += (mid.x-pos1.x)*0.5 + (Math.random()-0.5)*20;
+        pos1.y += (mid.y-pos1.y)*0.5 + (Math.random()-0.5)*20;
+        pos2.x += (mid.x-pos2.x)*0.5 + (Math.random()-0.5)*20;
+        pos2.y += (mid.y-pos2.y)*0.5 + (Math.random()-0.5)*20;
+      } else {
+        pos1 = randomMove(pos1);
+        pos2 = randomMove(pos2);
+      }
+      setPos(bunny1, pos1);
+      setPos(bunny2, pos2);
+      interact();
+    }
+    setPos(bunny1, pos1);
+    setPos(bunny2, pos2);
+    setInterval(moveBunnies, 1200);
+  </script>
+</body>
+</html>

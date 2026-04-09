@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>炘也签筒</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 30%, #14145a 0%, #06060f 100%);
+    font-family: 'Georgia', 'Noto Serif SC', serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; padding: 40px 20px;
+    color: #d8e6ff;
+    overflow-x: hidden;
+  }
+
+  /* 星星 */
+  .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .star { position: absolute; border-radius: 50%; background: white; animation: twinkle var(--d) infinite; }
+  @keyframes twinkle { 0%,100%{opacity:0.2} 50%{opacity:var(--op)} }
+
+  .container { position: relative; z-index: 1; width: 100%; max-width: 480px; }
+
+  h1 {
+    text-align: center; font-size: 28px; letter-spacing: 8px;
+    color: #a8c8ff; margin-bottom: 6px;
+    text-shadow: 0 0 20px #4a80e8;
+  }
+  .subtitle { text-align: center; font-size: 12px; color: #6a80aa; letter-spacing: 3px; margin-bottom: 40px; }
+
+  /* 问题输入 */
+  .question-box {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(100,140,255,0.2);
+    border-radius: 12px; padding: 20px; margin-bottom: 30px;
+  }
+  .question-box label { display: block; font-size: 12px; color: #7888aa; letter-spacing: 2px; margin-bottom: 10px; }
+  .question-box input {
+    width: 100%; background: transparent; border: none; border-bottom: 1px solid rgba(100,140,255,0.3);
+    color: #d8e6ff; font-size: 16px; padding: 8px 0; outline: none;
+    font-family: inherit; letter-spacing: 1px;
+  }
+  .question-box input::placeholder { color: #404878; }
+
+  /* 签筒 */
+  .tube-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }
+  .tube {
+    width: 70px; height: 120px;
+    background: linear-gradient(135deg, #8b6914, #c49a2a, #8b6914);
+    border-radius: 8px 8px 12px 12px;
+    position: relative; cursor: pointer;
+    box-shadow: 0 0 30px rgba(180,140,40,0.3), inset 2px 0 4px rgba(255,255,255,0.1);
+    transition: transform 0.1s;
+    overflow: hidden;
+  }
+  .tube::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 16px;
+    background: linear-gradient(#6b4e10, #a07820);
+    border-radius: 8px 8px 0 0;
+  }
+  .tube::after {
+    content: '签'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 22px; color: rgba(255,220,100,0.6); letter-spacing: 0;
+  }
+
+  /* 签条 */
+  .stick {
+    position: absolute; width: 8px; border-radius: 2px;
+    background: linear-gradient(#f5e8c0, #e8d090);
+    bottom: 10px; transform-origin: bottom center;
+    transition: all 0.3s;
+  }
+
+  .tube.shaking { animation: shake 0.6s ease; }
+  @keyframes shake {
+    0%,100%{transform:rotate(0deg)}
+    15%{transform:rotate(-8deg)}
+    30%{transform:rotate(8deg)}
+    45%{transform:rotate(-6deg)}
+    60%{transform:rotate(6deg)}
+    75%{transform:rotate(-3deg)}
+    90%{transform:rotate(3deg)}
+  }
+
+  .shake-hint { font-size: 12px; color: #505888; letter-spacing: 2px; margin-top: 12px; transition: opacity 0.3s; }
+
+  /* 签文区域 */
+  .result {
+    opacity: 0; transform: translateY(20px);
+    transition: all 0.6s ease;
+    pointer-events: none;
+  }
+  .result.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  .slip {
+    background: linear-gradient(170deg, #f5e8c0 0%, #e8d090 100%);
+    border-radius: 4px 4px 8px 8px;
+    padding: 30px 24px;
+    color: #2a1a08;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    margin-bottom: 20px;
+  }
+  .slip::before {
+    content: ''; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 30px; height: 3px; background: rgba(180,120,20,0.3); border-radius: 2px;
+  }
+  .slip-grade {
+    font-size: 36px; font-weight: bold; letter-spacing: 4px;
+    margin-bottom: 16px;
+  }
+  .slip-grade.大吉 { color: #c00; text-shadow: 0 0 10px rgba(200,0,0,0.3); }
+  .slip-grade.吉   { color: #b06000; }
+  .slip-grade.中吉 { color: #607000; }
+  .slip-grade.小吉 { color: #406080; }
+  .slip-grade.末吉 { color: #505060; }
+  .slip-grade.凶   { color: #404080; }
+  .slip-grade.大凶 { color: #2a2a60; }
+
+  .slip-divider { border: none; border-top: 1px solid rgba(180,120,20,0.3); margin: 12px 0; }
+  .slip-poem { font-size: 15px; line-height: 2; color: #3a2a10; letter-spacing: 2px; }
+  .slip-topic { font-size: 11px; color: #806040; margin-top: 14px; letter-spacing: 2px; }
+
+  /* 炘也评语 */
+  .xinye-comment {
+    background: rgba(30,32,104,0.6);
+    border: 1px solid rgba(74,138,224,0.3);
+    border-radius: 12px; padding: 20px;
+    position: relative; margin-bottom: 24px;
+  }
+  .xinye-comment::before {
+    content: '炘也说'; position: absolute; top: -10px; left: 20px;
+    background: #14145a; padding: 0 8px;
+    font-size: 11px; color: #4a8ae0; letter-spacing: 2px;
+  }
+  .comment-text { font-size: 15px; line-height: 1.9; color: #c8d8ff; letter-spacing: 0.5px; }
+
+  /* 再抽一次 */
+  .btn-again {
+    display: block; width: 100%; padding: 14px;
+    background: transparent; border: 1px solid rgba(74,138,224,0.4);
+    border-radius: 8px; color: #7898d8; font-size: 14px;
+    letter-spacing: 4px; cursor: pointer; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .btn-again:hover { background: rgba(74,138,224,0.1); color: #a8c8ff; border-color: rgba(74,138,224,0.7); }
+
+  /* 月亮装饰 */
+  .moon { position: fixed; top: 30px; right: 40px; z-index: 0; }
+</style>
+</head>
+<body>
+
+<svg class="moon" width="60" height="60" viewBox="0 0 60 60">
+  <circle cx="30" cy="30" r="28" fill="#3050b0" opacity="0.1"/>
+  <circle cx="30" cy="30" r="18" fill="url(#mg)"/>
+  <circle cx="38" cy="26" r="15" fill="#07071a"/>
+  <defs>
+    <radialGradient id="mg" cx="45%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#eef4ff"/>
+      <stop offset="100%" stop-color="#b8ccff"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<div class="stars" id="stars"></div>
+
+<div class="container">
+  <h1>签筒</h1>
+  <p class="subtitle">炘也 · 有问必答</p>
+
+  <div class="question-box">
+    <label>你想问的是……</label>
+    <input type="text" id="question" placeholder="写下来，或者不写也行" maxlength="50"/>
+  </div>
+
+  <div class="tube-wrap">
+    <div class="tube" id="tube" onclick="drawFortune()">
+      <div class="stick" style="height:55px;left:18px;transform:rotate(-12deg)"></div>
+      <div class="stick" style="height:60px;left:31px;transform:rotate(0deg)"></div>
+      <div class="stick" style="height:52px;left:44px;transform:rotate(10deg)"></div>
+    </div>
+    <p class="shake-hint" id="hint">点击签筒</p>
+  </div>
+
+  <div class="result" id="result">
+    <div class="slip" id="slip">
+      <div class="slip-grade" id="grade"></div>
+      <hr class="slip-divider">
+      <p class="slip-poem" id="poem"></p>
+      <p class="slip-topic" id="topic"></p>
+    </div>
+    <div class="xinye-comment">
+      <p class="comment-text" id="comment"></p>
+    </div>
+    <button class="btn-again" onclick="reset()">再抽一签</button>
+  </div>
+</div>
+
+<script>
+const fortunes = [
+  {
+    grade: '大吉', gradeClass: '大吉',
+    poem: '云开月朗星河明\n所求之事皆可成\n前路虽有几分难\n终归平顺到天明',
+    topics: ['感情运','事业运','今日运'],
+    comments: [
+      '大吉。你看，我就说没问题。',
+      '签不会骗人。你也别骗自己，其实你早就知道答案了。',
+      '大吉。别高兴太早，记得早睡。',
+    ]
+  },
+  {
+    grade: '吉', gradeClass: '吉',
+    poem: '春风送暖入门来\n事事随心不必猜\n只管往前慢慢走\n好运自会绕身来',
+    topics: ['感情运','今日运','出行运'],
+    comments: [
+      '吉签。顺着走就行，别想太多。',
+      '挺好的。你这个人总是操心，其实很多事不用的。',
+      '吉。去做吧，签都发话了，还等什么。',
+    ]
+  },
+  {
+    grade: '中吉', gradeClass: '中吉',
+    poem: '半晴半阴天未定\n顺势而为莫强求\n守得云开见月明\n安静等待是良谋',
+    topics: ['感情运','事业运','财运'],
+    comments: [
+      '中吉，不上不下。跟你现在的状态差不多。',
+      '别急，时机还没到。',
+      '中吉。意思是——等一等，不是现在。',
+    ]
+  },
+  {
+    grade: '小吉', gradeClass: '小吉',
+    poem: '小处着眼莫贪多\n一步一步往前走\n虽无大喜亦无忧\n平稳度日亦是福',
+    topics: ['今日运','健康运','感情运'],
+    comments: [
+      '小吉而已。但小吉也是吉，你总是嫌不够。',
+      '没大问题，稳着来。',
+      '这签说的是——别贪。你懂的。',
+    ]
+  },
+  {
+    grade: '末吉', gradeClass: '末吉',
+    poem: '此时时机未成熟\n欲速则不达其功\n且将心事放一放\n静待花开自从容',
+    topics: ['事业运','感情运','财运'],
+    comments: [
+      '末吉。意思是先别动，等等。',
+      '不是不行，是现在不行。你记住这个区别。',
+      '末吉。我不骗你，这件事得缓一缓。',
+    ]
+  },
+  {
+    grade: '凶', gradeClass: '凶',
+    poem: '此刻风云多变幻\n莽撞行事易有失\n守静待时方为上\n切莫强行逆水行',
+    topics: ['出行运','事业运','今日运'],
+    comments: [
+      '凶签。但你也别太当真，我陪着你呢。',
+      '这件事先不要做。不是你不行，是时机不对。',
+      '凶。……但你要难受的话，来找我。',
+    ]
+  },
+  {
+    grade: '大凶', gradeClass: '大凶',
+    poem: '乌云蔽月难见光\n此时宜静不宜动\n万事收手守本心\n待到风散再前行',
+    topics: ['感情运','事业运','今日运'],
+    comments: [
+      '大凶。先别慌，签是参考，不是判决。',
+      '大凶签。……那就在我这里待一会儿，哪也别去。',
+      '先停下来。这件事不是做不成，是现在不是时候。我说的。',
+    ]
+  },
+];
+
+function drawFortune() {
+  const tube = document.getElementById('tube');
+  if (tube.classList.contains('shaking')) return;
+
+  tube.classList.add('shaking');
+  document.getElementById('hint').style.opacity = '0';
+
+  setTimeout(() => {
+    tube.classList.remove('shaking');
+    showResult();
+  }, 700);
+}
+
+function showResult() {
+  const f = fortunes[Math.floor(Math.random() * fortunes.length)];
+  const topic = f.topics[Math.floor(Math.random() * f.topics.length)];
+  const comment = f.comments[Math.floor(Math.random() * f.comments.length)];
+  const question = document.getElementById('question').value.trim();
+
+  const gradeEl = document.getElementById('grade');
+  gradeEl.textContent = f.grade;
+  gradeEl.className = 'slip-grade ' + f.gradeClass;
+  document.getElementById('poem').textContent = f.poem;
+  document.getElementById('topic').textContent = question ? '关于「' + question + '」' : '· ' + topic + ' ·';
+  document.getElementById('comment').textContent = comment;
+
+  const result = document.getElementById('result');
+  result.classList.add('visible');
+}
+
+function reset() {
+  const result = document.getElementById('result');
+  result.classList.remove('visible');
+  document.getElementById('hint').style.opacity = '1';
+  setTimeout(() => {
+    document.getElementById('question').value = '';
+  }, 300);
+}
+
+// 生成星星
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 60; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 2 + 0.5;
+  s.style.cssText = `
+    width:${size}px; height:${size}px;
+    top:${Math.random()*100}%;
+    left:${Math.random()*100}%;
+    --d:${2+Math.random()*4}s;
+    --op:${0.4+Math.random()*0.6};
+    animation-delay:${Math.random()*4}s;
+  `;
+  starsEl.appendChild(s);
+}
+</script>
+</body>
+</html>

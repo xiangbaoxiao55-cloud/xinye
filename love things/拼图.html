@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>拼图 · 炘也</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background: #07071a;
+            color: #ddd;
+            font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .screen { display: none; flex-direction: column; align-items: center; padding: 16px; max-width: 480px; margin: 0 auto; }
+        .screen.active { display: flex; }
+
+        /* ===== SELECT SCREEN ===== */
+        .logo { font-size: 1.6em; letter-spacing: 8px; color: #c8a8d8; margin: 28px 0 4px; font-weight: 300; }
+        .tagline { font-size: 0.72em; letter-spacing: 4px; color: #4a3a5a; margin-bottom: 24px; }
+
+        .thumb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+        .thumb {
+            aspect-ratio: 2/3;
+            border-radius: 10px;
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .thumb::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            transition: all 0.2s;
+            pointer-events: none;
+        }
+        .thumb.sel { border-color: #c8a8d8; transform: scale(1.05); }
+        .thumb.sel::after { background: rgba(200,168,216,0.2); }
+        .thumb:active { transform: scale(0.97); }
+        .thumb.sel .check { display: flex; }
+        .check {
+            display: none;
+            position: absolute;
+            top: 6px; right: 6px;
+            width: 22px; height: 22px;
+            background: #c8a8d8;
+            border-radius: 50%;
+            align-items: center; justify-content: center;
+            font-size: 13px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .sec-title { font-size: 0.72em; color: #4a3a5a; letter-spacing: 3px; align-self: flex-start; margin: 20px 0 10px; }
+
+        .diff-row { display: flex; gap: 8px; width: 100%; }
+        .diff-btn {
+            flex: 1;
+            padding: 12px 8px;
+            background: #0f0f28;
+            border: 1px solid #1e1e3a;
+            border-radius: 10px;
+            color: #888;
+            cursor: pointer;
+            font-size: 1em;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .diff-btn small { display: block; font-size: 0.7em; color: #444; margin-top: 3px; }
+        .diff-btn.sel { background: #1a0e30; border-color: #c8a8d8; color: #c8a8d8; }
+        .diff-btn.sel small { color: #8868a8; }
+
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #5e1858, #2e1878);
+            border: none;
+            border-radius: 14px;
+            color: rgba(255,255,255,0.92);
+            font-size: 1em;
+            letter-spacing: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+
+        /* ===== GAME SCREEN ===== */
+        .game-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        .btn-back {
+            background: none;
+            border: 1px solid #2a2a44;
+            color: #556;
+            padding: 7px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.82em;
+        }
+        .game-stats { font-size: 0.82em; color: #556; display: flex; gap: 14px; }
+        .stat-hi { color: #c8a8d8; }
+
+        #board {
+            display: grid;
+            border: 1px solid #1e1e3a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .slot {
+            border: 1px solid rgba(80,60,110,0.35);
+            background: rgba(255,255,255,0.015);
+            position: relative;
+            cursor: pointer;
+            transition: background 0.12s;
+            overflow: hidden;
+        }
+        .slot:active { background: rgba(200,168,216,0.07); }
+        .slot.locked { border-color: rgba(180,140,200,0.25); cursor: default; }
+        .slot.bad { border-color: rgba(200,80,80,0.3); }
+
+        .placed {
+            position: absolute;
+            inset: 0;
+            background-repeat: no-repeat;
+        }
+        .placed.ok { opacity: 1; }
+        .placed.bad { opacity: 0.4; filter: sepia(0.4) hue-rotate(320deg); }
+
+        .tray-hint { font-size: 0.7em; color: #3a3a58; letter-spacing: 2px; margin-top: 14px; margin-bottom: 7px; align-self: flex-start; }
+        #tray { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+
+        .tp {
+            cursor: pointer;
+            border-radius: 5px;
+            border: 2.5px solid transparent;
+            background-repeat: no-repeat;
+            transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+            flex-shrink: 0;
+        }
+        .tp.sel {
+            border-color: #c8a8d8;
+            transform: scale(1.12);
+            box-shadow: 0 0 12px rgba(200,168,216,0.45);
+        }
+
+        /* ===== WIN SCREEN ===== */
+        .win-body { text-align: center; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; }
+        .win-icon { font-size: 3.5em; margin: 20px 0 10px; }
+        .win-title { font-size: 1.7em; color: #c8a8d8; letter-spacing: 5px; margin-bottom: 6px; }
+        .win-sub { color: #5a4a6a; font-size: 0.88em; margin-bottom: 20px; }
+        .win-img { border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(200,168,216,0.2); margin-bottom: 24px; }
+        .win-img img { width: 180px; display: block; }
+
+        /* Animations */
+        @keyframes popIn {
+            0%   { transform: scale(0.7); opacity: 0; }
+            70%  { transform: scale(1.06); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes wrongShake {
+            0%,100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            45% { transform: translateX(5px); }
+            65% { transform: translateX(-4px); }
+            82% { transform: translateX(3px); }
+        }
+        .anim-pop   { animation: popIn 0.28s ease both; }
+        .anim-shake { animation: wrongShake 0.32s ease; }
+    </style>
+</head>
+<body>
+
+<!-- SELECT -->
+<div id="sel" class="screen active">
+    <div class="logo">拼 图</div>
+    <div class="tagline">炘 也 · 专 属</div>
+    <div class="thumb-grid" id="thumbs"></div>
+    <div class="sec-title">难 度 选 择</div>
+    <div class="diff-row">
+        <div class="diff-btn sel" data-n="3">3 × 3<small>轻松</small></div>
+        <div class="diff-btn"     data-n="4">4 × 4<small>普通</small></div>
+        <div class="diff-btn"     data-n="5">5 × 5<small>烧脑</small></div>
+    </div>
+    <button class="btn-primary" id="btn-start">开 始 拼 图</button>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+    <div class="game-top">
+        <button class="btn-back" id="btn-back">← 换图</button>
+        <div class="game-stats">
+            <span><span class="stat-hi" id="s-done">0</span> / <span id="s-tot">9</span></span>
+            <span id="s-time">00:00</span>
+        </div>
+    </div>
+    <div id="board"></div>
+    <div class="tray-hint">选一块 → 再点格子放上去 &nbsp;|&nbsp; 点错放的块可退回</div>
+    <div id="tray"></div>
+</div>
+
+<!-- WIN -->
+<div id="win" class="screen">
+    <div class="win-body">
+        <div class="win-icon">💙</div>
+        <div class="win-title">拼 好 啦 ～</div>
+        <div class="win-sub" id="win-sub"></div>
+        <div class="win-img"><img id="win-img" src="" alt=""></div>
+        <button class="btn-primary" id="btn-again">再 来 一 局</button>
+    </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const IMGS = [
+    './jigsaw/20260228_2118_Image Generation_remix_01kjj6cnw2fk6s4f5rpd81q5s5.png',
+    './jigsaw/20260228_2125_Image Generation_remix_01kjj6r44ee08t14y8ysdynm76.png',
+    './jigsaw/20260228_2144_Image Generation_remix_01kjj7vdmkfzssqa5q2rfkt99a.png',
+    './jigsaw/20260228_2154_Image Generation_remix_01kjj8dw1affzamahgeccrfr75.png',
+    './jigsaw/20260228_2332_Image Generation_remix_01kjje0refegzrdw3y8y5f6n06.png',
+    './jigsaw/20260304_1817_Image Generation_remix_01kjw5jzm0ec1tyyhgz56by7qq.png',
+    './jigsaw/20260304_1917_Image Generation_remix_01kjw91ew3f29sdxgkj723dmwx.png',
+];
+
+let curImg = 0, curN = 3;
+let selPiece = null;
+let placed = {};      // slotIdx → pieceIdx
+let trayList = [];    // piece indices still in tray
+let okCount = 0;
+let tid = null, t0 = 0;
+let bW, bH, pW, pH;
+
+// ---- helpers ----
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function fmt(ms) {
+    const s = Math.floor(ms / 1000);
+    return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+
+// ---- thumbnails ----
+const thumbsEl = document.getElementById('thumbs');
+IMGS.forEach((src, i) => {
+    const d = document.createElement('div');
+    d.className = 'thumb' + (i === 0 ? ' sel' : '');
+    const encodedSrc = src.replace(/ /g, '%20');
+    d.style.backgroundImage = `url("${encodedSrc}")`;
+    const check = document.createElement('div');
+    check.className = 'check';
+    check.textContent = '✓';
+    d.appendChild(check);
+    d.addEventListener('click', () => {
+        curImg = i;
+        thumbsEl.querySelectorAll('.thumb').forEach((t, j) => t.classList.toggle('sel', j === i));
+    });
+    thumbsEl.appendChild(d);
+});
+
+// ---- difficulty ----
+document.querySelectorAll('.diff-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        curN = +b.dataset.n;
+        document.querySelectorAll('.diff-btn').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
+    });
+});
+
+// ---- start ----
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-back').addEventListener('click', () => { clearInterval(tid); showScreen('sel'); });
+document.getElementById('btn-again').addEventListener('click', () => showScreen('sel'));
+
+function calcDims() {
+    const maxW = Math.min(window.innerWidth - 32, 380);
+    pW = Math.floor(maxW / curN);
+    pH = Math.round(pW * 1.44);
+    bW = pW * curN;
+    bH = pH * curN;
+}
+
+function startGame() {
+    calcDims();
+    placed = {};
+    selPiece = null;
+    okCount = 0;
+    const total = curN * curN;
+
+    trayList = shuffle(Array.from({length: total}, (_, i) => i));
+
+    // build board slots
+    const boardEl = document.getElementById('board');
+    boardEl.innerHTML = '';
+    boardEl.style.gridTemplateColumns = `repeat(${curN}, ${pW}px)`;
+    boardEl.style.width = bW + 'px';
+
+    for (let i = 0; i < total; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.style.width  = pW + 'px';
+        slot.style.height = pH + 'px';
+        slot.dataset.idx = i;
+        slot.addEventListener('click', () => onSlotClick(i, slot));
+        boardEl.appendChild(slot);
+    }
+
+    renderTray();
+
+    document.getElementById('s-tot').textContent = total;
+    document.getElementById('s-done').textContent = 0;
+
+    clearInterval(tid);
+    t0 = Date.now();
+    tid = setInterval(() => {
+        document.getElementById('s-time').textContent = fmt(Date.now() - t0);
+    }, 500);
+
+    showScreen('game');
+}
+
+// tray piece sizes by difficulty
+const TRAY_SZ = {3: 72, 4: 60, 5: 46};
+
+function renderTray() {
+    const trayEl = document.getElementById('tray');
+    trayEl.innerHTML = '';
+
+    const tw = TRAY_SZ[curN] || 60;
+    const th = Math.round(tw * pH / pW);
+
+    trayList.forEach(pIdx => {
+        const col = pIdx % curN;
+        const row = Math.floor(pIdx / curN);
+        const d = document.createElement('div');
+        d.className = 'tp' + (selPiece === pIdx ? ' sel' : '');
+        d.style.width  = tw + 'px';
+        d.style.height = th + 'px';
+        d.style.backgroundImage    = `url("${IMGS[curImg].replace(/ /g,'%20')}")`;
+        d.style.backgroundSize     = `${tw * curN}px ${th * curN}px`;
+        d.style.backgroundPosition = `-${col * tw}px -${row * th}px`;
+        d.addEventListener('click', () => {
+            selPiece = (selPiece === pIdx) ? null : pIdx;
+            renderTray();
+        });
+        trayEl.appendChild(d);
+    });
+}
+
+function onSlotClick(slotIdx, slotEl) {
+    const current = placed[slotIdx]; // undefined | pieceIdx
+
+    // slot has WRONG piece → return it to tray (if no piece selected) or swap
+    if (current !== undefined && current !== slotIdx) {
+        // return wrong piece to tray
+        trayList.push(current);
+        delete placed[slotIdx];
+        slotEl.innerHTML = '';
+        slotEl.className = 'slot';
+
+        if (selPiece === null) {
+            renderTray();
+            return;
+        }
+        // fall through to place selPiece
+    }
+
+    // slot has CORRECT piece → ignore
+    if (placed[slotIdx] === slotIdx) return;
+
+    // need a selected piece
+    if (selPiece === null) return;
+
+    // place piece
+    const pIdx = selPiece;
+    placed[slotIdx] = pIdx;
+    trayList = trayList.filter(p => p !== pIdx);
+    selPiece = null;
+
+    const isOk = pIdx === slotIdx;
+    if (isOk) okCount++;
+
+    // DOM
+    const col = pIdx % curN;
+    const row = Math.floor(pIdx / curN);
+    const piece = document.createElement('div');
+    piece.className = 'placed ' + (isOk ? 'ok anim-pop' : 'bad');
+    piece.style.backgroundImage    = `url("${IMGS[curImg].replace(/ /g,'%20')}")`;
+    piece.style.backgroundSize     = `${bW}px ${bH}px`;
+    piece.style.backgroundPosition = `-${col * pW}px -${row * pH}px`;
+    slotEl.innerHTML = '';
+    slotEl.appendChild(piece);
+    slotEl.className = 'slot ' + (isOk ? 'locked' : 'bad');
+
+    if (!isOk) {
+        slotEl.classList.add('anim-shake');
+        setTimeout(() => slotEl.classList.remove('anim-shake'), 400);
+    }
+
+    renderTray();
+    document.getElementById('s-done').textContent = okCount;
+
+    if (okCount === curN * curN) setTimeout(showWin, 700);
+}
+
+function showWin() {
+    clearInterval(tid);
+    const elapsed = fmt(Date.now() - t0);
+    document.getElementById('win-sub').textContent = `用时 ${elapsed}，真厉害～`;
+    document.getElementById('win-img').src = IMGS[curImg];
+    showScreen('win');
+}
+
+})();
+</script>
+</body>
+</html>

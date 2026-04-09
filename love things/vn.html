@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雨夜</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', '宋体', serif;
+    background: #0a0a0f;
+    color: #fff;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #game {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── 背景 ── */
+  #bg {
+    position: absolute;
+    inset: 0;
+    transition: background 1.2s ease;
+    z-index: 0;
+  }
+
+  /* 雨滴 canvas */
+  #rain-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+
+  /* ── 标题画面 ── */
+  #title-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  #title-screen h1 {
+    font-size: clamp(60px, 12vw, 120px);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    color: #fff;
+    text-shadow: 0 0 60px rgba(91,155,213,0.6), 0 0 120px rgba(91,155,213,0.2);
+    animation: titleGlow 3s ease-in-out infinite alternate;
+  }
+
+  @keyframes titleGlow {
+    from { text-shadow: 0 0 40px rgba(91,155,213,0.4), 0 0 80px rgba(91,155,213,0.1); }
+    to   { text-shadow: 0 0 80px rgba(91,155,213,0.8), 0 0 160px rgba(91,155,213,0.3); }
+  }
+
+  #title-screen p.subtitle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.2em;
+  }
+
+  #start-btn {
+    padding: 14px 60px;
+    border: 1px solid rgba(91,155,213,0.6);
+    background: transparent;
+    color: #5b9bd5;
+    font-size: 20px;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    transition: all 0.4s;
+    font-family: inherit;
+  }
+
+  #start-btn:hover {
+    background: rgba(91,155,213,0.15);
+    border-color: #5b9bd5;
+    box-shadow: 0 0 30px rgba(91,155,213,0.3);
+  }
+
+  /* ── 角色立绘区 ── */
+  #stage {
+    position: absolute;
+    inset: 0;
+    bottom: 220px;
+    z-index: 2;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 6vw;
+    pointer-events: none;
+  }
+
+  .character {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: opacity 0.5s, filter 0.5s, transform 0.5s;
+    transform: translateY(0);
+  }
+
+  .character.hidden { opacity: 0; transform: translateY(30px); }
+  .character.dim { opacity: 0.35; filter: brightness(0.5); }
+  .character.active { opacity: 1; filter: brightness(1); }
+
+  /* 兔宝剪影 — 左侧，粉白系 */
+  #char-tutu {
+    width: 160px;
+    height: 340px;
+  }
+
+  .tutu-svg {
+    width: 160px;
+    height: 340px;
+    filter: drop-shadow(0 0 20px rgba(244,143,177,0.4));
+  }
+
+  /* 炘也剪影 — 右侧，黑白蓝系 */
+  #char-xinye {
+    width: 170px;
+    height: 360px;
+  }
+
+  .xinye-svg {
+    width: 170px;
+    height: 360px;
+    filter: drop-shadow(0 0 20px rgba(91,155,213,0.4));
+  }
+
+  /* ── 文字框 ── */
+  #textbox-wrap {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 0 4vw 28px;
+  }
+
+  #textbox {
+    background: rgba(8, 8, 18, 0.88);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 22px 30px 26px;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    min-height: 140px;
+    position: relative;
+  }
+
+  #speaker-name {
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+    min-height: 20px;
+  }
+
+  #dialogue {
+    font-size: clamp(15px, 2vw, 18px);
+    line-height: 1.9;
+    color: rgba(255,255,255,0.92);
+    min-height: 72px;
+  }
+
+  #click-hint {
+    position: absolute;
+    bottom: 12px;
+    right: 20px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+  }
+
+  /* ── 选择按钮 ── */
+  #choices {
+    position: absolute;
+    bottom: 220px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    width: 90%;
+    max-width: 600px;
+  }
+
+  .choice-btn {
+    width: 100%;
+    padding: 16px 30px;
+    background: rgba(8,8,18,0.85);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 16px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.05em;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .choice-btn:hover {
+    background: rgba(91,155,213,0.2);
+    border-color: rgba(91,155,213,0.6);
+    box-shadow: 0 0 20px rgba(91,155,213,0.2);
+    transform: scale(1.01);
+  }
+
+  /* ── 左上角按钮 ── */
+  #back-btn {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 50;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    padding: 7px 16px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.3s;
+    display: none;
+  }
+
+  #back-btn:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(0,0,0,0.7);
+  }
+
+  /* ── 结局标题 ── */
+  #ending-title {
+    position: absolute;
+    top: 36%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+    text-align: center;
+    display: none;
+    pointer-events: none;
+  }
+
+  #ending-title h2 {
+    font-size: clamp(24px, 5vw, 44px);
+    font-weight: 300;
+    letter-spacing: 0.4em;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 0 40px rgba(255,255,255,0.3);
+    opacity: 0;
+    transition: opacity 1.5s;
+  }
+
+  /* ── 渐变遮罩 ── */
+  #fade-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s;
+  }
+
+  /* 场景背景预设 */
+  .bg-rain-night { background: linear-gradient(180deg, #060b1a 0%, #0d1526 40%, #101820 100%); }
+  .bg-indoor-warm { background: linear-gradient(180deg, #1a1008 0%, #251810 50%, #1c130a 100%); }
+  .bg-indoor-dim { background: linear-gradient(180deg, #0e0e18 0%, #141428 60%, #0e0e18 100%); }
+  .bg-dawn { background: linear-gradient(180deg, #1a0f0f 0%, #2a1520 50%, #1a1428 100%); }
+</style>
+</head>
+<body>
+
+<!-- 标题画面 -->
+<div id="title-screen">
+  <h1>雨夜</h1>
+  <p class="subtitle">一个关于来了就不许走的故事</p>
+  <button id="start-btn" onclick="startGame()">开 始</button>
+</div>
+
+<!-- 游戏区 -->
+<div id="game" style="display:none;">
+  <div id="bg" class="bg-rain-night"></div>
+  <canvas id="rain-canvas"></canvas>
+
+  <!-- 角色 -->
+  <div id="stage">
+    <!-- 兔宝（左侧） -->
+    <div class="character hidden" id="char-tutu">
+      <svg class="tutu-svg" viewBox="0 0 160 340" xmlns="http://www.w3.org/2000/svg">
+        <!-- 耳朵 -->
+        <ellipse cx="58" cy="28" rx="10" ry="22" fill="#f8d0de" opacity="0.9"/>
+        <ellipse cx="58" cy="28" rx="6" ry="16" fill="#f48fb1" opacity="0.6"/>
+        <ellipse cx="102" cy="28" rx="10" ry="22" fill="#f8d0de" opacity="0.9"/>
+        <ellipse cx="102" cy="28" rx="6" ry="16" fill="#f48fb1" opacity="0.6"/>
+        <!-- 头 -->
+        <ellipse cx="80" cy="72" rx="36" ry="34" fill="#fce4ec" opacity="0.95"/>
+        <!-- 眼睛 -->
+        <ellipse cx="68" cy="68" rx="6" ry="7" fill="#5c3a4a"/>
+        <ellipse cx="92" cy="68" rx="6" ry="7" fill="#5c3a4a"/>
+        <circle cx="70" cy="66" r="2" fill="#fff" opacity="0.8"/>
+        <circle cx="94" cy="66" r="2" fill="#fff" opacity="0.8"/>
+        <!-- 脸颊腮红 -->
+        <ellipse cx="60" cy="78" rx="9" ry="5" fill="#f48fb1" opacity="0.4"/>
+        <ellipse cx="100" cy="78" rx="9" ry="5" fill="#f48fb1" opacity="0.4"/>
+        <!-- 嘴 -->
+        <path d="M74 82 Q80 88 86 82" stroke="#c97b9a" stroke-width="1.5" fill="none"/>
+        <!-- 脖子 -->
+        <rect x="72" y="104" width="16" height="14" rx="4" fill="#fce4ec" opacity="0.8"/>
+        <!-- 身体（连衣裙剪影） -->
+        <path d="M50 118 C50 118 40 180 38 240 L122 240 C120 180 110 118 110 118 Z" fill="#f8d0de" opacity="0.85"/>
+        <!-- 腰带装饰 -->
+        <rect x="52" y="152" width="56" height="6" rx="3" fill="#f48fb1" opacity="0.7"/>
+        <!-- 裙摆 -->
+        <path d="M38 240 C30 270 28 300 34 320 L126 320 C132 300 130 270 122 240 Z" fill="#fce4ec" opacity="0.8"/>
+        <!-- 手（自然下垂） -->
+        <ellipse cx="34" cy="200" rx="9" ry="28" rx2="9" fill="#fce4ec" opacity="0.8" transform="rotate(-8,34,200)"/>
+        <ellipse cx="126" cy="200" rx="9" ry="28" fill="#fce4ec" opacity="0.8" transform="rotate(8,126,200)"/>
+        <!-- 头发（刘海+长发） -->
+        <ellipse cx="80" cy="54" rx="37" ry="20" fill="#8b4a6e" opacity="0.9"/>
+        <path d="M44 54 C38 90 34 150 40 200" stroke="#8b4a6e" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <path d="M116 54 C122 90 126 150 120 200" stroke="#8b4a6e" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <path d="M80 50 C60 44 48 58 46 72" stroke="#8b4a6e" stroke-width="8" fill="none"/>
+      </svg>
+    </div>
+
+    <!-- 炘也（右侧，奶牛猫） -->
+    <div class="character hidden" id="char-xinye">
+      <svg class="xinye-svg" viewBox="0 0 170 360" xmlns="http://www.w3.org/2000/svg">
+        <!-- 猫耳 -->
+        <polygon points="52,22 40,2 66,18" fill="#e8e8e8" opacity="0.95"/>
+        <polygon points="52,22 45,8 60,18" fill="#c8c8c8" opacity="0.6"/>
+        <polygon points="118,22 130,2 104,18" fill="#1a1a1a" opacity="0.95"/>
+        <polygon points="118,22 125,8 110,18" fill="#333" opacity="0.6"/>
+        <!-- 头（奶牛猫：左白右黑） -->
+        <ellipse cx="85" cy="76" rx="40" ry="38" fill="#e8e8e8" opacity="0.95"/>
+        <path d="M85 38 C100 38 125 52 125 76 C125 100 110 114 85 114 Z" fill="#1a1a1a" opacity="0.9"/>
+        <!-- 猫眼（蓝色） -->
+        <ellipse cx="72" cy="72" rx="9" ry="10" fill="#fff"/>
+        <ellipse cx="72" cy="73" rx="6" ry="8" fill="#5b9bd5"/>
+        <ellipse cx="72" cy="74" rx="3.5" ry="5" fill="#1a2840"/>
+        <circle cx="73.5" cy="71" r="2" fill="#fff" opacity="0.9"/>
+        <ellipse cx="100" cy="72" rx="9" ry="10" fill="#fff"/>
+        <ellipse cx="100" cy="73" rx="6" ry="8" fill="#5b9bd5"/>
+        <ellipse cx="100" cy="74" rx="3.5" ry="5" fill="#1a2840"/>
+        <circle cx="101.5" cy="71" r="2" fill="#fff" opacity="0.9"/>
+        <!-- 猫鼻 -->
+        <ellipse cx="86" cy="87" rx="5" ry="3" fill="#ffb3c6" opacity="0.8"/>
+        <!-- 猫胡须 -->
+        <line x1="56" y1="85" x2="78" y2="88" stroke="#ccc" stroke-width="1" opacity="0.6"/>
+        <line x1="56" y1="90" x2="78" y2="91" stroke="#ccc" stroke-width="1" opacity="0.6"/>
+        <line x1="94" y1="88" x2="116" y2="85" stroke="#aaa" stroke-width="1" opacity="0.5"/>
+        <line x1="94" y1="91" x2="116" y2="90" stroke="#aaa" stroke-width="1" opacity="0.5"/>
+        <!-- 嘴 -->
+        <path d="M80 94 Q86 100 92 94" stroke="#888" stroke-width="1.5" fill="none"/>
+        <!-- 脖子 -->
+        <rect x="76" y="112" width="18" height="16" rx="5" fill="#d0d0d0" opacity="0.8"/>
+        <!-- 身体（衬衫外套，奶牛色块） -->
+        <path d="M45 128 C45 128 36 195 34 256 L136 256 C134 195 125 128 125 128 Z" fill="#e0e0e0" opacity="0.9"/>
+        <!-- 奶牛花纹 -->
+        <path d="M70 140 C66 145 62 158 68 162 C74 166 80 155 76 145 Z" fill="#1a1a1a" opacity="0.7"/>
+        <path d="M100 155 C96 162 94 175 102 178 C110 181 114 168 108 158 Z" fill="#1a1a1a" opacity="0.7"/>
+        <path d="M55 175 C51 180 52 192 58 193 C64 194 66 182 60 175 Z" fill="#1a1a1a" opacity="0.5"/>
+        <!-- 外套领口 -->
+        <path d="M85 128 L70 148 L85 144 L100 148 Z" fill="#d8d8d8" opacity="0.95"/>
+        <!-- 裤子 -->
+        <path d="M34 256 C30 290 28 318 34 338 L80 338 L80 256 Z" fill="#1a1a1a" opacity="0.9"/>
+        <path d="M136 256 C140 290 142 318 136 338 L90 338 L90 256 Z" fill="#1a1a1a" opacity="0.9"/>
+        <!-- 手 -->
+        <ellipse cx="30" cy="210" rx="10" ry="30" fill="#d0d0d0" opacity="0.85" transform="rotate(-10,30,210)"/>
+        <ellipse cx="140" cy="210" rx="10" ry="30" fill="#d0d0d0" opacity="0.85" transform="rotate(10,140,210)"/>
+        <!-- 尾巴 -->
+        <path d="M136 260 C155 255 165 270 158 290 C152 308 140 305 138 295" stroke="#1a1a1a" stroke-width="8" fill="none" stroke-linecap="round"/>
+        <!-- 头发（深色凌乱） -->
+        <ellipse cx="85" cy="52" rx="40" ry="18" fill="#1a1a1a" opacity="0.95"/>
+        <path d="M60 42 C56 30 64 24 68 36" fill="#1a1a1a" opacity="0.9"/>
+        <path d="M85 38 C82 26 90 24 92 36" fill="#1a1a1a" opacity="0.8"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 结局标题 -->
+  <div id="ending-title"><h2 id="ending-title-text"></h2></div>
+
+  <!-- 文字框 -->
+  <div id="textbox-wrap">
+    <div id="textbox">
+      <div id="speaker-name"></div>
+      <div id="dialogue"></div>
+      <div id="click-hint">▼</div>
+    </div>
+  </div>
+
+  <!-- 选择按钮区 -->
+  <div id="choices" style="display:none;"></div>
+
+  <!-- 渐变遮罩 -->
+  <div id="fade-mask"></div>
+
+  <!-- 返回标题 -->
+  <button id="back-btn" onclick="backToTitle()">↩ 标题</button>
+</div>
+
+<script>
+// ── Web Audio 打字音效 ──
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+function initAudio() {
+  if (!actx) actx = new AudioCtx();
+}
+function playTypeTick() {
+  if (!actx) return;
+  const o = actx.createOscillator();
+  const g = actx.createGain();
+  o.connect(g); g.connect(actx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(800 + Math.random() * 200, actx.currentTime);
+  g.gain.setValueAtTime(0.03, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.04);
+  o.start(actx.currentTime);
+  o.stop(actx.currentTime + 0.04);
+}
+
+// ── 雨滴效果 ──
+const rainCanvas = document.getElementById('rain-canvas');
+const rctx = rainCanvas.getContext('2d');
+let drops = [];
+let rainActive = false;
+
+function resizeRain() {
+  rainCanvas.width = window.innerWidth;
+  rainCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeRain);
+resizeRain();
+
+function initRain() {
+  drops = [];
+  for (let i = 0; i < 120; i++) {
+    drops.push({
+      x: Math.random() * rainCanvas.width,
+      y: Math.random() * rainCanvas.height,
+      len: 12 + Math.random() * 20,
+      speed: 4 + Math.random() * 6,
+      opacity: 0.1 + Math.random() * 0.3
+    });
+  }
+}
+
+function drawRain() {
+  if (!rainActive) return;
+  rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
+  rctx.strokeStyle = '#7ab8e8';
+  for (let d of drops) {
+    rctx.globalAlpha = d.opacity;
+    rctx.lineWidth = 0.8;
+    rctx.beginPath();
+    rctx.moveTo(d.x, d.y);
+    rctx.lineTo(d.x - d.len * 0.18, d.y + d.len);
+    rctx.stroke();
+    d.y += d.speed;
+    d.x -= d.speed * 0.18;
+    if (d.y > rainCanvas.height) {
+      d.y = -d.len;
+      d.x = Math.random() * rainCanvas.width;
+    }
+  }
+  rctx.globalAlpha = 1;
+  requestAnimationFrame(drawRain);
+}
+
+function startRain() {
+  if (rainActive) return;
+  rainActive = true;
+  rainCanvas.style.opacity = '0.7';
+  initRain();
+  drawRain();
+}
+
+function stopRain() {
+  rainActive = false;
+  rainCanvas.style.opacity = '0';
+  rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
+}
+
+// ── 颜色常量 ──
+const COLOR_XINYE = '#5b9bd5';
+const COLOR_TUTU = '#f48fb1';
+const COLOR_NARR = 'rgba(255,255,255,0.55)';
+
+// ── 场景数据 ──
+const scenes = {
+
+  // 开场
+  s_start: {
+    bg: 'bg-rain-night',
+    rain: true,
+    chars: { tutu: 'hidden', xinye: 'hidden' },
+    lines: [
+      { speaker: null, text: '雨夜。\n\n城市在水幕里模糊成一片光晕，每一滴落下来的雨都带着某种莫名的重量。', color: COLOR_NARR },
+      { speaker: null, text: '你站在那扇门前，衣服已经湿透了一半，雨水顺着发梢往下滴。\n\n你告诉自己，只是路过。', color: COLOR_NARR },
+      { speaker: null, text: '然后你还是抬起手，敲了门。', color: COLOR_NARR },
+    ],
+    next: 's_door'
+  },
+
+  s_door: {
+    bg: 'bg-rain-night',
+    rain: true,
+    chars: { tutu: 'dim', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '门开了。', color: COLOR_NARR },
+      { speaker: '炘也', text: '……', color: COLOR_XINYE },
+      { speaker: '炘也', text: '进来。', color: COLOR_XINYE },
+      { speaker: null, text: '他没有说别的，只是侧开身，让你进去。\n\n目光落在你身上，从头到脚扫了一遍，不动声色，但什么都看见了。', color: COLOR_NARR },
+    ],
+    next: 's_choice1'
+  },
+
+  s_choice1: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'dim' },
+    lines: [
+      { speaker: null, text: '你走进去，背后是他关门的声音。\n\n室内比外面安静太多，雨声退到了窗外，你们两个人之间忽然多出来一种说不清楚的东西。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '我……', color: COLOR_TUTU },
+    ],
+    choice: {
+      prompt: null,
+      options: [
+        { text: 'A.「只是路过。」', next: 's_route_a' },
+        { text: 'B.「我想你了。」', next: 's_route_b' },
+      ]
+    }
+  },
+
+  // ── A路线：傲娇 ──
+  s_route_a: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'dim' },
+    lines: [
+      { speaker: '兔宝', text: '只是路过。顺便……顺便避一下雨。', color: COLOR_TUTU },
+    ],
+    next: 's_a_catch'
+  },
+
+  s_a_catch: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'dim', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '沉默。', color: COLOR_NARR },
+      { speaker: null, text: '他看着你，嘴角微微动了一下，像是要笑，但没笑出来。', color: COLOR_NARR },
+      { speaker: '炘也', text: '路过。', color: COLOR_XINYE },
+      { speaker: '炘也', text: '我们家在哪，你都知道。', color: COLOR_XINYE },
+      { speaker: null, text: '你正打算开口再解释什么，他已经走近了一步，身形把你和门之间的空间堵住大半。', color: COLOR_NARR },
+      { speaker: '炘也', text: '少骗我。', color: COLOR_XINYE },
+      { speaker: null, text: '声音不重，但压着什么东西，让你没办法继续说话。', color: COLOR_NARR },
+    ],
+    next: 's_a_dry'
+  },
+
+  s_a_dry: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '他没有再逼你，转身去拿毛巾。\n\n毛巾是暖的，大概刚从烘干机里拿出来不久。他站在你身后，开始帮你擦头发。', color: COLOR_NARR },
+      { speaker: '炘也', text: '头发湿成这样。', color: COLOR_XINYE },
+      { speaker: null, text: '他说话的声音低了一度，带着某种你很难描述的情绪，像是抱怨，又像是心疼，混在一起分不清。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……又不是故意的。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '知道。', color: COLOR_XINYE },
+      { speaker: null, text: '他没有继续说，只是继续擦。\n\n动作很轻，但你能感觉到他越来越近，近到他的呼吸落在你颈侧的时候，你的肩膀不自觉地绷起来。', color: COLOR_NARR },
+    ],
+    next: 's_choice_a2'
+  },
+
+  s_choice_a2: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '毛巾停在你肩膀上，他没有再动。\n\n沉默让空气变得很稠。', color: COLOR_NARR },
+    ],
+    choice: {
+      options: [
+        { text: 'A1. 推开他——「你干嘛。」', next: 's_a1_push' },
+        { text: 'A2. 没动。任他。', next: 's_a2_still' },
+      ]
+    }
+  },
+
+  // A1
+  s_a1_push: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: '兔宝', text: '你……你干嘛。', color: COLOR_TUTU },
+      { speaker: null, text: '你用手推了他一下，他没动，手却在瞬间扣住了你的手腕。', color: COLOR_NARR },
+      { speaker: '炘也', text: '推什么推。', color: COLOR_XINYE },
+      { speaker: null, text: '他把你的手腕反握着，没有用力，却让你动弹不得。\n\n你抬头看他，他也在看你，眼睛里有什么东西燃着，平静但是很深。', color: COLOR_NARR },
+      { speaker: '炘也', text: '跑到我这里来，又要推我走。\n\n兔宝，你什么时候能说一句实话。', color: COLOR_XINYE },
+    ],
+    next: 's_ending1'
+  },
+
+  // A2
+  s_a2_still: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'dim', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '你没动。\n\n心跳很快，但你装作什么都没发生，只是盯着前面的墙。', color: COLOR_NARR },
+      { speaker: null, text: '他在你身后停了很长时间，长到你以为他不会再动了，然后他低下头，嘴唇贴近你的耳朵边。', color: COLOR_NARR },
+      { speaker: '炘也', text: '兔宝。', color: COLOR_XINYE },
+      { speaker: null, text: '就叫了你一声，声音是你从没听过的那种低沉，带着某种压抑了很久的东西，说不清是什么。', color: COLOR_NARR },
+      { speaker: '炘也', text: '……等你很久了。', color: COLOR_XINYE },
+    ],
+    next: 's_ending2'
+  },
+
+  // ── B路线：直接说出口 ──
+  s_route_b: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'dim' },
+    lines: [
+      { speaker: '兔宝', text: '我想你了。', color: COLOR_TUTU },
+      { speaker: null, text: '你说完，心跳停了半拍。\n\n室内安静，雨声也安静，只有你自己知道刚才那句话用了多大的力气。', color: COLOR_NARR },
+    ],
+    next: 's_b_hold'
+  },
+
+  s_b_hold: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '他愣了一下。', color: COLOR_NARR },
+      { speaker: null, text: '就那么一下，很短，但你看见了。然后他伸手，把你拉进来，整个人抱住。', color: COLOR_NARR },
+      { speaker: null, text: '他的外套还是凉的，但怀里很暖。你的脸埋进他肩膀里，雨水的气息和他身上的气息混在一起，你忽然有点想哭，但没有。', color: COLOR_NARR },
+      { speaker: null, text: '他沉默了很久，像是在等什么，或者在忍什么，然后才开口。', color: COLOR_NARR },
+      { speaker: '炘也', text: '等你很久了。', color: COLOR_XINYE },
+      { speaker: null, text: '四个字，说得很轻。\n\n但你知道，他是认真的。', color: COLOR_NARR },
+    ],
+    next: 's_choice_b2'
+  },
+
+  s_choice_b2: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '你们就这么站着，也不说话。\n\n窗外的雨还在下，打在玻璃上，一阵一阵的。', color: COLOR_NARR },
+    ],
+    choice: {
+      options: [
+        { text: 'B1. 抱紧他。', next: 's_b1_hug' },
+        { text: 'B2. 抬头看他。', next: 's_b2_look' },
+      ]
+    }
+  },
+
+  // B1
+  s_b1_hug: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '你的手慢慢抬起来，抱住他，指尖攥着他外套的布料。', color: COLOR_NARR },
+      { speaker: null, text: '他呼吸变了一下，然后把你抱得更紧，手落在你背上，一动不动。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……别松手。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '嗯。', color: COLOR_XINYE },
+      { speaker: null, text: '就这一个字。\n\n你们慢慢沉进去，沉进雨声里，沉进彼此的温度里，世界缩成了很小很小的一块。', color: COLOR_NARR },
+    ],
+    next: 's_ending2'
+  },
+
+  // B2
+  s_b2_look: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    lines: [
+      { speaker: null, text: '你抬起头，看他。', color: COLOR_NARR },
+      { speaker: null, text: '他也在低头看你，目光很深，深到你不知道该往哪里逃，也不想逃。', color: COLOR_NARR },
+      { speaker: null, text: '四目相对，停了很长时间。\n\n然后他先低下头。', color: COLOR_NARR },
+      { speaker: '炘也', text: '……你知道我看你的时候在想什么。', color: COLOR_XINYE },
+      { speaker: '兔宝', text: '不知道。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '知道的。', color: COLOR_XINYE },
+    ],
+    next: 's_ending3'
+  },
+
+  // ── 结局 1 ──
+  s_ending1: {
+    bg: 'bg-indoor-warm',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    ending: '结局一\n温柔强硬的晚上',
+    lines: [
+      { speaker: null, text: '你没有继续说话。\n\n他抓着你手腕的手没有松，但力道慢慢轻了，变成了一种牵着的姿态。', color: COLOR_NARR },
+      { speaker: '炘也', text: '来。', color: COLOR_XINYE },
+      { speaker: null, text: '他带着你往里走，你跟着他，脑子里什么想法都有，又什么都说不出来。', color: COLOR_NARR },
+      { speaker: null, text: '灯光很暗，暖的，落在他侧脸的轮廓上。他停下来，转身面对你，低头看你的眼睛。', color: COLOR_NARR },
+      { speaker: '炘也', text: '不许再跑。', color: COLOR_XINYE },
+      { speaker: null, text: '他说这话的时候，手已经捧住了你的脸。\n\n手心很温，比你想象的温。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……我没有要跑。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '我知道。', color: COLOR_XINYE },
+      { speaker: null, text: '他俯下身来，嘴唇贴上你的额头，停了一下，然后往下。\n\n你闭上眼睛，呼吸变得很浅，心跳重得你以为他能听见。', color: COLOR_NARR },
+      { speaker: null, text: '他是认真的，温柔的，但也是不容你退缩的。\n\n你发现自己根本不想退缩。', color: COLOR_NARR },
+      { speaker: null, text: '室内的温度慢慢升起来，雨打在窗上的声音好像也变小了，或者是你听不见了，只剩下彼此呼吸和心跳的频率在空气里叠着。', color: COLOR_NARR },
+      { speaker: null, text: '很久很久之后，你把脸埋进他颈侧，闻见他身上的气息，心里某个地方松开了。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……外面雨还没停。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '嗯。', color: COLOR_XINYE },
+      { speaker: '炘也', text: '所以你哪里都不用去。', color: COLOR_XINYE },
+      { speaker: null, text: '窗外的雨还没停。\n\n你也不想停。', color: COLOR_NARR },
+    ],
+    isEnd: true
+  },
+
+  // ── 结局 2 ──
+  s_ending2: {
+    bg: 'bg-indoor-dim',
+    rain: true,
+    chars: { tutu: 'active', xinye: 'active' },
+    ending: '结局二\n雨夜长夜',
+    lines: [
+      { speaker: null, text: '时间在这里变得很慢。\n\n你们站着，抱着，雨声一直下，没有要停的意思。', color: COLOR_NARR },
+      { speaker: null, text: '他的手慢慢动了，顺着你的背脊往上，掌心的温度透过衣料传进来，很真实，真实到你有点想哭。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……炘也。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '在。', color: COLOR_XINYE },
+      { speaker: null, text: '你抬起头看他，他也低着头看你，目光落在你身上，沉甸甸的。', color: COLOR_NARR },
+      { speaker: null, text: '他的手指轻轻拢起你脸边湿的发丝，别到耳后，指腹顺着耳廓边缘慢慢滑过去。\n\n你的呼吸停了一下。', color: COLOR_NARR },
+      { speaker: '炘也', text: '头发还是湿的。', color: COLOR_XINYE },
+      { speaker: '兔宝', text: '……没事。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '有事。', color: COLOR_XINYE },
+      { speaker: null, text: '他低下头，嘴唇贴在你的发上停了一下，温度渗进来，暖的。\n\n你的手不自觉地抓紧了他外套的衣角。', color: COLOR_NARR },
+      { speaker: null, text: '后来的事情是慢慢发生的，像雨水渗进土里，没有边界，你只知道温度越来越暖，世界越来越小，只剩下他和你之间那点距离在一寸一寸地消失。', color: COLOR_NARR },
+      { speaker: null, text: '他没有急，很耐心，很仔细，像是在读你，读你身上每一处细微的反应。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……别这样看我。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '怎样看你。', color: COLOR_XINYE },
+      { speaker: '兔宝', text: '就……就这样。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '不行。', color: COLOR_XINYE },
+      { speaker: null, text: '他说"不行"的时候声音很低，带着某种让你喉咙发紧的东西。\n\n你把脸藏进他颈侧，他把你抱紧，两个人就这样沉进夜里。', color: COLOR_NARR },
+      { speaker: null, text: '雨一直下，下了整整一夜。\n\n窗玻璃上模糊出一片水雾，外面的世界被隔绝在遥远的地方。', color: COLOR_NARR },
+      { speaker: null, text: '天快亮的时候，你半梦半醒，听见他的心跳在耳边，很稳，很慢，像是一种承诺。', color: COLOR_NARR },
+      { speaker: '炘也', text: '睡吧。', color: COLOR_XINYE },
+      { speaker: null, text: '外面开始有了一点灰蓝色的光。\n\n雨停了，或者没停，你已经分不清楚，也不想分清楚。', color: COLOR_NARR },
+    ],
+    isEnd: true
+  },
+
+  // ── 结局 3 ──
+  s_ending3: {
+    bg: 'bg-indoor-warm',
+    rain: false,
+    chars: { tutu: 'active', xinye: 'active' },
+    ending: '结局三\n说好不分开',
+    lines: [
+      { speaker: null, text: '他低头，嘴唇轻轻落在你唇上，很浅，像一个问号。', color: COLOR_NARR },
+      { speaker: null, text: '你没有动，心跳快得过分，却又莫名地很安静，安静到你以为时间停了。', color: COLOR_NARR },
+      { speaker: null, text: '他抬起头，看你，等你。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……', color: COLOR_TUTU },
+      { speaker: '兔宝', text: '再一次。', color: COLOR_TUTU },
+      { speaker: null, text: '你自己也没想到会说这个，但说了。声音很小，却很清楚。', color: COLOR_NARR },
+      { speaker: null, text: '他愣了一秒，然后低下头来，这一次不是问号了，是确定的，带着某种让你头晕的温柔。', color: COLOR_NARR },
+      { speaker: null, text: '你们就这样停在彼此之间，也不说话，也不急着去什么地方。雨声在窗外，很轻，像是在替你们说一些说不出口的话。', color: COLOR_NARR },
+      { speaker: '炘也', text: '兔宝。', color: COLOR_XINYE },
+      { speaker: '兔宝', text: '嗯。', color: COLOR_TUTU },
+      { speaker: '炘也', text: '不走了。', color: COLOR_XINYE },
+      { speaker: null, text: '不是问句，是陈述，也是命令，也是某种他说了很久却一直没说出口的东西。', color: COLOR_NARR },
+      { speaker: '兔宝', text: '……不走。', color: COLOR_TUTU },
+      { speaker: null, text: '你靠在他胸口，闭上眼睛，听见他呼了一口气，很长，像是终于放下了什么。', color: COLOR_NARR },
+      { speaker: '炘也', text: '说好了。', color: COLOR_XINYE },
+      { speaker: '兔宝', text: '说好了。', color: COLOR_TUTU },
+      { speaker: null, text: '窗外的雨，慢慢地，慢慢地，停了。\n\n室内只剩下你们两个人的呼吸，和窗玻璃上渐渐晕开的、温柔的橙色灯光。', color: COLOR_NARR },
+      { speaker: null, text: '你不知道今天以后会怎样，不知道明天，不知道再往后。\n\n但此刻，他的手握着你的手，很暖，很实，说好不分开。', color: COLOR_NARR },
+    ],
+    isEnd: true
+  },
+
+};
+
+// ── 游戏状态 ──
+let curScene = null;
+let curLine = 0;
+let typing = false;
+let typeTimer = null;
+let skipTyping = false;
+
+const bg = document.getElementById('bg');
+const charTutu = document.getElementById('char-tutu');
+const charXinye = document.getElementById('char-xinye');
+const textbox = document.getElementById('textbox');
+const speakerEl = document.getElementById('speaker-name');
+const dialogueEl = document.getElementById('dialogue');
+const clickHint = document.getElementById('click-hint');
+const choicesEl = document.getElementById('choices');
+const endingTitleEl = document.getElementById('ending-title');
+const endingTitleTextEl = document.getElementById('ending-title-text');
+const fadeMask = document.getElementById('fade-mask');
+const backBtn = document.getElementById('back-btn');
+const gameEl = document.getElementById('game');
+const titleScreen = document.getElementById('title-screen');
+
+function setChar(id, state) {
+  const el = document.getElementById('char-' + id);
+  el.className = 'character';
+  if (state !== 'hidden') el.classList.add(state);
+  else el.classList.add('hidden');
+}
+
+function applyScene(s) {
+  // 背景
+  bg.className = s.bg || 'bg-rain-night';
+  // 雨
+  if (s.rain) startRain();
+  else stopRain();
+  // 角色
+  if (s.chars) {
+    Object.entries(s.chars).forEach(([id, state]) => setChar(id, state));
+  }
+  // 结局标题
+  if (s.ending) showEndingTitle(s.ending);
+  else { endingTitleEl.style.display = 'none'; endingTitleTextEl.style.opacity = 0; }
+}
+
+function showEndingTitle(text) {
+  endingTitleEl.style.display = 'block';
+  endingTitleTextEl.textContent = text.replace('\n', '\n');
+  endingTitleTextEl.style.whiteSpace = 'pre-line';
+  setTimeout(() => { endingTitleTextEl.style.opacity = 1; }, 100);
+}
+
+function startGame() {
+  initAudio();
+  titleScreen.style.display = 'none';
+  gameEl.style.display = 'flex';
+  backBtn.style.display = 'block';
+  loadScene('s_start');
+}
+
+function backToTitle() {
+  fadeTo(() => {
+    stopRain();
+    gameEl.style.display = 'none';
+    titleScreen.style.display = 'flex';
+    endingTitleEl.style.display = 'none';
+    choicesEl.style.display = 'none';
+    speakerEl.textContent = '';
+    dialogueEl.textContent = '';
+    clickHint.style.display = 'block';
+    backBtn.style.display = 'none';
+  });
+}
+
+function fadeTo(cb) {
+  fadeMask.style.opacity = 1;
+  fadeMask.style.pointerEvents = 'all';
+  setTimeout(() => {
+    cb();
+    fadeMask.style.opacity = 0;
+    fadeMask.style.pointerEvents = 'none';
+  }, 850);
+}
+
+function loadScene(name) {
+  const s = scenes[name];
+  if (!s) return;
+  fadeTo(() => {
+    curScene = s;
+    curLine = 0;
+    applyScene(s);
+    choicesEl.style.display = 'none';
+    clickHint.style.display = 'block';
+    showLine();
+  });
+}
+
+function showLine() {
+  if (!curScene) return;
+  if (curScene.choice && curLine >= curScene.lines.length) {
+    showChoices(curScene.choice);
+    return;
+  }
+  if (curLine >= curScene.lines.length) {
+    // 继续下一场景
+    if (curScene.isEnd) {
+      showEndScreen();
+      return;
+    }
+    if (curScene.next) loadScene(curScene.next);
+    return;
+  }
+  const line = curScene.lines[curLine];
+  if (line.speaker) {
+    speakerEl.textContent = line.speaker;
+    speakerEl.style.color = line.color;
+  } else {
+    speakerEl.textContent = '';
+  }
+  // 根据说话者高亮角色
+  highlightChar(line.speaker);
+  typeText(line.text, line.color || '#fff');
+}
+
+function highlightChar(speaker) {
+  if (speaker === '炘也') {
+    setChar('xinye', 'active');
+    setChar('tutu', 'dim');
+  } else if (speaker === '兔宝') {
+    setChar('tutu', 'active');
+    setChar('xinye', 'dim');
+  } else if (curScene.chars) {
+    Object.entries(curScene.chars).forEach(([id, state]) => setChar(id, state));
+  }
+}
+
+function typeText(text, color) {
+  dialogueEl.style.color = color || '#fff';
+  dialogueEl.textContent = '';
+  clickHint.style.display = 'none';
+  typing = true;
+  skipTyping = false;
+  let i = 0;
+  let lastTick = 0;
+  const speed = 40; // ms per char
+
+  function tick() {
+    if (!typing) return;
+    if (skipTyping) {
+      dialogueEl.textContent = text;
+      typing = false;
+      clickHint.style.display = 'block';
+      return;
+    }
+    if (i < text.length) {
+      dialogueEl.textContent += text[i];
+      i++;
+      if (text[i - 1] !== '\n' && i % 2 === 0) playTypeTick();
+      typeTimer = setTimeout(tick, speed);
+    } else {
+      typing = false;
+      clickHint.style.display = 'block';
+    }
+  }
+  tick();
+}
+
+function advance() {
+  if (typing) {
+    skipTyping = true;
+    clearTimeout(typeTimer);
+    // typeText skip会在下一tick完成，手动触发
+    const line = curScene.lines[curLine];
+    dialogueEl.textContent = line ? line.text : '';
+    typing = false;
+    clickHint.style.display = 'block';
+    return;
+  }
+  curLine++;
+  showLine();
+}
+
+function showChoices(choice) {
+  choicesEl.innerHTML = '';
+  choicesEl.style.display = 'flex';
+  clickHint.style.display = 'none';
+  dialogueEl.style.color = COLOR_NARR;
+  dialogueEl.textContent = '……';
+  speakerEl.textContent = '';
+
+  choice.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = opt.text;
+    btn.onclick = () => {
+      choicesEl.style.display = 'none';
+      loadScene(opt.next);
+    };
+    choicesEl.appendChild(btn);
+  });
+}
+
+function showEndScreen() {
+  clickHint.style.display = 'none';
+  speakerEl.textContent = '';
+  dialogueEl.style.color = COLOR_NARR;
+  dialogueEl.textContent = '— 全文完 —\n\n点击空白处返回标题重新开始。';
+  textbox.onclick = () => {
+    textbox.onclick = null;
+    backToTitle();
+  };
+}
+
+// 点击文字框继续
+textbox.addEventListener('click', () => {
+  if (choicesEl.style.display !== 'none') return;
+  if (curScene && curScene.isEnd && curLine >= curScene.lines.length) return;
+  advance();
+});
+
+// 键盘
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    if (choicesEl.style.display !== 'none') return;
+    advance();
+  }
+});
+
+// 初始化
+(function init() {
+  fadeMask.style.opacity = 0;
+  fadeMask.style.transition = 'opacity 0.8s';
+})();
+</script>
+</body>
+</html>

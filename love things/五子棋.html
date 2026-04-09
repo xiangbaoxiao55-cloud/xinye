@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋 · 兔宝 vs 炘也</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff8f0;--pk-l:#fce4ec;--pk:#f8bbd0;--pk-d:#f48fb1;
+  --tx:#5d4037;--tx2:#8d6e63;--board:#e8c97a;--line:#b8955a;
+}
+body{
+  min-height:100vh;background:linear-gradient(135deg,var(--bg),var(--pk-l));
+  font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:var(--tx);
+  display:flex;flex-direction:column;align-items:center;padding:20px;
+}
+h1{font-size:18px;margin-bottom:4px;color:var(--tx)}
+.sub{font-size:12px;color:var(--tx2);margin-bottom:16px}
+.status{
+  font-size:14px;font-weight:600;margin-bottom:12px;
+  padding:8px 20px;border-radius:20px;
+  background:rgba(255,255,255,.6);border:1.5px solid var(--pk);
+  min-width:200px;text-align:center;
+}
+.board-wrap{
+  background:var(--board);border-radius:12px;
+  padding:16px;box-shadow:0 4px 20px rgba(0,0,0,.15);
+  margin-bottom:16px;
+}
+canvas{display:block;cursor:pointer;border-radius:4px}
+.btns{display:flex;gap:10px;margin-bottom:12px}
+.btn{
+  padding:8px 20px;border:none;border-radius:8px;
+  font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.btn-r{background:linear-gradient(135deg,var(--pk-d),#e91e63);color:#fff}
+.btn-r:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(233,30,99,.3)}
+.btn-h{background:rgba(255,255,255,.7);border:1.5px solid var(--pk);color:var(--tx)}
+.btn-h:hover{background:var(--pk-l)}
+.legend{display:flex;gap:20px;font-size:12px;color:var(--tx2)}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block}
+.dot-b{background:#1a1a1a;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.dot-w{background:#fff;border:2px solid #ccc;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<h1>五子棋</h1>
+<div class="sub">兔宝（黑）vs 炘也（白）</div>
+<div class="status" id="status">轮到兔宝落子 ⚫</div>
+<div class="board-wrap">
+  <canvas id="board" width="450" height="450"></canvas>
+</div>
+<div class="btns">
+  <button class="btn btn-r" id="btnR">重新开始</button>
+  <button class="btn btn-h" id="btnH">悔棋</button>
+</div>
+<div class="legend">
+  <span><i class="dot dot-b"></i> 兔宝（黑）</span>
+  <span><i class="dot dot-w"></i> 炘也（白）</span>
+</div>
+
+<script>
+const SIZE=15, CELL=30, PAD=15;
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+const statusEl=document.getElementById('status');
+
+let board, history, gameOver, thinking;
+
+function init(){
+  board=Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+  history=[];
+  gameOver=false;
+  thinking=false;
+  statusEl.textContent='轮到兔宝落子 ⚫';
+  draw();
+}
+
+function draw(){
+  ctx.clearRect(0,0,450,450);
+  // 背景
+  ctx.fillStyle='#e8c97a';
+  ctx.fillRect(0,0,450,450);
+  // 网格
+  ctx.strokeStyle='#b8955a';
+  ctx.lineWidth=1;
+  for(let i=0;i<SIZE;i++){
+    const x=PAD+i*CELL, y=PAD+i*CELL;
+    ctx.beginPath();ctx.moveTo(x,PAD);ctx.lineTo(x,PAD+(SIZE-1)*CELL);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(PAD+(SIZE-1)*CELL,y);ctx.stroke();
+  }
+  // 星位
+  const stars=[3,7,11];
+  ctx.fillStyle='#b8955a';
+  for(const r of stars)for(const c of stars){
+    ctx.beginPath();ctx.arc(PAD+c*CELL,PAD+r*CELL,3,0,Math.PI*2);ctx.fill();
+  }
+  // 棋子
+  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+    if(!board[r][c])continue;
+    const x=PAD+c*CELL, y=PAD+r*CELL;
+    const isBlack=board[r][c]===1;
+    const grad=ctx.createRadialGradient(x-3,y-3,1,x,y,CELL/2-2);
+    if(isBlack){
+      grad.addColorStop(0,'#555');grad.addColorStop(1,'#111');
+    }else{
+      grad.addColorStop(0,'#fff');grad.addColorStop(1,'#ccc');
+    }
+    ctx.beginPath();ctx.arc(x,y,CELL/2-2,0,Math.PI*2);
+    ctx.fillStyle=grad;ctx.fill();
+    if(!isBlack){ctx.strokeStyle='#aaa';ctx.lineWidth=1;ctx.stroke()}
+    // 最后落子标记
+    if(history.length&&history[history.length-1][0]===r&&history[history.length-1][1]===c){
+      ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fillStyle=isBlack?'rgba(255,100,100,.8)':'rgba(200,50,50,.7)';ctx.fill();
+    }
+  }
+}
+
+function check(r,c,p){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  for(const[dr,dc]of dirs){
+    let cnt=1;
+    for(let i=1;i<5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==p)break;cnt++}
+    for(let i=1;i<5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE||board[nr][nc]!==p)break;cnt++}
+    if(cnt>=5)return true;
+  }
+  return false;
+}
+
+// AI评分
+function score(r,c,p){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
+  let total=0;
+  for(const[dr,dc]of dirs){
+    let cnt=1,open=0;
+    for(let i=1;i<5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE)break;if(board[nr][nc]===p)cnt++;else{if(board[nr][nc]===0)open++;break;}}
+    for(let i=1;i<5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=SIZE||nc<0||nc>=SIZE)break;if(board[nr][nc]===p)cnt++;else{if(board[nr][nc]===0)open++;break;}}
+    const s=cnt>=5?1e7:cnt===4?open>0?1e5:1e4:cnt===3?open>0?1e3:100:cnt===2?open>0?50:10:1;
+    total+=s;
+  }
+  return total;
+}
+
+function aiMove(){
+  let best=-1,br=-1,bc=-1;
+  // 检查空位
+  const empties=[];
+  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)if(!board[r][c])empties.push([r,c]);
+  if(empties.length===SIZE*SIZE){const m=Math.floor(SIZE/2);board[m][m]=2;history.push([m,m]);return;}
+
+  for(const[r,c]of empties){
+    // 检查附近有没有棋子（减少计算量）
+    let near=false;
+    for(let dr=-2;dr<=2&&!near;dr++)for(let dc=-2;dc<=2&&!near;dc++){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc])near=true;
+    }
+    if(!near)continue;
+    // 进攻分+防守分
+    board[r][c]=2;
+    const atk=score(r,c,2);
+    const win=check(r,c,2);
+    board[r][c]=1;
+    const def=score(r,c,1);
+    const blkWin=check(r,c,1);
+    board[r][c]=0;
+    const s=win?1e8:blkWin?9e7:atk*1.1+def;
+    if(s>best){best=s;br=r;bc=c;}
+  }
+  if(br<0){const m=empties[Math.floor(Math.random()*empties.length)];br=m[0];bc=m[1];}
+  board[br][bc]=2;
+  history.push([br,bc]);
+}
+
+canvas.onclick=e=>{
+  if(gameOver||thinking)return;
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+  const x=(e.clientX-rect.left)*scaleX, y=(e.clientY-rect.top)*scaleY;
+  const c=Math.round((x-PAD)/CELL), r=Math.round((y-PAD)/CELL);
+  if(r<0||r>=SIZE||c<0||c>=SIZE||board[r][c])return;
+  board[r][c]=1;history.push([r,c]);draw();
+  if(check(r,c,1)){statusEl.textContent='🎉 兔宝赢了！';gameOver=true;return;}
+  if(history.length===SIZE*SIZE){statusEl.textContent='平局~';gameOver=true;return;}
+  statusEl.textContent='炘也思考中… ⚪';thinking=true;
+  setTimeout(()=>{
+    aiMove();
+    const last=history[history.length-1];
+    draw();
+    thinking=false;
+    if(check(last[0],last[1],2)){statusEl.textContent='😏 炘也赢了~';gameOver=true;return;}
+    if(history.length===SIZE*SIZE){statusEl.textContent='平局~';gameOver=true;return;}
+    statusEl.textContent='轮到兔宝落子 ⚫';
+  },300);
+};
+
+document.getElementById('btnR').onclick=init;
+document.getElementById('btnH').onclick=()=>{
+  if(gameOver){gameOver=false;}
+  // 撤回兔宝和炘也各一步
+  if(history.length>=2){
+    const a=history.pop(),b=history.pop();
+    board[a[0]][a[1]]=0;board[b[0]][b[1]]=0;
+    statusEl.textContent='轮到兔宝落子 ⚫';draw();
+  }else if(history.length===1){
+    const a=history.pop();board[a[0]][a[1]]=0;
+    statusEl.textContent='轮到兔宝落子 ⚫';draw();
+  }
+};
+
+init();
+</script>
+</body>
+</html>

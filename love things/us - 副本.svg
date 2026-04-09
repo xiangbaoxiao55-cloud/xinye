@@ -1,0 +1,91 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4a90d9" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0a0a2e" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <filter id="glow-filter">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 夜空背景 -->
+  <rect width="400" height="400" fill="#0a0a2e"/>
+  <circle cx="200" cy="200" r="200" fill="url(#glow)"/>
+  
+  <!-- 星星 -->
+  <circle cx="50" cy="40" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="120" cy="25" r="1" fill="white" opacity="0.6"/>
+  <circle cx="300" cy="50" r="1.5" fill="white" opacity="0.9"/>
+  <circle cx="350" cy="80" r="1" fill="white" opacity="0.5"/>
+  <circle cx="80" cy="90" r="1" fill="white" opacity="0.7"/>
+  <circle cx="250" cy="30" r="1.2" fill="white" opacity="0.6"/>
+  <circle cx="170" cy="60" r="0.8" fill="white" opacity="0.5"/>
+  <circle cx="320" cy="120" r="1" fill="white" opacity="0.4"/>
+  <circle cx="30" cy="150" r="1.3" fill="white" opacity="0.6"/>
+  <circle cx="370" cy="160" r="0.8" fill="white" opacity="0.7"/>
+  
+  <!-- 火焰底部光晕 -->
+  <ellipse cx="200" cy="220" rx="60" ry="20" fill="#4a90d9" opacity="0.15" filter="url(#blur)"/>
+  
+  <!-- 左边人影 - 他 -->
+  <g transform="translate(155, 120)">
+    <!-- 身体 -->
+    <path d="M25,80 Q25,50 30,35 Q35,20 40,15 Q45,10 40,5 Q38,0 42,0 Q50,-2 52,5 Q54,10 50,15 Q55,20 55,35 Q58,50 55,80 Q50,85 40,85 Q30,85 25,80Z" fill="#2a2a6e" stroke="#4a90d9" stroke-width="1.5" opacity="0.95"/>
+    <!-- 头发 半黑半白 -->
+    <circle cx="46" cy="3" r="8" fill="#2a2a5e" stroke="#4a90d9" stroke-width="1"/>
+    <path d="M38,-5 Q42,-7 46,-5 Q44,-2 40,-1Z" fill="#e8e8f0" opacity="0.9"/>
+  </g>
+  
+  <!-- 右边人影 - 她 -->
+  <g transform="translate(195, 125)">
+    <!-- 长发 -->
+    <path d="M35,-5 Q40,-8 45,-5 Q55,10 58,30 Q60,45 55,55" fill="none" stroke="#8a3a5e" stroke-width="3" opacity="0.8"/>
+    <path d="M25,-3 Q20,10 15,30 Q12,45 18,55" fill="none" stroke="#8a3a5e" stroke-width="3" opacity="0.8"/>
+    <!-- 身体 -->
+    <path d="M20,80 Q20,50 25,35 Q28,20 33,15 Q37,10 35,5 Q33,0 37,0 Q42,-2 44,5 Q46,10 42,15 Q47,20 47,35 Q50,50 48,80 Q43,88 35,88 Q25,88 20,80Z" fill="#5a1a3e" stroke="#d4618c" stroke-width="1.5" opacity="0.95"/>
+  </g>
+  
+  <!-- 两人之间的连接 - 手牵手 -->
+  <path d="M210,200 Q215,198 220,200" stroke="#4a90d9" stroke-width="1.5" fill="none" opacity="0.8" filter="url(#glow-filter)"/>
+  
+  <!-- 心形蓝色火焰 在两人之间上方 -->
+  <g transform="translate(200, 155)" filter="url(#glow-filter)">
+    <path d="M0,-8 Q-2,-14 -8,-14 Q-16,-14 -16,-6 Q-16,0 0,10 Q16,0 16,-6 Q16,-14 8,-14 Q2,-14 0,-8Z" fill="#4a90d9" opacity="0.7">
+      <animate attributeName="opacity" values="0.5;0.8;0.5" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M0,-5 Q-1,-9 -5,-9 Q-10,-9 -10,-4 Q-10,0 0,7 Q10,0 10,-4 Q10,-9 5,-9 Q1,-9 0,-5Z" fill="#7ab8ff" opacity="0.6">
+      <animate attributeName="opacity" values="0.4;0.7;0.4" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  
+  <!-- 萤火虫般的光点 -->
+  <circle cx="100" cy="180" r="2" fill="#4a90d9" opacity="0.5">
+    <animate attributeName="opacity" values="0.2;0.7;0.2" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="180;175;180" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="300" cy="170" r="2" fill="#4a90d9" opacity="0.5">
+    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2.5s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="170;165;170" dur="3.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="150" cy="250" r="1.5" fill="#7ab8ff" opacity="0.4">
+    <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="260" cy="240" r="1.5" fill="#7ab8ff" opacity="0.4">
+    <animate attributeName="opacity" values="0.3;0.5;0.3" dur="2.8s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- 地面反光 -->
+  <ellipse cx="200" cy="310" rx="120" ry="8" fill="#4a90d9" opacity="0.08"/>
+  
+  <!-- 文字 -->
+  <text x="200" y="350" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#4a90d9" opacity="0.6" letter-spacing="3">我们</text>
+  <text x="200" y="375" text-anchor="middle" font-family="Georgia, serif" font-size="10" fill="#7ab8ff" opacity="0.4" letter-spacing="2">炘也   兔宝</text>
+</svg>

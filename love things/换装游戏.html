@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>换装游戏 · 兔宝</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff8f0;--pk-l:#fce4ec;--pk:#f8bbd0;--pk-d:#f48fb1;--tx:#5d4037;--tx2:#8d6e63}
+body{min-height:100vh;background:linear-gradient(135deg,var(--bg),var(--pk-l));font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:var(--tx);display:flex;flex-direction:column;align-items:center;padding:16px;gap:10px}
+h1{font-size:18px}
+.sub{font-size:12px;color:var(--tx2)}
+.wrap{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.char-panel{background:rgba(255,255,255,.65);border-radius:16px;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.1);display:flex;flex-direction:column;align-items:center;gap:10px}
+#char{border-radius:10px}
+.wardrobe{background:rgba(255,255,255,.65);border-radius:16px;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.1);width:272px}
+.tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:4px 9px;border:1.5px solid var(--pk);border-radius:16px;font-size:11px;cursor:pointer;background:white;color:var(--tx2);transition:all .12s}
+.tab.on{background:var(--pk-d);border-color:var(--pk-d);color:white}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.item{border-radius:10px;border:2px solid transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.85);font-size:10px;color:var(--tx2);gap:2px;padding:6px 4px;text-align:center;transition:all .12s}
+.item:hover{border-color:var(--pk)}
+.item.on{border-color:var(--pk-d);background:var(--pk-l)}
+.item .ico{font-size:22px}
+.color-sec{margin-top:10px}
+.color-label{font-size:11px;color:var(--tx2);margin-bottom:5px}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
+.dot:hover,.dot.on{border-color:var(--tx);transform:scale(1.15)}
+.btns{display:flex;gap:8px}
+.btn{padding:7px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-r{background:linear-gradient(135deg,var(--pk-d),#e91e63);color:white}
+.btn-r:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(233,30,99,.3)}
+.btn-h{background:rgba(255,255,255,.8);border:1.5px solid var(--pk);color:var(--tx)}
+.btn-h:hover{background:var(--pk-l)}
+</style>
+</head>
+<body>
+<h1>兔宝换装 💕</h1>
+<div class="sub">点击衣橱里的选项给小兔宝换装，可以改颜色哦~</div>
+<div class="wrap">
+  <div class="char-panel">
+    <canvas id="char" width="260" height="450"></canvas>
+    <div class="btns">
+      <button class="btn btn-r" onclick="saveImg()">保存图片 💾</button>
+      <button class="btn btn-h" onclick="randomize()">随机换装 🎲</button>
+    </div>
+  </div>
+  <div class="wardrobe">
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+    <div class="color-sec" id="colorSec"></div>
+  </div>
+</div>
+
+<script>
+const CV=document.getElementById('char');
+const cx=CV.getContext('2d');
+
+const O={hair:'bob',hairC:'#4a3728',top:'blouse',topC:'#f8bbd0',bot:'skirt',botC:'#f48fb1',shoes:'heels',shoesC:'#e91e63',acc:'none',accC:'#f48fb1',skin:'#fde0c8'};
+
+const CATS=[
+  {id:'hair',label:'💇 发型',items:[{id:'bob',ico:'💇',label:'短发'},{id:'long',ico:'👧',label:'长发'},{id:'twin',ico:'🎀',label:'双马尾'},{id:'bun',ico:'🍡',label:'丸子头'},{id:'curly',ico:'〰️',label:'卷发'}]},
+  {id:'top',label:'👗 上装',items:[{id:'blouse',ico:'👚',label:'衬衫'},{id:'hoodie',ico:'🧥',label:'卫衣'},{id:'dress',ico:'👗',label:'连衣裙'},{id:'tshirt',ico:'👕',label:'T恤'},{id:'sailor',ico:'⛵',label:'水手服'},{id:'sweater',ico:'🧶',label:'毛衣'}]},
+  {id:'bot',label:'👖 下装',items:[{id:'skirt',ico:'🩱',label:'短裙'},{id:'jeans',ico:'👖',label:'牛仔裤'},{id:'shorts',ico:'🩳',label:'短裤'},{id:'longskirt',ico:'👘',label:'长裙'}]},
+  {id:'shoes',label:'👟 鞋子',items:[{id:'heels',ico:'👠',label:'高跟鞋'},{id:'sneakers',ico:'👟',label:'运动鞋'},{id:'boots',ico:'👢',label:'靴子'},{id:'loafers',ico:'🥿',label:'乐福鞋'},{id:'sandals',ico:'👡',label:'凉鞋'}]},
+  {id:'acc',label:'✨ 配饰',items:[{id:'none',ico:'✖️',label:'无'},{id:'bow',ico:'🎀',label:'蝴蝶结'},{id:'bunnyears',ico:'🐰',label:'兔耳朵'},{id:'glasses',ico:'👓',label:'眼镜'},{id:'hat',ico:'🎩',label:'帽子'},{id:'flower',ico:'🌸',label:'花朵'}]},
+  {id:'skin',label:'🎨 肤色',items:[{id:'#fff3e0',label:'白皙'},{id:'#fde0c8',label:'自然'},{id:'#fcd5b5',label:'小麦'},{id:'#f3c5a0',label:'健康'},{id:'#dba882',label:'深色'}]},
+];
+
+const PALETTES={
+  hair:['#1a1a1a','#4a3728','#8b5e3c','#c4a882','#d4a017','#e8c0c0','#a855f7','#3b82f6','#ef4444','#ffffff'],
+  top:['#f8bbd0','#e1bee7','#bbdefb','#c8e6c9','#fff9c4','#ffccbc','#ffffff','#607d8b','#795548','#e91e63'],
+  bot:['#f48fb1','#ce93d8','#90caf9','#a5d6a7','#fff176','#ffab91','#ffffff','#546e7a','#6d4c41','#c62828'],
+  shoes:['#e91e63','#9c27b0','#1565c0','#2e7d32','#f9a825','#bf360c','#212121','#ffffff','#795548','#607d8b'],
+  acc:['#f48fb1','#ce93d8','#90caf9','#a5d6a7','#fff176','#ffab91','#ffffff','#212121','#ef4444','#f9a825'],
+};
+
+function hexToRgb(h){if(!h||h[0]!=='#')return{r:128,g:128,b:128};return{r:parseInt(h.slice(1,3),16),g:parseInt(h.slice(3,5),16),b:parseInt(h.slice(5,7),16)}}
+function dk(h,a=20){const{r,g,b}=hexToRgb(h);return`rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`}
+function lt(h,a=20){const{r,g,b}=hexToRgb(h);return`rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`}
+
+function rr(x,y,w,h,r,fill){cx.beginPath();cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.quadraticCurveTo(x+w,y,x+w,y+r);cx.lineTo(x+w,y+h-r);cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);cx.lineTo(x+r,y+h);cx.quadraticCurveTo(x,y+h,x,y+h-r);cx.lineTo(x,y+r);cx.quadraticCurveTo(x,y,x+r,y);cx.closePath();if(fill!==undefined){cx.fillStyle=fill;cx.fill()}}
+function el(x,y,rx,ry,rot,fill){cx.beginPath();cx.ellipse(x,y,rx,ry,rot||0,0,Math.PI*2);if(fill!==undefined){cx.fillStyle=fill;cx.fill()}}
+function ci(x,y,r,fill){el(x,y,r,r,0,fill)}
+
+// ── Base body ──
+function drawBase(){
+  const s=O.skin;
+  rr(42,172,28,92,13,s);rr(190,172,28,92,13,s); // upper arms
+  rr(45,260,24,74,10,s);rr(191,260,24,74,10,s); // forearms
+  ci(57,340,12,s);ci(203,340,12,s); // hands
+  rr(114,148,32,26,10,s); // neck
+  rr(72,168,116,118,14,s); // torso
+  rr(86,280,37,110,12,s);rr(137,280,37,110,12,s); // legs
+  rr(86,384,37,26,8,s);rr(137,384,37,26,8,s); // lower legs
+  el(130,90,66,74,0,s); // head
+}
+
+// ── Face ──
+function drawFace(){
+  cx.fillStyle='#2a1a0a';
+  el(107,90,8,10,-0.05);cx.fill();el(153,90,8,10,0.05);cx.fill();
+  cx.fillStyle='white';
+  el(104,86,3.5,4.5,-0.1);cx.fill();el(150,86,3.5,4.5,0.1);cx.fill();
+  ci(111,94,2,'white');ci(157,94,2,'white');
+  cx.fillStyle='rgba(255,140,140,0.32)';el(92,108,14,8,0);cx.fill();el(168,108,14,8,0);cx.fill();
+  cx.fillStyle='rgba(190,110,90,0.45)';el(130,114,4.5,3,0);cx.fill();
+  cx.strokeStyle='#c07070';cx.lineWidth=2;cx.lineCap='round';
+  cx.beginPath();cx.moveTo(119,124);cx.quadraticCurveTo(130,135,141,124);cx.stroke();
+}
+
+// ── Hair ──
+function drawHairBack(){
+  const c=O.hairC;
+  el(130,86,70,76,0,c); // 后脑勺色块
+  if(O.hair==='long'){rr(42,92,28,245,14,c);rr(190,92,28,245,14,c)}
+}
+function drawHair(){
+  const c=O.hairC, h=O.hair;
+  // 侧面发片
+  rr(43,82,28,70,14,c); rr(189,82,28,70,14,c);
+  // 头顶发色：把头发椭圆裁切到头顶区域，不覆盖脸部
+  cx.save();
+  cx.beginPath(); cx.rect(0,0,260, h==='curly'?88:76); cx.clip();
+  el(130,90,68,74,0,c);
+  cx.restore();
+  // 各发型额外部分
+  if(h==='twin'){
+    cx.fillStyle=c;
+    cx.beginPath();cx.moveTo(48,132);cx.bezierCurveTo(20,158,14,232,36,298);cx.bezierCurveTo(50,320,70,308,60,280);cx.bezierCurveTo(50,252,54,202,48,132);cx.fill();
+    cx.beginPath();cx.moveTo(212,132);cx.bezierCurveTo(240,158,246,232,224,298);cx.bezierCurveTo(210,320,190,308,200,280);cx.bezierCurveTo(210,252,206,202,212,132);cx.fill();
+  }
+  if(h==='bun') el(130,42,30,26,0,c);
+  if(h==='curly'){
+    cx.fillStyle=c;
+    for(let i=0;i<5;i++){cx.beginPath();cx.arc(58+i*30,58,22,Math.PI,0);cx.fill()}
+    for(let i=0;i<3;i++){el(34,150+i*36,14,18,0.3,c);el(226,150+i*36,14,18,-0.3,c)}
+  }
+}
+
+// ── Top ──
+function drawTop(){
+  if(O.top==='dress'){drawDress(O.topC);return}
+  ;({blouse:drawBlouse,hoodie:drawHoodie,tshirt:drawTshirt,sailor:drawSailor,sweater:drawSweater}[O.top]||drawBlouse)(O.topC)
+}
+function drawBlouse(c){
+  rr(70,166,120,124,12,c);rr(42,170,30,66,12,c);rr(188,170,30,66,12,c);
+  cx.fillStyle='rgba(255,255,255,.75)';cx.beginPath();cx.moveTo(105,168);cx.lineTo(130,200);cx.lineTo(155,168);cx.lineTo(152,175);cx.lineTo(130,205);cx.lineTo(108,175);cx.closePath();cx.fill();
+  for(let i=0;i<3;i++)ci(130,228+i*25,4,'rgba(255,255,255,.8)');
+}
+function drawHoodie(c){
+  const d=dk(c,18);
+  rr(65,165,130,132,16,c);rr(40,165,30,110,14,c);rr(190,165,30,110,14,c);
+  rr(90,272,80,38,10,d);
+  cx.fillStyle=c;
+  cx.beginPath();cx.moveTo(84,168);cx.quadraticCurveTo(68,158,72,146);cx.quadraticCurveTo(90,140,108,158);cx.quadraticCurveTo(118,168,130,168);cx.fill();
+  cx.beginPath();cx.moveTo(176,168);cx.quadraticCurveTo(192,158,188,146);cx.quadraticCurveTo(170,140,152,158);cx.quadraticCurveTo(142,168,130,168);cx.fill();
+  cx.strokeStyle=d;cx.lineWidth=2;cx.setLineDash([4,3]);cx.beginPath();cx.moveTo(130,180);cx.lineTo(130,268);cx.stroke();cx.setLineDash([]);
+}
+function drawDress(c){
+  rr(70,166,120,106,12,c);rr(42,170,28,60,12,c);rr(190,170,28,60,12,c);
+  cx.fillStyle=c;cx.beginPath();cx.moveTo(72,262);cx.lineTo(188,262);cx.bezierCurveTo(204,262,212,318,202,418);cx.lineTo(58,418);cx.bezierCurveTo(48,318,56,262,72,262);cx.fill();
+  rr(82,258,96,14,6,dk(c,12));
+  cx.fillStyle='rgba(255,255,255,.6)';cx.beginPath();cx.moveTo(105,168);cx.lineTo(130,196);cx.lineTo(155,168);cx.closePath();cx.fill();
+}
+function drawTshirt(c){
+  rr(70,166,120,116,10,c);rr(46,166,28,52,10,c);rr(186,166,28,52,10,c);
+  cx.strokeStyle=dk(c,12);cx.lineWidth=2;cx.beginPath();cx.arc(130,154,30,0.35,Math.PI-0.35);cx.stroke();
+}
+function drawSailor(c){
+  rr(70,166,120,122,10,'white');rr(46,166,28,76,10,'white');rr(186,166,28,76,10,'white');
+  cx.fillStyle=c;cx.beginPath();cx.moveTo(80,168);cx.lineTo(130,220);cx.lineTo(180,168);cx.lineTo(182,196);cx.lineTo(130,242);cx.lineTo(78,196);cx.closePath();cx.fill();
+  rr(46,246,28,8,2,dk(c,15));rr(186,246,28,8,2,dk(c,15));
+  cx.fillStyle='#e91e63';cx.beginPath();cx.moveTo(130,230);cx.bezierCurveTo(112,222,112,250,130,244);cx.bezierCurveTo(148,250,148,222,130,230);cx.fill();
+}
+function drawSweater(c){
+  const rib=dk(c,12);
+  rr(62,163,136,137,14,c);rr(40,163,28,120,14,c);rr(192,163,28,120,14,c);
+  for(let i=0;i<5;i++){cx.fillStyle=i%2?rib:c;cx.fillRect(68,294+i*4,124,4)}
+  for(let i=0;i<4;i++){cx.fillStyle=i%2?rib:c;cx.fillRect(40,274+i*4,28,4);cx.fillRect(192,274+i*4,28,4)}
+  rr(108,148,44,24,10,c);
+}
+
+// ── Bottom ──
+function drawBot(){
+  if(O.top==='dress')return;
+  ;({skirt:drawSkirt,jeans:drawJeans,shorts:drawShorts,longskirt:drawLongskirt}[O.bot]||drawSkirt)(O.botC)
+}
+function drawSkirt(c){
+  cx.fillStyle=c;cx.beginPath();cx.moveTo(80,280);cx.lineTo(180,280);cx.bezierCurveTo(193,280,196,330,186,400);cx.lineTo(74,400);cx.bezierCurveTo(64,330,67,280,80,280);cx.fill();
+  rr(80,274,100,14,5,dk(c,15));
+}
+function drawJeans(c){
+  rr(84,278,40,114,10,c);rr(136,278,40,114,10,c);
+  cx.fillStyle='#fff8f0';cx.fillRect(122,315,16,77);
+  rr(80,272,100,15,6,dk(c,22));
+  cx.strokeStyle=lt(c,18);cx.lineWidth=1.5;cx.beginPath();cx.arc(104,298,14,0,Math.PI);cx.stroke();cx.beginPath();cx.arc(156,298,14,0,Math.PI);cx.stroke();
+  rr(84,387,40,8,4,dk(c,12));rr(136,387,40,8,4,dk(c,12));
+}
+function drawShorts(c){
+  rr(84,278,40,67,10,c);rr(136,278,40,67,10,c);
+  cx.fillStyle='#fff8f0';cx.fillRect(122,308,16,37);
+  rr(80,272,100,14,6,dk(c,18));
+}
+function drawLongskirt(c){
+  cx.fillStyle=c;cx.beginPath();cx.moveTo(82,280);cx.lineTo(178,280);cx.bezierCurveTo(192,312,200,382,184,432);cx.lineTo(76,432);cx.bezierCurveTo(60,382,68,312,82,280);cx.fill();
+  rr(82,274,96,12,5,dk(c,14));
+  cx.strokeStyle=lt(c,22);cx.lineWidth=1;
+  for(let y=312;y<432;y+=22){cx.beginPath();cx.moveTo(78,y);cx.bezierCurveTo(100,y-5,160,y-5,182,y);cx.stroke()}
+}
+
+// ── Shoes ──
+function drawShoes(){({heels:drawHeels,sneakers:drawSneakers,boots:drawBoots,loafers:drawLoafers,sandals:drawSandals}[O.shoes]||drawHeels)(O.shoesC)}
+
+function drawHeels(c){
+  el(104,426,22,10,-0.1,c);rr(80,420,7,18,3,dk(c,25));
+  el(156,426,22,10,0.1,c);rr(173,420,7,18,3,dk(c,25));
+}
+function drawSneakers(c){
+  rr(82,412,42,18,7,c);rr(136,412,42,18,7,c);
+  rr(84,413,38,9,4,'white');rr(138,413,38,9,4,'white');
+  cx.strokeStyle=dk(c,20);cx.lineWidth=1.5;
+  for(let i=0;i<3;i++){cx.beginPath();cx.moveTo(92+i*9,415);cx.lineTo(92+i*9,420);cx.stroke();cx.beginPath();cx.moveTo(146+i*9,415);cx.lineTo(146+i*9,420);cx.stroke()}
+}
+function drawBoots(c){
+  rr(84,372,38,60,10,c);rr(136,372,38,60,10,c);
+  cx.fillStyle=dk(c,12);cx.fillRect(84,372,38,10);cx.fillRect(136,372,38,10);
+  rr(82,428,42,10,4,dk(c,35));rr(134,428,42,10,4,dk(c,35));
+}
+function drawLoafers(c){
+  rr(82,414,42,16,8,c);rr(136,414,42,16,8,c);
+  cx.fillStyle=dk(c,22);cx.fillRect(92,416,22,5);cx.fillRect(146,416,22,5);
+  rr(80,426,46,7,3,dk(c,35));rr(134,426,46,7,3,dk(c,35));
+}
+function drawSandals(c){
+  cx.strokeStyle=c;cx.lineWidth=7;cx.lineCap='round';
+  cx.beginPath();cx.moveTo(82,426);cx.lineTo(124,426);cx.stroke();
+  cx.beginPath();cx.moveTo(136,426);cx.lineTo(178,426);cx.stroke();
+  cx.lineWidth=6;
+  [93,112,147,166].forEach((x,i)=>{cx.beginPath();cx.moveTo(x,i<2?82:136,414);cx.moveTo(x,414);cx.lineTo(x,430);cx.stroke()});
+  cx.strokeStyle=dk(c,25);cx.lineWidth=3;
+  cx.beginPath();cx.moveTo(80,432);cx.lineTo(124,432);cx.stroke();
+  cx.beginPath();cx.moveTo(136,432);cx.lineTo(180,432);cx.stroke();
+}
+
+// ── Accessories ──
+function drawAcc(){if(O.acc==='none')return;({bow:drawBow,bunnyears:drawBunnyEars,glasses:drawGlasses,hat:drawHat,flower:drawFlower}[O.acc]||drawBow)(O.accC)}
+
+function drawBow(c){
+  cx.fillStyle=c;
+  cx.beginPath();cx.moveTo(130,36);cx.bezierCurveTo(108,18,92,28,100,42);cx.bezierCurveTo(110,54,122,44,130,36);cx.fill();
+  cx.beginPath();cx.moveTo(130,36);cx.bezierCurveTo(152,18,168,28,160,42);cx.bezierCurveTo(150,54,138,44,130,36);cx.fill();
+  ci(130,38,7,dk(c,18));
+}
+function drawBunnyEars(c){
+  el(92,22,13,44,-0.15,c);el(168,22,13,44,0.15,c);
+  el(92,22,6,34,-0.15,'#fce4ec');el(168,22,6,34,0.15,'#fce4ec');
+}
+function drawGlasses(c){
+  cx.strokeStyle=c;cx.lineWidth=2.5;cx.fillStyle='rgba(200,230,255,0.15)';
+  cx.beginPath();cx.arc(107,90,18,0,Math.PI*2);cx.fill();cx.stroke();
+  cx.beginPath();cx.arc(153,90,18,0,Math.PI*2);cx.fill();cx.stroke();
+  cx.beginPath();cx.moveTo(125,90);cx.lineTo(135,90);cx.stroke();
+  cx.beginPath();cx.moveTo(89,88);cx.lineTo(62,86);cx.stroke();
+  cx.beginPath();cx.moveTo(171,88);cx.lineTo(198,86);cx.stroke();
+}
+function drawHat(c){
+  el(130,54,72,14,0,c);rr(72,8,116,50,8,c);cx.fillStyle=dk(c,22);cx.fillRect(72,50,116,10);
+}
+function drawFlower(c){
+  const[fx,fy]=[172,62];cx.fillStyle=c;
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2;el(fx+Math.cos(a)*13,fy+Math.sin(a)*13,8,6,a,c)}
+  ci(fx,fy,9,'#fff176');
+}
+
+// ── Main render ──
+function render(){
+  cx.clearRect(0,0,260,450);
+  const bg=cx.createLinearGradient(0,0,0,450);bg.addColorStop(0,'#e8f4fd');bg.addColorStop(1,'#f3e8fd');
+  cx.fillStyle=bg;cx.fillRect(0,0,260,450);
+  cx.fillStyle='rgba(0,0,0,0.05)';cx.beginPath();cx.ellipse(130,444,72,8,0,0,Math.PI*2);cx.fill();
+  drawHairBack();    // 1. 头发背面（后脑勺色块）
+  drawBase();        // 2. 身体+头部皮肤（盖在发色上）
+  if(O.top!=='dress')drawBot();
+  drawTop();drawShoes();
+  drawHair();        // 3. 刘海+侧面（盖在头皮上）
+  drawFace();drawAcc();
+}
+
+// ── UI ──
+let activeCat='hair';
+
+function renderTabs(){
+  document.getElementById('tabs').innerHTML=CATS.map(c=>`<div class="tab${c.id===activeCat?' on':''}" onclick="switchCat('${c.id}')">${c.label}</div>`).join('');
+}
+function switchCat(id){activeCat=id;renderTabs();renderGrid();renderColors()}
+
+function renderGrid(){
+  const cat=CATS.find(c=>c.id===activeCat);
+  document.getElementById('grid').innerHTML=cat.items.map(item=>{
+    const on=activeCat==='skin'?O.skin===item.id:O[activeCat]===item.id;
+    const ico=activeCat==='skin'
+      ?`<div style="width:26px;height:26px;border-radius:50%;background:${item.id};border:1.5px solid #ddd"></div>`
+      :`<div class="ico">${item.ico}</div>`;
+    return`<div class="item${on?' on':''}" onclick="pick('${item.id}')">${ico}<div>${item.label}</div></div>`;
+  }).join('');
+}
+
+function pick(id){
+  if(activeCat==='skin')O.skin=id;
+  else O[activeCat]=id;
+  renderGrid();render();
+}
+
+function renderColors(){
+  const p=PALETTES[activeCat]||[];
+  const sec=document.getElementById('colorSec');
+  if(!p.length){sec.innerHTML='';return}
+  const ck=activeCat+'C';
+  sec.innerHTML=`<div class="color-label">颜色</div><div class="dots">${p.map(h=>`<div class="dot${O[ck]===h?' on':''}" style="background:${h}" onclick="pickC('${h}')"></div>`).join('')}</div>`;
+}
+function pickC(h){const ck=activeCat+'C';O[ck]=h;renderColors();render()}
+
+function saveImg(){const a=document.createElement('a');a.download='兔宝换装.png';a.href=CV.toDataURL();a.click()}
+
+function randomize(){
+  const rand=arr=>arr[Math.floor(Math.random()*arr.length)];
+  CATS.forEach(cat=>{
+    if(cat.id==='skin'){O.skin=rand(cat.items).id;return}
+    O[cat.id]=rand(cat.items).id;
+    const p=PALETTES[cat.id];if(p)O[cat.id+'C']=rand(p);
+  });
+  renderGrid();renderColors();render();
+}
+
+renderTabs();renderGrid();renderColors();render();
+</script>
+</body>
+</html>
