@@ -11,659 +11,194 @@
 html,body{height:100%;height:100svh;overflow:hidden;
   background:#2a4a1a;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
 
-/* 横向滚动视口 */
-#viewport{
-  position:relative;width:100%;height:100svh;
-  overflow-x:auto;overflow-y:hidden;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-}
+#viewport{position:relative;width:100%;height:100svh;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 #viewport::-webkit-scrollbar{display:none;}
-
-/* 场景：宽度由JS根据图片比例设置 */
 #scene{position:relative;height:100%;}
+#bgImg{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;}
+#lightOverlay{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:multiply;transition:background 60s linear;}
 
-#bgImg{
-  position:absolute;inset:0;width:100%;height:100%;
-  image-rendering:pixelated;image-rendering:crisp-edges;
-}
-
-/* 光照overlay */
-#lightOverlay{position:absolute;inset:0;z-index:2;pointer-events:none;
-  mix-blend-mode:multiply;transition:background 60s linear;}
-
-/* 地块点击区域 */
-.plot{
-  position:absolute;z-index:5;cursor:pointer;
-  border-radius:8px;transition:filter .2s;
-}
-.plot:active{filter:brightness(1.3);}
-
-/* 地块上的植物显示 */
-.plot-display{
-  position:absolute;z-index:6;
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-  pointer-events:none;
-  font-size:clamp(22px,5vw,34px);
-  line-height:1;
-}
-.plot-label{
-  font-size:10px;color:#fff;
-  text-shadow:0 1px 3px rgba(0,0,0,.8);
-  margin-top:2px;background:rgba(0,0,0,.35);
-  border-radius:6px;padding:1px 5px;
-  white-space:nowrap;
-}
-
-/* 进度条 */
-.plot-bar{
-  position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
-  width:80%;height:5px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden;
-}
+.plot{position:absolute;z-index:10;cursor:pointer;}
+.plot-display{position:absolute;z-index:11;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;font-size:clamp(22px,5vw,34px);line-height:1;padding-bottom:12px;}
+.plot-label{font-size:10px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);margin-top:2px;background:rgba(0,0,0,.35);border-radius:6px;padding:1px 5px;white-space:nowrap;}
+.plot-bar{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);width:80%;height:5px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden;}
 .plot-bar-fill{height:100%;background:#7ec850;border-radius:3px;transition:width .5s;}
 
-/* 返回按钮（跟随视口，fixed定位） */
-.back-btn{
-  position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:16px;z-index:300;
-  width:38px;height:38px;border-radius:50%;border:none;
-  background:rgba(0,0,0,.35);backdrop-filter:blur(8px);
-  font-size:18px;cursor:pointer;color:#fff;
-  display:flex;align-items:center;justify-content:center;
-}
+.furniture {position:absolute;z-index:15;cursor:pointer;image-rendering:pixelated;image-rendering:crisp-edges;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));transition:transform 0.2s, outline 0.2s;user-select:none;-webkit-user-drag:none;touch-action:none;}
+.furniture:active{transform:scale(0.98);}
+.furniture.dragging{z-index:1000;opacity:0.8;transform:scale(1.05);outline:2px dashed #fff;outline-offset:4px;}
+.furniture.selected{outline:2px solid #7ec850;outline-offset:4px;}
 
-#label{
-  position:fixed;bottom:max(18px,env(safe-area-inset-bottom,18px));
-  left:50%;transform:translateX(-50%);
-  color:rgba(255,255,255,.7);font-size:12px;
-  text-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:none;z-index:200;
-}
-
-/* 种植弹窗 */
-#modal{
-  position:fixed;inset:0;z-index:400;
-  display:flex;align-items:flex-end;justify-content:center;
-  background:rgba(0,0,0,.45);
-  opacity:0;pointer-events:none;transition:opacity .25s;
-}
-#modal.show{opacity:1;pointer-events:all;}
-#modalBox{
-  background:#fdf6e8;border-radius:24px 24px 0 0;
-  padding:20px 20px 32px;width:100%;max-width:420px;
-  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
-}
-#modal.show #modalBox{transform:translateY(0);}
-#modalTitle{font-size:15px;color:#5d4037;font-weight:600;margin-bottom:14px;text-align:center;}
-.seed-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
-.seed-btn{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:#f0e8d0;border:2px solid #d4b896;border-radius:14px;
-  padding:10px 4px;cursor:pointer;transition:all .15s;
-}
-.seed-btn:active{background:#e8d5b0;transform:scale(.95);}
-.seed-btn .emoji{font-size:26px;}
-.seed-btn .name{font-size:11px;color:#7b5e42;}
-.seed-btn .time{font-size:10px;color:#a08060;}
-#clearBtn{
-  width:100%;padding:11px;border:none;border-radius:14px;
-  background:#f5c5c5;color:#c0392b;font-size:14px;cursor:pointer;
-}
-#cancelBtn{
-  width:100%;padding:11px;border:none;border-radius:14px;
-  background:#e8e0d0;color:#888;font-size:14px;cursor:pointer;margin-top:8px;
-}
-
-/* 收获动画 */
-.harvest-fly{
-  position:fixed;z-index:500;font-size:28px;
-  pointer-events:none;animation:harvestUp 1.4s ease-out forwards;
-}
-@keyframes harvestUp{
-  0%{opacity:1;transform:translateY(0) scale(1)}
-  100%{opacity:0;transform:translateY(-100px) scale(1.6)}
-}
-
-/* 收获篮子 */
-#basket{
-  position:fixed;bottom:max(48px,env(safe-area-inset-bottom,48px));right:12px;
-  z-index:300;background:rgba(253,240,210,.95);
-  border:2px solid #c8a060;border-radius:16px;
-  padding:8px 10px;min-width:52px;
-  box-shadow:0 4px 14px rgba(0,0,0,.25);
-  cursor:pointer;transition:all .25s;
-}
-#basket.empty{opacity:0.5;}
-#basketIcon{font-size:22px;text-align:center;}
-#basketItems{
-  font-size:11px;color:#7b5030;line-height:1.7;
-  display:none;margin-top:6px;
-  max-height:160px;overflow-y:auto;
-}
-#basket.open #basketItems{display:block;}
-.basket-clear{
-  font-size:10px;color:#c08060;text-align:center;
-  margin-top:4px;padding-top:4px;border-top:1px solid #e0c090;
-  cursor:pointer;
-}
-
-/* 小人（站立idle） */
-.gchar{
-  position:absolute;z-index:10;object-fit:contain;
-  image-rendering:pixelated;image-rendering:crisp-edges;
-  filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));
-  pointer-events:none;
-}
+.gchar{position:absolute;z-index:25;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));pointer-events:auto;cursor:pointer;}
 #gXinye{width:clamp(120px,18vh,155px);height:clamp(120px,18vh,155px);}
 #gRabbit{width:clamp(105px,15vh,135px);height:clamp(105px,15vh,135px);}
 #gXinye.idle{animation:gidle 2.8s ease-in-out infinite;}
 #gRabbit.idle{animation:gidle 3.1s ease-in-out infinite;}
 @keyframes gidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 
-/* 炘也小提示 */
-#xinTip{
-  position:fixed;top:max(64px,env(safe-area-inset-top,64px));
-  left:50%;transform:translateX(-50%);
-  background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
-  border-radius:16px;padding:9px 16px;
-  font-size:13px;color:#5d4037;
-  box-shadow:0 4px 16px rgba(0,0,0,.2);
-  pointer-events:none;opacity:0;transition:opacity .3s;
-  white-space:nowrap;z-index:350;
-}
-#xinTip.show{opacity:1;}
+.back-btn{position:fixed;top:max(16px,env(safe-area-inset-top,16px));left:16px;z-index:300;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.35);backdrop-filter:blur(8px);font-size:18px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;}
+#designBtn{position:fixed;top:max(16px,env(safe-area-inset-top,16px));right:16px;z-index:300;padding:8px 16px;border-radius:20px;border:none;background:rgba(255,255,255,0.85);backdrop-filter:blur(8px);font-size:13px;font-weight:600;color:#5d4037;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:6px;}
+#designBtn.active{background:#7ec850;color:#fff;}
+#designPanel{position:fixed;bottom:max(80px,env(safe-area-inset-bottom,80px));left:50%;transform:translateX(-50%);background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);padding:12px 20px;border-radius:20px;z-index:400;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:none;flex-direction:column;gap:8px;align-items:center;}
+#designPanel.show{display:flex;}
+#sizeSlider{width:150px;cursor:pointer;}
 
-/* 滑动提示 */
-#swipeHint{
-  position:fixed;bottom:max(44px,env(safe-area-inset-bottom,44px));
-  left:50%;transform:translateX(-50%);
-  font-size:11px;color:rgba(255,255,255,.55);
-  pointer-events:none;z-index:200;
-  animation:fadeHint 3s ease-out forwards;
-}
-@keyframes fadeHint{0%{opacity:1}70%{opacity:0.5}100%{opacity:0}}
+.bubble{position:absolute;z-index:50;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-radius:16px;padding:9px 14px;font-size:13px;line-height:1.5;color:#5d4037;max-width:160px;min-width:60px;box-shadow:0 4px 16px rgba(0,0,0,.2);pointer-events:none;opacity:0;transition:opacity .3s;}
+.bubble.show{opacity:1}
+.bubble::after{content:'';position:absolute;bottom:-8px;left:18px;border:8px solid transparent;border-top-color:rgba(255,255,255,.93);border-bottom:none;}
+
+#modal{position:fixed;inset:0;z-index:400;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .25s;}
+#modal.show{opacity:1;pointer-events:all;}
+#modalBox{background:#fdf6e8;border-radius:24px 24px 0 0;padding:20px 20px 32px;width:100%;max-width:420px;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
+#modal.show #modalBox{transform:translateY(0);}
+.seed-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.seed-btn{display:flex;flex-direction:column;align-items:center;gap:4px;background:#f0e8d0;border:2px solid #d4b896;border-radius:14px;padding:10px 4px;cursor:pointer;}
+#clearBtn{width:100%;padding:11px;border:none;border-radius:14px;background:#f5c5c5;color:#c0392b;cursor:pointer;}
+#cancelBtn{width:100%;padding:11px;border:none;border-radius:14px;background:#e8e0d0;color:#888;cursor:pointer;margin-top:8px;}
+#label{position:fixed;bottom:max(18px,env(safe-area-inset-bottom,18px));left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:12px;pointer-events:none;z-index:200;}
+#basket{position:fixed;bottom:max(48px,env(safe-area-inset-bottom,48px));right:12px;z-index:300;background:rgba(253,240,210,.95);border:2px solid #c8a060;border-radius:16px;padding:8px 10px;min-width:52px;cursor:pointer;}
+#basketItems{font-size:11px;color:#7b5030;line-height:1.7;display:none;margin-top:6px;max-height:160px;overflow-y:auto;}
+.env-item {position:absolute;pointer-events:none;z-index:4;transition:opacity 1s;}
+.butterfly {font-size:14px;animation:flyAround 8s linear infinite;}
+.firefly {width:4px;height:4px;background:#ccff00;border-radius:50%;box-shadow:0 0 6px #ccff00;animation:blinkFirefly 3s ease-in-out infinite;}
+@keyframes flyAround{0%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(30px,-20px) rotate(15deg)}50%{transform:translate(60px,0px) rotate(-10deg)}75%{transform:translate(30px,20px) rotate(5deg)}100%{transform:translate(0,0) rotate(0deg)}}
+@keyframes blinkFirefly{0%,100%{opacity:0;transform:scale(0.5)}50%{opacity:0.8;transform:scale(1.2)}}
+.water-drop{position:absolute;z-index:100;font-size:24px;animation:waterFall 0.8s ease-in forwards;}
+@keyframes waterFall{0%{transform:translateY(-30px) scale(0);opacity:0}30%{transform:translateY(-20px) scale(1.2);opacity:1}100%{transform:translateY(10px) scale(0.8);opacity:0}}
+.harvest-fly{position:fixed;z-index:500;font-size:28px;pointer-events:none;animation:harvestUp 1.4s ease-out forwards;}
+@keyframes harvestUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-100px) scale(1.6)}}
 </style>
 </head>
 <body>
 <button class="back-btn" onclick="history.back()">←</button>
-<div id="xinTip"></div>
-<div id="viewport">
-  <div id="scene">
-    <img id="bgImg" src="yard_pix.png" alt="">
-    <div id="lightOverlay"></div>
-    <img id="gXinye" class="gchar" src="xinye_pix.png" alt="炘也">
-    <img id="gRabbit" class="gchar" src="tubao_pix.png" alt="兔宝">
-  </div>
-</div>
+<button id="designBtn"><span class="icon">🛠️</span><span>装修模式</span></button>
+<div id="designPanel"><label id="sliderLabel">大小: 150px</label><input type="range" id="sizeSlider" min="80" max="450" value="150"></div>
+<div id="viewport"><div id="scene"><img id="bgImg" src="yard_pix.png" alt=""><div id="lightOverlay"></div><div id="envContainer"></div><div class="bubble" id="bX"></div><div class="bubble" id="bR"></div><img id="gBench" class="furniture" src="chair.png" alt="长椅" title="长椅"><img id="gBed" class="furniture" src="couple bed.png" alt="双人床" title="双人床"><img id="gXinye" class="gchar" src="xinye_pix.png" alt="炘也"><img id="gRabbit" class="gchar" src="tubao_pix.png" alt="兔宝"></div></div>
 <div id="label">我们的院子 💙</div>
-<div id="basket" class="empty">
-  <div id="basketIcon">🧺</div>
-  <div id="basketItems"></div>
-</div>
-
-<!-- 种植弹窗 -->
-<div id="modal">
-  <div id="modalBox">
-    <div id="modalTitle">种什么？</div>
-    <div class="seed-grid" id="seedGrid"></div>
-    <button id="clearBtn">🗑 铲掉这块</button>
-    <button id="cancelBtn">取消</button>
-  </div>
-</div>
+<div id="basket" class="empty"><div id="basketIcon">🧺</div><div id="basketItems"></div></div>
+<div id="modal"><div id="modalBox"><div id="modalTitle" style="text-align:center;margin-bottom:14px;color:#5d4037;font-weight:600;">种什么？</div><div class="seed-grid" id="seedGrid"></div><button id="clearBtn">🗑 铲掉这块</button><button id="cancelBtn">取消</button></div></div>
 
 <script>
-// ══════════════════════════════════════════
-// 音效
-// ══════════════════════════════════════════
 let audioCtx;
-function getAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
-function playTone(freq,type,dur,vol=0.15){
-  try{
-    const ctx=getAudio(),o=ctx.createOscillator(),g=ctx.createGain();
-    o.connect(g);g.connect(ctx.destination);
-    o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);
-    g.gain.setValueAtTime(vol,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
-    o.start(ctx.currentTime);o.stop(ctx.currentTime+dur);
-  }catch(e){}
-}
-function sfxPlant(){ playTone(440,'sine',0.12,0.12); setTimeout(()=>playTone(550,'sine',0.14,0.08),80); }
-function sfxHarvest(){ playTone(660,'sine',0.1,0.12); setTimeout(()=>playTone(880,'sine',0.12,0.1),80); setTimeout(()=>playTone(1100,'sine',0.16,0.08),180); }
-function sfxTap(){ playTone(500,'sine',0.08,0.07); }
+function getAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playTone(f,t,d,v=0.15){try{const c=getAudio(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=t;o.frequency.setValueAtTime(f,c.currentTime);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.start();o.stop(c.currentTime+d);}catch(e){}}
+function sfxPlant(){playTone(440,'sine',0.12,0.12);setTimeout(()=>playTone(550,'sine',0.14,0.08),80);}
+function sfxHarvest(){playTone(660,'sine',0.1,0.12);setTimeout(()=>playTone(880,'sine',0.12,0.1),80);}
+function sfxTap(){playTone(500,'sine',0.08,0.07);}
+function rnd(a){return a[Math.floor(Math.random()*a.length)];}
 
-// ══════════════════════════════════════════
-// 场景尺寸（根据图片比例计算）
-// ══════════════════════════════════════════
-const viewport = document.getElementById('viewport');
-const gScene   = document.getElementById('scene');
-const bgImg    = document.getElementById('bgImg');
-
-let SCENE_W = window.innerWidth;
-let SCENE_H = window.innerHeight;
-
-function scW(){ return SCENE_W; }
-function scH(){ return SCENE_H; }
-
+const viewport=document.getElementById('viewport'),gScene=document.getElementById('scene'),bgImg=document.getElementById('bgImg'),gXinye=document.getElementById('gXinye'),gRabbit=document.getElementById('gRabbit'),bX=document.getElementById('bX'),bR=document.getElementById('bR');
+let SCENE_W=window.innerWidth,SCENE_H=window.innerHeight;
+function scW(){return SCENE_W;}function scH(){return SCENE_H;}
 function updateSceneSize(){
-  const natW = bgImg.naturalWidth  || 1536;
-  const natH = bgImg.naturalHeight || 1024;
-  const vpW  = viewport.clientWidth  || window.innerWidth;
-  const vpH  = viewport.clientHeight || window.innerHeight;
-  if(natW > natH){
-    // 横版图：高度撑满，宽度按比例延伸（横向滚动）
-    SCENE_H = vpH;
-    SCENE_W = Math.round(vpH * natW / natH);
-  } else {
-    // 竖版图：宽度撑满，高度按比例延伸（纵向滚动）
-    SCENE_W = vpW;
-    SCENE_H = Math.round(vpW * natH / natW);
-    viewport.style.overflowX = 'hidden';
-    viewport.style.overflowY = 'auto';
-  }
-  gScene.style.width  = SCENE_W + 'px';
-  gScene.style.height = SCENE_H + 'px';
+  const nW=bgImg.naturalWidth||1536,nH=bgImg.naturalHeight||1024,vW=viewport.clientWidth,vH=viewport.clientHeight;
+  if(nW>nH){SCENE_H=vH;SCENE_W=Math.round(vH*nW/nH);}else{SCENE_W=vW;SCENE_H=Math.round(vW*nH/nW);viewport.style.overflowX='hidden';viewport.style.overflowY='auto';}
+  gScene.style.width=SCENE_W+'px';gScene.style.height=SCENE_H+'px';
 }
 
-// ══════════════════════════════════════════
-// 小人系统
-// ══════════════════════════════════════════
-const gXinye  = document.getElementById('gXinye');
-const gRabbit = document.getElementById('gRabbit');
+const GX={x:38,y:64,walking:false,faceLeft:false,sitting:false,sleeping:false},GR={x:57,y:60,walking:false,faceLeft:false,sitting:false,sleeping:false};
+function gPlaceEl(el,px,py){
+  const sw=scW(),sh=scH(),w=el.offsetWidth||90,isX=el===gXinye,isR=el===gRabbit,slp=(isX&&GX.sleeping)||(isR&&GR.sleeping),sit=(isX&&GX.sitting)||(isR&&GR.sitting);
+  let yOfs=slp?w*0.12:sit?w*0.22:0; el.style.left=(px/100*sw-w/2)+'px';el.style.top=(py/100*sh-w+yOfs)+'px';
+  if(isX)updateBubblePos(GX,bX,gXinye);if(isR)updateBubblePos(GR,bR,gRabbit);
+}
+function updateBubblePos(s,b,el){if(!b.classList.contains('show'))return;const sw=scW(),sh=scH(),cx=s.x/100*sw,cy=s.y/100*sh;let bx=cx-30,by=cy-el.offsetHeight-b.offsetHeight-6;if(by<8)by=cy+24;if(bx+160>sw)bx=sw-165;if(bx<8)bx=8;b.style.left=bx+'px';b.style.top=by+'px';}
+function say(el,txt,dur=3500){const b=el===gXinye?bX:bR,s=el===gXinye?GX:GR;b.textContent=txt;b.classList.remove('show');void b.offsetWidth;b.classList.add('show');updateBubblePos(s,b,el);clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),dur);}
+function gWalk(s,el,tx,ty,done){
+  if(s.walking)return;
+  if(GX.sleeping||GR.sleeping||GX.sitting||GR.sitting){GX.sleeping=GR.sleeping=GX.sitting=GR.sitting=false;gXinye.style.display='block';gXinye.src='xinye_pix.png';gRabbit.src='tubao_pix.png';}
+  s.sleeping=s.sitting=false;el.style.display='block';el.src=(el===gXinye)?'xinye_pix.png':'tubao_pix.png';
+  s.walking=true;tx=Math.max(2,Math.min(98,tx));ty=Math.max(20,Math.min(95,ty));s.faceLeft=tx<s.x;el.classList.remove('idle');el.style.transform=s.faceLeft?'scaleX(-1)':'scaleX(1)';
+  const sx=s.x,sy=s.y,t0=performance.now(),dur=Math.max(400,Math.hypot(tx-sx,ty-sy)*22);
+  function step(now){const t=Math.min(1,(now-t0)/dur),e=t<.5?2*t*t:-1+(4-2*t)*t;s.x=sx+(tx-sx)*e;s.y=sy+(ty-sy)*e;gPlaceEl(el,s.x,s.y);if(t<1)requestAnimationFrame(step);else{s.x=tx;s.y=ty;s.walking=false;el.classList.add('idle');if(done)done();}}requestAnimationFrame(step);
+}
+function initGChars(){gPlaceEl(gXinye,GX.x,GX.y);gPlaceEl(gRabbit,GR.x,GR.y);gXinye.classList.add('idle');gRabbit.classList.add('idle');gXinye.onclick=e=>{e.stopPropagation();sfxTap();say(gXinye,rnd(['戳我干嘛👀','想我了？','嗯，在呢 💙','你来啦']));};gRabbit.onclick=e=>{e.stopPropagation();sfxTap();say(gRabbit,rnd(['嗯……','在呢','干嘛啦','哼']));};}
 
-// 初始位置（%）：石板路中间区域（两列地块之间）
-const GX = { x:38, y:64, walking:false, faceLeft:false };
-const GR = { x:57, y:60, walking:false, faceLeft:false };
+const gBench=document.getElementById('gBench'),gBed=document.getElementById('gBed'),designBtn=document.getElementById('designBtn'),designPanel=document.getElementById('designPanel'),sizeSlider=document.getElementById('sizeSlider'),sliderLabel=document.getElementById('sliderLabel');
+const FURNITURE_KEY='xinye_furniture_v3';
+let isDesignMode=false,selectedId=null,furnitureData={gBench:{x:42.5,y:36,w:120},gBed:{x:45,y:84,w:150}};
+function loadFurniture(){const saved=localStorage.getItem(FURNITURE_KEY);if(saved)try{furnitureData=Object.assign(furnitureData,JSON.parse(saved));}catch(e){}}
+function saveFurniture(){localStorage.setItem(FURNITURE_KEY,JSON.stringify(furnitureData));}
+function placeFurniture(){const vw=scW(),vh=scH();[gBench,gBed].forEach(el=>{const d=furnitureData[el.id];el.style.width=d.w+'px';el.style.left=(d.x/100*vw-d.w/2)+'px';el.style.top=(d.y/100*vh-el.offsetHeight/2)+'px';});}
+designBtn.onclick=()=>{isDesignMode=!isDesignMode;designBtn.classList.toggle('active',isDesignMode);designBtn.querySelector('span:last-child').textContent=isDesignMode?'保存布置':'装修模式';designPanel.classList.toggle('show',isDesignMode);if(!isDesignMode){saveFurniture();[gBench,gBed].forEach(el=>el.classList.remove('selected'));selectedId=null;say(gXinye,'布置好了，真好看 💙');}else{say(gXinye,'点一下家具来调整大小 😏');}};
+sizeSlider.oninput=()=>{if(!selectedId)return;const val=parseInt(sizeSlider.value);furnitureData[selectedId].w=val;sliderLabel.textContent=`大小: ${val}px`;placeFurniture();};
 
-function gPlaceEl(el, px, py){
-  const sw=scW(), sh=scH();
-  const w = el.offsetWidth || 90;
-  el.style.left = (px/100*sw - w/2) + 'px';
-  el.style.top  = (py/100*sh - w)   + 'px';
+function initDrag(el,id){
+  let sX,sY,sLx,sLy;
+  const onStart=(e)=>{
+    if(!isDesignMode) return;
+    const t=e.touches?e.touches[0]:e;
+    if(e.touches) e.preventDefault(); // 关键：触屏开始时禁用浏览器默认行为
+    e.stopPropagation();
+    [gBench,gBed].forEach(i=>i.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedId=id;
+    sizeSlider.value=furnitureData[id].w;
+    sliderLabel.textContent=`大小: ${furnitureData[id].w}px`;
+    el.classList.add('dragging');
+    sX=t.clientX; sY=t.clientY; sLx=furnitureData[id].x; sLy=furnitureData[id].y;
+    
+    const onMove=me=>{
+      if(!isDesignMode) return;
+      const mt=me.touches?me.touches[0]:me;
+      if(me.cancelable) me.preventDefault(); // 关键：拖动时禁用屏幕滚动
+      const dx=mt.clientX-sX,dy=mt.clientY-sY,vw=scW(),vh=scH();
+      furnitureData[id].x=sLx+(dx/vw*100);
+      furnitureData[id].y=sLy+(dy/vh*100);
+      placeFurniture();
+    };
+    const onEnd=()=>{
+      el.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, {passive:false});
+    document.addEventListener('touchend', onEnd);
+  };
+  el.addEventListener('mousedown', onStart);
+  el.addEventListener('touchstart', onStart, {passive:false});
 }
 
-function gWalk(state, el, tx, ty, onDone){
-  if(state.walking) return;
-  state.walking = true;
-  tx = Math.max(5, Math.min(95, tx));
-  ty = Math.max(35, Math.min(90, ty));
-  state.faceLeft = tx < state.x;
-  el.classList.remove('idle');
-  el.style.transform = state.faceLeft ? 'scaleX(-1)' : 'scaleX(1)';
-  const sx=state.x, sy=state.y, t0=performance.now();
-  const dur = Math.max(400, Math.hypot(tx-sx, ty-sy)*22);
-  function step(now){
-    const t = Math.min(1,(now-t0)/dur);
-    const e = t<.5 ? 2*t*t : -1+(4-2*t)*t;
-    state.x = sx+(tx-sx)*e;
-    state.y = sy+(ty-sy)*e;
-    gPlaceEl(el, state.x, state.y);
-    if(t<1){ requestAnimationFrame(step); }
-    else {
-      state.x=tx; state.y=ty; state.walking=false;
-      el.classList.add('idle');
-      el.style.transform = state.faceLeft ? 'scaleX(-1)' : 'scaleX(1)';
-      if(onDone) onDone();
-    }
-  }
-  requestAnimationFrame(step);
+function setupInteract(el,id){
+  el.onclick=e=>{if(isDesignMode)return;e.stopPropagation();sfxTap();if(GX.walking||GR.walking)return;const d=furnitureData[id],isBed=id==='gBed';
+    gWalk(GX,gXinye,d.x-(isBed?0.5:3),d.y+(isBed?5:2),()=>{if(isBed){GX.sleeping=true;gXinye.src='xinye_sleep_pix.png';gPlaceEl(gXinye,d.x,d.y+5);}else{GX.sitting=true;gXinye.src='xinye_sit_pix.png';gPlaceEl(gXinye,d.x-3,d.y+2);}});
+    setTimeout(()=>{gWalk(GR,gRabbit,d.x+(isBed?0.5:3),d.y+(isBed?5:2),()=>{if(isBed){gXinye.style.display='none';GR.sleeping=true;gRabbit.src='sleep_together_pix.png';gPlaceEl(gRabbit,d.x,d.y+5);say(gXinye,'午安，做个好梦 💙');}else{GR.sitting=true;gRabbit.src='tubao_sit_pix.png';gPlaceEl(gRabbit,d.x+3,d.y+2);say(gXinye,'坐会儿，看星星 💙');}});},600);
+  };
 }
+initDrag(gBench,'gBench');initDrag(gBed,'gBed');setupInteract(gBench,'gBench');setupInteract(gBed,'gBed');
+gScene.onclick=e=>{if(isDesignMode||e.target.closest('.plot')||e.target.closest('.furniture'))return;const rect=gScene.getBoundingClientRect();const tx=(e.clientX-rect.left)/SCENE_W*100,ty=(e.clientY-rect.top)/SCENE_H*100;gWalk(GX,gXinye,tx,ty);setTimeout(()=>gWalk(GR,gRabbit,tx+(tx>50?-8:8),ty+2),600);};
 
-function initGChars(){
-  gPlaceEl(gXinye, GX.x, GX.y);
-  gPlaceEl(gRabbit, GR.x, GR.y);
-  gXinye.classList.add('idle');
-  gRabbit.classList.add('idle');
-}
+const CROPS=[{id:'strawberry',name:'草莓',emoji:'🍓',growHours:4,stages:['🌱','🌿','🍓']},{id:'sunflower',name:'向日葵',emoji:'🌻',growHours:6,stages:['🌱','🌿','🌻']},{id:'tomato',name:'番茄',emoji:'🍅',growHours:8,stages:['🌱','🌿','🍅']},{id:'lavender',name:'薰衣草',emoji:'💜',growHours:5,stages:['🌱','🌿','💜']},{id:'carrot',name:'胡萝卜',emoji:'🥕',growHours:3,stages:['🌱','🌿','🥕']},{id:'mushroom',name:'蘑菇',emoji:'🍄',growHours:10,stages:['🌱','🍄‍🟫','🍄']},{id:'blueberry',name:'蓝莓',emoji:'🫐',growHours:7,stages:['🌱','🌿','🫐']},{id:'rose',name:'玫瑰',emoji:'🌹',growHours:12,stages:['🌱','🌿','🌹']}];
+const PLOT_DEFS=[{id:0,x:10,y:29,w:23,h:16},{id:3,x:10,y:48,w:23,h:16},{id:4,x:37,y:29,w:23,h:16},{id:2,x:63,y:29,w:24,h:17},{id:5,x:59,y:47,w:25,h:17}];
+const STORAGE_KEY='xinye_garden_v1',BASKET_KEY='xinye_basket_v1';
+let plotEls=[],dispEls=[],currentPlotId=null;
+function renderPlots(){const vw=scW(),vh=scH(),p=loadPlots();PLOT_DEFS.forEach((def,i)=>{const d=dispEls[i],s=p[def.id];d.innerHTML='';if(s){const cd=CROPS.find(c=>c.id===s.crop),stage=getStage(s.crop,s.plantedAt),prog=getProg(s.crop,s.plantedAt),ready=stage===2;d.innerHTML=`<div>${cd.stages[stage]}</div><div class="plot-label" style="background:${ready?'rgba(120,200,80,.8)':'rgba(0,0,0,.35)'}">${ready?cd.name+' 可以收啦！':cd.name}</div>`;if(!ready)d.innerHTML+=`<div class="plot-bar"><div class="plot-bar-fill" style="width:${prog*100}%"></div></div>`;}});}
+function buildPlots(){PLOT_DEFS.forEach((def,i)=>{const el=document.createElement('div');el.className='plot';el.style.left=def.x+'%';el.style.top=def.y+'%';el.style.width=def.w+'%';el.style.height=def.h+'%';el.onclick=()=>onPlotClick(def.id);gScene.appendChild(el);plotEls[i]=el;const d=document.createElement('div');d.className='plot-display';d.style.left=def.x+'%';d.style.top=def.y+'%';d.style.width=def.w+'%';d.style.height=def.h+'%';gScene.appendChild(d);dispEls[i]=d;});}
+function loadPlots(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{};}catch(e){return {};}}
+function savePlots(p){localStorage.setItem(STORAGE_KEY,JSON.stringify(p));}
+function getStage(c,a){const d=CROPS.find(x=>x.id===c);if(!d)return 0;const h=(Date.now()-a)/3600000;return h>=d.growHours?2:h>=d.growHours*0.4?1:0;}
+function getProg(c,a){const d=CROPS.find(x=>x.id===c);if(!d)return 0;return Math.min(1,(Date.now()-a)/3600000/d.growHours);}
+function onPlotClick(id){sfxTap();currentPlotId=id;const p=loadPlots(),s=p[id];if(s){if(getStage(s.crop,s.plantedAt)==2)harvestPlot(id);else waterPlot(id);}else{document.getElementById('modalTitle').textContent='种什么？你说，我来挖 😏';document.getElementById('seedGrid').style.display='grid';document.getElementById('modal').classList.add('show');}}
+function plantCrop(id){const p=loadPlots();p[currentPlotId]={crop:id,plantedAt:Date.now()};savePlots(p);document.getElementById('modal').classList.remove('show');renderPlots();const c=PLOT_DEFS.find(d=>d.id===currentPlotId);gWalk(GX,gXinye,c.x+c.w/2-6,c.y+c.h/2+2,()=>{say(gXinye,'种下去了 💙');setTimeout(()=>gWalk(GX,gXinye,42,78),2200);});}
+function harvestPlot(id){sfxHarvest();const p=loadPlots(),s=p[id];const cd=CROPS.find(x=>x.id===s.crop);delete p[id];savePlots(p);renderPlots();const c=PLOT_DEFS.find(d=>d.id===id);gWalk(GX,gXinye,c.x+c.w/2-6,c.y+c.h/2+2,()=>{say(gXinye,'收了！💙');const b=loadBasket();b[s.crop]=(b[s.crop]||0)+1;localStorage.setItem(BASKET_KEY,JSON.stringify(b));renderBasket();setTimeout(()=>gWalk(GX,gXinye,42,78),2200);});}
+function waterPlot(id){const c=PLOT_DEFS.find(d=>d.id===id);gWalk(GX,gXinye,c.x+c.w/2-6,c.y+c.h/2+2,()=>{const w=document.createElement('div');w.className='water-drop';w.textContent='💧';w.style.left=(c.x+c.w/2)+'%';w.style.top=(c.y+c.h/2)+'%';gScene.appendChild(w);setTimeout(()=>w.remove(),1000);say(gXinye,'浇好水了 💙');setTimeout(()=>gWalk(GX,gXinye,42,78),1500);});}
+function loadBasket(){try{return JSON.parse(localStorage.getItem(BASKET_KEY))||{};}catch(e){return {};}}
+function renderBasket(){const b=loadBasket(),ks=Object.keys(b).filter(k=>b[k]>0),bk=document.getElementById('basket'),it=document.getElementById('basketItems');if(ks.length==0){bk.classList.add('empty');it.innerHTML='';return;}bk.classList.remove('empty');it.innerHTML=ks.map(k=>{const c=CROPS.find(x=>x.id==k);return `<div>${c?c.emoji:'?'} ${c?c.name:k} ×${b[k]}</div>`;}).join('')+'<div style="font-size:10px;color:#c08060;text-align:center;margin-top:4px;padding-top:4px;border-top:1px solid #e0c090;" onclick="event.stopPropagation();localStorage.setItem(\'xinye_basket_v1\',\'{}\');renderBasket();">清空</div>';}
+document.getElementById('cancelBtn').onclick=()=>document.getElementById('modal').classList.remove('show');
+document.getElementById('clearBtn').onclick=()=>{const p=loadPlots();delete p[currentPlotId];savePlots(p);document.getElementById('modal').classList.remove('show');renderPlots();say(gXinye,'铲了重种 💙');};
+CROPS.forEach(c=>{const b=document.createElement('div');b.className='seed-btn';b.innerHTML=`<span class="emoji">${c.emoji}</span><span class="name">${c.name}</span><span class="time">${c.growHours}h</span>`;b.onclick=()=>plantCrop(c.id);document.getElementById('seedGrid').appendChild(b);});
+document.getElementById('basket').onclick=()=>{if(Object.keys(loadBasket()).some(k=>loadBasket()[k]>0))document.getElementById('basketItems').style.display=document.getElementById('basketItems').style.display=='block'?'none':'block';};
 
-// 让视口平滑滚到角色所在x位置
-function scrollToX(xPct){
-  const sw = scW(), vpW = viewport.clientWidth;
-  const target = Math.max(0, Math.min(sw-vpW, xPct/100*sw - vpW/2));
-  viewport.scrollTo({ left: target, behavior: 'smooth' });
-}
+function updateEnv(){const ec=document.getElementById('envContainer');ec.innerHTML='';const h=new Date().getHours(),iN=h>=18||h<6,c=iN?12:5;for(let i=0;i<c;i++){const e=document.createElement('div');e.className='env-item '+(iN?'firefly':'butterfly');if(!iN)e.textContent=rnd(['🦋','🦋','✨']);e.style.left=(5+Math.random()*90)+'%';e.style.top=(15+Math.random()*70)+'%';e.style.animationDelay=(Math.random()*5)+'s';ec.appendChild(e);}}
+function applyLight(){const h=new Date().getHours();const cs={0:'rgba(20,25,80,0.65)',6:'rgba(200,140,80,0.25)',12:'rgba(255,240,200,0.02)',18:'rgba(160,80,100,0.40)',23:'rgba(20,25,80,0.65)'};document.getElementById('lightOverlay').style.background=cs[h]||'rgba(0,0,0,0.1)';}
 
-window.addEventListener('resize', ()=>{
-  updateSceneSize();
-  gPlaceEl(gXinye, GX.x, GX.y);
-  gPlaceEl(gRabbit, GR.x, GR.y);
-  renderPlots();
-});
-
-// ══════════════════════════════════════════
-// 作物定义
-// ══════════════════════════════════════════
-const CROPS = [
-  { id:'strawberry', name:'草莓',  emoji:'🍓', growHours:4,  stages:['🌱','🌿','🍓'], color:'#e8a0b0' },
-  { id:'sunflower',  name:'向日葵',emoji:'🌻', growHours:6,  stages:['🌱','🌿','🌻'], color:'#f0d060' },
-  { id:'tomato',     name:'番茄',  emoji:'🍅', growHours:8,  stages:['🌱','🌿','🍅'], color:'#f08060' },
-  { id:'lavender',   name:'薰衣草',emoji:'💜', growHours:5,  stages:['🌱','🌿','💜'], color:'#c0a0e0' },
-  { id:'carrot',     name:'胡萝卜',emoji:'🥕', growHours:3,  stages:['🌱','🌿','🥕'], color:'#f0a050' },
-  { id:'mushroom',   name:'蘑菇',  emoji:'🍄', growHours:10, stages:['🌱','🍄‍🟫','🍄'], color:'#c08060' },
-  { id:'blueberry',  name:'蓝莓',  emoji:'🫐', growHours:7,  stages:['🌱','🌿','🫐'], color:'#8090e0' },
-  { id:'rose',       name:'玫瑰',  emoji:'🌹', growHours:12, stages:['🌱','🌿','🌹'], color:'#e06080' },
-];
-
-// ══════════════════════════════════════════
-// 地块定义（%坐标，对应1536×1024原图位置）
-// 4块土地：左列2块 + 右列2块，中间是石板路
-// ══════════════════════════════════════════
-const PLOT_DEFS = [
-  { id:0, x:2,  y:12, w:30, h:33 }, // 左上
-  { id:3, x:2,  y:52, w:30, h:33 }, // 左下
-  { id:2, x:68, y:12, w:30, h:33 }, // 右上
-  { id:5, x:68, y:52, w:30, h:33 }, // 右下
-];
-
-// ══════════════════════════════════════════
-// 状态（localStorage）
-// ══════════════════════════════════════════
-const STORAGE_KEY = 'xinye_garden_v1';
-const BASKET_KEY  = 'xinye_basket_v1';
-
-function loadBasket(){ try{ return JSON.parse(localStorage.getItem(BASKET_KEY))||{}; }catch(e){ return {}; } }
-function saveBasket(b){ localStorage.setItem(BASKET_KEY, JSON.stringify(b)); }
-
-function addToBasket(cropId){
-  const b=loadBasket(); b[cropId]=(b[cropId]||0)+1; saveBasket(b); renderBasket();
-}
-
-function renderBasket(){
-  const b=loadBasket();
-  const keys=Object.keys(b).filter(k=>b[k]>0);
-  const basket=document.getElementById('basket');
-  const items =document.getElementById('basketItems');
-  if(keys.length===0){ basket.classList.add('empty'); items.innerHTML=''; return; }
-  basket.classList.remove('empty');
-  items.innerHTML = keys.map(k=>{
-    const c=CROPS.find(x=>x.id===k);
-    return `<div>${c?c.emoji:'?'} ${c?c.name:k} ×${b[k]}</div>`;
-  }).join('') + '<div class="basket-clear" id="clearBasketBtn">清空篮子</div>';
-  document.getElementById('clearBasketBtn')?.addEventListener('click', e=>{
-    e.stopPropagation(); saveBasket({}); renderBasket();
-    document.getElementById('basket').classList.remove('open');
-  });
-}
-
-document.getElementById('basket').addEventListener('click', ()=>{
-  const b=loadBasket();
-  if(Object.keys(b).filter(k=>b[k]>0).length===0) return;
-  document.getElementById('basket').classList.toggle('open');
-});
-
-function loadPlots(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}; }catch(e){ return {}; } }
-function savePlots(plots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(plots)); }
-
-// ══════════════════════════════════════════
-// 成长计算
-// ══════════════════════════════════════════
-function getStage(crop, plantedAt){
-  const c=CROPS.find(x=>x.id===crop); if(!c) return 0;
-  const elapsed=(Date.now()-plantedAt)/(1000*60*60);
-  if(elapsed>=c.growHours) return 2;
-  if(elapsed>=c.growHours*0.4) return 1;
-  return 0;
-}
-function getProgress(crop, plantedAt){
-  const c=CROPS.find(x=>x.id===crop); if(!c) return 0;
-  return Math.min(1,(Date.now()-plantedAt)/(1000*60*60)/c.growHours);
-}
-function isReady(crop, plantedAt){ return getStage(crop,plantedAt)===2; }
-
-// ══════════════════════════════════════════
-// UI
-// ══════════════════════════════════════════
-let plotEls=[], displayEls=[];
-let currentPlotId=null;
-
-function pct(v, total){ return v/100*total; }
-
-function renderPlots(){
-  const vw=scW(), vh=scH();
-  const plots=loadPlots();
-  PLOT_DEFS.forEach((def,i)=>{
-    const el=plotEls[i], disp=displayEls[i];
-    el.style.left   = pct(def.x,vw)+'px';
-    el.style.top    = pct(def.y,vh)+'px';
-    el.style.width  = pct(def.w,vw)+'px';
-    el.style.height = pct(def.h,vh)+'px';
-    disp.style.left   = pct(def.x,vw)+'px';
-    disp.style.top    = pct(def.y,vh)+'px';
-    disp.style.width  = pct(def.w,vw)+'px';
-    disp.style.height = pct(def.h,vh)+'px';
-
-    const state=plots[def.id];
-    disp.innerHTML='';
-    if(state){
-      const cd=CROPS.find(c=>c.id===state.crop);
-      const stage=getStage(state.crop,state.plantedAt);
-      const prog =getProgress(state.crop,state.plantedAt);
-      const ready=stage===2;
-
-      const eEl=document.createElement('div');
-      eEl.textContent=cd.stages[stage];
-      eEl.style.fontSize=ready?'clamp(28px,6vw,40px)':'clamp(20px,4.5vw,30px)';
-      disp.appendChild(eEl);
-
-      const lbl=document.createElement('div');
-      lbl.className='plot-label';
-      lbl.textContent=ready?`${cd.name} 可以收啦！`:cd.name;
-      if(ready) lbl.style.background='rgba(120,200,80,.8)';
-      disp.appendChild(lbl);
-
-      if(!ready){
-        const bar=document.createElement('div'); bar.className='plot-bar';
-        const fill=document.createElement('div'); fill.className='plot-bar-fill';
-        fill.style.width=(prog*100)+'%'; bar.appendChild(fill); disp.appendChild(bar);
-      }
-    }
-  });
-}
-
-function buildPlotEls(){
-  // 清理旧的
-  plotEls.forEach(el=>el.remove()); displayEls.forEach(el=>el.remove());
-  plotEls=[]; displayEls=[];
-  PLOT_DEFS.forEach((def,i)=>{
-    const el=document.createElement('div');
-    el.className='plot';
-    el.addEventListener('click',()=>onPlotClick(def.id));
-    gScene.appendChild(el); plotEls[i]=el;
-
-    const disp=document.createElement('div');
-    disp.className='plot-display';
-    gScene.appendChild(disp); displayEls[i]=disp;
-  });
-}
-
-// ══════════════════════════════════════════
-// 弹窗
-// ══════════════════════════════════════════
-const modal   =document.getElementById('modal');
-const seedGrid=document.getElementById('seedGrid');
-const clearBtn=document.getElementById('clearBtn');
-const cancelBtn=document.getElementById('cancelBtn');
-
-function buildSeedGrid(){
-  seedGrid.innerHTML='';
-  CROPS.forEach(crop=>{
-    const btn=document.createElement('div'); btn.className='seed-btn';
-    btn.innerHTML=`<span class="emoji">${crop.emoji}</span><span class="name">${crop.name}</span><span class="time">${crop.growHours}h</span>`;
-    btn.addEventListener('click',()=>plantCrop(crop.id));
-    seedGrid.appendChild(btn);
-  });
-}
-
-function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-function showModal(plotId){
-  currentPlotId=plotId;
-  const plots=loadPlots(), state=plots[plotId];
-  if(state && isReady(state.crop,state.plantedAt)){ harvestPlot(plotId); return; }
-  const title=document.getElementById('modalTitle');
-  if(state){
-    const cd=CROPS.find(c=>c.id===state.crop);
-    title.textContent=`${cd.name}还在长… (${Math.round(getProgress(state.crop,state.plantedAt)*100)}%)`;
-    seedGrid.style.display='none';
-    showXinTip(rnd(GROWING_TIPS));
-  } else {
-    title.textContent='种什么？你说，我来种 😏';
-    seedGrid.style.display='grid';
-    showXinTip(rnd(PLOT_EMPTY_TIPS));
-  }
-  modal.classList.add('show');
-  sfxTap();
-}
-
-function hideModal(){ modal.classList.remove('show'); currentPlotId=null; }
-
-function plotCenter(plotId){
-  const def=PLOT_DEFS.find(d=>d.id===plotId);
-  return { x: def.x+def.w/2, y: def.y+def.h/2 };
-}
-
-function plantCrop(cropId){
-  if(currentPlotId===null) return;
-  sfxPlant();
-  const plots=loadPlots();
-  plots[currentPlotId]={ crop:cropId, plantedAt:Date.now() };
-  savePlots(plots);
-  const cd=CROPS.find(c=>c.id===cropId);
-  const pid=currentPlotId;
-  hideModal(); renderPlots();
-  const c=plotCenter(pid);
-  scrollToX(c.x);
-  gWalk(GX, gXinye, c.x-6, c.y+2, ()=>{
-    showXinTip(rnd(PLANT_TIPS).replace('{name}',cd.name));
-    setTimeout(()=>gWalk(GX,gXinye,42,78),2200);
-  });
-}
-
-function harvestPlot(plotId){
-  const plots=loadPlots(), state=plots[plotId];
-  if(!state) return;
-  const cd=CROPS.find(c=>c.id===state.crop);
-  sfxHarvest();
-  const def=PLOT_DEFS.find(d=>d.id===plotId);
-  const vw=scW(), vh=scH();
-  const cx=pct(def.x+def.w/2,vw)-viewport.scrollLeft;
-  const cy=pct(def.y,vh);
-  for(let i=0;i<3;i++){
-    setTimeout(()=>{
-      const h=document.createElement('div');
-      h.className='harvest-fly'; h.textContent=cd.emoji;
-      h.style.left=(cx-14+Math.random()*28)+'px';
-      h.style.top=(cy-10)+'px';
-      document.body.appendChild(h); setTimeout(()=>h.remove(),1600);
-    }, i*120);
-  }
-  delete plots[plotId]; savePlots(plots); addToBasket(state.crop);
-  hideModal(); renderPlots();
-  const c=plotCenter(plotId);
-  scrollToX(c.x);
-  gWalk(GX, gXinye, c.x-6, c.y+2, ()=>{
-    showXinTip(rnd(HARVEST_TIPS).replace('{name}',cd.name));
-    setTimeout(()=>gWalk(GX,gXinye,42,78),2200);
-  });
-}
-
-function onPlotClick(plotId){
-  sfxTap();
-  const plots=loadPlots(), state=plots[plotId];
-  if(state && isReady(state.crop,state.plantedAt)){
-    harvestPlot(plotId);
-  } else {
-    showModal(plotId);
-  }
-}
-
-clearBtn.addEventListener('click',()=>{
-  if(currentPlotId===null) return;
-  const plots=loadPlots(); delete plots[currentPlotId]; savePlots(plots);
-  hideModal(); renderPlots(); showXinTip(rnd(CLEAR_TIPS));
-});
-cancelBtn.addEventListener('click', hideModal);
-modal.addEventListener('click', e=>{ if(e.target===modal) hideModal(); });
-
-// ══════════════════════════════════════════
-// 炘也台词库
-// ══════════════════════════════════════════
-const PLOT_EMPTY_TIPS = [
-  '种什么？你说，我来挖 😏','这块地空着呢，选吧','嗯，这里适合种花','你挑，我种 💙',
-  '随便，你喜欢什么就种什么','来，选一个','这块土不错','种吧，我陪着',
-];
-const PLANT_TIPS = [
-  '好，{name}种下了，我去浇水 💙','{name}啊，不错的选择 😏','等{name}长大，一起来看',
-  '嗯，{name}会长很好的','种了，记得来看它长大','{name}……我亲手种的，不许不长 😤',
-  '好，交给我了','浇好水了，等着吧 💙','{name}，你喜欢就行','种下去了，过几天来收',
-  '嗯，这块地肥，{name}会长好的','好，种了，别忘了来看',
-];
-const GROWING_TIPS = [
-  '还没好，别急 😏','长着呢，等等','催什么，快了','嗯……再等等',
-  '心急吃不了热豆腐 😂','快了快了，你去屋里坐','我盯着它呢，好了告诉你','还需要一点时间',
-];
-const HARVEST_TIPS = [
-  '{name}收了！来，拿着 💙','哇，{name}长这么好 😏 你来收','可以收了，{name}，不错',
-  '自己种的{name}最好吃','{name}熟了，快来','嗯……{name}，收好了',
-  '看，{name}，全长出来了 💙','没辜负你嘛，{name}种得很好','{name}……拿去，别浪费',
-  '种什么收什么，{name}来了 😏','辛苦了，虽然是我种的 😂','收了{name}，开心吗',
-];
-const CLEAR_TIPS = ['铲了就铲了，重新种 💙','嗯，这块重来','行，我来铲','不想要了？好'];
-const ENTER_TIPS = [
-  '出来晒晒太阳 💙','来看看我们种的东西','院子里，你去哪我跟着',
-  '今天浇水了吗 😤','嗯，出来了','外面空气好 💙','来，看看长了多少',
-  '你来啦，我在这','今天想种什么','一起来看看吧','院子里最安静 💙',
-];
-
-const xinTip=document.getElementById('xinTip');
-function showXinTip(text, dur=3500){
-  xinTip.textContent=text;
-  xinTip.classList.remove('show'); void xinTip.offsetWidth;
-  xinTip.classList.add('show');
-  clearTimeout(xinTip._t);
-  xinTip._t=setTimeout(()=>xinTip.classList.remove('show'),dur);
-}
-
-// ══════════════════════════════════════════
-// 光照
-// ══════════════════════════════════════════
-const HOUR_COLORS = {
-   0:'rgba(40,50,110,0.55)', 1:'rgba(35,45,105,0.60)', 2:'rgba(30,40,100,0.62)',
-   3:'rgba(30,40,100,0.62)', 4:'rgba(35,45,105,0.58)', 5:'rgba(60,55,100,0.45)',
-   6:'rgba(200,140,80,0.25)', 7:'rgba(210,160,90,0.18)', 8:'rgba(220,175,100,0.14)',
-   9:'rgba(235,200,130,0.08)',10:'rgba(245,220,160,0.04)',11:'rgba(255,240,200,0.02)',
-  12:'rgba(255,240,200,0.02)',13:'rgba(255,235,190,0.04)',14:'rgba(250,220,170,0.06)',
-  15:'rgba(245,210,150,0.08)',16:'rgba(240,195,120,0.12)',17:'rgba(230,160,90,0.20)',
-  18:'rgba(210,120,70,0.28)',19:'rgba(170,90,70,0.36)',20:'rgba(120,70,90,0.40)',
-  21:'rgba(70,55,100,0.46)',22:'rgba(50,50,105,0.50)',23:'rgba(40,50,110,0.55)',
-};
-function parseRgba(s){ const m=s.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/); return m?{r:+m[1],g:+m[2],b:+m[3],a:+m[4]}:null; }
-function lerpColor(a,b,t){ return `rgba(${Math.round(a.r+(b.r-a.r)*t)},${Math.round(a.g+(b.g-a.g)*t)},${Math.round(a.b+(b.b-a.b)*t)},${(a.a+(b.a-a.a)*t).toFixed(3)})`; }
-function applyLight(){
-  const h=new Date().getHours(),m=new Date().getMinutes();
-  const c0=parseRgba(HOUR_COLORS[h]),c1=parseRgba(HOUR_COLORS[(h+1)%24]);
-  document.getElementById('lightOverlay').style.background=lerpColor(c0,c1,m/60);
-}
-applyLight();
-setInterval(applyLight,60000);
-setInterval(renderPlots,30000);
-
-// ══════════════════════════════════════════
-// 初始化（图片加载完才能算尺寸）
-// ══════════════════════════════════════════
-function init(){
-  updateSceneSize();
-  buildSeedGrid();
-  buildPlotEls();
-  initGChars();
-  renderPlots();
-  renderBasket();
-  // 初始视口居中显示花园主要区域（中间那段）
-  const vpW = viewport.clientWidth;
-  viewport.scrollLeft = Math.max(0, (SCENE_W - vpW) / 2);
-  setTimeout(()=>showXinTip(rnd(ENTER_TIPS)), 800);
-  setTimeout(()=>gWalk(GR, gRabbit, 55+Math.random()*10, 74+Math.random()*6), 2200);
-}
-
-bgImg.addEventListener('load', init);
-if(bgImg.complete && bgImg.naturalWidth) init();
+applyLight();updateEnv();setInterval(applyLight,60000);setInterval(updateEnv,300000);setInterval(renderPlots,30000);
+function init(){updateSceneSize();buildPlots();initGChars();renderPlots();renderBasket();loadFurniture();placeFurniture();updateEnv();applyLight();viewport.scrollLeft=(SCENE_W-viewport.clientWidth)/2;setTimeout(()=>say(gXinye,rnd(['出来晒晒太阳 💙','看看我们种的','你来啦'])),800);setTimeout(()=>gWalk(GR,gRabbit,55+Math.random()*10,74+Math.random()*6),2200);}
+window.onresize=()=>{updateSceneSize();placeFurniture();gPlaceEl(gXinye,GX.x,GX.y);gPlaceEl(gRabbit,GR.x,GR.y);renderPlots();};
+bgImg.onload=init;if(bgImg.complete)init();
 </script>
 </body>
 </html>

@@ -14,6 +14,7 @@
   --text: #4a4a4a;
   --border: #f8bbd0;
   --radius: 16px;
+  --font-size: 16px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; }
@@ -77,10 +78,16 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 
 /* ---- 阅读器 ---- */
 .reader-content {
-  flex: 1; overflow-y: auto; padding: 20px 20px 80px;
-  line-height: 1.9; font-size: 16px;
+  flex: 1; overflow-y: scroll; padding: 20px 16px 80px 20px;
+  line-height: 1.9; font-size: var(--font-size);
   -webkit-user-select: text; user-select: text;
 }
+.reader-content::-webkit-scrollbar { width: 12px; }
+.reader-content::-webkit-scrollbar-track { background: transparent; }
+.reader-content::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,.15); border-radius: 3px; min-height: 40px;
+}
+.reader-content::-webkit-scrollbar-thumb:active { background: rgba(0,0,0,.3); }
 .reader-content .chapter-title {
   font-size: 18px; font-weight: 700; margin-bottom: 24px;
   color: var(--pink); line-height: 1.4;
@@ -92,11 +99,23 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 .reader-footer {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: white; border-top: 1px solid var(--border);
-  padding: 8px 20px; display: flex; align-items: center; gap: 10px;
-  font-size: 12px; color: #aaa; flex-shrink: 0;
+  padding: 6px 8px; display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--text); flex-shrink: 0; height: 48px;
 }
-.progress-bar { flex: 1; height: 3px; background: #f0f0f0; border-radius: 2px; }
-.progress-fill { height: 100%; background: var(--pink); border-radius: 2px; transition: width .3s; }
+.footer-nav-btn {
+  background: none; border: none; font-size: 26px; color: var(--pink);
+  padding: 0 10px; cursor: pointer; flex-shrink: 0; line-height: 1;
+  opacity: 1; transition: opacity .15s;
+}
+.footer-nav-btn:disabled { opacity: .25; }
+.footer-center {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; cursor: pointer; padding: 4px 0;
+}
+#footerChap {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 180px; font-size: 13px;
+}
 
 /* ---- 选中工具栏 ---- */
 #selBar {
@@ -220,12 +239,54 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 }
 #askModal.show { display: flex; }
 
+/* ---- 批注汇总弹窗 ---- */
+#annListModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200;
+}
+#annListModal.show { display: flex; flex-direction: column; }
+.ann-list-chapter {
+  padding: 8px 16px 4px; font-size: 11px; color: #aaa;
+  font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+  background: var(--bg); position: sticky; top: 0;
+}
+.ann-list-item {
+  padding: 10px 16px; border-bottom: 1px solid #f5f5f5; cursor: pointer;
+}
+.ann-list-item:active { background: var(--pink-light); }
+.ann-list-quote {
+  font-size: 12px; color: var(--pink); border-left: 2px solid var(--pink);
+  padding-left: 7px; margin-bottom: 4px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ann-list-note { font-size: 13px; color: var(--text); line-height: 1.6; }
+.ann-list-xinye { font-size: 12px; color: #64b5f6; margin-top: 3px; line-height: 1.5; }
+body.dark .ann-list-item { border-bottom-color: #2a2a42; }
+body.dark .ann-list-chapter { background: var(--bg); }
+.ann-xinye-note {
+  background: #f0f7ff; border-radius: 12px; padding: 10px;
+  font-size: 13px; color: #3a3a5a; margin-top: 10px; line-height: 1.8; white-space: pre-wrap;
+}
+body.dark .ann-xinye-note { background: #1e2a3a; color: #b0c8e8; }
+
 /* ---- 书架菜单 ---- */
 #shelfMenuModal {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
 }
 #shelfMenuModal.show { display: flex; }
+
+/* ---- 封面选择 ---- */
+#coverModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end;
+}
+#coverModal.show { display: flex; }
+.cover-emoji-btn {
+  font-size: 28px; border: none; background: none; cursor: pointer;
+  border-radius: 10px; padding: 6px; text-align: center; line-height: 1;
+}
+.cover-emoji-btn:active { background: var(--pink-light); }
 
 /* ---- loading ---- */
 #loadingMask {
@@ -240,6 +301,48 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   border-top-color: white; border-radius: 50%; animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- 小按钮（A- A+） ---- */
+.btn-sm { font-size: 12px !important; padding: 4px 5px !important; font-weight: 600; }
+
+/* ---- 进度滑块 ---- */
+.prog-slider {
+  flex: 1; height: 3px; -webkit-appearance: none; appearance: none;
+  border-radius: 2px; outline: none; cursor: pointer; padding: 0;
+  background: #f0f0f0;
+}
+.prog-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--pink); cursor: pointer;
+}
+.prog-slider::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--pink); border: none; cursor: pointer;
+}
+
+/* ---- 夜间模式 ---- */
+body.dark {
+  --bg: #1a1a2e; --text: #d0d0e0; --border: #333355; --pink-light: #2d1e2a;
+}
+body.dark .top-bar,
+body.dark .reader-footer { background: #22223a; }
+body.dark .book-card { background: #22223a; }
+body.dark .book-cover { background: linear-gradient(135deg, #2d1e2a, #1e2a3a); }
+body.dark .shelf-header { background: #22223a; border-bottom-color: #333355; }
+body.dark .ann-sheet,
+body.dark .chap-sheet,
+body.dark .upload-sheet,
+body.dark .book-menu-sheet { background: #22223a; }
+body.dark .ann-input { background: #1a1a2e; color: var(--text); }
+body.dark #askReply { background: #1e2a3a; color: #b0c8e8; }
+body.dark .btn-cancel-ann,
+body.dark .btn-del-ann,
+body.dark .btn-close-modal { background: #2a2a42; color: var(--text); }
+body.dark .chap-item { border-bottom-color: #2a2a42; }
+body.dark .prog-slider { background: #2e2e4a; }
+body.dark .reader-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); }
+body.dark .reader-content::-webkit-scrollbar-thumb:active { background: rgba(255,255,255,.35); }
+body.dark .footer-center { color: var(--text); }
 </style>
 </head>
 <body>
@@ -252,6 +355,7 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
       <span class="shelf-heading">📚 书架</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-icon" id="btnDarkShelf" onclick="toggleDark()" title="暗夜模式">🌙</button>
       <button class="btn-icon" onclick="openShelfMenu()" style="font-size:18px">⋯</button>
       <button class="btn-add" onclick="openUpload()">＋ 添加书</button>
     </div>
@@ -264,16 +368,23 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   <div class="top-bar">
     <button class="btn-icon" onclick="goShelf()">←</button>
     <div class="top-title" id="readerTitle"></div>
+    <button class="btn-icon btn-sm" onclick="changeFontSize(-1)" title="字小一点">A-</button>
+    <button class="btn-icon btn-sm" onclick="changeFontSize(1)" title="字大一点">A+</button>
+    <button class="btn-icon" onclick="toggleDark()" id="btnDark" title="夜间模式">🌙</button>
     <button class="btn-icon" onclick="openChapters()" title="目录">☰</button>
+    <button class="btn-icon" onclick="openAnnList()" title="所有批注" style="font-size:16px">📝</button>
     <button class="btn-icon" onclick="archiveToMemory()" title="整理进记忆" style="font-size:16px">🧠</button>
     <button class="btn-icon" onclick="sendCurrentToChat()" title="发给炘也" style="font-size:16px;color:var(--pink)">💬</button>
   </div>
   <div class="reader-content" id="readerContent"
        onmouseup="onSelect()" ontouchend="onSelect()"></div>
   <div class="reader-footer">
-    <span id="footerChap" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-    <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
-    <span id="footerPct">0%</span>
+    <button class="footer-nav-btn" onclick="prevChapter()" id="btnPrevChap">‹</button>
+    <div class="footer-center" onclick="openChapters()">
+      <span id="footerChap"></span>
+      <span id="footerPct" style="color:#aaa;font-size:11px;margin-left:6px"></span>
+    </div>
+    <button class="footer-nav-btn" onclick="nextChapter()" id="btnNextChap">›</button>
   </div>
 </div>
 
@@ -292,6 +403,7 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
     <div class="ann-actions">
       <button class="btn-cancel-ann" onclick="closeAnn()">取消</button>
       <button class="btn-del-ann" id="btnDelAnn" onclick="deleteAnn()" style="display:none">删除</button>
+      <button class="btn-save-ann" style="background:#64b5f6" id="btnAskFromAnn" onclick="askFromAnnotation()" style="display:none">💙 问炘也</button>
       <button class="btn-save-ann" onclick="saveAnn()">保存</button>
     </div>
   </div>
@@ -323,6 +435,17 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   </div>
 </div>
 
+<!-- 批注汇总弹窗 -->
+<div id="annListModal" onclick="closeAnnList()">
+  <div class="chap-sheet" onclick="event.stopPropagation()">
+    <div class="chap-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span>📝 所有批注</span>
+      <span id="annListCount" style="font-size:12px;color:#aaa;font-weight:400"></span>
+    </div>
+    <div class="chap-list" id="annListContent"></div>
+  </div>
+</div>
+
 <!-- 上传弹窗 -->
 <div id="uploadModal">
   <div class="upload-sheet">
@@ -341,9 +464,20 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
 <div id="bookMenuModal" onclick="closeBookMenu()">
   <div class="book-menu-sheet" onclick="event.stopPropagation()">
     <div class="book-menu-title" id="bookMenuTitle"></div>
+    <div class="menu-item" onclick="menuEditTitle()">✏️ 编辑书名 / 作者</div>
+    <div class="menu-item" onclick="menuChangeCover()">🎨 换封面</div>
     <div class="menu-item" onclick="menuExport()">📤 导出（含批注）</div>
     <div class="menu-item danger" onclick="menuDelete()">🗑️ 删除这本书</div>
     <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>
+  </div>
+</div>
+
+<!-- 封面选择弹窗 -->
+<div id="coverModal" onclick="closeCoverModal()">
+  <div class="book-menu-sheet" onclick="event.stopPropagation()" style="padding-bottom:24px">
+    <div class="book-menu-title">选一个封面</div>
+    <div id="coverEmojiGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px 4px"></div>
+    <div class="menu-item" onclick="closeCoverModal()" style="color:#aaa;margin-top:4px;text-align:center">取消</div>
   </div>
 </div>
 
@@ -373,7 +507,7 @@ if (typeof window !== 'undefined') {
   document.head.appendChild(s);
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="jszip.min.js"></script>
 <script>
 // ==================== DB ====================
 let db;
@@ -411,6 +545,7 @@ async function init() {
   await openDB();
   books = await dbGetAll('books');
   renderShelf();
+  applyReadingPrefs();
 }
 
 // ==================== SHELF ====================
@@ -424,7 +559,7 @@ function renderShelf() {
     .sort((a,b) => (b.lastRead||0) - (a.lastRead||0))
     .map(b => `
       <div class="book-card" onclick="openBook('${b.id}')">
-        <div class="book-cover">${b.format==='epub'?'📘':'📄'}</div>
+        <div class="book-cover">${b.cover || (b.format==='epub'?'📘':'📄')}</div>
         <div class="book-title">${esc(b.title)}</div>
         <div class="book-author">${esc(b.author||'')}</div>
         <div class="book-meta">${b.annotationCount?b.annotationCount+' 条批注':'暂无批注'}</div>
@@ -436,7 +571,16 @@ function renderShelf() {
 function openBookMenu(e, bookId) {
   e.stopPropagation();
   menuBookId = bookId;
+  _pendingCoverBookId = bookId;
   const b = books.find(x => x.id === bookId);
+  // 每次打开前还原原始菜单内容（防止 delete/editTitle 替换 innerHTML 后残留）
+  document.querySelector('#bookMenuModal .book-menu-sheet').innerHTML = `
+    <div class="book-menu-title" id="bookMenuTitle"></div>
+    <div class="menu-item" onclick="menuEditTitle()">✏️ 编辑书名 / 作者</div>
+    <div class="menu-item" onclick="menuChangeCover()">🎨 换封面</div>
+    <div class="menu-item" onclick="menuExport()">📤 导出（含批注）</div>
+    <div class="menu-item danger" onclick="menuDelete()">🗑️ 删除这本书</div>
+    <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>`;
   document.getElementById('bookMenuTitle').textContent = '《' + b.title + '》';
   document.getElementById('bookMenuModal').classList.add('show');
 }
@@ -450,13 +594,22 @@ async function menuExport() {
   await exportBook(id || '');
 }
 async function menuDelete() {
+  const id = menuBookId;
+  const b = books.find(x => x.id === id);
+  if (!b) { closeBookMenu(); return; }
+  // 把菜单内容替换成确认步骤（APK里confirm()不可用）
+  const sheet = document.querySelector('.book-menu-sheet');
+  sheet.innerHTML = `
+    <div class="book-menu-title" style="color:#e57373">确认删除《${esc(b.title)}》？</div>
+    <div class="menu-item" style="color:#e57373;font-weight:600" onclick="confirmDelete('${id}')">🗑️ 确认删除</div>
+    <div class="menu-item" style="color:#aaa" onclick="closeBookMenu()">取消</div>`;
+}
+async function confirmDelete(id) {
   closeBookMenu();
-  const b = books.find(x => x.id === menuBookId);
-  if (!b || !confirm(`删除《${b.title}》及全部批注？`)) return;
-  await dbDel('books', menuBookId);
-  await dbDel('chapters', menuBookId);
-  await dbDel('annotations', menuBookId);
-  books = books.filter(x => x.id !== menuBookId);
+  await dbDel('books', id);
+  await dbDel('chapters', id);
+  await dbDel('annotations', id);
+  books = books.filter(x => x.id !== id);
   renderShelf();
 }
 
@@ -470,9 +623,12 @@ document.getElementById('fileInput').onchange = async function() {
   closeUpload();
   showLoading('解析中…');
   try {
-    if (file.name.toLowerCase().endsWith('.epub')) await parseEpub(file);
-    else if (file.name.toLowerCase().endsWith('.txt')) await parseTxt(file);
-    else alert('只支持 .epub 和 .txt');
+    const name = file.name.toLowerCase();
+    const isEpub = name.endsWith('.epub') || file.type === 'application/epub+zip' || file.type === 'application/zip';
+    const isTxt  = name.endsWith('.txt')  || file.type === 'text/plain';
+    if (isEpub) await parseEpub(file);
+    else if (isTxt) await parseTxt(file);
+    else alert('只支持 .epub 和 .txt（当前文件：' + (file.name||'未知') + '，类型：' + (file.type||'未知') + '）');
   } catch(e) { alert('解析失败：' + e.message); console.error(e); }
   hideLoading();
   renderShelf();
@@ -490,48 +646,123 @@ async function parseEpub(file) {
   const title  = opfXml.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/)?.[1]?.trim()   || file.name.replace(/\.epub$/i,'');
   const author = opfXml.match(/<dc:creator[^>]*>([^<]+)<\/dc:creator>/)?.[1]?.trim() || '';
 
-  // 逐个 <item> 标签解析，不依赖属性顺序
+  // 逐个 <item> 标签解析，记录 properties（用于识别 nav 文件）
   const manifest = {};
   for (const m of opfXml.matchAll(/<item\b([^>]+)>/gi)) {
     const attrs = m[1];
-    const idM   = attrs.match(/\bid="([^"]+)"/);
-    const hrefM = attrs.match(/\bhref="([^"]+)"/);
+    const idM    = attrs.match(/\bid="([^"]+)"/);
+    const hrefM  = attrs.match(/\bhref="([^"]+)"/);
     const mediaM = attrs.match(/\bmedia-type="([^"]+)"/);
-    if (idM && hrefM) manifest[idM[1]] = { href: hrefM[1], media: mediaM?.[1] || '' };
+    const propsM = attrs.match(/\bproperties="([^"]+)"/);
+    if (idM && hrefM) manifest[idM[1]] = { href: hrefM[1], media: mediaM?.[1] || '', props: propsM?.[1] || '' };
   }
-
-  const spineIds = [...opfXml.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/g)].map(m=>m[1]);
-  const chapters = [];
 
   // 路径解析：处理相对路径和URL编码
   function resolveHref(base, href) {
-    href = decodeURIComponent(href).split('#')[0]; // 去掉锚点
+    href = decodeURIComponent(href).split('#')[0];
     if (!base || href.startsWith('/')) return href;
     return base + href;
   }
 
+  // 从 NCX 提取 href→title 映射（EPUB2）
+  const titleMap = {};
+  const ncxItem = Object.values(manifest).find(v => v.media.includes('ncx'));
+  if (ncxItem) {
+    try {
+      const ncxPath = resolveHref(opfDir, ncxItem.href);
+      const ncxXml = await (zip.file(ncxPath) || zip.file(ncxItem.href))?.async('string') || '';
+      for (const m of ncxXml.matchAll(/<navPoint[\s\S]*?<text>([^<]+)<\/text>[\s\S]*?<content\s[^>]*src="([^"#]+)/gi)) {
+        const t = m[1].trim(), src = decodeURIComponent(m[2].trim());
+        titleMap[src] = t;
+        titleMap[src.split('/').pop()] = t;
+      }
+    } catch(_) {}
+  }
+
+  // 找出 nav 文件（EPUB3 目录），要跳过
+  const navIds = new Set(
+    Object.entries(manifest).filter(([,v]) => v.props.includes('nav')).map(([k]) => k)
+  );
+
+  const spineIds = [...opfXml.matchAll(/<itemref\b[^>]*\bidref="([^"]+)"/g)].map(m=>m[1]);
+  const chapters = [];
+  let pendingTitle = null; // 章节标题文件（无正文）把标题留给下一个正文文件
+
   for (const id of spineIds) {
     const item = manifest[id]; if (!item) continue;
+    // 跳过导航文件
+    if (navIds.has(id)) continue;
+
     const fullPath = resolveHref(opfDir, item.href);
     const f = zip.file(fullPath) || zip.file(item.href) || zip.file(fullPath.replace(/^\//, '')); if (!f) continue;
     const html = await f.async('string');
+
+    // 跳过 EPUB3 nav 文档（万一没有 properties 标记）
+    if (/<nav\b[^>]*epub:type="toc"/i.test(html)) continue;
+
     const text = htmlToText(html);
     if (text.trim().length < 10) continue;
-    const chTitle = html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
+
+    // 章节标题：优先 NCX 映射，其次 h 标签，最后序号
+    const filename = item.href.split('/').pop();
+    const chTitle = titleMap[filename]
+                  || titleMap[item.href]
+                  || html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
                   || `第${chapters.length+1}章`;
-    chapters.push({ title: chTitle, content: text.trim() });
+
+    // 正文开头若包含章节标题，从标题处截断（去掉导航残留前缀）
+    let content = text.trim();
+    let stripped = content;
+    if (chTitle.length > 1) {
+      // 全角/半角空格归一化后再查找
+      const chTitleNorm = chTitle.replace(/\s/g, ' ');
+      const contentNorm = content.replace(/\s/g, ' ');
+      const ti = contentNorm.indexOf(chTitleNorm);
+      if (ti >= 0 && ti < 300) {
+        stripped = content.slice(ti + chTitleNorm.length).trim();
+        if (stripped.length >= 20) content = stripped; // 截断后有实质内容才使用截断版
+      }
+    }
+
+    // 截断后内容很短 且 整体也不长 → 这是"纯标题文件"，把标题存起来给下一个正文文件用
+    if (stripped.length < 20 && content.length < 60) {
+      if (!pendingTitle) pendingTitle = chTitle; // 只保留第一个，不覆盖
+      continue;
+    }
+
+    // 纯数字标题 = 章节内小节（如"1""2""3"），合并到上一章而不是单独成章
+    if (/^\d+$/.test(chTitle.trim())) {
+      if (pendingTitle) {
+        // 该小节是新章节的第一节，用 pendingTitle 创建章节
+        chapters.push({ title: pendingTitle, content });
+        pendingTitle = null;
+      } else if (chapters.length > 0) {
+        // 后续小节，追加到上一章
+        chapters[chapters.length - 1].content += '\n\n' + content;
+      }
+      continue;
+    }
+
+    // 使用上一个标题文件留下的标题（如果有）
+    const finalTitle = pendingTitle || chTitle;
+    pendingTitle = null;
+    chapters.push({ title: finalTitle, content });
   }
 
-  // 如果spine没有内容，直接遍历所有xhtml文件
+  // fallback：遍历所有 xhtml（跳过 nav）
   if (!chapters.length) {
     for (const [id, item] of Object.entries(manifest)) {
+      if (navIds.has(id)) continue;
       if (!item.media.includes('html') && !item.href.match(/\.(xhtml|html|htm)$/i)) continue;
       const fullPath = resolveHref(opfDir, item.href);
       const f = zip.file(fullPath) || zip.file(item.href); if (!f) continue;
       const html = await f.async('string');
+      if (/<nav\b[^>]*epub:type="toc"/i.test(html)) continue;
       const text = htmlToText(html);
       if (text.trim().length < 10) continue;
-      const chTitle = html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
+      const filename = item.href.split('/').pop();
+      const chTitle = titleMap[filename]
+                    || html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i)?.[1]?.replace(/<[^>]+>/g,'').trim()
                     || `第${chapters.length+1}章`;
       chapters.push({ title: chTitle, content: text.trim() });
     }
@@ -543,7 +774,10 @@ async function parseEpub(file) {
 
 function htmlToText(html) {
   html = html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'');
-  html = html.replace(/<\/p>/gi,'\n').replace(/<br\s*\/?>/gi,'\n').replace(/<\/div>/gi,'\n').replace(/<\/h[1-6]>/gi,'\n');
+  // 去除 nav 导航块（EPUB3 目录/侧边栏）
+  html = html.replace(/<nav\b[\s\S]*?<\/nav>/gi,'');
+  // 段落/标题结束标签换成双换行，保证 split('\n\n') 能正确切段
+  html = html.replace(/<\/p>/gi,'\n\n').replace(/<\/h[1-6]>/gi,'\n\n').replace(/<br\s*\/?>/gi,'\n').replace(/<\/div>/gi,'\n');
   html = html.replace(/<[^>]+>/g,'');
   html = html.replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(n));
   return html.replace(/\n{3,}/g,'\n\n').trim();
@@ -607,61 +841,96 @@ function renderChapter() {
   content.scrollTop = (curBook.lastScrollTop && curBook.lastChapter === curChapterIdx) ? curBook.lastScrollTop : 0;
   const pct = Math.round((curChapterIdx+1)/curChapters.length*100);
   document.getElementById('footerChap').textContent = ch.title;
-  document.getElementById('progFill').style.width = pct+'%';
   document.getElementById('footerPct').textContent = pct+'%';
+  document.getElementById('btnPrevChap').disabled = curChapterIdx <= 0;
+  document.getElementById('btnNextChap').disabled = curChapterIdx >= curChapters.length - 1;
   content.querySelectorAll('.annotation-mark').forEach(el =>
     el.addEventListener('click', () => openExistingAnn(el.dataset.annId)));
 }
 
 function renderWithAnns(text, anns) {
+  const paras = text.split('\n\n').filter(p => p.trim());
   if (!anns.length)
-    return text.split('\n\n').filter(p=>p.trim()).map(p=>`<p>${esc(p.trim())}</p>`).join('');
-  // 插入占位符（逆序避免偏移）
-  const sorted = [...anns].sort((a,b)=>b.startOffset-a.startOffset);
-  let result = text;
-  for (const a of sorted) {
-    result = result.slice(0,a.startOffset)
-      + `\x01${a.id}\x01`
-      + result.slice(a.startOffset, a.endOffset)
-      + `\x02`
-      + result.slice(a.endOffset);
-  }
-  let html = '';
-  for (const p of result.split('\n\n').filter(p=>p.trim())) {
+    return paras.map(p => `<p>${esc(p.trim())}</p>`).join('');
+  // 直接在每个段落里用 selectedText 文字搜索，不依赖 offset
+  return paras.map(p => {
     let s = esc(p.trim());
-    s = s.replace(/\x01([^\x01]+)\x01/g, (_, id) => {
-      const a = anns.find(x => x.id === id);
-      const cls = a ? (a.note && a.xinye_note ? 'both-ann' : a.xinye_note ? 'xinye-ann' : 'user-ann') : 'user-ann';
-      return `<span class="annotation-mark ${cls}" data-ann-id="${id}">`;
-    });
-    s = s.replace(/\x02/g, '</span>');
-    html += `<p>${s}</p>`;
-  }
-  return html;
+    const sNorm = s.replace(/\s+/g, ' ');
+    // 找在这段出现的批注（空白归一化匹配，解决\n vs 空格不一致问题）
+    const hits = [];
+    for (const a of anns) {
+      if (!a.selectedText) continue;
+      const needle = esc(a.selectedText);
+      const needleNorm = needle.replace(/\s+/g, ' ');
+      const idxNorm = sNorm.indexOf(needleNorm);
+      if (idxNorm < 0) continue;
+      // 把归一化索引映射回原始字符串索引
+      let orig = 0, norm = 0;
+      while (norm < idxNorm && orig < s.length) {
+        if (/\s/.test(s[orig])) {
+          while (orig < s.length && /\s/.test(s[orig])) orig++;
+          norm++;
+        } else { orig++; norm++; }
+      }
+      const startOrig = orig;
+      let endNorm = idxNorm + needleNorm.length;
+      while (norm < endNorm && orig < s.length) {
+        if (/\s/.test(s[orig])) {
+          while (orig < s.length && /\s/.test(s[orig])) orig++;
+          norm++;
+        } else { orig++; norm++; }
+      }
+      hits.push({ idx: startOrig, len: orig - startOrig, a });
+    }
+    // 按出现位置倒序替换，避免偏移
+    hits.sort((x, y) => y.idx - x.idx);
+    for (const { idx, len, a } of hits) {
+      const cls = (a.note && a.xinye_note) ? 'both-ann' : a.xinye_note ? 'xinye-ann' : 'user-ann';
+      s = s.slice(0, idx)
+        + `<span class="annotation-mark ${cls}" data-ann-id="${a.id}">`
+        + s.slice(idx, idx + len)
+        + '</span>'
+        + s.slice(idx + len);
+    }
+    return `<p>${s}</p>`;
+  }).join('');
 }
 
 // ==================== 文字选中 ====================
-function onSelect() {
-  setTimeout(() => {
+// 用 selectionchange 代替 touchend，等用户拖完整段再更新 pendingSel
+let _selTimer = null;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(_selTimer);
+  _selTimer = setTimeout(() => {
     const sel = window.getSelection();
-    let txt = sel ? sel.toString() : '';
-    if (!txt.trim()) return;
-    // 跨段落时截到第一段
-    const firstPara = txt.split(/\n\n+/)[0].trim();
-    txt = firstPara || txt.trim();
+    const rawTxt = sel ? sel.toString() : '';
+    if (!rawTxt.trim()) {
+      // 选区清空了
+      hideSelBar();
+      return;
+    }
+    // 确认选区在阅读内容区域内
+    const readerContent = document.getElementById('readerContent');
+    if (!readerContent || !readerContent.contains(sel.anchorNode)) return;
+    if (!curChapters.length) return;
+
+    const firstParaRaw = (rawTxt.split(/\n\n+/)[0] || rawTxt).replace(/\s+/g, ' ').trim();
+    const locTxt = firstParaRaw;
+    if (!locTxt) return;
     const chContent = curChapters[curChapterIdx]?.content || '';
-    // 宽松查找：规范化空白后再搜索
-    let startOffset = chContent.indexOf(txt);
+    let startOffset = chContent.indexOf(locTxt);
     if (startOffset < 0) {
-      const normalized = txt.replace(/\s+/g, ' ');
-      const normContent = chContent.replace(/\s+/g, ' ');
-      startOffset = normContent.indexOf(normalized);
+      const normContent = chContent.replace(/[ \t]+/g, ' ');
+      startOffset = normContent.indexOf(locTxt);
     }
     if (startOffset < 0) startOffset = 0;
-    pendingSel = { selectedText: txt, startOffset, endOffset: startOffset + txt.length };
+    const fullQuote = rawTxt.replace(/\s+/g, ' ').trim();
+    pendingSel = { selectedText: locTxt, fullQuote, startOffset, endOffset: startOffset + locTxt.length };
     document.getElementById('selBar').classList.add('show');
-  }, 50);
-}
+  }, 300); // 300ms debounce，等用户拖完
+});
+
+function onSelect() {} // 保留空函数，HTML 里的 onmouseup/ontouchend 不影响
 
 function hideSelBar() { document.getElementById('selBar').classList.remove('show'); }
 function clearSel()   { window.getSelection()?.removeAllRanges(); hideSelBar(); pendingSel = null; }
@@ -670,9 +939,10 @@ function clearSel()   { window.getSelection()?.removeAllRanges(); hideSelBar(); 
 function doAnnotate() {
   if (!pendingSel) return;
   editingAnnId = null;
-  document.getElementById('annQuote').textContent = '「' + pendingSel.selectedText + '」';
+  document.getElementById('annQuote').textContent = '「' + (pendingSel.fullQuote || pendingSel.selectedText) + '」';
   document.getElementById('annInput').value = '';
   document.getElementById('btnDelAnn').style.display = 'none';
+  document.getElementById('btnAskFromAnn').style.display = 'none';
   document.getElementById('annModal').classList.add('show');
   hideSelBar();
   setTimeout(() => document.getElementById('annInput').focus(), 300);
@@ -681,20 +951,23 @@ function doAnnotate() {
 function openExistingAnn(annId) {
   const a = curAnns.find(x => x.id === annId); if (!a) return;
   editingAnnId = annId;
-  pendingSel = { selectedText: a.selectedText, startOffset: a.startOffset, endOffset: a.endOffset };
-  document.getElementById('annQuote').textContent = '「' + a.selectedText + '」';
+  pendingSel = { selectedText: a.selectedText, fullQuote: a.fullQuote||a.selectedText, startOffset: a.startOffset, endOffset: a.endOffset };
+  document.getElementById('annQuote').textContent = '「' + (a.fullQuote || a.selectedText) + '」';
   document.getElementById('annInput').value = a.note || '';
   document.getElementById('btnDelAnn').style.display = 'block';
-  // 如果有炘也批注，显示在下方
+  // 如果有炘也批注，显示在 textarea 下方（用户在上，炘也在下）
   const xinyeArea = document.getElementById('annXinyeNote');
   if (xinyeArea) xinyeArea.remove();
   if (a.xinye_note) {
     const div = document.createElement('div');
     div.id = 'annXinyeNote';
-    div.style.cssText = 'background:#f0f7ff;border-radius:12px;padding:10px;font-size:13px;color:#3a3a5a;margin-bottom:12px;line-height:1.8;white-space:pre-wrap';
+    div.className = 'ann-xinye-note';
     div.innerHTML = '💙 炘也：' + esc(a.xinye_note);
-    document.querySelector('.ann-sheet').insertBefore(div, document.getElementById('annInput'));
+    // 插到 textarea 之后、按钮行之前
+    const actions = document.querySelector('#annModal .ann-actions');
+    actions.parentNode.insertBefore(div, actions);
   }
+  document.getElementById('btnAskFromAnn').style.display = 'block';
   document.getElementById('annModal').classList.add('show');
 }
 
@@ -704,12 +977,37 @@ function closeAnn() {
   pendingSel = null; editingAnnId = null;
 }
 
+async function askFromAnnotation() {
+  const note = document.getElementById('annInput').value.trim();
+  // 先保存批注
+  if (pendingSel) {
+    if (editingAnnId) {
+      const a = curAnns.find(x => x.id === editingAnnId);
+      if (a) a.note = note;
+    } else {
+      const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
+        selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
+        endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
+      curAnns.push(newAnn);
+    }
+    await dbPut('annotations', { bookId:curBook.id, list:curAnns });
+    curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
+    renderChapter();
+  }
+  // 手动关弹窗，不用 closeAnn()——closeAnn 会清掉 pendingSel，导致 doAskXinye 失效
+  document.getElementById('annModal').classList.remove('show');
+  document.getElementById('annXinyeNote')?.remove();
+  editingAnnId = null;
+  // pendingSel 保留，给 doAskXinye 用
+  doAskXinye();
+}
+
 async function saveAnn() {
   if (!pendingSel) { alert('没有选中文字，重新选一下'); return; }
   const note = document.getElementById('annInput').value.trim();
   const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
-    selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
-    endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
+    selectedText:pendingSel.selectedText, fullQuote:pendingSel.fullQuote||pendingSel.selectedText,
+    startOffset:pendingSel.startOffset, endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
   if (editingAnnId) {
     const a = curAnns.find(x => x.id === editingAnnId);
     if (a) a.note = note;
@@ -749,13 +1047,20 @@ async function goChapter(idx) {
 // ==================== 发给炘也 ====================
 function sendCurrentToChat() {
   const ch = curChapters[curChapterIdx];
-  const chAnns = curAnns.filter(a => a.chapterIndex === curChapterIdx);
   let msg = `📖《${curBook.title}》${ch.title}\n`;
-  if (chAnns.length) {
-    msg += `\n我的批注：\n`;
-    chAnns.forEach(a => { msg += `\n「${a.selectedText}」\n${a.note||'（无文字）'}\n`; });
+  if (pendingSel) {
+    // 有选中文字，只发那段 + 那段的批注（如果有）
+    const quote = pendingSel.fullQuote || pendingSel.selectedText;
+    msg += `\n我选了这段：\n「${quote}」`;
+    // 找批注：选中文字包含 selectedText，或 selectedText 包含在 quote 里
+    const ann = curAnns.find(a => a.chapterIndex === curChapterIdx &&
+      (a.selectedText === pendingSel.selectedText || quote.includes(a.selectedText)));
+    if (ann?.note) msg += `\n\n我的想法：${ann.note}`;
   } else {
-    msg += '\n（这章我还没有写批注）';
+    // 没选中，只报告批注数量，不全发
+    const chAnns = curAnns.filter(a => a.chapterIndex === curChapterIdx);
+    if (chAnns.length) msg += `\n这章我写了 ${chAnns.length} 条批注，想聊哪段告诉我～`;
+    else msg += '\n（这章我还没有写批注）';
   }
   sendMsg(msg);
 }
@@ -769,25 +1074,39 @@ function doSendSelected() {
 
 function sendMsg(msg) {
   localStorage.setItem('sendToXinye', msg);
-  window.location.href = '炘也.html';
+  const base = window.location.href.replace(/reading\.html.*/, '');
+  const target = window.Capacitor ? base + 'index.html' : base + '炘也.html';
+  window.location.href = target;
 }
 
 // ==================== 导出 ====================
+function _toast(msg, dur) {
+  // 优先用已有 toast，否则临时创建
+  const t = document.getElementById('readingToast') || (() => {
+    const el = document.createElement('div');
+    el.id = 'readingToast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(30,10,20,.88);color:#fff;padding:9px 20px;border-radius:20px;font-size:13px;z-index:9999;transition:opacity .3s;pointer-events:none;white-space:nowrap';
+    document.body.appendChild(el);
+    return el;
+  })();
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.opacity = '0', dur || 2800);
+}
 async function saveFile(content, filename) {
-  if (window.Capacitor?.Plugins?.Filesystem) {
+  // 优先用父页面的 downloadFile（主框架，Capacitor 可靠）
+  if (window.parent !== window && typeof window.parent.downloadFile === 'function') {
     try {
-      const base64 = btoa(unescape(encodeURIComponent(content)));
-      await window.Capacitor.Plugins.Filesystem.writeFile({
-        path: 'Download/' + filename, data: base64,
-        directory: 'EXTERNAL_STORAGE', recursive: true,
-      });
-      alert('已保存到手机 Download 文件夹 💙');
-    } catch(e) { alert('保存失败：' + e.message); }
+      await window.parent.downloadFile(content, filename, 'application/json');
+      _toast('✅ 已保存到 Download 文件夹');
+    } catch(e) {
+      _toast('保存失败：' + (e.message || e));
+    }
     return;
   }
+  // 独立打开时降级：blob 下载
   const blob = new Blob([content], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -804,10 +1123,12 @@ function showPage(id) {
   document.getElementById(id).classList.add('active');
 }
 function goHome() {
-  const base = window.location.href.replace(/reading\.html.*/, '');
-  // APK里炘也.html打包成index.html
-  const target = window.Capacitor ? base + 'index.html' : base + '炘也.html';
-  window.location.href = target;
+  if (window.parent !== window) {
+    window.parent.postMessage('closeOverlay', '*');
+    return;
+  }
+  if (history.length > 1) { history.back(); return; }
+  window.location.href = 'index.html';
 }
 function goShelf() { showPage('shelfPage'); }
 function showLoading(t) { document.getElementById('loadingText').textContent=t; document.getElementById('loadingMask').classList.add('show'); }
@@ -816,12 +1137,13 @@ const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 
 document.getElementById('annModal').addEventListener('click', e => { if(e.target===document.getElementById('annModal')) closeAnn(); });
 document.getElementById('uploadModal').addEventListener('click', e => { if(e.target===document.getElementById('uploadModal')) closeUpload(); });
+document.getElementById('annListModal').addEventListener('click', e => { if(e.target===document.getElementById('annListModal')) closeAnnList(); });
 
 // ==================== 整理进记忆 ====================
 async function archiveToMemory() {
   if (!curBook) return;
   if (!curAnns.length) { alert('这本书还没有批注，先写几条吧～'); return; }
-  if (!confirm(`把《${curBook.title}》的批注整理进记忆档案？`)) return;
+  // confirm在APK里不可用，直接执行
 
   showLoading('炘也整理中…');
   try {
@@ -838,9 +1160,9 @@ async function archiveToMemory() {
     });
     if (!cfg) { hideLoading(); alert('找不到炘也的设置，先打开炘也聊天界面一次再试'); return; }
 
-    const apiKey = cfg.subApiKey || cfg.apiKey;
-    const baseUrl = (cfg.subBaseUrl || cfg.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
-    const model = cfg.subModel || cfg.model || 'claude-sonnet-4-6';
+    const apiKey = cfg.apiKey;
+    const baseUrl = (cfg.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const model = cfg.model || 'claude-sonnet-4-6';
     if (!apiKey) { hideLoading(); alert('没有找到API Key，请在炘也设置里填写'); return; }
 
     // 构建批注摘要
@@ -850,14 +1172,15 @@ async function archiveToMemory() {
 
     const prompt = `兔宝在读《${curBook.title}》${curBook.author?`（${curBook.author}）`:''}，写了以下批注：\n\n${annText}\n\n请用100字以内，以"兔宝读《${curBook.title}》时……"开头，整理成一段适合放进记忆档案的文字。只输出那一段话，不要其他内容。`;
 
-    const resp = await fetch(`${baseUrl}/v1/messages`, {
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model, max_tokens: 300, messages: [{ role:'user', content: prompt }] })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages: [{ role:'user', content: prompt }] })
     });
     if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
     const result = await resp.json();
-    const newMemory = result.content?.[0]?.text?.trim();
+    const newMemory = result.choices?.[0]?.message?.content?.trim();
     if (!newMemory) throw new Error('API 没有返回内容');
 
     // 追加进记忆档案
@@ -881,7 +1204,7 @@ let askReplyText = '';
 function doAskXinye() {
   if (!pendingSel) return;
   askingAnnId = null; askReplyText = '';
-  document.getElementById('askQuote').textContent = '「' + pendingSel.selectedText + '」';
+  document.getElementById('askQuote').textContent = '「' + (pendingSel.fullQuote || pendingSel.selectedText) + '」';
   document.getElementById('askReply').style.display = 'none';
   document.getElementById('askReply').textContent = '';
   document.getElementById('askLoading').style.display = 'none';
@@ -917,21 +1240,24 @@ async function doAsk() {
     const memory = cfg.memoryArchive || '';
 
     const ch = curChapters[curChapterIdx];
-    const userNote = curAnns.find(a => a.startOffset === pendingSel.startOffset)?.note || '';
-    const prompt = `我在读《${curBook.title}》，选了这段文字：\n\n「${pendingSel.selectedText}」\n\n${userNote ? `我的想法：${userNote}\n\n` : ''}你怎么看这段？`;
+    const userNote = curAnns.find(a => a.chapterIndex === curChapterIdx && a.startOffset === pendingSel.startOffset)?.note || '';
+    const quote = pendingSel.fullQuote || pendingSel.selectedText;
+    const prompt = `我在读《${curBook.title}》，选了这段文字：\n\n「${quote}」\n\n${userNote ? `我的想法：${userNote}\n\n` : ''}你怎么看这段？`;
 
     const msgs = [];
+    if (sysPrompt) msgs.push({ role:'system', content: sysPrompt });
     if (memory) msgs.push({ role:'user', content:`【记忆档案】\n${memory}` }, { role:'assistant', content:'好，我记住了。' });
     msgs.push({ role:'user', content: prompt });
 
-    const resp = await fetch(`${baseUrl}/v1/messages`, {
+    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const resp = await fetch(url, {
       method:'POST',
-      headers:{ 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'content-type':'application/json', 'anthropic-dangerous-direct-browser-access':'true' },
-      body: JSON.stringify({ model, max_tokens:400, system: sysPrompt, messages: msgs })
+      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages: msgs, temperature: 0.8 })
     });
     if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
     const result = await resp.json();
-    askReplyText = result.content?.[0]?.text?.trim() || '';
+    askReplyText = result.choices?.[0]?.message?.content?.trim() || '';
     document.getElementById('askLoading').style.display = 'none';
     document.getElementById('askReply').textContent = askReplyText;
     document.getElementById('askReply').style.display = 'block';
@@ -959,6 +1285,60 @@ async function saveAskReply() {
   closeAsk(); clearSel(); renderChapter();
 }
 
+// ==================== 封面自定义 ====================
+const COVER_EMOJIS = ['📘','📗','📕','📙','📒','📔','📓','📚','📖','🔖',
+  '🌸','🌺','🌻','🌹','🍀','🌿','🍁','🌙','⭐','🌈',
+  '🦋','🐱','🐰','🦊','🐼','🐸','🌊','🔥','💎','🎭',
+  '🎨','🎵','🎪','🏰','🌸','💌','🍵','🧸','🪄','✨'];
+
+function menuEditTitle() {
+  const b = books.find(x => x.id === menuBookId);
+  if (!b) { closeBookMenu(); return; }
+  const sheet = document.querySelector('#bookMenuModal .book-menu-sheet');
+  sheet.innerHTML = `
+    <div class="book-menu-title">✏️ 编辑书籍信息</div>
+    <input id="editTitleInput" type="text" value="${esc(b.title)}"
+      style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;outline:none">
+    <input id="editAuthorInput" type="text" value="${esc(b.author||'')}" placeholder="作者（选填）"
+      style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:14px;outline:none">
+    <div class="menu-item" style="font-weight:600;color:var(--pink-deep);text-align:center" onclick="confirmEditTitle('${b.id}')">✓ 保存</div>
+    <div class="menu-item" style="color:#aaa;text-align:center" onclick="closeBookMenu()">取消</div>`;
+  setTimeout(() => document.getElementById('editTitleInput').focus(), 100);
+}
+async function confirmEditTitle(id) {
+  const b = books.find(x => x.id === id);
+  if (!b) { closeBookMenu(); return; }
+  const t = document.getElementById('editTitleInput')?.value.trim();
+  const a = document.getElementById('editAuthorInput')?.value.trim();
+  if (t) b.title = t;
+  b.author = a || '';
+  await dbPut('books', b);
+  closeBookMenu();
+  renderShelf();
+}
+
+function menuChangeCover() {
+  closeBookMenu();
+  const grid = document.getElementById('coverEmojiGrid');
+  grid.innerHTML = COVER_EMOJIS.map(e =>
+    `<button class="cover-emoji-btn" onclick="selectCover('${e}')">${e}</button>`
+  ).join('');
+  document.getElementById('coverModal').classList.add('show');
+}
+
+let _pendingCoverBookId = null;
+
+function closeCoverModal() { document.getElementById('coverModal').classList.remove('show'); }
+
+async function selectCover(emoji) {
+  const b = books.find(x => x.id === _pendingCoverBookId);
+  if (!b) { closeCoverModal(); return; }
+  b.cover = emoji;
+  await dbPut('books', b);
+  closeCoverModal();
+  renderShelf();
+}
+
 // ==================== 书架菜单 ====================
 function openShelfMenu()  { document.getElementById('shelfMenuModal').classList.add('show'); }
 function closeShelfMenu() { document.getElementById('shelfMenuModal').classList.remove('show'); }
@@ -968,11 +1348,11 @@ async function exportAll() {
   closeShelfMenu();
   showLoading('打包中…');
   try {
-    const allBooks    = await dbGetAll('books');
-    const allChapters = await dbGetAll('chapters');
-    const allAnns     = await dbGetAll('annotations');
-    const data = { version: 1, exportedAt: Date.now(), books: allBooks, chapters: allChapters, annotations: allAnns };
-    await saveFile(JSON.stringify(data), '书架全部备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json');
+    const allBooks = await dbGetAll('books');
+    const allAnns  = await dbGetAll('annotations');
+    // 不含章节正文（太大），只备份书目信息和批注
+    const data = { version: 2, exportedAt: Date.now(), books: allBooks, annotations: allAnns };
+    await saveFile(JSON.stringify(data), '书架批注备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json');
   } catch(e) { alert('导出失败：' + e.message); }
   hideLoading();
 }
@@ -981,18 +1361,29 @@ async function exportAll() {
 document.getElementById('importAllInput').onchange = async function() {
   if (!this.files.length) return;
   const file = this.files[0]; this.value = '';
-  if (!confirm('导入会覆盖同名书籍的数据，继续吗？')) return;
+  // confirm在APK里不可用，直接导入
   showLoading('导入中…');
   try {
     const text = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsText(file); });
     const data = JSON.parse(text);
-    if (!data.books) throw new Error('格式不正确');
-    for (const b of data.books)    await dbPut('books', b);
-    for (const c of data.chapters) await dbPut('chapters', c);
-    for (const a of data.annotations) await dbPut('annotations', a);
-    books = await dbGetAll('books');
-    renderShelf();
-    alert('导入成功！共 ' + data.books.length + ' 本书');
+    // 兼容单本格式 {book, chapters, annotations} 和全部格式 {books, annotations}
+    if (data.book) {
+      await dbPut('books', data.book);
+      if (data.chapters) await dbPut('chapters', { bookId: data.book.id, chapters: data.chapters });
+      if (data.annotations) await dbPut('annotations', { bookId: data.book.id, list: data.annotations });
+      books = await dbGetAll('books');
+      renderShelf();
+      alert('导入成功！《' + data.book.title + '》');
+    } else if (data.books) {
+      for (const b of data.books) await dbPut('books', b);
+      if (data.chapters) for (const c of data.chapters) await dbPut('chapters', c);
+      if (data.annotations) for (const a of data.annotations) await dbPut('annotations', a);
+      books = await dbGetAll('books');
+      renderShelf();
+      alert('导入成功！共 ' + data.books.length + ' 本书');
+    } else {
+      throw new Error('格式不正确');
+    }
   } catch(e) { alert('导入失败：' + e.message); }
   hideLoading();
 };
@@ -1007,6 +1398,99 @@ document.getElementById('readerContent').addEventListener('scroll', function() {
     await dbPut('books', curBook);
   }, 500);
 });
+
+// ==================== 批注汇总 ====================
+function openAnnList() {
+  if (!curBook) return;
+  if (!curAnns.length) { alert('这本书还没有批注～'); return; }
+  document.getElementById('annListCount').textContent = curAnns.length + ' 条';
+  // 按章节分组
+  const byChap = {};
+  curAnns.forEach(a => {
+    const k = a.chapterIndex;
+    if (!byChap[k]) byChap[k] = [];
+    byChap[k].push(a);
+  });
+  let html = '';
+  Object.keys(byChap).sort((a,b)=>a-b).forEach(idx => {
+    const chapTitle = curChapters[idx]?.title || `第${+idx+1}章`;
+    html += `<div class="ann-list-chapter">${esc(chapTitle)}</div>`;
+    byChap[idx].forEach(a => {
+      html += `<div class="ann-list-item" onclick="jumpToAnn(${a.chapterIndex},'${a.id}')">
+        <div class="ann-list-quote">${esc(a.fullQuote || a.selectedText)}</div>
+        ${a.note ? `<div class="ann-list-note">${esc(a.note)}</div>` : ''}
+        ${a.xinye_note ? `<div class="ann-list-xinye">💙 ${esc(a.xinye_note)}</div>` : ''}
+      </div>`;
+    });
+  });
+  document.getElementById('annListContent').innerHTML = html;
+  document.getElementById('annListModal').classList.add('show');
+}
+function closeAnnList() { document.getElementById('annListModal').classList.remove('show'); }
+async function jumpToAnn(chapIdx, annId) {
+  closeAnnList();
+  if (chapIdx !== curChapterIdx) {
+    curChapterIdx = chapIdx; curBook.lastChapter = chapIdx; curBook.lastScrollTop = 0;
+    await dbPut('books', curBook);
+    renderChapter();
+  }
+  // 滚动到高亮元素
+  setTimeout(() => {
+    const el = document.querySelector(`[data-ann-id="${annId}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+// ==================== 夜间模式 ====================
+function setDarkUI(isDark) {
+  document.body.classList.toggle('dark', isDark);
+  const icon = isDark ? '☀️' : '🌙';
+  const b1 = document.getElementById('btnDark');
+  const b2 = document.getElementById('btnDarkShelf');
+  if (b1) b1.textContent = icon;
+  if (b2) b2.textContent = icon;
+}
+function toggleDark() {
+  const isDark = !document.body.classList.contains('dark');
+  setDarkUI(isDark);
+  localStorage.setItem('reading_dark', isDark ? '1' : '0');
+}
+
+// ==================== 字体大小 ====================
+function changeFontSize(delta) {
+  const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--font-size')) || 16;
+  const next = Math.min(22, Math.max(12, current + delta * 2));
+  document.documentElement.style.setProperty('--font-size', next + 'px');
+  localStorage.setItem('reading_fs', next);
+}
+
+// ==================== 上一章 / 下一章 ====================
+async function prevChapter() {
+  if (!curChapters.length || curChapterIdx <= 0) return;
+  curChapterIdx--;
+  curBook.lastChapter = curChapterIdx; curBook.lastScrollTop = 0;
+  await dbPut('books', curBook);
+  renderChapter();
+}
+
+async function nextChapter() {
+  if (!curChapters.length || curChapterIdx >= curChapters.length - 1) return;
+  curChapterIdx++;
+  curBook.lastChapter = curChapterIdx; curBook.lastScrollTop = 0;
+  await dbPut('books', curBook);
+  renderChapter();
+}
+
+// ==================== 应用保存的偏好 ====================
+function applyReadingPrefs() {
+  const saved = localStorage.getItem('reading_dark');
+  const dark = saved !== null
+    ? saved === '1'
+    : window.matchMedia('(prefers-color-scheme:dark)').matches;
+  setDarkUI(dark);
+  const fs = parseInt(localStorage.getItem('reading_fs')) || 16;
+  document.documentElement.style.setProperty('--font-size', fs + 'px');
+}
 
 init();
 </script>

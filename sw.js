@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-v1';
+const CACHE_NAME = 'xinye-v2';
 const STATIC_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', e => {
