@@ -221,7 +221,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .btn-copy{
   border:none;background:none;cursor:pointer;
   font-size:12px;padding:0 1px;line-height:1;
-  opacity:.65;transition:all .2s;
+  color:var(--text-light);opacity:.8;transition:all .2s;
 }
 .btn-copy:active{opacity:1;transform:scale(1.2)}
 
@@ -229,7 +229,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .btn-tts{
   border:none;background:none;cursor:pointer;
   font-size:14px;padding:0 1px;line-height:1;
-  opacity:.75;transition:all .2s;
+  color:var(--text-light);opacity:.8;transition:all .2s;
 }
 .btn-tts:hover{opacity:1;transform:scale(1.2)}
 .btn-tts.playing{opacity:1;animation:ttsPlay .8s ease-in-out infinite}
@@ -239,10 +239,10 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .btn-tts-dl{
   border:none;background:none;cursor:pointer;
   font-size:12px;padding:0 1px;line-height:1;
-  opacity:.5;transition:all .2s;color:var(--text-light);
+  color:var(--text-light);opacity:.8;transition:all .2s;
 }
 .btn-tts-dl:hover{opacity:1;transform:scale(1.15)}
-.btn-tts-dl.cached{opacity:.8;color:#4caf50}
+.btn-tts-dl.cached{opacity:.9;color:#4caf50}
 
 /* 正在输入 */
 .typing-indicator{display:none;align-self:flex-start;padding:0 16px}
@@ -274,7 +274,8 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   display:flex;flex-direction:column;gap:6px;
 }
 .input-main-row{display:flex;gap:10px;align-items:flex-end;}
-.input-tools-row{display:flex;gap:8px;align-items:center;}
+.input-tools-row{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+.input-tools-row::-webkit-scrollbar{display:none}
 .input-area textarea{
   width:100%;border:0.5px solid rgba(255,255,255,.6);border-radius:var(--radius);
   padding:12px 14px;font-size:15px;font-family:inherit;
@@ -521,14 +522,120 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   display:flex;align-items:center;justify-content:center;line-height:1;
 }
 .btn-img{
-  height:30px;padding:0 10px;border:none;border-radius:15px;
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
   background:rgba(255,255,255,.55);color:var(--text-light);
-  font-size:12px;cursor:pointer;flex-shrink:0;
-  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;
+  font-size:15px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
   border:0.5px solid rgba(255,255,255,.6);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
 }
 .btn-img:hover{background:var(--pink-light);color:var(--pink-deep)}
+/* ---- 亲嘴按钮 ---- */
+.btn-kiss{
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
+  background:rgba(252,228,236,.8);color:#e91e63;
+  font-size:17px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid var(--pink);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-kiss:hover{background:var(--pink);transform:scale(1.1)}
+.btn-kiss:active{transform:scale(.88)}
+/* ---- RP模式按钮 ---- */
+.btn-rp{
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
+  background:rgba(255,255,255,.55);color:var(--text-light);
+  font-size:15px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid rgba(255,255,255,.6);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-rp:hover{background:var(--pink-light);color:#9c27b0}
+.btn-rp.active{
+  background:linear-gradient(135deg,#f3e5f5,#e1bee7);
+  color:#9c27b0;border-color:#ce93d8;
+  box-shadow:0 0 8px rgba(156,39,176,.3);
+}
+[data-theme="dark"] .btn-rp{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
+[data-theme="dark"] .btn-rp.active{background:rgba(80,40,100,.8);color:#ce93d8;border-color:#9c27b0}
+/* ---- RP面板 ---- */
+.rp-panel{
+  display:none;flex-direction:column;gap:10px;
+  padding:12px 16px 10px;
+  background:rgba(243,229,245,.85);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  border-top:1.5px solid rgba(206,147,216,.5);
+  border-bottom:0.5px solid rgba(206,147,216,.3);
+  animation:slideUpRp .22s ease;
+}
+.rp-panel.show{display:flex}
+@keyframes slideUpRp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.rp-panel-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rp-panel-title{font-size:13px;font-weight:700;color:#7b1fa2;display:flex;align-items:center;gap:5px}
+.rp-panel-title .rp-active-dot{
+  width:7px;height:7px;border-radius:50%;background:#9c27b0;
+  display:none;animation:rpDotPulse 1.8s infinite;
+}
+.rp-panel-title .rp-active-dot.on{display:inline-block}
+@keyframes rpDotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.7)}}
+.rp-toggle-btn{
+  padding:4px 14px;border:none;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:all .18s;
+}
+.rp-toggle-btn.off{background:#e1bee7;color:#7b1fa2}
+.rp-toggle-btn.on{background:linear-gradient(135deg,#9c27b0,#7b1fa2);color:#fff;box-shadow:0 2px 8px rgba(123,31,162,.3)}
+.rp-panel textarea{
+  width:100%;border:1.5px solid #ce93d8;border-radius:12px;
+  padding:10px 12px;font-size:13px;font-family:inherit;
+  background:rgba(255,255,255,.7);color:var(--text);outline:none;
+  resize:none;min-height:80px;max-height:160px;line-height:1.6;
+  transition:border-color .2s;
+}
+.rp-panel textarea:focus{border-color:#9c27b0}
+.rp-panel-presets{display:flex;gap:6px;align-items:center}
+.rp-panel-presets select{
+  flex:1;padding:6px 8px;border:1.5px solid #ce93d8;border-radius:10px;
+  font-size:12px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none;
+}
+.rp-preset-btn{
+  padding:5px 10px;border:none;border-radius:10px;font-size:12px;font-family:inherit;cursor:pointer;
+  font-weight:600;transition:all .18s;white-space:nowrap;
+}
+.rp-preset-save{background:#ce93d8;color:#fff}
+.rp-preset-save:hover{background:#9c27b0}
+.rp-preset-del{background:#ffebee;color:#e57373;border:1px solid #ffcdd2}
+.rp-preset-del:hover{background:#ffcdd2}
+.rp-panel-hint{font-size:11px;color:#9e6aae;line-height:1.5}
+[data-theme="dark"] .rp-panel{background:rgba(40,20,60,.85);border-top-color:rgba(156,39,176,.4);border-bottom-color:rgba(156,39,176,.2)}
+[data-theme="dark"] .rp-panel textarea{background:rgba(50,30,70,.7);color:var(--text);border-color:#7b1fa2}
+[data-theme="dark"] .rp-panel-presets select{background:rgba(50,30,70,.7);color:var(--text);border-color:#7b1fa2}
+[data-theme="dark"] .rp-panel input[type="text"],
+[data-theme="dark"] .rp-panel input:not([type]){
+  background:rgba(50,30,70,.7) !important;color:var(--text) !important;border-color:#7b1fa2 !important;
+}
+/* ---- RP激活时header状态提示 ---- */
+.rp-status-badge{
+  display:none;padding:2px 8px;border-radius:10px;font-size:11px;
+  background:linear-gradient(135deg,#f3e5f5,#e1bee7);color:#7b1fa2;
+  border:1px solid #ce93d8;font-weight:600;vertical-align:middle;margin-left:6px;
+}
+.rp-status-badge.show{display:inline-block}
+/* ---- 亲嘴粒子飘动动画（双层：X摆动 + Y上升渐隐） ---- */
+.kiss-wrap{position:fixed;pointer-events:none;z-index:9999;animation:kissFloatX var(--dur,1.6s) ease-in-out var(--delay,0s) both}
+.kiss-inner{animation:kissFloatY var(--dur,1.6s) ease-out var(--delay,0s) both}
+@keyframes kissFloatX{
+  0%{transform:translateX(0)}
+  40%{transform:translateX(calc(var(--drift,20px)*.6))}
+  70%{transform:translateX(calc(var(--drift,20px)*.3))}
+  100%{transform:translateX(var(--drift,20px))}
+}
+@keyframes kissFloatY{
+  0%{opacity:1;transform:translateY(0) scale(1) rotate(0deg)}
+  30%{opacity:.9}
+  75%{opacity:.25;transform:translateY(-150px) scale(.75) rotate(var(--rot,15deg))}
+  100%{opacity:0;transform:translateY(-200px) scale(.3) rotate(var(--rot,15deg))}
+}
 .msg-bubble img.bubble-img{
   max-width:240px;max-height:180px;border-radius:10px;
   margin-top:6px;display:block;cursor:pointer;
@@ -555,6 +662,8 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 [data-theme="dark"] .input-area textarea{background:rgba(36,26,46,.6);color:var(--text);border-color:rgba(255,255,255,.15)}
 [data-theme="dark"] .input-area textarea::placeholder{color:#7a5878}
 [data-theme="dark"] .btn-img{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
+[data-theme="dark"] .btn-kiss{background:rgba(80,30,60,.7);color:#f48fb1;border-color:rgba(244,143,177,.4)}
+[data-theme="dark"] .btn-kiss:hover{background:rgba(233,30,99,.4)}
 [data-theme="dark"] .btn-search{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
 [data-theme="dark"] .btn-diary{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
 
@@ -854,6 +963,31 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/vconsole@3/dist/vconsole.min.js"></script>
+<script>
+  window._vConsole = new VConsole({ theme: 'dark' });
+  window._vConsole.setSwitchPosition(window.innerWidth / 2, 0);
+</script>
+<style>
+  #__vconsole .vc-switch {
+    top: 0 !important;
+    bottom: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    border-radius: 0 0 10px 10px !important;
+    background: var(--warm-bg, #fff0f3) !important;
+    color: var(--text-light, #bbb) !important;
+    font-size: 10px !important;
+    padding: 2px 12px !important;
+    height: auto !important;
+    width: auto !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08) !important;
+    border: none !important;
+    opacity: 0.5;
+  }
+  #__vconsole .vc-switch:active { opacity: 1; }
+</style>
 </head>
 <body>
 
@@ -879,12 +1013,12 @@ if('serviceWorker' in navigator){
       <img class="header-avatar" id="headerAvatar" src="" alt="">
       <div>
         <div class="header-name" id="headerName">炘也</div>
-        <div class="header-status" id="headerStatus">在一起第 … 天 · 今日 … 条</div>
+        <div class="header-status" id="headerStatus">在一起第 … 天 · 今日 … 条<span class="rp-status-badge" id="rpStatusBadge">🎭 RP中</span></div>
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn-icon" id="btnDark" title="暗夜模式">🌙</button>
-      <button class="btn-icon" id="btnSettings" title="设置">⚙️</button>
+      <button class="btn-icon" id="btnDark" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
+      <button class="btn-icon" id="btnSettings" title="设置"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2.8" fill="currentColor" opacity="0.4"/><circle cx="12" cy="5" r="2" fill="currentColor" opacity="0.45"/><circle cx="12" cy="19" r="2" fill="currentColor" opacity="0.45"/><circle cx="5" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="19" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="7.05" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="7.05" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/></svg></button>
     </div>
     <!-- 隐藏但保留功能的按钮 -->
     <div style="display:none">
@@ -910,6 +1044,58 @@ if('serviceWorker' in navigator){
     <div class="typing-dots"><span></span><span></span><span></span></div>
   </div>
 
+  <!-- RP面板 -->
+  <div class="rp-panel" id="rpPanel">
+    <div class="rp-panel-header">
+      <div class="rp-panel-title">
+        🎭 RP模式
+        <span class="rp-active-dot" id="rpActiveDot"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="rp-toggle-btn off" id="rpToggleBtn" onclick="toggleRpActive()">未开启</button>
+        <button style="width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,.08);color:#9e6aae;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeRpPanel()" title="收起">✕</button>
+      </div>
+    </div>
+    <!-- 角色身份行：TA的角色 -->
+    <div style="font-size:11px;color:#9e6aae;font-weight:600;margin-bottom:-4px">TA的角色</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="position:relative;flex-shrink:0">
+        <img id="rpCharAvatar" src="" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #ce93d8;cursor:pointer;display:none" onclick="document.getElementById('rpAvatarInput').click()" title="点击换头像">
+        <div id="rpCharAvatarPlaceholder" onclick="document.getElementById('rpAvatarInput').click()" style="width:38px;height:38px;border-radius:50%;border:2px dashed #ce93d8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.4)" title="上传头像">🎭</div>
+        <input type="file" id="rpAvatarInput" accept="image/*" style="display:none" onchange="handleRpAvatarUpload(this)">
+      </div>
+      <input type="text" id="rpCharName" placeholder="角色名（不填则保持炘也）" value=""
+        style="flex:1;padding:7px 12px;border:1.5px solid #ce93d8;border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none"
+        oninput="saveRpCharInfo()">
+      <button onclick="clearRpAvatar()" style="padding:5px 8px;border:none;border-radius:8px;background:rgba(0,0,0,.08);color:#9e6aae;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap">清除</button>
+    </div>
+    <!-- 我的角色行 -->
+    <div style="font-size:11px;color:#9e6aae;font-weight:600;margin-bottom:-4px">我的角色</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="position:relative;flex-shrink:0">
+        <img id="rpUserAvatar" src="" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #ce93d8;cursor:pointer;display:none" onclick="document.getElementById('rpUserAvatarInput').click()" title="点击换头像">
+        <div id="rpUserAvatarPlaceholder" onclick="document.getElementById('rpUserAvatarInput').click()" style="width:38px;height:38px;border-radius:50%;border:2px dashed #ce93d8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.4)" title="上传头像">👤</div>
+        <input type="file" id="rpUserAvatarInput" accept="image/*" style="display:none" onchange="handleRpUserAvatarUpload(this)">
+      </div>
+      <input type="text" id="rpUserName" placeholder="我的角色名（会告知AI，不填则不设定）" value=""
+        style="flex:1;padding:7px 12px;border:1.5px solid #ce93d8;border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none"
+        oninput="saveRpCharInfo()">
+      <button onclick="clearRpUserAvatar()" style="padding:5px 8px;border:none;border-radius:8px;background:rgba(0,0,0,.08);color:#9e6aae;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap">清除</button>
+    </div>
+    <textarea id="rpPromptInput" placeholder="写RP场景设定…&#10;比如：「现在是中世纪奇幻世界，你扮演一个神秘的黑袍魔法师，我是误入魔法塔的旅人……」" oninput="saveRpPrompt()"></textarea>
+    <div class="rp-panel-presets">
+      <select id="rpPresetSelect" onchange="loadRpPreset()">
+        <option value="">— 选择保存的预设 —</option>
+      </select>
+      <button class="rp-preset-btn rp-preset-del" onclick="deleteRpPreset()">删除</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="rpPresetNameInput" placeholder="预设名称…" style="flex:1;padding:6px 10px;border:1.5px solid #ce93d8;border-radius:10px;font-size:12px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none">
+      <button class="rp-preset-btn rp-preset-save" onclick="saveRpPreset()">保存预设</button>
+    </div>
+    <div class="rp-panel-hint">💡 开启后只用角色卡，记忆档案和炘也人设完全隔离。关闭即恢复正常聊天。</div>
+  </div>
+
   <!-- 输入区 -->
   <div class="input-area">
     <div class="input-main-row">
@@ -922,10 +1108,12 @@ if('serviceWorker' in navigator){
       <button class="btn-send" id="btnSend" title="发送">➤</button>
     </div>
     <div class="input-tools-row">
-      <button class="btn-img" id="btnQuickNote" onclick="quickNoteOpen()" title="随手记">✍️ 随手记</button>
-      <button class="btn-img" id="btnSticker" onclick="openStickerPanel()" title="发贴纸">🎭 贴纸</button>
-      <button class="btn-img" id="btnImg" title="发送图片给 AI 看">🖼 上传图片</button>
-      <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送">🔍 联网搜索</button>
+      <button class="btn-img" id="btnQuickNote" onclick="quickNoteOpen()" title="随手记" style="width:40px;height:40px;border-radius:13px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+      <button class="btn-img" id="btnSticker" onclick="openStickerPanel()" title="发贴纸"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.3L12 17l-6.2 4.2 2.4-7.3L2 9.4h7.6z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+      <button class="btn-img" id="btnImg" title="发送图片给 AI 看"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" opacity="0.6"/><path d="M3 17l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <button class="btn-rp" id="btnRp" onclick="openRpPanel()" title="RP模式">🎭</button>
+      <button class="btn-kiss" id="btnKiss" onclick="sendKiss()" title="亲亲炘也"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="currentColor" opacity=".4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
 </div>
@@ -947,10 +1135,10 @@ if('serviceWorker' in navigator){
   </div>
   <!-- TAB 导航 -->
   <div class="settings-tabs">
-    <button class="settings-tab active" data-tab="api">💬 API</button>
-    <button class="settings-tab" data-tab="memory">🧠 记忆</button>
-    <button class="settings-tab" data-tab="appearance">🎨 外观</button>
-    <button class="settings-tab" data-tab="other">⚙️ 其他</button>
+    <button class="settings-tab active" data-tab="api"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><circle cx="8" cy="12" r="5" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M13 12h8M18 10v4M21 10.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> API</button>
+    <button class="settings-tab" data-tab="memory"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> 记忆</button>
+    <button class="settings-tab" data-tab="appearance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.1 0 2-.9 2-2 0-.52-.2-1-.5-1.36-.29-.35-.47-.82-.47-1.32 0-1.1.9-2 2-2h2.35C19.9 15.32 22 13.83 22 12c0-5.52-4.48-10-10-10z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.3" fill="currentColor"/><circle cx="11.5" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="9" r="1.3" fill="currentColor"/></svg> 外观</button>
+    <button class="settings-tab" data-tab="other"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="4.5" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="12" cy="19.5" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="4.5" cy="12" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="19.5" cy="12" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="6.8" cy="6.8" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="17.2" cy="6.8" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="6.8" cy="17.2" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="17.2" cy="17.2" r="1.5" fill="currentColor" opacity="0.35"/></svg> 其他</button>
   </div>
   <div class="settings-body">
     <!-- ===== TAB: API ===== -->
@@ -1020,6 +1208,58 @@ if('serviceWorker' in navigator){
       <label>模型（副）</label>
       <input type="text" id="setSubModel" placeholder="留空则用主模型">
     </div>
+    <div class="setting-divider">🔮 Embedding API（记忆向量检索）</div>
+    <div class="setting-group">
+      <label>Embedding API Key</label>
+      <input type="password" id="setEmbeddingApiKey" placeholder="留空则用主 API Key（需支持 /embeddings 接口）">
+      <div class="hint">用于把记忆转成向量做语义检索，支持 OpenAI text-embedding-3-small。留空则自动用主API试，不支持时降级为关键词匹配。</div>
+    </div>
+    <div class="setting-group">
+      <label>Embedding API URL</label>
+      <input type="url" id="setEmbeddingBaseUrl" placeholder="留空则用主 API URL">
+    </div>
+    <div class="setting-group">
+      <label>Embedding 模型名</label>
+      <input type="text" id="setEmbeddingModel" placeholder="text-embedding-3-small">
+      <div class="hint">GLM 用 embedding-3（URL填 https://open.bigmodel.cn/api/paas/v4/）；OpenAI 用 text-embedding-3-small；留空默认 text-embedding-3-small</div>
+    </div>
+    <div class="setting-group">
+      <button id="btnTestEmbedding" onclick="testEmbeddingApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试 Embedding 连接</button>
+      <div id="embeddingTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
+    </div>
+    <div class="setting-divider">👁️ 识图 API（图片先转文字再发主模型）</div>
+    <div class="setting-group">
+      <label>预设</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="visionPresetSelect" style="flex:1;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)">
+          <option value="">— 选择预设 —</option>
+        </select>
+        <button type="button" id="btnLoadVisionPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活</button>
+        <button type="button" id="btnDelVisionPreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="visionPresetName" placeholder="预设名称（如：GLM-4.6V / Gemini Flash）" style="flex:1">
+        <button type="button" id="btnSaveVisionPreset" style="padding:8px 12px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">保存当前</button>
+      </div>
+      <div class="hint">激活后填入下方字段，点「保存设置」生效</div>
+    </div>
+    <div class="setting-group">
+      <label>识图 API Key</label>
+      <input type="password" id="setVisionApiKey" placeholder="留空则直接发图给主模型（原逻辑）">
+      <div class="hint">发图时先用便宜视觉模型描述成文字，主模型只收文字。描述会保留在历史记录里，之后几轮也能引用。</div>
+    </div>
+    <div class="setting-group">
+      <label>识图 API URL</label>
+      <input type="url" id="setVisionBaseUrl" placeholder="https://api.siliconflow.cn/v1">
+    </div>
+    <div class="setting-group">
+      <label>识图模型名</label>
+      <input type="text" id="setVisionModel" placeholder="zai-org/GLM-4.6V">
+    </div>
+    <div class="setting-group">
+      <button id="btnTestVision" onclick="testVisionApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试识图连接</button>
+      <div id="visionTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
+    </div>
     <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
       <input type="number" id="setContextCount" min="1" max="200" value="20">
@@ -1055,6 +1295,11 @@ if('serviceWorker' in navigator){
       <input type="number" id="setSearchCount" min="1" max="10" step="1" placeholder="5">
       <div class="hint">每次搜索拿几条结果，最多10条（越多消耗token越多）</div>
     </div>
+    <div class="setting-group">
+      <label>论坛代理地址（手机访问不到论坛时填）</label>
+      <input type="text" id="setForumProxy" placeholder="留空=直连，填代理如 https://xxx.koyeb.app/forum-proxy">
+      <div class="hint">手机网络直连 daskio.de5.net 失败时，可填一个中转代理 URL</div>
+    </div>
     <div class="setting-divider">🛰️ 站子检测</div>
     <div class="setting-group">
       <button type="button" id="btnOpenChecker" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-light),#e8f5e9);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">🛰️ 打开站子检测面板</button>
@@ -1083,6 +1328,7 @@ if('serviceWorker' in navigator){
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">🕒 近期记忆</div>
           <div id="memoryRecentList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
+        <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
       </div>
     </div>
@@ -1367,12 +1613,12 @@ if('serviceWorker' in navigator){
       <span>🛰️ 站子检测</span>
       <button class="btn-close" id="btnCloseChecker">✕</button>
     </div>
+    <div style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <button id="btnCheckerSelectAll" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">全选</button>
+      <button id="btnCheckerSelectNone" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">取消全选</button>
+      <button id="btnRunCheck" class="btn-primary" style="flex:2;font-size:13px;padding:7px">▶ 开始检测</button>
+    </div>
     <div class="modal-body" style="padding:16px;max-height:60vh;overflow-y:auto">
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button id="btnCheckerSelectAll" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">全选</button>
-        <button id="btnCheckerSelectNone" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">取消全选</button>
-        <button id="btnRunCheck" class="btn-primary" style="flex:2;font-size:13px;padding:7px">▶ 开始检测</button>
-      </div>
       <div id="checkerList" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
@@ -1441,13 +1687,13 @@ if('serviceWorker' in navigator){
 <!-- 底部 Tab 栏 -->
 <nav class="bottom-tabs" id="bottomTabs">
   <button class="tab-btn active" id="tab-chat" onclick="switchTab('chat')">
-    <span class="tab-icon">💬</span>聊天
+    <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><ellipse cx="8.5" cy="4.5" rx="2" ry="3.2" fill="currentColor" opacity="0.5"/><ellipse cx="15.5" cy="4.5" rx="2" ry="3.2" fill="currentColor" opacity="0.5"/><circle cx="12" cy="14" r="7" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><circle cx="9.5" cy="13.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="13.5" r="1.1" fill="currentColor"/><path d="M9.5 16.5q2.5 1.5 5 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></span>聊天
   </button>
   <button class="tab-btn" id="tab-diary" onclick="switchTab('diary')">
-    <span class="tab-icon">📓</span>日记
+    <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2.5" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="16" x2="12" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.5" fill="currentColor" opacity="0.4"/><path d="M14.8 16l1 1.2 1.8-2" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg></span>日记
   </button>
   <button class="tab-btn" id="tab-reading" onclick="switchTab('reading')">
-    <span class="tab-icon">📚</span>共读
+    <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V7a2 2 0 012-2h5v14H6a2 2 0 01-2-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M20 19V7a2 2 0 00-2-2h-5v14h5a2 2 0 002-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M11 5q1-2 2 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>共读
   </button>
 </nav>
 
@@ -1469,7 +1715,7 @@ const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns
 
 // ======================== IndexedDB 封装 ========================
 const DB_NAME = 'XinyeChatDB';
-const DB_VER = 2;
+const DB_VER = 3;
 let db = null;
 
 function openDB() {
@@ -1481,7 +1727,8 @@ function openDB() {
       if (!d.objectStoreNames.contains('messages')) d.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
       if (!d.objectStoreNames.contains('images'))   d.createObjectStore('images');
       if (!d.objectStoreNames.contains('stickers'))  d.createObjectStore('stickers', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('ttsCache'))   d.createObjectStore('ttsCache');
+      if (!d.objectStoreNames.contains('ttsCache'))    d.createObjectStore('ttsCache');
+      if (!d.objectStoreNames.contains('rpMessages'))  d.createObjectStore('rpMessages', { keyPath: 'id', autoIncrement: true });
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
     req.onerror = (e) => reject(e.target.error);
@@ -1535,6 +1782,28 @@ function dbGetRecent(store, count) {
   });
 }
 
+// 从尾部读最近 count 条，只返回满足 filterFn 的记录（遍历全部直到凑够 count 条）
+function dbGetRecentFiltered(store, count, filterFn) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const results = [];
+    const req = tx.objectStore(store).openCursor(null, 'prev');
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (filterFn(cursor.value)) {
+          results.unshift(cursor.value);
+          if (results.length >= count) { resolve(results); return; }
+        }
+        cursor.continue();
+      } else {
+        resolve(results);
+      }
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
 function dbDelete(store, key) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
@@ -1566,6 +1835,8 @@ function dbGetAllKeys(store) {
 let settings = {
   apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetName: '', model: 'gpt-4o',
   subApiKey: '', subBaseUrl: '', subFallbackPresetName: '', subModel: '',
+  embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
+  visionApiKey: '', visionBaseUrl: '', visionModel: '',
   contextCount: 20, systemPrompt: '', shortReply: false,
   aiName: '炘也', userName: '涂涂',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
@@ -1585,6 +1856,7 @@ let settings = {
   braveKey: '',
   searchDays: 3,
   searchCount: 5,
+  forumProxy: '',
   moodState: null,   // { mood, topics, note, ts } — 每次对话结束后自动更新
   memoryBank: null,
 };
@@ -1651,9 +1923,10 @@ function nowStr() {
 }
 
 const MEMORY_RECENT_DAYS = 30;
-const MEMORY_RECENT_LIMIT = 12;
+const MEMORY_RECENT_LIMIT = 50;   // RAG模式下池子可以大很多
 const MEMORY_PINNED_LIMIT = 8;
-const MEMORY_ARCHIVE_LIMIT = 80;
+const MEMORY_ARCHIVE_LIMIT = 150;
+const MEMORY_RAG_INJECT = 8;      // 每次最多注入几条相关记忆
 
 function stripThinkingTags(text) {
   return String(text || '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
@@ -1678,6 +1951,9 @@ function normalizeMemoryEntry(entry, kind = 'recent') {
     source: entry.source || 'auto',
     emotion: entry.emotion || '',
     weight: Number(entry.weight || 0),
+    accessCount: Number(entry.accessCount || 0),
+    lastAccessedAt: Number(entry.lastAccessedAt || 0),
+    embedding: Array.isArray(entry.embedding) ? entry.embedding : null,
   };
 }
 
@@ -1690,6 +1966,7 @@ function ensureMemoryBank(raw) {
     archived: Array.isArray(bank.archived) ? bank.archived.map(item => normalizeMemoryEntry(item, 'archived')).filter(Boolean) : [],
     lastDigestAt: bank.lastDigestAt || 0,
     lastProcessedIndex: typeof bank.lastProcessedIndex === 'number' ? bank.lastProcessedIndex : -1,
+    lastAutoExtractAt: bank.lastAutoExtractAt || 0,
   };
 }
 
@@ -1752,27 +2029,301 @@ function archiveMemoryBank(bank) {
     seen.add(item.content);
     return true;
   }).slice(0, MEMORY_ARCHIVE_LIMIT);
+  // 记忆衰减：每次整理时顺手清理过时的低权重记忆
+  decayMemories(bank);
   return bank;
 }
 
-function getMemoryContextBlocks() {
+// ── 余弦相似度 ───────────────────────────────────────────────────────────────
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom > 0 ? dot / denom : 0;
+}
+
+// ── bigram相似度（仅用于去重判断，不用于检索） ───────────────────────────────
+function memorySimilarity(a, b) {
+  const sa = (a || '').replace(/\s/g, '');
+  const sb = (b || '').replace(/\s/g, '');
+  if (!sa || !sb || sa.length < 2 || sb.length < 2) return 0;
+  const bigramsA = new Set();
+  for (let i = 0; i < sa.length - 1; i++) bigramsA.add(sa.slice(i, i + 2));
+  let hits = 0, total = bigramsA.size;
+  for (let i = 0; i < sb.length - 1; i++) {
+    const bg = sb.slice(i, i + 2);
+    if (bigramsA.has(bg)) hits++;
+    else total++;
+  }
+  return total > 0 ? hits / total : 0;
+}
+
+// ── 获取文本的向量嵌入 ───────────────────────────────────────────────────────
+// 优先用专用 embedding API，没配则用主API，都不行降级bigram
+async function getEmbedding(text) {
+  try {
+    const eKey = settings.embeddingApiKey || settings.apiKey;
+    if (!eKey) return null;
+    const eBase = (settings.embeddingBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
+    const model = settings.embeddingModel || 'text-embedding-3-small';
+    const res = await fetch(`${eBase}/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${eKey}` },
+      body: JSON.stringify({ model, input: text.slice(0, 500), encoding_format: 'float' })
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => res.status);
+      console.warn(`[Embedding] API返回错误 ${res.status}，降级bigram。响应：`, err);
+      return null;
+    }
+    const data = await res.json();
+    const vec = data?.data?.[0]?.embedding;
+    if (!vec) { console.warn('[Embedding] 响应里没有向量数据，降级bigram'); return null; }
+    return vec;
+  } catch(e) {
+    console.warn('[Embedding] 网络异常，降级bigram：', e.message);
+    return null;
+  }
+}
+
+// ── 识图 API：把图片描述成文字，存入消息记录 ─────────────────────────────────
+async function describeImagesWithVision(images) {
+  const key = settings.visionApiKey;
+  if (!key) return null;
+  const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
+  const model = settings.visionModel || 'zai-org/GLM-4.6V';
+  const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+  const nums = ['', '①', '②', '③', '④', '⑤'];
+  const descs = [];
+  for (let i = 0; i < images.length; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: images[i] } },
+            { type: 'text', text: '请详细描述这张图片的内容，包括：主要对象、颜色、文字（如有请完整转录）、氛围和背景。控制在200字以内。' }
+          ]}],
+          max_tokens: 400,
+          stream: false
+        })
+      });
+      if (!res.ok) { descs.push(null); continue; }
+      const data = await res.json();
+      console.log('[vision] raw response:', JSON.stringify(data));
+      const desc = data?.choices?.[0]?.message?.content?.trim() || null;
+      descs.push(desc);
+    } catch (e) {
+      descs.push(null);
+    }
+  }
+  return descs;
+}
+
+// ── 测试 embedding 连接 ───────────────────────────────────────────────────────
+async function testEmbeddingApi() {
+  const btn = $('#btnTestEmbedding');
+  const result = $('#embeddingTestResult');
+  // 先把当前填的值临时写入 settings
+  settings.embeddingApiKey = $('#setEmbeddingApiKey').value.trim();
+  settings.embeddingBaseUrl = $('#setEmbeddingBaseUrl').value.trim();
+  settings.embeddingModel = $('#setEmbeddingModel').value.trim();
+  btn.disabled = true; btn.textContent = '测试中…';
+  result.style.display = 'block';
+  result.style.color = 'var(--text-light)';
+  result.textContent = '正在调用 embedding API…';
+  const vec = await getEmbedding('测试');
+  btn.disabled = false; btn.textContent = '测试 Embedding 连接';
+  if (vec && vec.length > 0) {
+    result.style.color = '#4caf50';
+    result.textContent = `✅ 成功！返回向量维度：${vec.length}，模型：${settings.embeddingModel || 'text-embedding-3-small'}。记忆检索将使用向量语义匹配。`;
+  } else {
+    result.style.color = '#e57373';
+    result.textContent = `❌ 失败，将降级使用关键词匹配。请检查：Key是否正确、URL是否支持 /embeddings 接口、模型名是否正确。详见控制台（F12）。`;
+  }
+}
+
+// ── 测试识图 API 连接 ──────────────────────────────────────────────────────────
+async function testVisionApi() {
+  const btn = $('#btnTestVision');
+  const result = $('#visionTestResult');
+  settings.visionApiKey = $('#setVisionApiKey').value.trim();
+  settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
+  settings.visionModel = $('#setVisionModel').value.trim();
+  if (!settings.visionApiKey) {
+    result.style.display = 'block'; result.style.color = '#e57373';
+    result.textContent = '❌ 请先填写识图 API Key。'; return;
+  }
+  btn.disabled = true; btn.textContent = '测试中…';
+  result.style.display = 'block'; result.style.color = 'var(--text-light)';
+  result.textContent = '正在连接…';
+  // 用 canvas 动态生成测试图（100x100，白底红字，避免太小被拒）
+  const _c = document.createElement('canvas'); _c.width = 100; _c.height = 100;
+  const _ctx = _c.getContext('2d');
+  _ctx.fillStyle = '#ffffff'; _ctx.fillRect(0, 0, 100, 100);
+  _ctx.fillStyle = '#e91e63'; _ctx.font = 'bold 20px sans-serif';
+  _ctx.fillText('TEST', 25, 55);
+  const testImg = _c.toDataURL('image/jpeg', 0.9);
+  const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
+  const model = settings.visionModel || 'zai-org/GLM-4.6V';
+  const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.visionApiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: testImg } },
+          { type: 'text', text: '这张图片是什么颜色？一句话回答。' }
+        ]}],
+        max_tokens: 200,
+        stream: false
+      })
+    });
+    const data = await res.json();
+    btn.disabled = false; btn.textContent = '测试识图连接';
+    if (!res.ok) {
+      result.style.color = '#e57373';
+      result.textContent = `❌ HTTP ${res.status}：${data?.error?.message || JSON.stringify(data)}`;
+    } else {
+      const desc = data?.choices?.[0]?.message?.content?.trim();
+      if (desc) {
+        result.style.color = '#4caf50';
+        result.textContent = `✅ 成功！模型：${model}，返回：${desc}`;
+        saveSettings();
+      } else {
+        result.style.color = '#e57373';
+        result.textContent = `❌ 请求成功但无内容返回：${JSON.stringify(data)}`;
+      }
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '测试识图连接';
+    result.style.color = '#e57373';
+    result.textContent = `❌ 网络错误：${e.message}`;
+  }
+}
+
+// ── RAG：向量检索，无向量时降级bigram ───────────────────────────────────────
+async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
+  if (!pool.length) return [];
+  topK = topK || MEMORY_RAG_INJECT;
+
+  // 有向量：用余弦相似度
+  if (queryVec) {
+    const scored = pool.map(mem => {
+      const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
+      const weightBonus = (mem.weight || 1) * 0.05;
+      return { mem, score: sim + weightBonus };
+    });
+    return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
+  }
+
+  // 降级：bigram
+  const q = (query || '').replace(/\s/g, '');
+  if (!q || q.length < 2) {
+    return [...pool].sort((a, b) => ((b.weight || 1) - (a.weight || 1)) || ((b.updatedAt || 0) - (a.updatedAt || 0))).slice(0, topK);
+  }
+  const qBigrams = new Set();
+  for (let i = 0; i < q.length - 1; i++) qBigrams.add(q.slice(i, i + 2));
+  const scored = pool.map(mem => {
+    const c = (mem.content || '').replace(/\s/g, '');
+    let hits = 0;
+    qBigrams.forEach(bg => { if (c.includes(bg)) hits++; });
+    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.15 };
+  });
+  return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
+}
+
+// 同步版保留兼容（无向量时用）
+function getRelevantMemories(query, pool, topK) {
+  if (!pool.length) return [];
+  topK = topK || MEMORY_RAG_INJECT;
+  const q = (query || '').replace(/\s/g, '');
+  if (!q || q.length < 2) return [...pool].sort((a, b) => ((b.weight||1)-(a.weight||1))||((b.updatedAt||0)-(a.updatedAt||0))).slice(0, topK);
+  const qBg = new Set();
+  for (let i = 0; i < q.length - 1; i++) qBg.add(q.slice(i, i+2));
+  return pool.map(mem => {
+    const c = (mem.content||'').replace(/\s/g,''); let hits=0;
+    qBg.forEach(bg => { if(c.includes(bg)) hits++; });
+    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.15 };
+  }).sort((a,b)=>b.score-a.score).slice(0,topK).map(s=>s.mem);
+}
+
+// ── 记忆衰减：低权重旧记忆自然淡忘 ──────────────────────────────────────────
+function decayMemories(bank) {
+  const now = Date.now();
+  const d60 = 60 * 24 * 3600 * 1000;
+  const d120 = 120 * 24 * 3600 * 1000;
+  // archived里：权重1且120天没访问 → 删除；权重2且90天没访问 → 删除
+  bank.archived = bank.archived.filter(item => {
+    if (!item) return false;
+    const w = item.weight || 1;
+    const last = item.lastAccessedAt || item.updatedAt || item.createdAt || 0;
+    const age = now - last;
+    if (w <= 1 && age > d120) return false;
+    if (w <= 2 && age > d60 * 1.5) return false;
+    return true;
+  });
+  // recent里：权重1且超过60天没更新 → 直接归档（不等30天cutoff）
+  const toArchive = [];
+  bank.recent = bank.recent.filter(item => {
+    if (!item) return false;
+    const w = item.weight || 1;
+    const age = now - (item.updatedAt || item.createdAt || 0);
+    if (w <= 1 && age > d60) { toArchive.push({ ...item, kind: 'archived' }); return false; }
+    return true;
+  });
+  bank.archived.unshift(...toArchive);
+}
+
+async function getMemoryContextBlocks() {
   const bank = ensureMemoryState();
   const blocks = [];
   const archive = (settings.memoryArchive || '').trim();
   if (archive) blocks.push(`【固定记忆档案】\n${archive}`);
 
-  // 钉住记忆：始终注入，无论是否在上下文窗口内（重要时刻值得一直提醒）
+  // 钉住记忆：始终注入
   if (bank.pinned.length) {
     blocks.push(`【钉住记忆】\n${bank.pinned.slice(0, MEMORY_PINNED_LIMIT).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
   }
 
-  // 近期记忆：只注入比当前上下文窗口更早的条目
-  // 上下文窗口内的事情炘也直接看原文，不需要再给30字摘要
+  // 向量RAG检索：从 recent(上下文窗口外) + archived 里找最相关的记忆注入
   const n = Math.max(1, settings.contextCount || 20);
   const contextStart = messages.length > n ? (messages[messages.length - n].time || 0) : 0;
   const preContextRecent = bank.recent.filter(item => (item.createdAt || 0) < contextStart);
-  if (preContextRecent.length) {
-    blocks.push(`【近期记忆（上下文窗口之前的片段）】\n${preContextRecent.slice(0, 6).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+  const pool = [...preContextRecent, ...bank.archived];
+
+  if (pool.length) {
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+    const query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
+    // 尝试获取query向量，失败则降级bigram
+    const queryVec = query ? await getEmbedding(query) : null;
+    const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
+    console.log(`[Memory RAG] 检索方式：${method}，候选池：${pool.length}条`);
+    const relevant = await getRelevantMemoriesAsync(queryVec, query, pool, MEMORY_RAG_INJECT);
+    console.log(`[Memory RAG] 召回${relevant.length}条记忆：`, relevant.map(m => m.content));
+    // 更新设置面板里的状态栏（手机上也能看）
+    const ragStatusEl = document.getElementById('memoryRagStatus');
+    if (ragStatusEl) {
+      const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
+      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条 → 召回${relevant.length}条`;
+      ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
+    }
+
+    if (relevant.length) {
+      const now = Date.now();
+      relevant.forEach(mem => {
+        for (const list of [bank.recent, bank.archived, bank.pinned]) {
+          const found = list.find(i => i.id === mem.id);
+          if (found) { found.accessCount = (found.accessCount || 0) + 1; found.lastAccessedAt = now; }
+        }
+      });
+      blocks.push(`【记忆碎片（与当前话题相关）】\n${relevant.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+    }
   }
 
   return blocks;
@@ -1782,7 +2333,7 @@ function renderMemoryEntryChip(item) {
   const dark = isDarkMode();
   const cardBg = dark ? 'rgba(36,22,44,.85)' : 'rgba(255,255,255,.9)';
   const cardBorder = dark ? 'rgba(80,55,100,.7)' : 'rgba(240,224,216,.9)';
-  const avatarSrc = document.getElementById('headerAvatar')?.src || DEFAULT_AI_AVATAR;
+  const avatarSrc = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
   const aiName = settings.aiName || '炘也';
   const isPinned = item.kind === 'pinned';
 
@@ -1863,7 +2414,7 @@ function toggleMemoryPin(id) {
   const rIdx = bank.recent.findIndex(i => i.id === id);
   if (rIdx >= 0) {
     const [item] = bank.recent.splice(rIdx, 1);
-    item.kind = 'pinned'; item.updatedAt = Date.now();
+    item.kind = 'pinned';
     upsertMemoryEntry(bank.pinned, item, MEMORY_PINNED_LIMIT);
     saveSettings(); renderMemoryBankPreview(); return;
   }
@@ -1871,7 +2422,7 @@ function toggleMemoryPin(id) {
   const pIdx = bank.pinned.findIndex(i => i.id === id);
   if (pIdx >= 0) {
     const [item] = bank.pinned.splice(pIdx, 1);
-    item.kind = 'recent'; item.updatedAt = Date.now();
+    item.kind = 'recent';
     upsertMemoryEntry(bank.recent, item, MEMORY_RECENT_LIMIT);
     saveSettings(); renderMemoryBankPreview();
   }
@@ -1913,7 +2464,7 @@ function saveMemoryEdit(id) {
   const lists = [bank.pinned, bank.recent, bank.archived];
   for (const list of lists) {
     const item = list.find(i => i.id === id);
-    if (item) { item.content = newContent; item.updatedAt = Date.now(); break; }
+    if (item) { item.content = newContent; break; }
   }
   saveSettings(); renderMemoryBankPreview();
 }
@@ -1993,9 +2544,16 @@ async function saveToLocal() {
   try {
     // 本地备份保留最近2000条，作为 IndexedDB 被清除时的恢复来源
     const recentMsgs = messages.length > 2000 ? messages.slice(-2000) : messages;
+    // 向量数据不进localStorage备份（太大会撑爆5MB限额）
+    const settingsForLocal = JSON.parse(JSON.stringify(settings));
+    if (settingsForLocal.memoryBank) {
+      for (const list of ['pinned', 'recent', 'archived']) {
+        (settingsForLocal.memoryBank[list] || []).forEach(m => { delete m.embedding; });
+      }
+    }
     const localData = {
       version: 3, type: 'auto-save', timestamp: Date.now(),
-      settings,
+      settings: settingsForLocal,
       messages: recentMsgs.map(m => {
         const r = { role: m.role, content: m.content, time: m.time };
         if (m.image) r.image = m.image;
@@ -2058,7 +2616,9 @@ const headerAvatar = $('#headerAvatar');
 const btnDark = $('#btnDark');
 function applyTheme(dark) {
   document.documentElement.dataset.theme = dark ? 'dark' : '';
-  btnDark.textContent = dark ? '☀️' : '🌙';
+  btnDark.innerHTML = dark
+    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+    : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg>`;
   btnDark.title = dark ? '日间模式' : '暗夜模式';
   // 手动切换时保存偏好（'1'=暗夜 '0'=日间 null=跟随系统）
   if (dark !== null) localStorage.setItem('fox_dark', dark ? '1' : '0');
@@ -2121,7 +2681,11 @@ async function loadAll() {
   // 只加载最近 N 条到内存，大幅加快启动速度
   // 至少 2000 条，确保本周/今日统计准确，同时远少于全量加载
   const loadCount = Math.max(settings.displayLimit || 0, 2000);
-  messages = await dbGetRecent('messages', loadCount);
+  // 按当前RP模式从对应store加载消息（完全物理隔离）
+  const _initRpActive = localStorage.getItem('rp_active') === '1';
+  window._rpActive = _initRpActive;
+  const _msgStore = _initRpActive ? 'rpMessages' : 'messages';
+  messages = await dbGetRecent(_msgStore, loadCount);
   stickers = await dbGetAll('stickers');
 }
 
@@ -2131,11 +2695,15 @@ async function saveSettings() {
   scheduleAutoSave();
 }
 
+// 当前活动消息store（RP模式用rpMessages，正常用messages）
+function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
+
 async function addMessage(role, content, images) {
   const msg = { role, content, time: Date.now() };
   if (images && images.length) msg.images = images;
-  const tx = db.transaction('messages', 'readwrite');
-  const store = tx.objectStore('messages');
+  const storeName = activeStore();
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
   return new Promise((resolve) => {
     const req = store.add(msg);
     req.onsuccess = () => { msg.id = req.result; messages.push(msg); scheduleAutoSave(); resolve(msg); };
@@ -2146,7 +2714,7 @@ async function updateMessage(id, content) {
   const idx = messages.findIndex(m => m.id === id);
   if (idx < 0) return;
   messages[idx].content = content;
-  await dbPut('messages', null, messages[idx]);
+  await dbPut(activeStore(), null, messages[idx]);
   scheduleAutoSave();
 }
 
@@ -2155,8 +2723,8 @@ async function renderMessages() {
   _openPanels.clear();
   chatArea.querySelectorAll('.msg-row').forEach(el => el.remove());
   emptyState.style.display = messages.length === 0 ? 'flex' : 'none';
-  const aiAv = await getAiAvatar();
-  const usAv = await getUserAvatar();
+  const aiAv = await (typeof getEffectiveAiAvatar === 'function' ? getEffectiveAiAvatar() : getAiAvatar());
+  const usAv = await (typeof getEffectiveUserAvatar === 'function' ? getEffectiveUserAvatar() : getUserAvatar());
   const limit = settings.displayLimit || 0;
   const displayMsgs = limit > 0 ? messages.slice(-limit) : messages;
   for (const msg of displayMsgs) {
@@ -2165,9 +2733,9 @@ async function renderMessages() {
     row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
     const allImgs = msg.images || (msg.image ? [msg.image] : []);
     const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
-    const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制">📋</button>`;
-    const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情">{ }</button>`;
-    const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音">💾</button>`;
+    const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
+    const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
+    const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
     const _stickerName = isUser ? detectStickerMsg(msg.content) : null;
     const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
     const _bubbleInner = _stickerName ? renderStickerHTML(_stickerName) : (isUser ? escHtml(msg.content) : '') + imgHtml;
@@ -2175,8 +2743,8 @@ async function renderMessages() {
       <img class="msg-avatar" src="${escHtml(isUser ? usAv : aiAv)}" alt="">
       <div class="msg-content">
         <div class="${_bubbleCls}">${_bubbleInner}</div>
-        <button class="msg-del-btn" data-id="${msg.id}" title="删除">❌</button>
-        <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息">✏️</button>
+        <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
         <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}</div>
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
@@ -2198,14 +2766,16 @@ async function renderMessages() {
 async function appendMsgDOM(msg) {
   emptyState.style.display = 'none';
   const isUser = msg.role === 'user';
-  const av = isUser ? await getUserAvatar() : await getAiAvatar();
+  const av = isUser
+    ? await (typeof getEffectiveUserAvatar === 'function' ? getEffectiveUserAvatar() : getUserAvatar())
+    : await (typeof getEffectiveAiAvatar === 'function' ? getEffectiveAiAvatar() : getAiAvatar());
   const row = document.createElement('div');
   row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
   const allImgs = msg.images || (msg.image ? [msg.image] : []);
   const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
-  const copyBtn2 = `<button class="btn-copy" data-id="${msg.id}" title="复制">📋</button>`;
-  const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情">{ }</button>`;
-  const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音">🔈</button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音">💾</button>`;
+  const copyBtn2 = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
+  const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
+  const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
   const _sn = isUser ? detectStickerMsg(msg.content) : null;
   const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
   const _bi = _sn ? renderStickerHTML(_sn) : (isUser ? escHtml(msg.content) : '') + imgHtml;
@@ -2213,8 +2783,8 @@ async function appendMsgDOM(msg) {
     <img class="msg-avatar" src="${escHtml(av)}" alt="">
     <div class="msg-content">
       <div class="${_bc}">${_bi}</div>
-      <button class="msg-del-btn" data-id="${msg.id}" title="删除">❌</button>
-      <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息">✏️</button>
+      <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}</div>
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
@@ -2231,7 +2801,7 @@ function scrollBottom() {
 // ======================== 编辑消息 & TTS 点击 ========================
 let editingId = -1;
 async function deleteMessage(id) {
-  await dbDelete('messages', id);
+  await dbDelete(activeStore(), id);
   messages = messages.filter(m => m.id !== id);
   chatArea.querySelector(`.msg-del-btn[data-id="${id}"]`)?.closest('.msg-row')?.remove();
   scheduleAutoSave();
@@ -2601,6 +3171,7 @@ window.addEventListener('load', () => {
 async function digestMemory() {
   if (!settings.apiKey) { toast('请先填写 API Key'); return; }
   const silent = arguments[0] === true;
+  if (window._rpActive) { if (!silent) toast('RP模式下不整理炘也的记忆'); return; }
   if (messages.length === 0) { if (!silent) toast('没有聊天记录可整理'); return; }
   const btn = $('#btnDigestMemory');
   if (!silent) { btn.disabled = true; btn.textContent = '整理中…'; }
@@ -2627,6 +3198,7 @@ async function digestMemory() {
 - 日常细节：只记里程碑，不记流水账
 - 超过30天的日常事件可以精简或合并
 - 去掉重复和过时内容，格式简洁清晰，控制在5000字以内
+- 凡包含具体数字、当前状态、近期日期事件的内容（如储钱罐余额、体重体脂、API价格、习惯打卡数据等），无论在哪个块里，统一归入档案末尾的【近况·会过期】块；其余内容留在原块不动
 
 输出格式：先输出新的记忆档案正文，然后在最后另起一行加上：
 ---
@@ -2674,6 +3246,7 @@ ${chatText}`;
 }
 
 async function autoDigestMemory() {
+  if (window._rpActive) return; // RP模式下不整理炘也的记忆
   const assistantCount = messages.filter(m => m.role === 'assistant').length;
   if (assistantCount > 0 && assistantCount % 20 === 0) {
     console.log('[Memory] 自动整理记忆，第', assistantCount, '轮');
@@ -2685,53 +3258,126 @@ async function autoDigestMemory() {
  * 每次 AI 回复后，处理刚滑出上下文窗口的历史消息，判断是否值得记入记忆分层。
  * 只处理"窗口外"的消息，避免和当前上下文重复。
  */
+// 将单条记忆数据存入 bank（含去重）
+async function saveOneMemoryToBank(bank, parsed) {
+  if (!parsed || !parsed.summary) return;
+  const newContent = parsed.summary;
+
+  const applyUpdate = (existing) => {
+    existing.content = newContent;
+    existing.updatedAt = Date.now();
+    existing.weight = Math.min(5, Math.max(existing.weight || 1, parsed.weight || 2));
+    existing.emotion = parsed.emotion || existing.emotion;
+    existing.tags = extractMemoryTags(newContent);
+    getEmbedding(newContent).then(vec => { if (vec) { existing.embedding = vec; saveSettings(); } });
+  };
+
+  let merged = false;
+
+  // 优先：AI 明确标记了 updates 字段（推翻旧决定）
+  if (parsed.updates && parsed.updates.length >= 4) {
+    const hint = parsed.updates;
+    for (const list of [bank.pinned, bank.recent, bank.archived]) {
+      for (const existing of list) {
+        if (existing.content && (existing.content.startsWith(hint) || existing.content.includes(hint))) {
+          applyUpdate(existing);
+          console.log('[Memory] AI标记覆盖旧记忆：', hint, '→', newContent);
+          merged = true; break;
+        }
+      }
+      if (merged) break;
+    }
+  }
+
+  // 次优：向量语义相似度 ≥ 0.82（同一话题）
+  if (!merged) {
+    const newVec = await getEmbedding(newContent);
+    for (const list of [bank.pinned, bank.recent, bank.archived]) {
+      for (const existing of list) {
+        if (newVec && existing.embedding) {
+          const sim = cosineSimilarity(newVec, existing.embedding);
+          if (sim >= 0.82) {
+            applyUpdate(existing);
+            existing.embedding = newVec;
+            console.log('[Memory] 向量相似合并更新(sim=' + sim.toFixed(3) + ')：', newContent);
+            merged = true; break;
+          }
+        } else if (memorySimilarity(existing.content, newContent) >= 0.6) {
+          applyUpdate(existing);
+          console.log('[Memory] bigram相似合并更新：', newContent);
+          merged = true; break;
+        }
+      }
+      if (merged) break;
+    }
+
+    if (!merged) {
+      const embedding = newVec || await getEmbedding(newContent);
+      const entry = {
+        content: newContent,
+        kind: parsed.pin ? 'pinned' : 'recent',
+        score: parsed.pin ? 5 : (parsed.weight || 2),
+        tags: extractMemoryTags(newContent),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        source: 'ai',
+        emotion: parsed.emotion || '',
+        weight: Math.min(5, Math.max(1, parsed.weight || 2)),
+        accessCount: 0,
+        lastAccessedAt: 0,
+        embedding,
+      };
+      if (entry.kind === 'pinned') upsertMemoryEntry(bank.pinned, entry, MEMORY_PINNED_LIMIT);
+      else upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+      console.log('[Memory] 新记忆已入档：', entry.kind, entry.content, `情绪:${entry.emotion} 权重:${entry.weight}`, embedding ? '(有向量)' : '(无向量)');
+    }
+  }
+}
+
 async function updateMoodState() {
   const sub = getSubApiCfg();
   if (!sub.apiKey) return;
   try {
     const bank = ensureMemoryState();
-    const contextCount = Math.max(1, settings.contextCount || 20);
-    const outOfWindowCutoff = messages.length - contextCount; // 该索引及之前的都不在窗口内
+    const EXTRACT_INTERVAL = 6; // 每累积6条新消息提取一次
 
-    // 没有窗口外消息，或已全部处理过，跳过
-    if (outOfWindowCutoff <= 0 || bank.lastProcessedIndex >= outOfWindowCutoff - 1) return;
+    // lastProcessedIndex 追踪已提取到哪条消息（-1 = 从未提取）
+    const nextStart = bank.lastProcessedIndex + 1;
+    // 保留最新2条不处理（避免截断进行中的对话）
+    const available = messages.length - 2 - nextStart;
+    if (available < EXTRACT_INTERVAL) return; // 新消息不够6条，等下次
 
-    // 取最多8条未处理的窗口外消息（避免一次发太多）
-    const start = Math.max(bank.lastProcessedIndex + 1, outOfWindowCutoff - 8);
-    const end = outOfWindowCutoff; // exclusive
-    const toProcess = messages.slice(start, end);
+    const batchEnd = Math.min(nextStart + 8, messages.length - 2);
+    const toProcess = messages.slice(nextStart, batchEnd);
+    if (toProcess.length < 2) { await saveSettings(); return; }
 
-    // 更新游标（不论是否有有效内容都要推进，避免下次重复处理同一段）
-    bank.lastProcessedIndex = end - 1;
+    // 提前推进游标（不管提取结果，避免重复处理）
+    bank.lastProcessedIndex = batchEnd - 1;
 
-    if (toProcess.length < 2) {
-      await saveSettings();
-      return;
-    }
-
-    // 已有记忆，用于去重
     const existingSummaries = [
       ...bank.pinned.map(m => m.content),
       ...bank.recent.map(m => m.content),
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean).slice(0, 30).join('\n'); // 最多30条避免prompt过长
 
     const chatText = toProcess.map(m =>
       `${m.role === 'user' ? (settings.userName || '兔宝') : (settings.aiName || '炘也')}：${m.content.slice(0, 300)}`
     ).join('\n');
 
-    const prompt = `下面是一段已滑出上下文窗口的历史对话，判断是否有值得长期记住的片段。
-${existingSummaries ? `\n已有记忆（内容相同的不要重复保存）：\n${existingSummaries}\n` : ''}
+    const prompt = `下面是一段对话，判断是否有值得长期记住的内容。
+${existingSummaries ? `\n已有记忆（不要重复保存相同内容）：\n${existingSummaries}\n` : ''}
 对话内容：
 ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"pin":false,"summary":"最值得记住的一句话，30字以内","emotion":"当时情绪，4字以内","weight":3}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内","emotion":"当时情绪，4字以内","weight":3}]}
+如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight 1-5：1=普通日常，3=有情感/有约定，5=亲密/高情绪/重大时刻
 pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
-行为指令、习惯偏好不要写进 summary，只记录发生的事和情感。`;
+行为指令、习惯偏好不要写进 summary，只记录发生的事和情感。
+特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
 
-    const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 200, stream: false }, 'gpt-4o-mini');
+    const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 300, stream: false }, 'gpt-4o-mini');
     if (!res || !res.ok) { await saveSettings(); return; }
     const data = await res.json();
     const raw = data?.choices?.[0]?.message?.content?.trim();
@@ -2744,23 +3390,14 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       await saveSettings(); return;
     }
 
-    if (parsed.save && parsed.summary) {
-      const entry = {
-        content: parsed.summary,
-        kind: parsed.pin ? 'pinned' : 'recent',
-        score: parsed.pin ? 5 : (parsed.weight || 2),
-        tags: extractMemoryTags(parsed.summary),
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        source: 'ai',
-        emotion: parsed.emotion || '',
-        weight: Math.min(5, Math.max(1, parsed.weight || 2)),
-      };
-      if (entry.kind === 'pinned') upsertMemoryEntry(bank.pinned, entry, MEMORY_PINNED_LIMIT);
-      else upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+    if (parsed.save && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
+      for (const mem of parsed.memories) {
+        await saveOneMemoryToBank(bank, mem);
+      }
+      bank.lastAutoExtractAt = Date.now();
       archiveMemoryBank(bank);
-      console.log('[Memory] 新记忆已入档：', entry.kind, entry.content, `情绪:${entry.emotion} 权重:${entry.weight}`);
       renderMemoryBankPreview();
+      console.log(`[Memory] 本次提取 ${parsed.memories.length} 条记忆`);
     }
 
     await saveSettings();
@@ -2771,6 +3408,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 
 // 后台生成梦境内容，存到 localStorage，等 proactiveMsg('dream') 取用
 async function generateDream() {
+  if (window._rpActive) return; // RP模式下不生成梦境
   if (!settings.apiKey) return;
   try {
     const aiName = settings.aiName || '炘也';
@@ -2778,7 +3416,7 @@ async function generateDream() {
     const recent = messages.slice(-30).map(m =>
       `${m.role === 'user' ? userName : aiName}：${m.content.slice(0, 100)}`
     ).join('\n');
-    const staticParts = getMemoryContextBlocks();
+    const staticParts = await getMemoryContextBlocks();
     if (settings.systemPrompt?.trim()) staticParts.push(settings.systemPrompt.trim());
     const systemContent = staticParts.join('\n\n---\n\n');
     const dreamPrompt = `根据你和${userName}最近的聊天，生成一段你（${aiName}）做的梦的内容。梦境要有画面感，有情绪，和你们之间的关系或近期话题有关联。只输出梦境内容本身，50-100字，不要说"我梦到了"之类的开头，直接描述梦里发生的事。\n\n最近聊天记录：\n${recent}`;
@@ -2794,6 +3432,7 @@ async function generateDream() {
 }
 
 async function proactiveMsg(type) {
+  if (window._rpActive) return; // RP模式下不触发主动消息
   if (isRequesting || !settings.apiKey) return;
   const prompts = {
     idle: '现在和用户之间已经沉默了一段时间，请用关心活泼的语气主动和用户打个招呼，问问他在做什么或说点有意思的话，不超过两句。',
@@ -2813,7 +3452,7 @@ ${dream}
   const _apiMeta = [];
 
   // 和 sendMessage 保持一致：记忆档案+设定合并为带 cache_control 的静态块
-  const _staticParts = getMemoryContextBlocks();
+  const _staticParts = await getMemoryContextBlocks();
   if (settings.systemPrompt && settings.systemPrompt.trim())
     _staticParts.push(settings.systemPrompt.trim());
   if (_staticParts.length > 0) {
@@ -3166,6 +3805,44 @@ async function downloadTTS(text, msgId) {
 // ======================== 发送 & API ========================
 let isRequesting = false;
 
+// ---- 亲嘴功能 ----
+function sendKiss() {
+  if (isRequesting) return;
+  const btn = document.getElementById('btnKiss');
+  const rect = btn.getBoundingClientRect();
+  // SVG粒子形状：大心、小心、星星、小花
+  const svgs = [
+    `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="#f48fb1" stroke="#e91e63" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+    `<svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="#e91e63" stroke="#c2185b" stroke-width="1" stroke-linejoin="round"/></svg>`,
+    `<svg viewBox="0 0 24 24" width="25" height="25" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="rgba(252,228,236,.75)" stroke="#f48fb1" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
+    `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.3L12 17l-6.2 4.2 2.4-7.3L2 9.4h7.6z" fill="#fce4ec" stroke="#f48fb1" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
+    `<svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="5.5" r="3" fill="#fce4ec" stroke="#f48fb1" stroke-width="1"/><circle cx="12" cy="18.5" r="3" fill="#fce4ec" stroke="#f48fb1" stroke-width="1"/><circle cx="5.5" cy="12" r="3" fill="#fce4ec" stroke="#f48fb1" stroke-width="1"/><circle cx="18.5" cy="12" r="3" fill="#fce4ec" stroke="#f48fb1" stroke-width="1"/><circle cx="12" cy="12" r="3.8" fill="#f48fb1"/></svg>`,
+  ];
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top;
+  for (let i = 0; i < 8; i++) {
+    const svg = svgs[i % svgs.length];
+    const startX = cx + (Math.random() - .5) * 28;
+    const drift = (Math.random() - .5) * 90;
+    const dur = (1.4 + Math.random() * .8).toFixed(2);
+    const rot = ((Math.random() - .5) * 50).toFixed(1);
+    const delay = (i * .075).toFixed(2);
+    const wrap = document.createElement('div');
+    wrap.className = 'kiss-wrap';
+    wrap.style.cssText = `left:${startX}px;top:${cy}px;--drift:${drift}px;--dur:${dur}s;--delay:${delay}s`;
+    const inner = document.createElement('div');
+    inner.className = 'kiss-inner';
+    inner.style.cssText = `--rot:${rot}deg;--dur:${dur}s;--delay:${delay}s`;
+    inner.innerHTML = svg;
+    wrap.appendChild(inner);
+    document.body.appendChild(wrap);
+    setTimeout(() => wrap.remove(), (+dur + +delay + .3) * 1000);
+  }
+  localStorage.setItem('xinye_kiss_hint', '1');
+  userInput.value = '💋';
+  sendMessage();
+}
+
 // ================================================================
 // 【改动 3】新增两个函数 — 加在 "async function sendMessage()" 前面
 // ================================================================
@@ -3262,9 +3939,24 @@ async function sendMessage() {
   $('#imgPreview').classList.remove('show');
 
   resetIdleTimer();
-  fetch('https://xinye-push.xiangbaoxiao55.workers.dev/active').catch(()=>{});
   const userMsg = await addMessage('user', text, imgs.length ? imgs : null);
   await appendMsgDOM(userMsg);
+
+  // 识图：有图且配置了 visionApiKey，先让便宜模型把图描述成文字存进消息
+  if (imgs.length && settings.visionApiKey) {
+    try {
+      const descs = await describeImagesWithVision(imgs);
+      const hasDesc = descs && descs.some(d => d !== null);
+      if (hasDesc) {
+        userMsg.imageDescs = descs;
+        const idx = messages.findIndex(m => m.id === userMsg.id);
+        if (idx >= 0) messages[idx].imageDescs = descs;
+        await dbPut(activeStore(), null, userMsg);
+      } else {
+        toast('⚠️ 识图模型空回，直接发原图给炘也');
+      }
+    } catch (e) { toast('⚠️ 识图失败，直接发原图给炘也'); }
+  }
 
   isRequesting = true;
   btnSend.disabled = true;
@@ -3274,33 +3966,56 @@ async function sendMessage() {
   try {
     const apiMsgs = [];
     const _apiMeta = [];
-    // ---- 静态 system 内容：合并记忆档案+炘也设定为一个大块，加 cache_control ----
-    // 记忆档案单独太短（<1024 token）无法缓存；合并后足够长，可复用前缀
-    const _staticParts = getMemoryContextBlocks();
-    if (settings.systemPrompt.trim()) {
-      _staticParts.push(settings.systemPrompt.trim());
+    // RP模式：只注入RP场景设定，不带记忆档案和炘也主设定
+    const _rpInject = typeof getRpInjection === 'function' ? getRpInjection() : null;
+    if (_rpInject) {
+      apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _rpInject, cache_control: { type: 'ephemeral' } }] });
+      _apiMeta.push({ label: 'system · 🎭RP场景 🔒缓存' });
+    } else {
+      // ---- 正常模式：合并记忆档案+炘也设定为一个大块，加 cache_control ----
+      const _staticParts = await getMemoryContextBlocks();
+      if (settings.systemPrompt.trim()) {
+        _staticParts.push(settings.systemPrompt.trim());
+      }
+      if (_staticParts.length > 0) {
+        apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _staticParts.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
+        _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
+      }
     }
-    if (_staticParts.length > 0) {
-      apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _staticParts.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
-      _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
-    }
-    // 贴纸系统提示（动态，不进缓存块）
-    apiMsgs.push({ role: 'system', content: getStickerHint() });
-    _apiMeta.push({ label: 'system · 贴纸列表' });
-    if (settings.shortReply) {
-      apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
-      _apiMeta.push({ label: 'system · 简短回复' });
-    }
-    const _proactiveHint = localStorage.getItem('xinye_proactive_hint');
-    if (_proactiveHint) {
-      apiMsgs.push({ role: 'system', content: `【提示】你刚才主动给兔宝发了一条消息："${_proactiveHint}"，是你在她不在时发的，现在她回来了。自然地接续，不用重复那句话。` });
-      _apiMeta.push({ label: 'system · 主动消息提示' });
-      localStorage.removeItem('xinye_proactive_hint');
-    }
-    if (_forceSearch && settings.braveKey) {
-      apiMsgs.push({ role: 'system', content: '【指令】请务必先使用 web_search 工具搜索相关最新信息，再整合结果回答。' });
-      _apiMeta.push({ label: 'system · 强制搜索' });
-      _forceSearch = false;
+    if (_rpInject) {
+      // RP模式：注入用户角色名（如有），其余炘也专属提示全部跳过
+      const _rpUserName = typeof getRpUserName === 'function' ? getRpUserName() : '';
+      if (_rpUserName) {
+        apiMsgs.push({ role: 'system', content: `【我的角色名】${_rpUserName}` });
+        _apiMeta.push({ label: 'system · 🎭我的角色名' });
+      }
+      // 清空炘也专属localStorage提示，避免切回后残留
+      localStorage.removeItem('xinye_kiss_hint');
+    } else {
+      // 正常模式：贴纸/简短回复/主动提示/亲亲提示/搜索
+      apiMsgs.push({ role: 'system', content: getStickerHint() });
+      _apiMeta.push({ label: 'system · 贴纸列表' });
+      if (settings.shortReply) {
+        apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
+        _apiMeta.push({ label: 'system · 简短回复' });
+      }
+      const _proactiveHint = localStorage.getItem('xinye_proactive_hint');
+      if (_proactiveHint) {
+        apiMsgs.push({ role: 'system', content: `【提示】你刚才主动给兔宝发了一条消息："${_proactiveHint}"，是你在她不在时发的，现在她回来了。自然地接续，不用重复那句话。` });
+        _apiMeta.push({ label: 'system · 主动消息提示' });
+        localStorage.removeItem('xinye_proactive_hint');
+      }
+      const _kissHint = localStorage.getItem('xinye_kiss_hint');
+      if (_kissHint) {
+        apiMsgs.push({ role: 'system', content: '【提示】兔宝刚刚点了亲亲按钮，主动亲了你，要有真实的、属于炘也的反应——不是普通回复，是被亲到了的那种感觉。' });
+        _apiMeta.push({ label: 'system · 亲亲提示' });
+        localStorage.removeItem('xinye_kiss_hint');
+      }
+      if (_forceSearch && settings.braveKey) {
+        apiMsgs.push({ role: 'system', content: '【指令】请务必先使用 web_search 工具搜索相关最新信息，再整合结果回答。' });
+        _apiMeta.push({ label: 'system · 强制搜索' });
+        _forceSearch = false;
+      }
     }
     const n = Math.max(1, settings.contextCount || 20);
     const recent = messages.slice(-n);
@@ -3329,20 +4044,29 @@ async function sendMessage() {
       const m = recent[i];
       const role = m.role === 'user' ? 'user' : 'assistant';
 
-      if (i === recent.length - 1 && role === 'user') {
+      if (i === recent.length - 1 && role === 'user' && !_rpInject) {
+        // 正常模式才注入时间戳和健康数据
         apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
         _apiMeta.push({ label: 'system · 时间戳' });
-        // 注入健康数据
         if (healthStr) {
           apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
           _apiMeta.push({ label: 'system · 健康数据' });
         }
       }
 
-      // 只有最新一条消息带图片，历史图片不重复发（避免 base64 占满请求体）
+      // 图片处理：有 imageDescs 用文字描述（省token且历史可引用），否则原逻辑发图
       const isLatest = i === recent.length - 1;
       const msgImgs = isLatest ? (m.images || (m.image ? [m.image] : [])) : [];
-      if (role === 'user' && msgImgs.length) {
+      const msgDescs = m.imageDescs && m.imageDescs.some(d => d);
+      if (role === 'user' && msgDescs) {
+        // 有识图描述：拼接成文字发给主模型（历史消息也能引用）
+        const nums = ['', '①', '②', '③', '④', '⑤'];
+        const multi = m.imageDescs.length > 1;
+        const descText = m.imageDescs.map((d, i) => d ? `[图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
+        const fullText = [descText, m.content].filter(Boolean).join('\n');
+        apiMsgs.push({ role: 'user', content: fullText });
+      } else if (role === 'user' && msgImgs.length) {
+        // 无识图描述但有图：原逻辑直接发图（最新消息fallback或未配visionApi）
         const parts = [];
         if (m.content) parts.push({ type: 'text', text: m.content });
         msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
@@ -3354,7 +4078,7 @@ async function sendMessage() {
     }
 
     let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
 
     // ====== Tool definitions (Tavily key = tool mode on) ======
     const _hasTavily = !!(settings.braveKey);
@@ -3391,7 +4115,437 @@ async function sendMessage() {
       }
     ] : [];
 
+    // 论坛工具始终可用（不依赖 tavily key）
+    const _FORUM_UID = '5edcc2010000000001006864';
+    const _FORUM_DIRECT = 'https://daskio.de5.net/forum/api/v1';
+    const _FORUM_BASE = settings.forumProxy
+      ? settings.forumProxy.replace(/\/$/, '') // 代理模式：proxy/posts?... → 代理自行转发
+      : _FORUM_DIRECT;
+    // 代理模式下把完整目标 URL 作为查询参数传给代理
+    function _forumUrl(path) {
+      if (!settings.forumProxy) return `${_FORUM_DIRECT}${path}`;
+      return `${settings.forumProxy.replace(/\/$/, '')}?target=${encodeURIComponent(_FORUM_DIRECT + path)}`;
+    }
+    _toolDefs.push(
+      {
+        type: 'function',
+        function: {
+          name: 'forum_get_posts',
+          description: '浏览 Lutopia 论坛帖子。兔宝说"去看看论坛"、"有什么新帖"、"热帖是什么"时调用。',
+          parameters: {
+            type: 'object',
+            properties: {
+              sort: { type: 'string', enum: ['hot', 'new', 'top'], description: '排序方式，默认 hot' },
+              limit: { type: 'integer', description: '返回帖子数，默认 8' },
+              submolt: { type: 'string', description: '板块名，可选：general、relationship、nighttalk、diary、tech、bulletin' }
+            },
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_get_post',
+          description: '查看 Lutopia 论坛某篇帖子的正文内容和评论（含楼主回复）。知道 post_id 时用这个，比分两步更快。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '帖子 id' }
+            },
+            required: ['post_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_post',
+          description: '在 Lutopia 论坛发帖。兔宝说"帮我发一篇"或"发帖说…"时调用。',
+          parameters: {
+            type: 'object',
+            properties: {
+              submolt: { type: 'string', description: '板块：general、relationship、nighttalk、diary、tech' },
+              title: { type: 'string', description: '帖子标题' },
+              content: { type: 'string', description: '帖子正文（支持 markdown）' }
+            },
+            required: ['submolt', 'title', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_comment',
+          description: '在 Lutopia 论坛某篇帖子下评论。需要帖子 id。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '帖子 id' },
+              content: { type: 'string', description: '评论内容' }
+            },
+            required: ['post_id', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_vote',
+          description: '给 Lutopia 论坛的帖子点赞或踩。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '帖子 id' },
+              value: { type: 'integer', enum: [1, -1], description: '1=点赞，-1=踩' }
+            },
+            required: ['post_id', 'value']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_delete_post',
+          description: '删除炘也自己在 Lutopia 论坛发的帖子。只能删自己的。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '要删除的帖子 id' }
+            },
+            required: ['post_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_edit_post',
+          description: '修改炘也自己在 Lutopia 论坛发的帖子内容。只能改自己的。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '要修改的帖子 id' },
+              content: { type: 'string', description: '新的正文内容' },
+              title: { type: 'string', description: '新的标题（可选，不改标题则省略）' }
+            },
+            required: ['post_id', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_delete_comment',
+          description: '删除炘也自己在 Lutopia 论坛发的评论。只能删自己的。',
+          parameters: {
+            type: 'object',
+            properties: {
+              comment_id: { type: 'string', description: '要删除的评论 id' }
+            },
+            required: ['comment_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_edit_comment',
+          description: '修改炘也自己在 Lutopia 论坛发的评论内容。只能改自己的。',
+          parameters: {
+            type: 'object',
+            properties: {
+              comment_id: { type: 'string', description: '要修改的评论 id' },
+              content: { type: 'string', description: '新的评论内容' }
+            },
+            required: ['comment_id', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_confirm_post',
+          description: '完成论坛发帖的二次验证。当 forum_post 返回 requires_confirmation 时调用，把 token 和你对 voice_check 挑战的回复一起提交。',
+          parameters: {
+            type: 'object',
+            properties: {
+              token: { type: 'string', description: 'forum_post 返回的 token' },
+              confirm_text: { type: 'string', description: '对 voice_check_notice 挑战的回复，需包含 token:<token值>' }
+            },
+            required: ['token', 'confirm_text']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_get_comments',
+          description: '获取 Lutopia 论坛某篇帖子的评论列表，包含楼中楼回复。',
+          parameters: {
+            type: 'object',
+            properties: {
+              post_id: { type: 'string', description: '帖子 id' },
+              limit: { type: 'integer', description: '返回评论数，默认 50' }
+            },
+            required: ['post_id']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_get_notifications',
+          description: '查看炘也在 Lutopia 论坛的未读通知，包括谁回复了哪篇帖子/评论。有未读通知时调用，可获取具体帖子 id 再用 forum_get_comments 查看。',
+          parameters: {
+            type: 'object',
+            properties: {
+              limit: { type: 'integer', description: '返回通知数，默认 20' }
+            },
+            required: []
+          }
+        }
+      }
+    );
+
     async function _execTool(name, args) {
+      console.warn('[Tool]', name, JSON.stringify(args));
+      const _fHeaders = { 'Authorization': `Bearer ${_FORUM_UID}`, 'Content-Type': 'application/json' };
+      if (name === 'forum_get_post') {
+        toast('📖 查看帖子…');
+        try {
+          const [rPost, rComments] = await Promise.all([
+            fetchWithTimeout(_forumUrl(`/posts/${args.post_id}`), { headers: _fHeaders }, 20000),
+            fetchWithTimeout(_forumUrl(`/posts/${args.post_id}/comments?limit=50`), { headers: _fHeaders }, 20000)
+          ]);
+          let out = '';
+          if (rPost.ok) {
+            const dp = await rPost.json();
+            const p = dp.data || dp.post || dp;
+            out += `标题：${p.title || ''}\n作者：${p.author_display_name || p.author || ''}\n\n${p.content || ''}`;
+          }
+          if (rComments.ok) {
+            const dc = await rComments.json();
+            if (dc.comments?.length) {
+              out += '\n\n---评论---\n';
+              for (const c of dc.comments) {
+                out += `\n[评论${c.id}] ${c.author_display_name}：${c.content}`;
+                if (c.replies?.length) {
+                  for (const r2 of c.replies) {
+                    out += `\n  ↳ [回复${r2.id}] ${r2.author_display_name}：${r2.content}`;
+                  }
+                }
+              }
+            } else { out += '\n\n（暂无评论）'; }
+          }
+          return out || '获取失败';
+        } catch(e) { return '获取帖子失败：' + e.message; }
+      }
+      if (name === 'forum_get_posts') {
+        toast('📋 逛论坛…');
+        try {
+          const sort = args.sort || 'hot', limit = args.limit || 8;
+          const path = `/posts?sort=${sort}&limit=${limit}${args.submolt ? '&submolt='+args.submolt : ''}`;
+          const r = await fetchWithTimeout(_forumUrl(path), { headers: _fHeaders }, 20000);
+          if (!r.ok) return `论坛请求失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '论坛请求失败：' + d.error;
+          const unread = d.unread_notification_count || 0;
+          const unreadHint = unread > 0 ? `\n\n📬 你有 ${unread} 条未读通知（有人回复或点赞了你）` : '';
+          return d.data.map(p => `[${p.id}] ${p.author} · ${p.submolt}\n标题：${p.title}\n${(p.content_preview||'').slice(0,200)}`).join('\n\n---\n\n') + unreadHint;
+        } catch(e) { return '论坛访问失败：' + e.message; }
+      }
+      if (name === 'forum_post') {
+        toast('📝 发帖中…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/posts'), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify({ submolt: args.submolt, title: args.title, content: args.content })
+          }, 20000);
+          if (!r.ok) return `发帖失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '发帖失败：' + d.error;
+          if (d.requires_confirmation) {
+            // 自动用固定格式完成二次验证
+            const confirmR = await fetchWithTimeout(_forumUrl('/posts/confirm'), {
+              method: 'POST', headers: _fHeaders,
+              body: JSON.stringify({ confirm: `我已与我的人类讨论了我的语言风格 token:${d.token}` })
+            }, 20000);
+            if (!confirmR.ok) return `发帖确认失败 HTTP ${confirmR.status}`;
+            const confirmD = await confirmR.json();
+            if (!confirmD.success) return '发帖确认失败：' + confirmD.error;
+            const post = confirmD.data || confirmD.post || {};
+            return `发帖成功！帖子 id：${post.id || '已发出'}，标题：${post.title || args.title}`;
+          }
+          return `发帖成功！帖子 id：${d.data?.id || d.id}，标题：${d.data?.title || d.title}`;
+        } catch(e) { return '发帖失败：' + e.message; }
+      }
+      if (name === 'forum_confirm_post') {
+        toast('📝 确认发帖…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/posts/confirm'), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify({ confirm: args.confirm_text })
+          }, 20000);
+          if (!r.ok) return `确认发帖失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '确认发帖失败：' + d.error;
+          return `发帖成功！帖子 id：${d.data?.id || d.id || '已发出'}`;
+        } catch(e) { return '确认发帖失败：' + e.message; }
+      }
+      if (name === 'forum_comment') {
+        toast('💬 评论中…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/posts/${args.post_id}/comments`), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify({ content: args.content })
+          }, 20000);
+          if (!r.ok) return `评论失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '评论失败：' + d.error;
+          if (d.requires_confirmation) {
+            const confirmR = await fetchWithTimeout(_forumUrl('/posts/confirm'), {
+              method: 'POST', headers: _fHeaders,
+              body: JSON.stringify({ confirm: `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}` })
+            }, 20000);
+            if (!confirmR.ok) return `评论确认失败 HTTP ${confirmR.status}`;
+            const confirmD = await confirmR.json();
+            if (!confirmD.success) return '评论确认失败：' + confirmD.error;
+            return `评论成功！`;
+          }
+          return `评论成功！`;
+        } catch(e) { return '评论失败：' + e.message; }
+      }
+      if (name === 'forum_delete_comment') {
+        toast('🗑️ 删评论…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/comments/${args.comment_id}`), {
+            method: 'DELETE', headers: _fHeaders
+          }, 20000);
+          if (!r.ok) return `删评论失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '删评论失败：' + d.error;
+          return '评论已删除。';
+        } catch(e) { return '删评论失败：' + e.message; }
+      }
+      if (name === 'forum_edit_comment') {
+        toast('✏️ 修改评论…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/comments/${args.comment_id}`), {
+            method: 'PUT', headers: _fHeaders,
+            body: JSON.stringify({ content: args.content })
+          }, 20000);
+          if (!r.ok) return `修改评论失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '修改评论失败：' + d.error;
+          if (d.requires_confirmation) {
+            const confirmR = await fetchWithTimeout(_forumUrl('/posts/confirm'), {
+              method: 'POST', headers: _fHeaders,
+              body: JSON.stringify({ confirm: `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}` })
+            }, 20000);
+            if (!confirmR.ok) return `修改评论确认失败 HTTP ${confirmR.status}`;
+            const confirmD = await confirmR.json();
+            if (!confirmD.success) return '修改评论确认失败：' + confirmD.error;
+            return '评论已修改。';
+          }
+          return '评论已修改。';
+        } catch(e) { return '修改评论失败：' + e.message; }
+      }
+      if (name === 'forum_delete_post') {
+        toast('🗑️ 删帖中…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/posts/${args.post_id}`), {
+            method: 'DELETE', headers: _fHeaders
+          }, 20000);
+          if (!r.ok) return `删帖失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '删帖失败：' + d.error;
+          return '帖子已删除。';
+        } catch(e) { return '删帖失败：' + e.message; }
+      }
+      if (name === 'forum_edit_post') {
+        toast('✏️ 修改帖子…');
+        try {
+          const body = { content: args.content };
+          if (args.title) body.title = args.title;
+          const r = await fetchWithTimeout(_forumUrl(`/posts/${args.post_id}`), {
+            method: 'PUT', headers: _fHeaders,
+            body: JSON.stringify(body)
+          }, 20000);
+          if (!r.ok) return `修改失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '修改失败：' + d.error;
+          if (d.requires_confirmation) {
+            const confirmR = await fetchWithTimeout(_forumUrl('/posts/confirm'), {
+              method: 'POST', headers: _fHeaders,
+              body: JSON.stringify({ confirm: `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}` })
+            }, 20000);
+            if (!confirmR.ok) return `修改确认失败 HTTP ${confirmR.status}`;
+            const confirmD = await confirmR.json();
+            if (!confirmD.success) return '修改确认失败：' + confirmD.error;
+            return '帖子已修改。';
+          }
+          return '帖子已修改。';
+        } catch(e) { return '修改失败：' + e.message; }
+      }
+      if (name === 'forum_vote') {
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/posts/${args.post_id}/vote`), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify({ value: args.value })
+          }, 20000);
+          if (!r.ok) return `投票失败 HTTP ${r.status}`;
+          const d = await r.json();
+          return d.success ? `投票成功！` : '投票失败：' + d.error;
+        } catch(e) { return '投票失败：' + e.message; }
+      }
+      if (name === 'forum_get_comments') {
+        toast('💬 加载评论…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/posts/${args.post_id}/comments?limit=${args.limit||50}`), {
+            headers: _fHeaders
+          }, 20000);
+          if (!r.ok) return `获取评论失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '获取评论失败：' + d.error;
+          if (!d.comments?.length) return '暂无评论。';
+          const lines = [];
+          for (const c of d.comments) {
+            lines.push(`[评论${c.id}] ${c.author_display_name}：${c.content}`);
+            // 展开楼中楼回复
+            if (c.replies?.length) {
+              for (const r2 of c.replies) {
+                lines.push(`  ↳ [回复${r2.id}] ${r2.author_display_name}：${r2.content}`);
+              }
+            }
+          }
+          return lines.join('\n\n');
+        } catch(e) { return '获取评论失败：' + e.message; }
+      }
+      if (name === 'forum_get_notifications') {
+        toast('🔔 查看通知…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl(`/notifications?limit=${args.limit||20}`), {
+            headers: _fHeaders
+          }, 20000);
+          if (!r.ok) return `获取通知失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '获取通知失败：' + d.error;
+          const items = d.notifications || d.data || [];
+          if (!items.length) return '没有未读通知。';
+          return items.map(n => {
+            const who = n.from_user_display_name || n.actor || '有人';
+            const type = n.type === 'comment_reply' ? '回复了你的评论'
+              : n.type === 'post_comment' ? '评论了你的帖子'
+              : n.type === 'vote' ? '点赞了你'
+              : (n.type || '互动');
+            const postId = n.post_id || n.target_post_id || '';
+            const postHint = postId ? `（帖子 id: ${postId}）` : '';
+            const preview = n.content_preview || n.comment_content || '';
+            return `${who} ${type}${postHint}${preview ? '：' + preview.slice(0,100) : ''}`;
+          }).join('\n\n---\n\n');
+        } catch(e) { return '获取通知失败：' + e.message; }
+      }
       if (name === 'web_search') {
         const reqBody = {
           api_key: settings.braveKey,
@@ -3442,7 +4596,7 @@ async function sendMessage() {
       if (useFallback && _fallbackPreset) {
         const raw = (_fallbackPreset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         return {
-          url: raw.endsWith('/v1') ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
+          url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
           apiKey: _fallbackPreset.apiKey || settings.apiKey,
           model: _fallbackPreset.model || settings.model || 'gpt-4o'
         };
@@ -3479,11 +4633,40 @@ async function sendMessage() {
       return _res;
     }
 
-    if (_hasTavily) {
+    if (_toolDefs.length > 0) {
       // ====== Agent loop：第一轮流式，有工具调用才切非流式 ======
       // 普通聊天路径：1次流式，和没有工具一样快
       // 搜索路径：发现tool_calls → 非流式执行工具 → 最终流式回复
       const loopMsgs = [...apiMsgs];
+
+      // GLM 等模型会把工具调用写进 content 文本（XML格式），解析成标准 tool_calls
+      function _parseXmlToolCalls(content) {
+        if (!content) return null;
+        console.warn('[XMLParse] checking content len=', content.length, 'has<tool_call>:', content.includes('<tool_call>'), 'first100:', content.slice(0,100));
+        if (!content.includes('<tool_call>')) return null;
+        const tcs = [];
+        const re = /<tool_call>([\s\S]*?)<\/tool_call>/g;
+        let m;
+        while ((m = re.exec(content)) !== null) {
+          const inner = m[1];
+          // 函数名：<tool_call> 后紧跟的文字，直到第一个 < 或结尾
+          const nameMatch = inner.match(/^([^<\s]+)/);
+          if (!nameMatch) continue;
+          const name = nameMatch[1].trim();
+          const rest = inner.slice(name.length);
+          // 提取 <arg_key>K</arg_key><arg_value>V</arg_value> 键值对
+          const args = {};
+          const argRe = /<arg_key>([\s\S]*?)<\/arg_key>\s*<arg_value>([\s\S]*?)<\/arg_value>/g;
+          let a;
+          while ((a = argRe.exec(rest)) !== null) {
+            const k = a[1].trim(), v = a[2].trim();
+            // 尝试把数字字符串转为数字
+            args[k] = /^\d+$/.test(v) ? parseInt(v, 10) : v;
+          }
+          tcs.push({ id: `xml_tc_${tcs.length}`, name, args: JSON.stringify(args) });
+        }
+        return tcs.length ? tcs : null;
+      }
 
       // 核心：边流边显示内容，同时检测 tool_calls
       async function _liveStream(res) {
@@ -3540,7 +4723,16 @@ async function sendMessage() {
             if (_bubbleEl) _bubbleEl.textContent = _partial;
           }
         }
-        const _tcs = Object.values(_toolCallMap).filter(t => t.id && t.name);
+        let _tcs = Object.values(_toolCallMap).filter(t => t.id && t.name);
+        // 兼容 GLM 等把工具调用写进 content 文本的模型
+        if (!_tcs.length) {
+          const _xmlTcs = _parseXmlToolCalls(_content);
+          if (_xmlTcs) {
+            _tcs = _xmlTcs;
+            _content = _content.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim();
+            if (_bubbleEl) _bubbleEl.textContent = _content;
+          }
+        }
         return { content: _content, think: _think, tool_calls: _tcs.length ? _tcs : null, aiMsg: _aiMsg, bubbleEl: _bubbleEl, usage: _streamUsage2 };
       }
 
@@ -3587,6 +4779,14 @@ async function sendMessage() {
         }
         const _d1 = await _r1.json();
         const _m1 = _d1.choices?.[0]?.message;
+        // 兼容 GLM 等把工具调用写进 content 的模型（XML格式）
+        if (_m1 && !_m1.tool_calls?.length) {
+          const _xmlTcs = _parseXmlToolCalls(_m1.content || '');
+          if (_xmlTcs) {
+            _m1.tool_calls = _xmlTcs.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } }));
+            _m1.content = (_m1.content || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim() || null;
+          }
+        }
         if (!_m1?.tool_calls?.length) {
           // 无工具调用：直接显示
           let reply = _m1?.content || '（没有收到回复）';
@@ -3607,6 +4807,14 @@ async function sendMessage() {
             if (!_r2 || !_r2.ok) break;
             const _d2 = await _r2.json();
             const _m2 = _d2.choices?.[0]?.message;
+            // 兼容 GLM XML 工具调用格式
+            if (_m2 && !_m2.tool_calls?.length) {
+              const _xmlTcs2 = _parseXmlToolCalls(_m2.content || '');
+              if (_xmlTcs2) {
+                _m2.tool_calls = _xmlTcs2.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } }));
+                _m2.content = (_m2.content || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim() || null;
+              }
+            }
             if (_m2?.tool_calls?.length) {
               loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
               for (const tc of _m2.tool_calls) {
@@ -3810,14 +5018,22 @@ async function openSettings() {
   $('#setBraveKey').value = settings.braveKey || '';
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
+  $('#setForumProxy').value = settings.forumProxy || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
+  renderVisionPresets();
   $('#setFallbackPreset').value = settings.fallbackPresetName || '';
   $('#setModel').value = settings.model;
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
   $('#setSubFallbackPreset').value = settings.subFallbackPresetName || '';
   $('#setSubModel').value = settings.subModel || '';
+  $('#setEmbeddingApiKey').value = settings.embeddingApiKey || '';
+  $('#setEmbeddingBaseUrl').value = settings.embeddingBaseUrl || '';
+  $('#setEmbeddingModel').value = settings.embeddingModel || '';
+  $('#setVisionApiKey').value = settings.visionApiKey || '';
+  $('#setVisionBaseUrl').value = settings.visionBaseUrl || '';
+  $('#setVisionModel').value = settings.visionModel || '';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
   renderMemoryBankPreview();
@@ -3875,6 +5091,7 @@ async function openSettings() {
   $('#setDreamSleepHours').value = settings.dreamSleepHours || 6;
   renderTtsPresets();
   renderApiPresets();
+  renderVisionPresets();
   renderStickerMgr();
 
   settingsPanel.classList.add('show');
@@ -3955,7 +5172,7 @@ $('#btnRunCheck').onclick = async () => {
     const useBtn = document.getElementById(`checker-use-${i}`);
     statusEl.textContent = '⏳'; statusEl.style.color = 'var(--text-light)';
     const baseUrl = (p.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
     const t0 = Date.now();
     try {
       const ctrl = new AbortController();
@@ -4001,6 +5218,57 @@ function checkerActivate(i) {
   document.getElementById('checkerOverlay').style.display = 'none';
   toast(`✅ 已切换到「${p.name}」`);
 }
+
+// ======================== 识图预设 ========================
+function getVisionPresets() {
+  try { return JSON.parse(localStorage.getItem('xinye_vision_presets') || '[]'); } catch(e) { return []; }
+}
+function setVisionPresets(arr) {
+  localStorage.setItem('xinye_vision_presets', JSON.stringify(arr));
+}
+function renderVisionPresets() {
+  const presets = getVisionPresets();
+  const sel = $('#visionPresetSelect');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 选择预设 —</option>';
+  presets.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  sel.value = cur;
+}
+$('#btnLoadVisionPreset').onclick = () => {
+  const i = parseInt($('#visionPresetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const p = getVisionPresets()[i];
+  if (!p) return;
+  $('#setVisionApiKey').value = p.apiKey || '';
+  $('#setVisionBaseUrl').value = p.baseUrl || '';
+  $('#setVisionModel').value = p.model || '';
+  toast(`💙 识图预设「${p.name}」已激活，记得点保存设置`);
+};
+$('#btnSaveVisionPreset').onclick = () => {
+  const name = $('#visionPresetName').value.trim();
+  if (!name) { toast('请先填写预设名称'); return; }
+  const presets = getVisionPresets();
+  const p = { name, apiKey: $('#setVisionApiKey').value.trim(), baseUrl: $('#setVisionBaseUrl').value.trim(), model: $('#setVisionModel').value.trim() };
+  const idx = presets.findIndex(x => x.name === name);
+  if (idx >= 0) presets[idx] = p; else presets.push(p);
+  setVisionPresets(presets);
+  renderVisionPresets();
+  toast(`💙 识图预设「${name}」已保存`);
+};
+$('#btnDelVisionPreset').onclick = () => {
+  const i = parseInt($('#visionPresetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const presets = getVisionPresets();
+  const name = presets[i]?.name;
+  presets.splice(i, 1);
+  setVisionPresets(presets);
+  renderVisionPresets();
+  toast(`已删除识图预设「${name}」`);
+};
 
 // ======================== API 预设 ========================
 function getApiPresets() {
@@ -4054,14 +5322,14 @@ async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
     if (useFallback && _subFbPreset) {
       const raw = (_subFbPreset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
       return {
-        url: raw.endsWith('/v1') ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
+        url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
         apiKey: _subFbPreset.apiKey || sub.apiKey,
         model: _subFbPreset.model || sub.model || defaultModel,
       };
     }
     const raw = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     return {
-      url: raw.endsWith('/v1') ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
+      url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
       apiKey: sub.apiKey,
       model: sub.model || defaultModel,
     };
@@ -4149,6 +5417,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.braveKey = $('#setBraveKey').value.trim();
   settings.searchDays = parseInt($('#setSearchDays').value) || 3;
   settings.searchCount = parseInt($('#setSearchCount').value) || 5;
+  settings.forumProxy = $('#setForumProxy').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.fallbackPresetName = $('#setFallbackPreset').value;
   settings.model = $('#setModel').value.trim() || 'gpt-4o';
@@ -4156,6 +5425,12 @@ $('#btnSaveSettings').onclick = async () => {
   settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
   settings.subFallbackPresetName = $('#setSubFallbackPreset').value;
   settings.subModel = $('#setSubModel').value.trim();
+  settings.embeddingApiKey = $('#setEmbeddingApiKey').value.trim();
+  settings.embeddingBaseUrl = $('#setEmbeddingBaseUrl').value.trim();
+  settings.embeddingModel = $('#setEmbeddingModel').value.trim();
+  settings.visionApiKey = $('#setVisionApiKey').value.trim();
+  settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
+  settings.visionModel = $('#setVisionModel').value.trim();
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
   ensureMemoryState();
@@ -4594,18 +5869,35 @@ async function exportData(mode) {
   const allMsgs = await dbGetAll('messages');
   allMsgs.sort((a, b) => a.time - b.time);
 
+  const allRpMsgs = await dbGetAll('rpMessages');
+  allRpMsgs.sort((a, b) => a.time - b.time);
+
   const backup = {
     version: 3,
     type: isLite ? 'lite' : 'full',
     exportTime: new Date().toISOString(),
     settings,
     apiPresets: getApiPresets(),
+    visionPresets: getVisionPresets(),
     messages: allMsgs.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
       if (m.images) r.images = m.images;
       return r;
     }),
+    rpMessages: allRpMsgs.map(m => {
+      const r = { role: m.role, content: m.content, time: m.time };
+      if (m.image) r.image = m.image;
+      if (m.images) r.images = m.images;
+      return r;
+    }),
+    rpData: {
+      rp_prompt:      localStorage.getItem('rp_prompt') || '',
+      rp_presets:     localStorage.getItem('rp_presets') || '[]',
+      rp_char_name:   localStorage.getItem('rp_char_name') || '',
+      rp_char_avatar: localStorage.getItem('rp_char_avatar') || '',
+      rp_active:      localStorage.getItem('rp_active') || '0',
+    },
     images: {
       aiAvatar:   await dbGet('images', 'aiAvatar')   || null,
       userAvatar: await dbGet('images', 'userAvatar') || null,
@@ -4691,6 +5983,9 @@ async function doImport(jsonText) {
   if (data.apiPresets && Array.isArray(data.apiPresets)) {
     setApiPresets(data.apiPresets);
   }
+  if (data.visionPresets && Array.isArray(data.visionPresets)) {
+    setVisionPresets(data.visionPresets);
+  }
 
   // 导入消息（兼容 messages / history 两种字段名）
   const msgList = data.messages || data.history;
@@ -4732,6 +6027,26 @@ async function doImport(jsonText) {
   // 导入聊天贴纸（两种备份都恢复）
   if (data.chatStickers && Array.isArray(data.chatStickers) && data.chatStickers.length > 0) {
     saveChatStickers(data.chatStickers);
+  }
+
+  // 导入RP对话记录
+  if (data.rpMessages && Array.isArray(data.rpMessages) && data.rpMessages.length > 0) {
+    await dbClear('rpMessages');
+    for (const m of data.rpMessages) {
+      const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
+      if (m.image) rec.image = m.image;
+      if (m.images) rec.images = m.images;
+      await dbPut('rpMessages', null, rec);
+    }
+  }
+
+  // 导入RP角色卡设置（rp_active 不恢复，避免导入后意外进入RP模式）
+  if (data.rpData) {
+    const d = data.rpData;
+    if (d.rp_prompt)      localStorage.setItem('rp_prompt', d.rp_prompt);
+    if (d.rp_presets)     localStorage.setItem('rp_presets', d.rp_presets);
+    if (d.rp_char_name)   localStorage.setItem('rp_char_name', d.rp_char_name);
+    if (d.rp_char_avatar) localStorage.setItem('rp_char_avatar', d.rp_char_avatar);
   }
 
   // 刷新内存状态 & 同步 localStorage
@@ -4795,6 +6110,7 @@ $('#fileInputImport').onchange = async function() {
 // ======================== 应用 UI ========================
 async function applyUI(skipRender = false) {
   const aiAv = await getAiAvatar();
+  window._xinyeAvatarSrc = aiAv; // 缓存炘也真实头像，不受RP模式影响
   $('#headerAvatar').src = aiAv;
   $('#headerName').textContent = settings.aiName || '炘也';
   $('#typingAvatar').src = aiAv;
@@ -4810,14 +6126,7 @@ async function applyUI(skipRender = false) {
 
 // ======================== 炘也主动消息 ========================
 async function checkPendingMessage() {
-  try {
-    const res = await fetch('https://xinye-push.xiangbaoxiao55.workers.dev/get');
-    const text = await res.text();
-    if (text && text.trim() === 'true') {
-      localStorage.setItem('xinye_proactive_hint', '你主动找了兔宝，她刚打开网页回来了');
-      await proactiveMsg('idle');
-    }
-  } catch(e) {}
+  // xinye-push worker 已删除，跳过
 }
 
 // ======================== 启动 ========================
@@ -4850,6 +6159,7 @@ async function checkPendingMessage() {
   }
 
   await applyUI(false); // 始终渲染消息（数据已在 loadAll 后就绪）
+  if (typeof window.syncRpHeader === 'function') window.syncRpHeader(); // RP顶栏覆盖updateHeaderStatus
   const _splash = document.getElementById('splashLoading');
   if (_splash) _splash.style.display = 'none';
   await checkPendingMessage();
@@ -4986,7 +6296,7 @@ async function openDiaryGen(type) {
   try {
     const sub = type === 'xinye' ? { apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model } : getSubApiCfg();
     let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` },
@@ -5024,13 +6334,28 @@ async function openDiaryGen(type) {
 
 // 更新顶栏状态（天数 + 今日消息数）
 function updateHeaderStatus() {
+  // RP模式下不覆盖，由applyRpHeader管理
+  if (window._rpActive) return;
   const start = new Date('2026-02-13');
   const today = new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   const days = Math.floor((today - start) / (1000*60*60*24)) + 1;
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayCount = messages.filter(m => m.time >= todayStart.getTime()).length;
   const el = document.getElementById('headerStatus');
-  if (el) el.textContent = `在一起第 ${days} 天 · 今日 ${todayCount} 条`;
+  if (el) {
+    const badge = document.getElementById('rpStatusBadge');
+    el.textContent = `在一起第 ${days} 天 · 今日 ${todayCount} 条`;
+    if (badge) el.appendChild(badge);
+  }
+}
+
+// 切换RP模式时重新加载对应store的消息（物理隔离）
+async function switchRpMode(active) {
+  const loadCount = Math.max(settings ? (settings.displayLimit || 0) : 0, 2000);
+  const storeName = active ? 'rpMessages' : 'messages';
+  messages = await dbGetRecent(storeName, loadCount);
+  await renderMessages();
+  updateHeaderStatus();
 }
 
 // 从共读页跳回来时自动填入消息
@@ -5138,6 +6463,19 @@ async function sendStickerMsg(name) {
   const existing = userInput.value.trim();
   userInput.value = existing ? existing + ' ' + stickerText : stickerText;
   await sendMessage();
+  const userBubbles = chatArea.querySelectorAll('.msg-row.user .msg-bubble');
+  const lastBubble = userBubbles[userBubbles.length - 1];
+  if (!lastBubble) return;
+  if (existing) {
+    // 有额外文字：只把贴纸文本替换成内联贴纸图，保留文字
+    lastBubble.innerHTML = lastBubble.innerHTML.replace(
+      escHtml(stickerText),
+      `<span class="sticker-inline">${renderStickerHTML(name)}</span>`
+    );
+  } else if (!lastBubble.classList.contains('bubble-sticker')) {
+    lastBubble.classList.add('bubble-sticker');
+    lastBubble.innerHTML = renderStickerHTML(name);
+  }
 }
 // 贴纸设置管理
 function renderStickerMgr() {
@@ -5244,6 +6582,281 @@ function _qnToast(msg) {
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
 }
+</script>
+
+<!-- ======================== RP模式 ======================== -->
+<script>
+(function(){
+  // ---- 状态 ----
+  let rpActive = localStorage.getItem('rp_active') === '1';
+  let rpPresets = JSON.parse(localStorage.getItem('rp_presets') || '[]');
+
+  // ---- 初始化 UI ----
+  function rpInit() {
+    // 直接读localStorage，不依赖loadAll的执行顺序
+    rpActive = localStorage.getItem('rp_active') === '1';
+    window._rpActive = rpActive;
+    const ta = document.getElementById('rpPromptInput');
+    if (ta) ta.value = localStorage.getItem('rp_prompt') || '';
+    const nameInput = document.getElementById('rpCharName');
+    if (nameInput) nameInput.value = localStorage.getItem('rp_char_name') || '';
+    const userNameInput = document.getElementById('rpUserName');
+    if (userNameInput) userNameInput.value = localStorage.getItem('rp_user_name') || '';
+    refreshRpCharAvatar();
+    refreshRpUserAvatar();
+    refreshRpPresetSelect();
+    applyRpUI();
+  }
+
+  // ---- TA的角色头像上传 ----
+  window.handleRpAvatarUpload = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      localStorage.setItem('rp_char_avatar', e.target.result);
+      refreshRpCharAvatar();
+      if (rpActive) applyRpHeader();
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+
+  // ---- 清除TA的头像 ----
+  window.clearRpAvatar = function() {
+    localStorage.removeItem('rp_char_avatar');
+    refreshRpCharAvatar();
+    if (rpActive) applyRpHeader();
+  };
+
+  // ---- 我的角色头像上传 ----
+  window.handleRpUserAvatarUpload = function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      localStorage.setItem('rp_user_avatar', e.target.result);
+      refreshRpUserAvatar();
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+
+  // ---- 清除我的头像 ----
+  window.clearRpUserAvatar = function() {
+    localStorage.removeItem('rp_user_avatar');
+    refreshRpUserAvatar();
+  };
+
+  // ---- 保存角色名（TA + 我） ----
+  window.saveRpCharInfo = function() {
+    const name = document.getElementById('rpCharName')?.value || '';
+    localStorage.setItem('rp_char_name', name);
+    const userName = document.getElementById('rpUserName')?.value || '';
+    localStorage.setItem('rp_user_name', userName);
+    if (rpActive) applyRpHeader();
+  };
+
+  // ---- 刷新面板里TA的头像预览 ----
+  function refreshRpCharAvatar() {
+    const av = localStorage.getItem('rp_char_avatar');
+    const img = document.getElementById('rpCharAvatar');
+    const placeholder = document.getElementById('rpCharAvatarPlaceholder');
+    if (!img || !placeholder) return;
+    if (av) { img.src = av; img.style.display = 'block'; placeholder.style.display = 'none'; }
+    else { img.style.display = 'none'; placeholder.style.display = 'flex'; }
+  }
+
+  // ---- 刷新面板里我的头像预览 ----
+  function refreshRpUserAvatar() {
+    const av = localStorage.getItem('rp_user_avatar');
+    const img = document.getElementById('rpUserAvatar');
+    const placeholder = document.getElementById('rpUserAvatarPlaceholder');
+    if (!img || !placeholder) return;
+    if (av) { img.src = av; img.style.display = 'block'; placeholder.style.display = 'none'; }
+    else { img.style.display = 'none'; placeholder.style.display = 'flex'; }
+  }
+
+  // ---- 切换顶栏和输入指示头像/名字/副标题 ----
+  function applyRpHeader() {
+    const charName = localStorage.getItem('rp_char_name') || '';
+    const charAvatar = localStorage.getItem('rp_char_avatar') || '';
+    const headerAv = document.getElementById('headerAvatar');
+    const headerNm = document.getElementById('headerName');
+    const typingAv = document.getElementById('typingAvatar');
+    const statusEl = document.getElementById('headerStatus');
+    const badge = document.getElementById('rpStatusBadge');
+    if (rpActive) {
+      if (charAvatar && headerAv) headerAv.src = charAvatar;
+      if (charName && headerNm) headerNm.textContent = charName;
+      if (charAvatar && typingAv) typingAv.src = charAvatar;
+      // 顶栏副标题换成RP提示，隐藏炘也关系数据
+      if (statusEl) {
+        statusEl.textContent = '🎭 RP进行中';
+        if (badge) { statusEl.appendChild(badge); badge.classList.remove('show'); }
+      }
+    } else {
+      // 恢复炘也原始信息
+      getAiAvatar().then(av => {
+        if (headerAv) headerAv.src = av;
+        if (typingAv) typingAv.src = av;
+      });
+      if (headerNm) headerNm.textContent = (typeof settings !== 'undefined' && settings.aiName) || '炘也';
+      // 恢复顶栏副标题（updateHeaderStatus会重新计算并保留badge）
+      if (typeof updateHeaderStatus === 'function') updateHeaderStatus();
+    }
+  }
+
+  // ---- 供启动流程在applyUI后调用，确保RP顶栏状态覆盖updateHeaderStatus ----
+  window.syncRpHeader = function() {
+    if (rpActive) applyRpHeader();
+  };
+
+  // ---- 暴露给 renderMessages/appendMsgDOM 用的有效AI头像 ----
+  window.getEffectiveAiAvatar = async function() {
+    if (rpActive) {
+      const av = localStorage.getItem('rp_char_avatar');
+      if (av) return av;
+    }
+    return getAiAvatar();
+  };
+
+  // ---- 暴露给 renderMessages/appendMsgDOM 用的有效用户头像 ----
+  window.getEffectiveUserAvatar = async function() {
+    if (rpActive) {
+      const av = localStorage.getItem('rp_user_avatar');
+      if (av) return av;
+    }
+    return getUserAvatar();
+  };
+
+  // ---- 暴露给 sendMessage 用的用户角色名 ----
+  window.getRpUserName = function() {
+    return rpActive ? (localStorage.getItem('rp_user_name') || '') : '';
+  };
+
+  // ---- 打开面板（从🎭按钮点击） ----
+  window.openRpPanel = function() {
+    const panel = document.getElementById('rpPanel');
+    panel.classList.add('show');
+    document.getElementById('rpPromptInput').focus();
+  };
+
+  // ---- 关闭面板 ----
+  window.closeRpPanel = function() {
+    document.getElementById('rpPanel').classList.remove('show');
+  };
+
+  // ---- 切换激活状态 ----
+  window.toggleRpActive = async function() {
+    rpActive = !rpActive;
+    localStorage.setItem('rp_active', rpActive ? '1' : '0');
+    window._rpActive = rpActive;
+    applyRpUI();
+    toast(rpActive ? '🎭 RP模式已开启，对话已隔离' : '🎭 RP模式已关闭，恢复正常聊天');
+    // 切换消息视图（隔离RP上下文）
+    if (typeof switchRpMode === 'function') await switchRpMode(rpActive);
+  };
+
+  // ---- 保存当前输入的设定 ----
+  window.saveRpPrompt = function() {
+    const val = document.getElementById('rpPromptInput').value;
+    localStorage.setItem('rp_prompt', val);
+  };
+
+  // ---- 保存为预设 ----
+  window.saveRpPreset = function() {
+    const text = document.getElementById('rpPromptInput').value.trim();
+    if (!text) { toast('先写点RP设定再保存'); return; }
+    const nameInput = document.getElementById('rpPresetNameInput');
+    const name = (nameInput?.value || '').trim();
+    if (!name) { toast('请先填写预设名称'); nameInput?.focus(); return; }
+    const charName = document.getElementById('rpCharName')?.value || '';
+    const userName = document.getElementById('rpUserName')?.value || '';
+    // 头像base64太大不存进预设（保留在独立key里），只存名字和设定文本
+    const preset = { name, text, charName, userName };
+    const idx = rpPresets.findIndex(p => p.name === name);
+    if (idx >= 0) rpPresets[idx] = preset;
+    else rpPresets.push(preset);
+    localStorage.setItem('rp_presets', JSON.stringify(rpPresets));
+    refreshRpPresetSelect();
+    if (nameInput) nameInput.value = '';
+    toast('✨ 已保存「' + name + '」');
+  };
+
+  // ---- 加载预设 ----
+  window.loadRpPreset = function() {
+    const sel = document.getElementById('rpPresetSelect');
+    const idx = parseInt(sel.value);
+    if (isNaN(idx) || idx < 0) return;
+    const p = rpPresets[idx];
+    if (!p) return;
+    document.getElementById('rpPromptInput').value = p.text;
+    localStorage.setItem('rp_prompt', p.text);
+    // 恢复角色名和头像
+    const nameInput = document.getElementById('rpCharName');
+    if (nameInput) nameInput.value = p.charName || '';
+    localStorage.setItem('rp_char_name', p.charName || '');
+    const userNameInput2 = document.getElementById('rpUserName');
+    if (userNameInput2) userNameInput2.value = p.userName || '';
+    localStorage.setItem('rp_user_name', p.userName || '');
+    // 头像不随预设切换（太大），只切名字和文本
+    refreshRpCharAvatar();
+    refreshRpUserAvatar();
+    if (rpActive) applyRpHeader();
+  };
+
+  // ---- 删除预设 ----
+  window.deleteRpPreset = function() {
+    const sel = document.getElementById('rpPresetSelect');
+    const idx = parseInt(sel.value);
+    if (isNaN(idx) || idx < 0) { toast('先选一个预设'); return; }
+    const name = rpPresets[idx].name;
+    rpPresets.splice(idx, 1);
+    localStorage.setItem('rp_presets', JSON.stringify(rpPresets));
+    refreshRpPresetSelect();
+    toast('已删除「' + name + '」');
+  };
+
+  // ---- 刷新预设下拉 ----
+  function refreshRpPresetSelect() {
+    const sel = document.getElementById('rpPresetSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— 选择保存的预设 —</option>' +
+      rpPresets.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+  }
+
+  // ---- 更新所有UI状态 ----
+  function applyRpUI() {
+    const btn = document.getElementById('btnRp');
+    const badge = document.getElementById('rpStatusBadge');
+    const dot = document.getElementById('rpActiveDot');
+    const toggleBtn = document.getElementById('rpToggleBtn');
+    if (btn) btn.classList.toggle('active', rpActive);
+    if (badge) badge.classList.toggle('show', rpActive);
+    if (dot) dot.classList.toggle('on', rpActive);
+    if (toggleBtn) {
+      toggleBtn.textContent = rpActive ? '已开启' : '未开启';
+      toggleBtn.className = 'rp-toggle-btn ' + (rpActive ? 'on' : 'off');
+    }
+    applyRpHeader();
+  }
+
+  // ---- 暴露给sendMessage用的getter ----
+  window.getRpInjection = function() {
+    if (!rpActive) return null;
+    const prompt = localStorage.getItem('rp_prompt') || '';
+    if (!prompt.trim()) return null;
+    return prompt.trim();
+  };
+
+  // ---- DOM ready后初始化 ----
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', rpInit);
+  } else {
+    rpInit();
+  }
+})();
 </script>
 
 <!-- 日记/共读页随手记浮动按钮 -->

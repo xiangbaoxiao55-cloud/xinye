@@ -352,10 +352,10 @@ body.dark .footer-center { color: var(--text); }
   <div class="shelf-header">
     <div style="display:flex;align-items:center;gap:6px">
       <button class="btn-icon" onclick="goHome()">←</button>
-      <span class="shelf-heading">📚 书架</span>
+      <span class="shelf-heading">🍓 书架</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn-icon" id="btnDarkShelf" onclick="toggleDark()" title="暗夜模式">🌙</button>
+      <button class="btn-icon" id="btnDarkShelf" onclick="toggleDark()" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
       <button class="btn-icon" onclick="openShelfMenu()" style="font-size:18px">⋯</button>
       <button class="btn-add" onclick="openUpload()">＋ 添加书</button>
     </div>
@@ -370,11 +370,11 @@ body.dark .footer-center { color: var(--text); }
     <div class="top-title" id="readerTitle"></div>
     <button class="btn-icon btn-sm" onclick="changeFontSize(-1)" title="字小一点">A-</button>
     <button class="btn-icon btn-sm" onclick="changeFontSize(1)" title="字大一点">A+</button>
-    <button class="btn-icon" onclick="toggleDark()" id="btnDark" title="夜间模式">🌙</button>
-    <button class="btn-icon" onclick="openChapters()" title="目录">☰</button>
-    <button class="btn-icon" onclick="openAnnList()" title="所有批注" style="font-size:16px">📝</button>
-    <button class="btn-icon" onclick="archiveToMemory()" title="整理进记忆" style="font-size:16px">🧠</button>
-    <button class="btn-icon" onclick="sendCurrentToChat()" title="发给炘也" style="font-size:16px;color:var(--pink)">💬</button>
+    <button class="btn-icon" onclick="toggleDark()" id="btnDark" title="夜间模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
+    <button class="btn-icon" onclick="openChapters()" title="目录"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    <button class="btn-icon" onclick="openAnnList()" title="所有批注"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L17 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+    <button class="btn-icon" onclick="archiveToMemory()" title="整理进记忆"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+    <button class="btn-icon" onclick="sendCurrentToChat()" title="发给炘也" style="color:var(--pink)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="12" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/></svg></button>
   </div>
   <div class="reader-content" id="readerContent"
        onmouseup="onSelect()" ontouchend="onSelect()"></div>
@@ -1444,11 +1444,13 @@ async function jumpToAnn(chapIdx, annId) {
 // ==================== 夜间模式 ====================
 function setDarkUI(isDark) {
   document.body.classList.toggle('dark', isDark);
-  const icon = isDark ? '☀️' : '🌙';
+  const moonSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg>`;
+  const sunSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  const icon = isDark ? sunSvg : moonSvg;
   const b1 = document.getElementById('btnDark');
   const b2 = document.getElementById('btnDarkShelf');
-  if (b1) b1.textContent = icon;
-  if (b2) b2.textContent = icon;
+  if (b1) b1.innerHTML = icon;
+  if (b2) b2.innerHTML = icon;
 }
 function toggleDark() {
   const isDark = !document.body.classList.contains('dark');

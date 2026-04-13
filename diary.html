@@ -336,7 +336,7 @@ html.dark{
   --border:#3a2530;--shadow:0 2px 16px rgba(0,0,0,.4);
 }
 html.dark body{background:var(--bg)}
-html.dark .header,html.dark .tab-bar-top{background:rgba(30,15,20,.85)}
+html.dark .header,html.dark .tab-bar-top,html.dark #samedayNav{background:rgba(30,15,20,.85)}
 html.dark .month-label{background:linear-gradient(var(--bg) 80%,transparent)}
 html.dark .write-sheet{background:#261820}
 html.dark .sheet-date-input,html.dark .sheet-textarea{background:var(--bg2);color:var(--text);border-color:var(--border)}
@@ -356,10 +356,34 @@ html.dark .ie-sheet{background:#261820}
 html.dark .ie-btn{background:var(--bg2);border-color:var(--border);color:var(--text)}
 html.dark #samedayList [style*="background:var(--pink-light)"]{background:#3a1525!important;color:var(--pink)!important}
 html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!important}
+/* ---- 日记图片 ---- */
+.img-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0 2px;flex-shrink:0;-webkit-overflow-scrolling:touch;min-height:0}
+.img-strip.has-imgs{min-height:80px}
+.img-strip::-webkit-scrollbar{height:3px}
+.img-strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.img-thumb-wrap{position:relative;flex-shrink:0}
+.img-thumb{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border);display:block;cursor:pointer}
+.img-del-btn{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#e57373;color:#fff;border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;line-height:1}
+.img-add-btn{width:72px;height:72px;border:1.5px dashed var(--pink);border-radius:10px;background:var(--pink-light);color:var(--pink-deep);font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.img-add-btn:active{background:var(--pink);color:#fff}
+.img-badge{font-size:11px;color:#7c5cbf;background:rgba(124,92,191,.1);border-radius:8px;padding:2px 7px;display:inline-block;margin-left:4px}
+.detail-imgs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.detail-img-item{width:calc(33.33% - 6px);aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:opacity .15s}
+.detail-img-item:active{opacity:.75}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;padding:16px}
+.lightbox.show{opacity:1;pointer-events:auto}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+html.dark .img-add-btn{background:rgba(244,143,177,.12);border-color:var(--pink)}
+html.dark .img-thumb{border-color:var(--border)}
 </style>
 </head>
 <body>
 <div id="toast"></div>
+
+<!-- 灯箱 -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img src="" alt="">
+</div>
 
 <!-- 详情查看 -->
 <div class="detail-overlay" id="detailOverlay">
@@ -370,6 +394,7 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
     <button class="btn-del" id="btnDelEntry" onclick="deleteCurrentEntry()">删除</button>
   </div>
   <div class="detail-body">
+    <div id="detailImages" class="detail-imgs"></div>
     <div class="detail-mood" id="detailMood"></div>
     <div class="detail-text" id="detailText"></div>
     <div id="detailSnippets"></div>
@@ -396,6 +421,8 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
     <button class="mood-btn" data-mood="😤" onclick="selectMood(this)"><span class="em">😤</span>烦躁</button>
   </div>
   <textarea class="sheet-textarea" id="sheetTA" placeholder="今天想写点什么…"></textarea>
+  <div class="img-strip" id="imgStrip"></div>
+  <input type="file" id="diaryImgInput" accept="image/*" multiple style="display:none" onchange="onDiaryImgSelected(this)">
   <div class="ai-status" id="aiStatus">✨ 炘也正在写日记…</div>
   <div class="sheet-btns" id="sheetBtns">
     <button class="btn-ai" id="btnAI" onclick="generateAI()">✨ 让炘也写</button>
@@ -439,7 +466,8 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
   <div class="ie-sheet">
     <div class="ie-title">📦 日记 导入 / 导出</div>
     <div class="ie-btns">
-      <button class="ie-btn" onclick="exportDiary()">📤 导出全部日记（JSON备份）</button>
+      <button class="ie-btn" onclick="exportDiary()">📤 导出日记（仅文字）</button>
+      <button class="ie-btn" onclick="exportDiaryFull()">🖼️ 导出日记（含图片·完整备份）</button>
       <button class="ie-btn" onclick="importDiary()">📥 导入日记（兼容旧版格式）</button>
       <button class="ie-btn" onclick="importCSVDiary()">📊 导入历史日记（CSV / TSV / TXT）</button>
     </div>
@@ -451,11 +479,11 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
 <div class="app">
   <div class="header">
     <button class="btn-back" onclick="goBack()">‹</button>
-    <div class="header-title">📓 我们的日记本</div>
-    <button class="btn-icon-sm" id="btnCal" onclick="openCalendar()" title="日历">📅</button>
-    <button class="btn-icon-sm" id="btnSearch" onclick="toggleSearch()" title="搜索">🔍</button>
-    <button class="btn-icon-sm" id="btnDark" onclick="toggleDark()" title="暗夜模式">🌙</button>
-    <button class="btn-icon-sm" onclick="openImportExport()" title="导入导出" style="font-size:15px">⇅</button>
+    <div class="header-title">🌸 日记本</div>
+    <button class="btn-icon-sm" id="btnCal" onclick="openCalendar()" title="日历"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.5"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="15" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="12" cy="15" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="16" cy="15" r="1.2" fill="currentColor" opacity="0.6"/></svg></button>
+    <button class="btn-icon-sm" id="btnSearch" onclick="toggleSearch()" title="搜索"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9.5" cy="9.5" r="2.5" fill="currentColor" opacity="0.25"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="btn-icon-sm" id="btnDark" onclick="toggleDark()" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
+    <button class="btn-icon-sm" onclick="openImportExport()" title="导入导出"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3v9M8 8l4-5 4 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 21v-9M8 16l4 5 4-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></svg></button>
   </div>
 
   <!-- 搜索栏（隐藏） -->
@@ -472,24 +500,25 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
     <button class="tab-top-btn" onclick="switchTab('samday',this)">🗓️ 同一天</button>
   </div>
 
+  <!-- 同一天 日期导航（固定，仅 samday tab 时显示） -->
+  <div id="samedayNav" style="display:none;align-items:center;gap:8px;padding:8px 14px;background:var(--bg);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border);flex-shrink:0">
+    <button class="btn-back" style="width:34px;height:34px;font-size:18px" onclick="samedayMove(-1)">‹</button>
+    <div style="flex:1;text-align:center;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;text-decoration:underline dotted var(--pink)" id="samedayTitle" onclick="openCalendar(true)" title="点击选择日期"></div>
+    <button class="btn-back" style="width:34px;height:34px;font-size:18px" onclick="samedayMove(1)">›</button>
+  </div>
+
   <!-- 面板 -->
   <div class="panels">
     <div class="panel active" id="panelMe"></div>
     <div class="panel" id="panelXinye"></div>
     <div class="panel" id="panelSameday">
-      <!-- 日期导航 -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <button class="btn-back" style="width:34px;height:34px;font-size:18px" onclick="samedayMove(-1)">‹</button>
-        <div style="flex:1;text-align:center;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;text-decoration:underline dotted var(--pink)" id="samedayTitle" onclick="openCalendar(true)" title="点击选择日期"></div>
-        <button class="btn-back" style="width:34px;height:34px;font-size:18px" onclick="samedayMove(1)">›</button>
-      </div>
       <div id="samedayList"></div>
     </div>
   </div>
 </div>
 
 <!-- 浮动写日记按钮（独立打开时显示，嵌入 iframe 则隐藏） -->
-<button class="fab" id="fabBtn" onclick="openSheet()" title="写日记">✏️</button>
+<button class="fab" id="fabBtn" onclick="openSheet()" title="写日记"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L17 3z" fill="currentColor" opacity="0.4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
 
 <script>
 // ===== 当前 tab =====
@@ -651,13 +680,15 @@ function renderPanel(tab) {
       }
       const totalChars = (note ? note.length : 0) + snippets.reduce((s, x) => s + x.text.length, 0);
       const snipCountBadge = snippets.length ? `<span class="snip-badge">${snippets.length} 条</span>` : '';
+      const imgCount = entry?.imgCount || 0;
+      const imgBadge = imgCount ? `<span class="img-badge">📷 ${imgCount}</span>` : '';
       html += `<div class="entry-card" onclick="openDetail('${dateStr}','me')">
         <div class="entry-date-row">
           <div><div class="entry-day">${+d}</div><div class="entry-weekday">星期${wd}</div></div>
           ${mood ? `<div class="entry-mood-chip">${mood}</div>` : ''}
         </div>
         <div class="entry-preview">${highlight(previewText, kw)}${previewText.length < (snippets.length ? snippets[snippets.length-1].text.length : note.length) ? '…' : ''}</div>
-        <div class="entry-footer"><span class="entry-chars">${totalChars} 字${snipCountBadge}</span><span class="entry-arrow">›</span></div>
+        <div class="entry-footer"><span class="entry-chars">${totalChars} 字${snipCountBadge}${imgBadge}</span><span class="entry-arrow">›</span></div>
       </div>`;
     } else {
       const text = getXinyeEntry(dateStr);
@@ -728,6 +759,17 @@ function renderSameday() {
     let html = `<div style="margin-bottom:16px;border-radius:14px;overflow:hidden;border:1.5px solid var(--border)">
       <div style="padding:10px 14px;background:var(--pink-light);font-weight:700;font-size:14px;color:var(--pink-deep)">${yr}年 ${parseInt(mm)}月${parseInt(dd)}日${meMood?' '+meMood:''}</div>`;
     if (meNote) html += `<div style="padding:10px 14px;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-all;background:var(--card)">${escHtml(meNote)}</div>`;
+    const snippets = getSnippets(meEntry);
+    if (snippets.length) {
+      html += `<div style="padding:6px 14px 10px;background:var(--card);border-top:1px dashed var(--border)">`;
+      snippets.forEach(s => {
+        html += `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
+          <span style="font-size:11px;font-weight:700;color:var(--pink-deep);background:rgba(233,30,99,.08);border-radius:8px;padding:3px 8px;white-space:nowrap;flex-shrink:0">${escHtml(s.time)}</span>
+          <span style="font-size:13px;line-height:1.6;color:var(--text)">${escHtml(s.text)}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    }
     if (xNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#7c5cbf;white-space:pre-wrap;word-break:break-all;background:rgba(167,139,250,.07);border-top:1px solid var(--border)">💙 炘也：${escHtml(xNote)}</div>`;
     html += '</div>';
     return html;
@@ -742,6 +784,8 @@ function switchTab(tab, btn) {
   document.getElementById('panelMe').classList.toggle('active', tab === 'me');
   document.getElementById('panelXinye').classList.toggle('active', tab === 'xinye');
   document.getElementById('panelSameday').classList.toggle('active', tab === 'samday');
+  const nav = document.getElementById('samedayNav');
+  nav.style.display = tab === 'samday' ? 'flex' : 'none';
   if (tab === 'samday') samedayInit();
   // 炘也 tab 隐藏情绪选择 & AI按钮
   updateSheetUI();
@@ -764,11 +808,13 @@ function renderDetailSnippets(dateStr) {
   html += '</div>';
   el.innerHTML = html;
 }
-function openDetail(dateStr, tab) {
+async function openDetail(dateStr, tab) {
   currentDetailKey = { dateStr, tab };
   const isMe = tab === 'me';
   document.getElementById('detailDate').textContent = fmtDateFull(dateStr);
   document.getElementById('detailSnippets').innerHTML = '';
+  document.getElementById('detailImages').innerHTML = '';
+  _detailImgs = [];
   if (isMe) {
     const entry = getUserEntry(dateStr);
     const note = getNote(entry);
@@ -776,7 +822,14 @@ function openDetail(dateStr, tab) {
     document.getElementById('detailMood').textContent = mood;
     document.getElementById('detailText').textContent = note;
     renderDetailSnippets(dateStr);
-    // 如果只有 snippets 没有 note，隐藏编辑按钮（可选，这里保留）
+    // 加载图片（懒加载，只在打开详情时读）
+    const imgs = await getDiaryImgs(dateStr);
+    _detailImgs = imgs;
+    if (imgs.length) {
+      document.getElementById('detailImages').innerHTML = imgs.map((src, i) =>
+        `<img class="detail-img-item" src="${src}" onclick="openLightbox(${i},'detail')">`
+      ).join('');
+    }
   } else {
     document.getElementById('detailMood').textContent = '💙';
     document.getElementById('detailText').textContent = getXinyeEntry(dateStr);
@@ -793,11 +846,11 @@ function editCurrentEntry() {
   closeDetail();
   setTimeout(() => openSheet(dateStr, tab), 120);
 }
-function deleteCurrentEntry() {
+async function deleteCurrentEntry() {
   if (!currentDetailKey) return;
   if (!confirm('确定删除这篇日记？')) return;
   const { dateStr, tab } = currentDetailKey;
-  if (tab === 'me') deleteUserEntry(dateStr);
+  if (tab === 'me') { deleteUserEntry(dateStr); await deleteDiaryImgs(dateStr); }
   else deleteXinyeEntry(dateStr);
   closeDetail();
   renderBoth();
@@ -809,7 +862,7 @@ let sheetMode = null; // 'new' | 'edit'
 let sheetTab = null;
 let sheetDateStr = null;
 
-function openSheet(dateStr, tab) {
+async function openSheet(dateStr, tab) {
   tab = tab || currentTab;
   sheetTab = tab;
   sheetDateStr = dateStr || todayStr();
@@ -828,14 +881,21 @@ function openSheet(dateStr, tab) {
       document.querySelectorAll('.mood-btn').forEach(b => {
         b.classList.toggle('selected', b.dataset.mood === mood);
       });
+      _sheetImgs = await getDiaryImgs(sheetDateStr);
     } else {
       document.getElementById('sheetTA').value = getXinyeEntry(sheetDateStr);
+      _sheetImgs = [];
     }
   } else {
     document.getElementById('sheetTA').value = '';
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    _sheetImgs = [];
   }
 
+  renderImgStrip();
+  // 炘也 tab 隐藏图片区
+  document.getElementById('imgStrip').style.display = (tab === 'xinye') ? 'none' : 'flex';
+  document.getElementById('diaryImgInput').style.display = 'none';
   updateSheetUI();
   document.getElementById('sheetOverlay').classList.add('show');
   document.getElementById('writeSheet').classList.add('show');
@@ -846,6 +906,8 @@ function closeSheet() {
   document.getElementById('writeSheet').classList.remove('show');
   document.getElementById('aiStatus').classList.remove('show');
   sheetDateStr = null; sheetMode = null; sheetTab = null; editingKey = null;
+  _sheetImgs = [];
+  renderImgStrip();
 }
 function updateSheetUI() {
   const isXinye = sheetTab === 'xinye' || currentTab === 'xinye';
@@ -859,7 +921,7 @@ function selectMood(btn) {
   document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
 }
-function saveEntry() {
+async function saveEntry() {
   const dateStr = document.getElementById('sheetDate').value;
   const text = document.getElementById('sheetTA').value.trim();
   const isXinye = (sheetTab || currentTab) === 'xinye';
@@ -870,6 +932,17 @@ function saveEntry() {
   } else {
     const mood = document.querySelector('.mood-btn.selected')?.dataset.mood || '';
     saveUserEntry(dateStr, text, mood);
+    // 保存图片到 IndexedDB，并更新 imgCount
+    if (_sheetImgs.length) {
+      await setDiaryImgs(dateStr, _sheetImgs);
+      const e = getUserEntry(dateStr) || {};
+      e.imgCount = _sheetImgs.length;
+      localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e));
+    } else {
+      await deleteDiaryImgs(dateStr);
+      const e = getUserEntry(dateStr);
+      if (e && e.imgCount) { delete e.imgCount; localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e)); }
+    }
   }
   closeSheet();
   renderBoth();
@@ -992,6 +1065,116 @@ async function loadRecentMessages(count) {
     });
   } catch { return []; }
 }
+
+// ===== DiaryImages IndexedDB =====
+let _diaryImgDB = null;
+function openDiaryImgDB() {
+  if (_diaryImgDB) return Promise.resolve(_diaryImgDB);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('DiaryImagesDB', 1);
+    req.onupgradeneeded = e => { e.target.result.createObjectStore('imgs', { keyPath: 'dateStr' }); };
+    req.onsuccess = e => { _diaryImgDB = e.target.result; resolve(_diaryImgDB); };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+async function getDiaryImgs(dateStr) {
+  try {
+    const db = await openDiaryImgDB();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction('imgs','readonly').objectStore('imgs').get(dateStr);
+      req.onsuccess = () => resolve(req.result?.images || []);
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch { return []; }
+}
+async function setDiaryImgs(dateStr, images) {
+  const db = await openDiaryImgDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('imgs','readwrite').objectStore('imgs').put({ dateStr, images });
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e.target.error);
+  });
+}
+async function deleteDiaryImgs(dateStr) {
+  try {
+    const db = await openDiaryImgDB();
+    await new Promise((resolve, reject) => {
+      const req = db.transaction('imgs','readwrite').objectStore('imgs').delete(dateStr);
+      req.onsuccess = () => resolve();
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch {}
+}
+async function getAllDiaryImgDates() {
+  try {
+    const db = await openDiaryImgDB();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction('imgs','readonly').objectStore('imgs').getAllKeys();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch { return []; }
+}
+
+// ===== 图片压缩 =====
+function compressImage(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 800, maxH = 800;
+        let w = img.width, h = img.height;
+        if (w > maxW || h > maxH) {
+          const r = Math.min(maxW/w, maxH/h);
+          w = Math.round(w*r); h = Math.round(h*r);
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===== 写日记图片状态 =====
+let _sheetImgs = [];
+let _detailImgs = [];
+
+function addDiaryImg() { document.getElementById('diaryImgInput').click(); }
+async function onDiaryImgSelected(input) {
+  const files = Array.from(input.files);
+  input.value = '';
+  for (const f of files) {
+    if (_sheetImgs.length >= 9) { toast('最多 9 张'); break; }
+    const b64 = await compressImage(f);
+    _sheetImgs.push(b64);
+  }
+  renderImgStrip();
+}
+function removeSheetImg(i) { _sheetImgs.splice(i, 1); renderImgStrip(); }
+function renderImgStrip() {
+  const strip = document.getElementById('imgStrip');
+  if (!strip) return;
+  let html = _sheetImgs.map((src, i) =>
+    `<div class="img-thumb-wrap"><img class="img-thumb" src="${src}" onclick="openLightbox(${i},'sheet')"><button class="img-del-btn" onclick="removeSheetImg(${i})">×</button></div>`
+  ).join('');
+  html += `<button class="img-add-btn" onclick="addDiaryImg()">＋</button>`;
+  strip.innerHTML = html;
+  strip.classList.toggle('has-imgs', _sheetImgs.length > 0);
+}
+
+// ===== 灯箱 =====
+function openLightbox(idx, source) {
+  const srcs = source === 'sheet' ? _sheetImgs : _detailImgs;
+  const lb = document.getElementById('lightbox');
+  lb.querySelector('img').src = srcs[idx] || '';
+  lb.classList.add('show');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
 
 // ===== 搜索 =====
 let searchBar = false;
@@ -1148,6 +1331,32 @@ async function exportDiary() {
   a.click(); URL.revokeObjectURL(url);
   toast('日记已导出 📦');
 }
+async function exportDiaryFull() {
+  toast('正在打包图片，请稍候…', 5000);
+  const meDates = getAllMeDates();
+  const xinyeDates = getAllXinyeDates();
+  const data = { version: 3, exportTime: new Date().toISOString(), me: {}, xinye: {}, images: {} };
+  meDates.forEach(d => { data.me[d] = getUserEntry(d); });
+  xinyeDates.forEach(d => { data.xinye[d] = getXinyeEntry(d); });
+  for (const d of meDates) {
+    const imgs = await getDiaryImgs(d);
+    if (imgs.length) data.images[d] = imgs;
+  }
+  const jsonStr = JSON.stringify(data);
+  const filename = `diary_full_${todayStr()}.json`;
+  if (window.parent !== window && typeof window.parent.downloadFile === 'function') {
+    await window.parent.downloadFile(jsonStr, filename, 'application/json');
+    toast('完整日记已导出到 Download 文件夹 📦');
+    return;
+  }
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click(); URL.revokeObjectURL(url);
+  toast('完整日记已导出 📦');
+}
+
 function importDiary() {
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.json,application/json';
@@ -1188,10 +1397,23 @@ function importDiary() {
           }
         });
       }
+      // 恢复图片（version:3 才有）
+      let imgCount = 0;
+      if (data.images && typeof data.images === 'object') {
+        for (const [d, imgs] of Object.entries(data.images)) {
+          if (Array.isArray(imgs) && imgs.length) {
+            await setDiaryImgs(d, imgs);
+            const entry = getUserEntry(d);
+            if (entry) { entry.imgCount = imgs.length; localStorage.setItem('rbdiary_' + d, JSON.stringify(entry)); }
+            imgCount++;
+          }
+        }
+      }
       renderBoth();
       closeImportExport();
+      const imgNote = imgCount ? `· 图片 ${imgCount} 天` : '';
       const msg = meCount || xinyeCount
-        ? `涂涂 ${meCount} 篇 · 炘也 ${xinyeCount} 篇 已导入 📥`
+        ? `涂涂 ${meCount} 篇 · 炘也 ${xinyeCount} 篇 ${imgNote} 已导入 📥`
         : '备份文件里没找到日记数据，可能是聊天备份？';
       toast(msg, 3500);
     } catch (e) {
@@ -1267,7 +1489,9 @@ function goBack() {
 // ===== 暗夜模式 =====
 function applyDark(on) {
   document.documentElement.classList.toggle('dark', on);
-  document.getElementById('btnDark').textContent = on ? '☀️' : '🌙';
+  document.getElementById('btnDark').innerHTML = on
+    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+    : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg>`;
 }
 function toggleDark() {
   const on = !document.documentElement.classList.contains('dark');
