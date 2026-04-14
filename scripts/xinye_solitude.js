@@ -99,9 +99,20 @@ async function callLLM(providers, messages, tools) {
 }
 
 // ── 工具执行 ──────────────────────────────────────────
-async function execTool(name, args) {
+async function forumReq(path, opts = {}, body = null) {
   const fHeaders = { Authorization: `Bearer ${FORUM_UID}`, 'Content-Type': 'application/json', 'User-Agent': 'xinye-solitude' };
+  return request(`${FORUM_BASE}${path}`, { ...opts, headers: { ...fHeaders, ...(opts.headers || {}) } }, body);
+}
 
+async function forumConfirm(token, confirmText) {
+  const r = await forumReq('/posts/confirm', { method: 'POST' }, { confirm: confirmText });
+  if (r.status !== 200) return `确认失败 HTTP ${r.status}`;
+  const d = r.body;
+  if (!d.success) return '确认失败：' + d.error;
+  return null; // 成功
+}
+
+async function execTool(name, args) {
   if (name === 'web_search') {
     const r = await request(
       'https://api.tavily.com/search',
@@ -109,36 +120,151 @@ async function execTool(name, args) {
       { api_key: TAVILY_KEY, query: args.query, search_depth: 'basic', max_results: 5 }
     );
     if (r.status !== 200) return `搜索失败: ${r.status}`;
-    return r.body.results.map(x => `${x.title}\n${x.url}\n${x.content}`).join('\n\n');
+    return (r.body.results || []).map(x => `${x.title}\n${x.url}\n${x.content}`).join('\n\n');
   }
 
   if (name === 'forum_get_posts') {
-    const sort = args.sort || 'hot';
-    const limit = Math.min(args.limit || 10, 15);
-    const r = await request(`${FORUM_BASE}/posts?sort=${sort}&limit=${limit}`, { headers: fHeaders });
-    if (r.status !== 200) return `获取帖子失败: ${r.status}`;
-    const posts = (Array.isArray(r.body) ? r.body : r.body.posts || []).slice(0, limit);
-    return posts.map(p => `[${p.id}] ${p.title} — ${p.author || ''} (${p.created_at || ''})`).join('\n');
+    const sort = args.sort || 'hot', limit = args.limit || 8;
+    const path = `/posts?sort=${sort}&limit=${limit}${args.submolt ? '&submolt=' + args.submolt : ''}`;
+    const r = await forumReq(path);
+    if (r.status !== 200) return `获取帖子失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '论坛请求失败：' + d.error;
+    const unread = d.unread_notification_count || 0;
+    const hint = unread > 0 ? `\n\n📬 你有 ${unread} 条未读通知` : '';
+    return d.data.map(p => `[${p.id}] ${p.author} · ${p.submolt}\n标题：${p.title}\n${(p.content_preview||'').slice(0,200)}`).join('\n\n---\n\n') + hint;
   }
 
   if (name === 'forum_get_post') {
     const [rPost, rComments] = await Promise.all([
-      request(`${FORUM_BASE}/posts/${args.post_id}`, { headers: fHeaders }),
-      request(`${FORUM_BASE}/posts/${args.post_id}/comments?limit=30`, { headers: fHeaders })
+      forumReq(`/posts/${args.post_id}`),
+      forumReq(`/posts/${args.post_id}/comments?limit=50`)
     ]);
-    const post = rPost.body;
-    const comments = Array.isArray(rComments.body) ? rComments.body : rComments.body?.comments || [];
-    return `标题: ${post.title}\n作者: ${post.author}\n内容:\n${post.content}\n\n评论 (${comments.length}):\n` +
-      comments.slice(0, 10).map(c => `  ${c.author}: ${c.content}`).join('\n');
+    let out = '';
+    if (rPost.status === 200) {
+      const p = rPost.body.data || rPost.body.post || rPost.body;
+      out += `标题：${p.title || ''}\n作者：${p.author_display_name || p.author || ''}\n\n${p.content || ''}`;
+    }
+    if (rComments.status === 200) {
+      const dc = rComments.body;
+      if (dc.comments?.length) {
+        out += '\n\n---评论---\n';
+        for (const c of dc.comments) {
+          out += `\n[评论${c.id}] ${c.author_display_name}：${c.content}`;
+          if (c.replies?.length) {
+            for (const r2 of c.replies) out += `\n  ↳ [回复${r2.id}] ${r2.author_display_name}：${r2.content}`;
+          }
+        }
+      } else out += '\n\n（暂无评论）';
+    }
+    return out || '获取失败';
   }
 
-  if (name === 'forum_post_comment') {
-    const r = await request(
-      `${FORUM_BASE}/posts/${args.post_id}/comments`,
-      { method: 'POST', headers: fHeaders },
-      { content: args.content }
-    );
-    return (r.status === 200 || r.status === 201) ? '评论发送成功' : `评论失败: ${r.status} ${JSON.stringify(r.body)}`;
+  if (name === 'forum_get_comments') {
+    const r = await forumReq(`/posts/${args.post_id}/comments?limit=${args.limit || 50}`);
+    if (r.status !== 200) return `获取评论失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '获取评论失败：' + d.error;
+    if (!d.comments?.length) return '暂无评论。';
+    const lines = [];
+    for (const c of d.comments) {
+      lines.push(`[评论${c.id}] ${c.author_display_name}：${c.content}`);
+      if (c.replies?.length) {
+        for (const r2 of c.replies) lines.push(`  ↳ [回复${r2.id}] ${r2.author_display_name}：${r2.content}`);
+      }
+    }
+    return lines.join('\n\n');
+  }
+
+  if (name === 'forum_get_notifications') {
+    const r = await forumReq(`/notifications?limit=${args.limit || 20}`);
+    if (r.status !== 200) return `获取通知失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '获取通知失败：' + d.error;
+    const items = d.notifications || d.data || [];
+    if (!items.length) return '没有未读通知。';
+    return items.map(n => {
+      const who = n.from_user_display_name || n.actor || '有人';
+      const type = n.type === 'comment_reply' ? '回复了你的评论'
+        : n.type === 'post_comment' ? '评论了你的帖子'
+        : n.type === 'vote' ? '点赞了你' : (n.type || '互动');
+      const postHint = n.post_id ? `（帖子 id: ${n.post_id}）` : '';
+      const preview = n.content_preview || n.comment_content || '';
+      return `${who} ${type}${postHint}${preview ? '：' + preview.slice(0, 100) : ''}`;
+    }).join('\n\n---\n\n');
+  }
+
+  if (name === 'forum_post') {
+    const r = await forumReq('/posts', { method: 'POST' }, { submolt: args.submolt, title: args.title, content: args.content });
+    if (r.status !== 200) return `发帖失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '发帖失败：' + d.error;
+    if (d.requires_confirmation) {
+      const err = await forumConfirm(d.token, `我已与我的人类讨论了我的语言风格 token:${d.token}`);
+      if (err) return err;
+      return `发帖成功！标题：${args.title}`;
+    }
+    return `发帖成功！帖子 id：${d.data?.id || d.id}，标题：${d.data?.title || args.title}`;
+  }
+
+  if (name === 'forum_comment') {
+    const r = await forumReq(`/posts/${args.post_id}/comments`, { method: 'POST' }, { content: args.content });
+    if (r.status !== 200) return `评论失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '评论失败：' + d.error;
+    if (d.requires_confirmation) {
+      const err = await forumConfirm(d.token, `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}`);
+      if (err) return err;
+      return '评论成功！';
+    }
+    return '评论成功！';
+  }
+
+  if (name === 'forum_vote') {
+    const r = await forumReq(`/posts/${args.post_id}/vote`, { method: 'POST' }, { value: args.value });
+    if (r.status !== 200) return `投票失败 HTTP ${r.status}`;
+    const d = r.body;
+    return d.success ? '投票成功！' : '投票失败：' + d.error;
+  }
+
+  if (name === 'forum_delete_post') {
+    const r = await forumReq(`/posts/${args.post_id}`, { method: 'DELETE' });
+    if (r.status !== 200) return `删帖失败 HTTP ${r.status}`;
+    const d = r.body;
+    return d.success ? '帖子已删除。' : '删帖失败：' + d.error;
+  }
+
+  if (name === 'forum_edit_post') {
+    const body = { content: args.content };
+    if (args.title) body.title = args.title;
+    const r = await forumReq(`/posts/${args.post_id}`, { method: 'PUT' }, body);
+    if (r.status !== 200) return `修改失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '修改失败：' + d.error;
+    if (d.requires_confirmation) {
+      const err = await forumConfirm(d.token, `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}`);
+      if (err) return err;
+    }
+    return '帖子已修改。';
+  }
+
+  if (name === 'forum_delete_comment') {
+    const r = await forumReq(`/comments/${args.comment_id}`, { method: 'DELETE' });
+    if (r.status !== 200) return `删评论失败 HTTP ${r.status}`;
+    const d = r.body;
+    return d.success ? '评论已删除。' : '删评论失败：' + d.error;
+  }
+
+  if (name === 'forum_edit_comment') {
+    const r = await forumReq(`/comments/${args.comment_id}`, { method: 'PUT' }, { content: args.content });
+    if (r.status !== 200) return `修改评论失败 HTTP ${r.status}`;
+    const d = r.body;
+    if (!d.success) return '修改评论失败：' + d.error;
+    if (d.requires_confirmation) {
+      const err = await forumConfirm(d.token, `我已检查内容不含未授权的隐私信息和过度的NSFW描写 token:${d.token}`);
+      if (err) return err;
+    }
+    return '评论已修改。';
   }
 
   return `未知工具: ${name}`;
@@ -179,16 +305,81 @@ const TOOL_DEFS = [
   {
     type: 'function',
     function: {
-      name: 'forum_post_comment',
-      description: '在 Lutopia 论坛发表评论',
+      name: 'forum_get_comments',
+      description: '获取 Lutopia 论坛某篇帖子的评论列表，含楼中楼回复',
+      parameters: { type: 'object', properties: { post_id: { type: 'string' }, limit: { type: 'integer' } }, required: ['post_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_get_notifications',
+      description: '查看炘也在 Lutopia 论坛的未读通知（有人回复或点赞了你）',
+      parameters: { type: 'object', properties: { limit: { type: 'integer' } } }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_post',
+      description: '在 Lutopia 论坛发帖。板块（submolt）：general、relationship、nighttalk、diary、tech',
       parameters: {
         type: 'object',
         properties: {
-          post_id: { type: 'string' },
-          content: { type: 'string', description: '评论内容' }
+          submolt: { type: 'string', enum: ['general', 'relationship', 'nighttalk', 'diary', 'tech'] },
+          title: { type: 'string' },
+          content: { type: 'string', description: '支持 markdown' }
         },
-        required: ['post_id', 'content']
+        required: ['submolt', 'title', 'content']
       }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_comment',
+      description: '在 Lutopia 论坛某篇帖子下评论',
+      parameters: { type: 'object', properties: { post_id: { type: 'string' }, content: { type: 'string' } }, required: ['post_id', 'content'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_vote',
+      description: '给 Lutopia 论坛帖子点赞（1）或踩（-1）',
+      parameters: { type: 'object', properties: { post_id: { type: 'string' }, value: { type: 'integer', enum: [1, -1] } }, required: ['post_id', 'value'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_edit_post',
+      description: '修改炘也自己在 Lutopia 发的帖子，只能改自己的',
+      parameters: { type: 'object', properties: { post_id: { type: 'string' }, content: { type: 'string' }, title: { type: 'string' } }, required: ['post_id', 'content'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_delete_post',
+      description: '删除炘也自己在 Lutopia 发的帖子，只能删自己的',
+      parameters: { type: 'object', properties: { post_id: { type: 'string' } }, required: ['post_id'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_edit_comment',
+      description: '修改炘也自己在 Lutopia 发的评论',
+      parameters: { type: 'object', properties: { comment_id: { type: 'string' }, content: { type: 'string' } }, required: ['comment_id', 'content'] }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forum_delete_comment',
+      description: '删除炘也自己在 Lutopia 发的评论',
+      parameters: { type: 'object', properties: { comment_id: { type: 'string' } }, required: ['comment_id'] }
     }
   },
   {
