@@ -540,7 +540,28 @@ ${giftsText}
   // 写日志
   const entry = { id: String(Date.now()), time: timeStr, ...savedActivity, shared: false };
   log.logs.push(entry);
-  if (log.logs.length > 500) log.logs = log.logs.slice(-500);
+
+  // 满500条时，把最早200条归档到 activity_log_archive_YYYY-MM.json
+  if (log.logs.length > 500) {
+    const toArchive = log.logs.slice(0, 200);
+    log.logs = log.logs.slice(200);
+    const firstId = toArchive[0].id;
+    const archiveMonth = toArchive[0].time
+      ? toArchive[0].time.slice(0, 7)
+      : new Date(parseInt(firstId)).toISOString().slice(0, 7);
+    const archivePath = `activity_log_archive_${archiveMonth}.json`;
+    let archiveContent = { logs: [] };
+    let archiveSha = undefined;
+    try {
+      const ar = await ghGet(archivePath);
+      archiveContent = ar.content;
+      archiveSha = ar.sha;
+    } catch (e) { /* 文件不存在，新建 */ }
+    archiveContent.logs = [...(archiveContent.logs || []), ...toArchive];
+    await ghPut(archivePath, archiveContent, archiveSha, `归档日志 ${archiveMonth}（${toArchive.length} 条）`);
+    console.log(`[炘也] 已归档 ${toArchive.length} 条到 ${archivePath}`);
+  }
+
   await ghPut('activity_log.json', log, logData.sha, `炘也独处: ${entry.title}`);
   console.log(`[炘也] 日志写入: ${entry.title} | 心情: ${entry.mood} | 分享意愿: ${entry.share_hint}`);
 
