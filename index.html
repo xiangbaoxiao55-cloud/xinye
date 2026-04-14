@@ -1387,6 +1387,7 @@ if('serviceWorker' in navigator){
       <label>本地服务器地址（推荐）</label>
       <input type="text" id="setSolitudeServerUrl" placeholder="http://100.97.103.90:8787">
       <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问。数据完全本地，不经 GitHub。</div>
+      <div class="hint" id="lastBackupHint" style="margin-top:4px"></div>
     </div>
     <div class="setting-group">
       <label>GitHub Private Token（备用）</label>
@@ -5448,6 +5449,8 @@ async function openSettings() {
   $('#setForumProxy').value = settings.forumProxy || '';
   const _ssEl = $('#setSolitudeServerUrl');
   if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
+  const _bkHint = $('#lastBackupHint');
+  if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
   $('#setPrivateToken').value = settings.privateToken || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
@@ -6351,6 +6354,7 @@ async function autoBackupToServer() {
 
     await fetch(`${serverUrl}/api/backup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
     console.log('[自动备份] 完成');
+    localStorage.setItem('lastAutoBackupTime', new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }));
   } catch (e) {
     console.warn('[自动备份] 失败:', e.message);
   }

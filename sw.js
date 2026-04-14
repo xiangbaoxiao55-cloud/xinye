@@ -1,5 +1,5 @@
-const CACHE_NAME = 'xinye-v5';
-const STATIC_ASSETS = ['/', '/index.html', '/diary.html', '/reading.html'];
+const CACHE_NAME = 'xinye-v6';
+const STATIC_ASSETS = ['/', '/index.html', '/diary.html', '/reading.html', '/jszip.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
