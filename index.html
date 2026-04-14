@@ -1869,6 +1869,7 @@ function dbPut(store, key, value) {
 }
 
 function dbGet(store, key) {
+  if (!db) return Promise.resolve(undefined);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).get(key);
@@ -1878,6 +1879,7 @@ function dbGet(store, key) {
 }
 
 function dbGetAll(store) {
+  if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).getAll();
@@ -1888,6 +1890,7 @@ function dbGetAll(store) {
 
 // 从尾部读最近 count 条（按 key 逆序游标，避免加载全部）
 function dbGetRecent(store, count) {
+  if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const results = [];
@@ -1907,6 +1910,7 @@ function dbGetRecent(store, count) {
 
 // 从尾部读最近 count 条，只返回满足 filterFn 的记录（遍历全部直到凑够 count 条）
 function dbGetRecentFiltered(store, count, filterFn) {
+  if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const results = [];
@@ -1946,6 +1950,7 @@ function dbClear(store) {
 }
 
 function dbGetAllKeys(store) {
+  if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
     const req = tx.objectStore(store).getAllKeys();
