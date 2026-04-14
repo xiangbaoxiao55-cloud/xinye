@@ -2920,28 +2920,61 @@ async function fetchSolitudeGifts() {
   } catch (e) { return { data: [], sha: r.sha }; }
 }
 
-// 返回要注入context的独处日志提示文字（最多3条未见过的）
-// 日志格式：{ id: String(Date.now()), time: "2026-04-14 17:30 北京时间", title, content, share_hint, mood }
+// 返回要注入context的独处日志提示文字
+// 条件：share_hint=true、shared!=true、7天内、注入次数<3
 async function getSolitudeContextHint() {
   if (!settings.solitudeServerUrl && !settings.privateToken) return null;
   try {
     const logs = await fetchSolitudeLog();
     if (!logs.length) return null;
-    const shareable = logs.filter(l => l.share_hint === true || l.share_hint === 'true');
+    const now = Date.now();
+    const SEVEN_DAYS = 7 * 24 * 3600 * 1000;
+    // 过滤候选
+    const shareable = logs.filter(l => {
+      if (!(l.share_hint === true || l.share_hint === 'true')) return false;
+      if (l.shared === true || l.shared === 'true') return false;
+      const ms = parseInt(l.id);
+      if (!isNaN(ms) && ms > 1e12 && now - ms > SEVEN_DAYS) return false;
+      return true;
+    });
     if (!shareable.length) return null;
-    let seen = [];
-    try { seen = JSON.parse(localStorage.getItem('xinye_solitude_seen') || '[]'); } catch (e) {}
-    const unseen = shareable.filter(l => !seen.includes(l.id));
-    if (!unseen.length) return null;
-    const toInject = unseen.slice(-3);
+    // 注入次数（最多3次，3次没说视为不说）
+    let injectCount = {};
+    try { injectCount = JSON.parse(localStorage.getItem('xinye_solitude_inject_count') || '{}'); } catch (e) {}
+    const eligible = shareable.filter(l => (injectCount[l.id] || 0) < 3);
+    if (!eligible.length) return null;
+    // 取最近3条
+    const toInject = eligible.slice(-3);
     const lines = toInject.map(l => {
       const t = l.time ? l.time.replace(' 北京时间', '') : '';
-      return `• ${t ? `[${t}] ` : ''}${l.title || ''}${l.content ? '：' + l.content.slice(0, 120) : ''}`;
+      const preview = l.content ? l.content.slice(0, 80) : '';
+      return `• [id:${l.id}]${t ? ` [${t}]` : ''} ${l.title || ''}${preview ? '：' + preview : ''}`;
     }).join('\n');
-    const newSeen = [...seen, ...toInject.map(l => l.id)].slice(-100);
-    localStorage.setItem('xinye_solitude_seen', JSON.stringify(newSeen));
-    return `【炘也独处日志·你不在时做的事，自己决定要不要聊到】\n${lines}`;
+    // 更新次数
+    toInject.forEach(l => { injectCount[l.id] = (injectCount[l.id] || 0) + 1; });
+    localStorage.setItem('xinye_solitude_inject_count', JSON.stringify(injectCount));
+    return `【炘也独处日志·兔宝不在时你做的事】\n${lines}\n（可自主决定要不要跟兔宝聊起。如果这次回复主动提到了某条，请在回复末尾加 <!--shared:对应id-->，例如 <!--shared:${toInject[0]?.id || ''}-->，系统会自动处理，不会显示给兔宝）`;
   } catch (e) { return null; }
+}
+
+// 检测炘也回复里的 <!--shared:ID--> 标记，写回服务器，清掉标记
+async function processSolitudeSharedMarkers(text) {
+  if (!text || !text.includes('<!--shared:')) return text;
+  const regex = /<!--shared:(\d+)-->/g;
+  let match;
+  const ids = [];
+  while ((match = regex.exec(text)) !== null) ids.push(match[1]);
+  if (!ids.length) return text;
+  const cleaned = text.replace(/<!--shared:\d+-->/g, '').replace(/\s+$/, '');
+  if (settings.solitudeServerUrl) {
+    for (const id of ids) {
+      try {
+        await fetch(`${settings.solitudeServerUrl}/api/logs/${id}/shared`, { method: 'PATCH' });
+      } catch (e) {}
+    }
+  }
+  _solitudeLogCache = null; // 清缓存，下次重新加载
+  return cleaned;
 }
 
 // 把 "2026-04-14 17:30 北京时间" 或 id 毫秒时间戳转为 "相对时间 · 实际时间"
@@ -3930,7 +3963,8 @@ ${dream}
     const res = await subApiFetch({ messages: apiMsgs, temperature: 0.9, stream: false }, 'gpt-4o');
     if (!res || !res.ok) throw new Error(`API 错误 ${res ? res.status : '网络'}`);
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || '';
+    let reply = data.choices?.[0]?.message?.content || '';
+    reply = await processSolitudeSharedMarkers(reply);
     if (reply) {
       typing.classList.remove('show');
       const aiMsg = await addMessage('assistant', reply);
@@ -5172,6 +5206,8 @@ async function sendMessage() {
       // 辅助：保存已实时显示的气泡
       async function _finalizeMsg(parsed, loopMsgs) {
         let finalText = parsed.content || '（没有收到回复）';
+        finalText = await processSolitudeSharedMarkers(finalText);
+        if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); applyStickerTags(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
           typing.classList.remove('show');
@@ -5194,6 +5230,7 @@ async function sendMessage() {
       if (!settings.streamMode) {
         // ====== 非流式 Agent loop（有搜索Key + 关闭流式）======
         async function _showNonStream(text, msgList, usage) {
+          text = await processSolitudeSharedMarkers(text);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
           await appendMsgDOM(_nm);
