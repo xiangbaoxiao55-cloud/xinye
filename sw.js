@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-v2';
+const CACHE_NAME = 'xinye-v4';
 const STATIC_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', e => {
@@ -18,18 +18,21 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // 只缓存同源GET请求，API请求走网络
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.hostname !== self.location.hostname) return;
 
+  // 缓存优先 + 后台更新（stale-while-revalidate）
+  // 先从缓存秒开，同时后台拉新版本更新缓存，下次打开就是新的
   e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        return res;
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(e.request).then(cached => {
+        const fetchPromise = fetch(e.request).then(res => {
+          cache.put(e.request, res.clone());
+          return res;
+        }).catch(() => null);
+        return cached || fetchPromise;
       })
-      .catch(() => caches.match(e.request))
+    )
   );
 });
