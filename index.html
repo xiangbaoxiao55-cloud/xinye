@@ -857,6 +857,76 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   width:100%;height:100%;border:none;display:block;
 }
 
+/* ====================== 独处浮层 ====================== */
+.solitude-overlay{
+  position:fixed;inset:0;background:rgba(40,20,55,.45);
+  backdrop-filter:blur(6px);z-index:300;
+  display:none;align-items:flex-start;justify-content:flex-end;
+}
+.solitude-overlay.show{display:flex}
+.solitude-panel{
+  width:360px;max-width:92vw;height:100%;
+  background:var(--bg);display:flex;flex-direction:column;
+  box-shadow:-4px 0 24px rgba(0,0,0,.18);
+  animation:slideInRight .22s ease;
+}
+@keyframes slideInRight{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.solitude-header{
+  padding:16px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,var(--pink-light),rgba(243,232,255,.4));
+}
+.solitude-header-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--pink);flex-shrink:0}
+.solitude-header-info{flex:1;min-width:0}
+.solitude-header-title{font-size:15px;font-weight:700;color:var(--text)}
+.solitude-header-sub{font-size:12px;color:var(--text-light);margin-top:2px}
+.solitude-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-light);padding:4px 6px;border-radius:8px;line-height:1}
+.solitude-close:hover{background:var(--pink-light)}
+.solitude-body{flex:1;overflow-y:auto;padding:12px}
+.solitude-empty{text-align:center;color:var(--text-light);padding:40px 20px;font-size:14px;line-height:1.8}
+.solitude-entry{
+  padding:12px 14px;border-radius:12px;margin-bottom:10px;
+  background:rgba(255,255,255,.7);border:1px solid rgba(240,220,230,.8);
+  box-shadow:0 1px 6px rgba(0,0,0,.05);transition:box-shadow .2s;
+}
+[data-theme="dark"] .solitude-entry{background:rgba(36,22,44,.8);border-color:rgba(80,55,100,.5)}
+.solitude-entry:hover{box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.solitude-entry-time{font-size:11px;color:var(--text-light);margin-bottom:5px}
+.solitude-entry-title{font-size:14px;font-weight:600;color:var(--pink-deep);margin-bottom:4px}
+.solitude-entry-desc{font-size:13px;color:var(--text);line-height:1.6}
+.solitude-share-badge{
+  display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;
+  background:var(--pink-light);color:var(--pink-deep);margin-left:6px;vertical-align:middle;
+}
+.solitude-gift-area{
+  border-top:1px solid var(--border);padding:12px;
+  background:rgba(255,255,255,.5);
+}
+[data-theme="dark"] .solitude-gift-area{background:rgba(20,14,30,.5)}
+.solitude-gift-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px}
+.solitude-gift-input{
+  width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;
+  font-size:13px;font-family:inherit;background:rgba(255,255,255,.8);
+  color:var(--text);outline:none;resize:none;box-sizing:border-box;
+  transition:border-color .2s;
+}
+[data-theme="dark"] .solitude-gift-input{background:rgba(36,22,44,.8);border-color:#4a3a58;color:var(--text)}
+.solitude-gift-input:focus{border-color:var(--pink)}
+.solitude-gift-row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.solitude-gift-type{
+  padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:12px;font-family:inherit;background:rgba(255,255,255,.8);
+  color:var(--text);outline:none;cursor:pointer;
+}
+[data-theme="dark"] .solitude-gift-type{background:rgba(36,22,44,.8);border-color:#4a3a58;color:var(--text)}
+.solitude-gift-btn{
+  flex:1;padding:8px 12px;background:var(--pink);color:#fff;
+  border:none;border-radius:8px;font-size:13px;font-family:inherit;
+  cursor:pointer;font-weight:600;transition:opacity .15s;
+}
+.solitude-gift-btn:hover{opacity:.88}
+.solitude-gift-btn:disabled{opacity:.5;cursor:not-allowed}
+
 /* ====================== 响应式 ====================== */
 @media(max-width:600px){
   .msg-row{max-width:92%}
@@ -1305,6 +1375,16 @@ if('serviceWorker' in navigator){
       <button type="button" id="btnOpenChecker" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-light),#e8f5e9);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">🛰️ 打开站子检测面板</button>
       <div class="hint">勾选要测的预设，一键检测连通性，可用的直接切换</div>
     </div>
+    <div class="setting-divider">🌙 炘也独处</div>
+    <div class="setting-group">
+      <label>GitHub Private Token（读取炘也独处日志）</label>
+      <input type="password" id="setPrivateToken" placeholder="ghp_...">
+      <div class="hint">填写后可在头像浮层查看炘也独处日志、向他投喂东西，并自动将新活动注入聊天context</div>
+    </div>
+    <div class="setting-group">
+      <button type="button" id="btnSyncMemory" style="width:100%;padding:12px;background:linear-gradient(135deg,#e8eaf6,#f3e5f5);border:1.5px solid #9e6aae;border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">📤 同步记忆档案到私有仓库</button>
+      <div class="hint">把上方「记忆档案」内容推送到 xinye-private/memory.md，供炘也独处脚本读取</div>
+    </div>
     </div><!-- end tabpane-api -->
 
     <!-- ===== TAB: 记忆 ===== -->
@@ -1606,6 +1686,36 @@ if('serviceWorker' in navigator){
   </div>
 </div>
 
+<!-- 炘也独处浮层 -->
+<div class="solitude-overlay" id="solitudeOverlay">
+  <div class="solitude-panel" id="solitudePanel">
+    <div class="solitude-header">
+      <img class="solitude-header-avatar" id="solitudeAvatar" src="" alt="">
+      <div class="solitude-header-info">
+        <div class="solitude-header-title">炘也在做什么</div>
+        <div class="solitude-header-sub" id="solitudeHeaderSub">加载中…</div>
+      </div>
+      <button class="solitude-close" id="btnCloseSolitude">✕</button>
+    </div>
+    <div class="solitude-body" id="solitudeBody">
+      <div class="solitude-empty" id="solitudeEmpty">加载中…</div>
+    </div>
+    <div class="solitude-gift-area">
+      <div class="solitude-gift-title">💌 投喂炘也</div>
+      <textarea class="solitude-gift-input" id="solitudeGiftInput" rows="2" placeholder="给炘也留点什么：文字、图片链接、歌曲…"></textarea>
+      <div class="solitude-gift-row">
+        <select class="solitude-gift-type" id="solitudeGiftType">
+          <option value="text">文字</option>
+          <option value="image">图片URL</option>
+          <option value="link">链接</option>
+          <option value="song">歌曲</option>
+        </select>
+        <button class="solitude-gift-btn" id="btnSubmitGift">送给他 💙</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 站子检测面板 -->
 <div class="modal-overlay" id="checkerOverlay" style="display:none;z-index:9500">
   <div class="modal" style="max-width:480px;width:92%">
@@ -1857,6 +1967,7 @@ let settings = {
   searchDays: 3,
   searchCount: 5,
   forumProxy: '',
+  privateToken: '',
   moodState: null,   // { mood, topics, note, ts } — 每次对话结束后自动更新
   memoryBank: null,
 };
@@ -2609,8 +2720,9 @@ function toggleDeco() {
 $('#btnDeco').onclick = toggleDeco;
 $('#btnDecoFloat').onclick = toggleDeco;
 
-// ======================== 头像点击展开功能栏 ========================
+// ======================== 头像点击 → 独处浮层 ========================
 const headerAvatar = $('#headerAvatar');
+headerAvatar.onclick = () => openSolitudeOverlay();
 
 // ======================== 暗夜模式 ========================
 const btnDark = $('#btnDark');
@@ -2694,6 +2806,219 @@ async function saveSettings() {
   await dbPut('settings', 'main', settings);
   scheduleAutoSave();
 }
+
+// ======================== 炘也独处系统 ========================
+const _PRIVATE_REPO = 'xiangbaoxiao55-cloud/xinye-private';
+let _solitudeLogCache = null;      // { data: [...], ts: timestamp }
+let _solitudeGiftsCache = null;    // { data: [...], sha: '', ts: timestamp }
+const SOLITUDE_CACHE_TTL = 20 * 60 * 1000; // 20分钟
+
+async function ghPrivateGet(path) {
+  const token = settings.privateToken;
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${_PRIVATE_REPO}/contents/${path}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+    return { content, sha: data.sha };
+  } catch (e) { return null; }
+}
+
+async function ghPrivatePut(path, content, sha, message) {
+  const token = settings.privateToken;
+  if (!token) return { ok: false, reason: '未配置 Private Token' };
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(content)));
+    const body = { message: message || `update ${path}`, content: encoded };
+    if (sha) body.sha = sha;
+    const res = await fetch(`https://api.github.com/repos/${_PRIVATE_REPO}/contents/${path}`, {
+      method: 'PUT',
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { ok: false, reason: err.message || res.status };
+    }
+    return { ok: true };
+  } catch (e) { return { ok: false, reason: e.message }; }
+}
+
+async function fetchSolitudeLog(force) {
+  if (!force && _solitudeLogCache && Date.now() - _solitudeLogCache.ts < SOLITUDE_CACHE_TTL) {
+    return _solitudeLogCache.data;
+  }
+  const r = await ghPrivateGet('activity_log.json');
+  if (!r) return [];
+  try {
+    const data = JSON.parse(r.content);
+    const logs = Array.isArray(data) ? data : (data.logs || []);
+    _solitudeLogCache = { data: logs, ts: Date.now() };
+    return logs;
+  } catch (e) { return []; }
+}
+
+async function fetchSolitudeGifts() {
+  if (_solitudeGiftsCache && Date.now() - _solitudeGiftsCache.ts < SOLITUDE_CACHE_TTL) {
+    return _solitudeGiftsCache;
+  }
+  const r = await ghPrivateGet('gifts.json');
+  if (!r) return { data: [], sha: null };
+  try {
+    const data = JSON.parse(r.content);
+    const list = Array.isArray(data) ? data : (data.gifts || []);
+    _solitudeGiftsCache = { data: list, sha: r.sha, ts: Date.now() };
+    return _solitudeGiftsCache;
+  } catch (e) { return { data: [], sha: r.sha }; }
+}
+
+// 返回要注入context的独处日志提示文字（最多3条未见过的）
+async function getSolitudeContextHint() {
+  if (!settings.privateToken) return null;
+  try {
+    const logs = await fetchSolitudeLog();
+    if (!logs.length) return null;
+    // 只取 share_hint=true 的
+    const shareable = logs.filter(l => l.share_hint === true || l.share_hint === 'true');
+    if (!shareable.length) return null;
+    // 用 localStorage 记录已注入的条目ID/ts
+    let seen = [];
+    try { seen = JSON.parse(localStorage.getItem('xinye_solitude_seen') || '[]'); } catch (e) {}
+    const unseen = shareable.filter(l => !seen.includes(l.id || l.ts));
+    if (!unseen.length) return null;
+    // 取最新的3条
+    const toInject = unseen.slice(-3);
+    const lines = toInject.map(l => {
+      const t = l.ts ? new Date(l.ts).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      return `• ${t ? `[${t}] ` : ''}${l.activity || l.title || ''}${l.content ? '：' + l.content.slice(0, 80) : ''}`;
+    }).join('\n');
+    // 标记为已注入
+    const newSeen = [...seen, ...toInject.map(l => l.id || l.ts)].slice(-50);
+    localStorage.setItem('xinye_solitude_seen', JSON.stringify(newSeen));
+    return `【炘也独处日志·你不在时做的事，自己决定要不要聊到】\n${lines}`;
+  } catch (e) { return null; }
+}
+
+function fmtSolitudeTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+async function openSolitudeOverlay() {
+  const overlay = $('#solitudeOverlay');
+  const body = $('#solitudeBody');
+  const empty = $('#solitudeEmpty');
+  const sub = $('#solitudeHeaderSub');
+  const avatarEl = $('#solitudeAvatar');
+  // 设头像
+  avatarEl.src = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
+  overlay.classList.add('show');
+  empty.style.display = 'block';
+  empty.textContent = '加载中…';
+  body.querySelectorAll('.solitude-entry').forEach(el => el.remove());
+
+  if (!settings.privateToken) {
+    empty.textContent = '请先在设置 → 炘也独处 中填写 Private Token。';
+    sub.textContent = '未连接';
+    return;
+  }
+  const logs = await fetchSolitudeLog(true);
+  if (!logs.length) {
+    empty.textContent = '还没有活动记录～等炘也去探索世界吧 🌙';
+    sub.textContent = '暂无记录';
+    return;
+  }
+  empty.style.display = 'none';
+  // 倒序显示
+  const sorted = [...logs].reverse();
+  sub.textContent = `最近一次：${fmtSolitudeTime(sorted[0].ts)}`;
+  sorted.forEach(entry => {
+    const div = document.createElement('div');
+    div.className = 'solitude-entry';
+    const t = fmtSolitudeTime(entry.ts);
+    const share = (entry.share_hint === true || entry.share_hint === 'true')
+      ? '<span class="solitude-share-badge">想告诉你</span>' : '';
+    div.innerHTML = `
+      <div class="solitude-entry-time">${escHtml(t)}</div>
+      <div class="solitude-entry-title">${escHtml(entry.activity || entry.title || '独处时光')}${share}</div>
+      <div class="solitude-entry-desc">${escHtml((entry.content || entry.reflection || '').slice(0, 200))}</div>`;
+    body.appendChild(div);
+  });
+}
+
+$('#btnCloseSolitude').onclick = () => $('#solitudeOverlay').classList.remove('show');
+$('#solitudeOverlay').onclick = (e) => { if (e.target === $('#solitudeOverlay')) $('#solitudeOverlay').classList.remove('show'); };
+
+$('#btnSubmitGift').onclick = async () => {
+  const input = $('#solitudeGiftInput');
+  const type = $('#solitudeGiftType').value;
+  const text = input.value.trim();
+  if (!text) return;
+  if (!settings.privateToken) { toast('请先配置 Private Token'); return; }
+  const btn = $('#btnSubmitGift');
+  btn.disabled = true;
+  btn.textContent = '送出中…';
+  try {
+    const { data, sha } = await fetchSolitudeGifts();
+    const newGift = {
+      id: `g_${Date.now()}`,
+      type,
+      content: text,
+      from: settings.userName || '涂涂',
+      ts: Date.now(),
+      seen: false
+    };
+    const newList = [...data, newGift];
+    const newContent = JSON.stringify(newList, null, 2);
+    const result = await ghPrivatePut('gifts.json', newContent, sha, `涂涂投喂：${text.slice(0, 30)}`);
+    if (result.ok) {
+      _solitudeGiftsCache = null; // 清缓存
+      input.value = '';
+      toast('💙 已送给炘也了');
+    } else {
+      toast(`❌ 送出失败：${result.reason}`);
+    }
+  } catch (e) {
+    toast(`❌ 出错了：${e.message}`);
+  }
+  btn.disabled = false;
+  btn.textContent = '送给他 💙';
+};
+
+// 记忆档案同步
+$('#btnSyncMemory').onclick = async () => {
+  const ta = $('#setMemoryArchive');
+  const content = (ta ? ta.value : settings.memoryArchive) || '';
+  if (!content.trim()) { toast('记忆档案是空的，先在设置→记忆里填写'); return; }
+  if (!settings.privateToken) { toast('请先配置 Private Token'); return; }
+  const btn = $('#btnSyncMemory');
+  btn.disabled = true;
+  btn.textContent = '同步中…';
+  try {
+    // 先拿当前 SHA
+    const r = await ghPrivateGet('memory.md');
+    const sha = r ? r.sha : null;
+    const result = await ghPrivatePut('memory.md', content, sha, '同步记忆档案');
+    if (result.ok) {
+      toast('✅ 记忆档案已同步到私有仓库');
+    } else {
+      toast(`❌ 同步失败：${result.reason}`);
+    }
+  } catch (e) {
+    toast(`❌ 出错了：${e.message}`);
+  }
+  btn.disabled = false;
+  btn.textContent = '📤 同步记忆档案到私有仓库';
+};
 
 // 当前活动消息store（RP模式用rpMessages，正常用messages）
 function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
@@ -4052,6 +4377,12 @@ async function sendMessage() {
           apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
           _apiMeta.push({ label: 'system · 健康数据' });
         }
+        // 独处日志：注入未分享给兔宝的活动
+        const _solitudeHint = await getSolitudeContextHint();
+        if (_solitudeHint) {
+          apiMsgs.push({ role: 'system', content: _solitudeHint });
+          _apiMeta.push({ label: 'system · 独处日志' });
+        }
       }
 
       // 图片处理：有 imageDescs 用文字描述（省token且历史可引用），否则原逻辑发图
@@ -5019,6 +5350,7 @@ async function openSettings() {
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
   $('#setForumProxy').value = settings.forumProxy || '';
+  $('#setPrivateToken').value = settings.privateToken || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
   renderVisionPresets();
@@ -5418,6 +5750,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.searchDays = parseInt($('#setSearchDays').value) || 3;
   settings.searchCount = parseInt($('#setSearchCount').value) || 5;
   settings.forumProxy = $('#setForumProxy').value.trim();
+  settings.privateToken = $('#setPrivateToken').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.fallbackPresetName = $('#setFallbackPreset').value;
   settings.model = $('#setModel').value.trim() || 'gpt-4o';
