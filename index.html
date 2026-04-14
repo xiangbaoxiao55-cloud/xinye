@@ -1378,13 +1378,18 @@ if('serviceWorker' in navigator){
     </div>
     <div class="setting-divider">🌙 炘也独处</div>
     <div class="setting-group">
-      <label>GitHub Private Token（读取炘也独处日志）</label>
-      <input type="password" id="setPrivateToken" placeholder="ghp_...">
-      <div class="hint">填写后可在头像浮层查看炘也独处日志、向他投喂东西，并自动将新活动注入聊天context</div>
+      <label>本地服务器地址（推荐）</label>
+      <input type="text" id="setSolitudeServerUrl" placeholder="http://100.97.103.90:8787">
+      <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问。数据完全本地，不经 GitHub。</div>
     </div>
     <div class="setting-group">
-      <button type="button" id="btnSyncMemory" style="width:100%;padding:12px;background:linear-gradient(135deg,#e8eaf6,#f3e5f5);border:1.5px solid #9e6aae;border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">📤 同步记忆档案到私有仓库</button>
-      <div class="hint">把上方「记忆档案」内容推送到 xinye-private/memory.md，供炘也独处脚本读取</div>
+      <label>GitHub Private Token（备用）</label>
+      <input type="password" id="setPrivateToken" placeholder="ghp_...（不用本地服务器时填）">
+      <div class="hint">本地服务器未配置时的回退方案，从私有仓库读取日志。</div>
+    </div>
+    <div class="setting-group">
+      <button type="button" id="btnSyncMemory" style="width:100%;padding:12px;background:linear-gradient(135deg,#e8eaf6,#f3e5f5);border:1.5px solid #9e6aae;border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">📤 同步记忆档案</button>
+      <div class="hint">把上方「记忆档案」推送到本地服务器（优先）或 GitHub 私有仓库。</div>
     </div>
     </div><!-- end tabpane-api -->
 
@@ -1969,6 +1974,7 @@ let settings = {
   searchCount: 5,
   forumProxy: '',
   privateToken: '',
+  solitudeServerUrl: '',
   moodState: null,   // { mood, topics, note, ts } — 每次对话结束后自动更新
   memoryBank: null,
 };
@@ -2852,6 +2858,19 @@ async function fetchSolitudeLog(force) {
   if (!force && _solitudeLogCache && Date.now() - _solitudeLogCache.ts < SOLITUDE_CACHE_TTL) {
     return _solitudeLogCache.data;
   }
+  // 本地服务器优先
+  if (settings.solitudeServerUrl) {
+    try {
+      const res = await fetch(`${settings.solitudeServerUrl}/api/logs`);
+      if (res.ok) {
+        const data = await res.json();
+        const logs = Array.isArray(data) ? data : (data.logs || []);
+        _solitudeLogCache = { data: logs, ts: Date.now() };
+        return logs;
+      }
+    } catch (e) {}
+  }
+  // GitHub 备用
   const r = await ghPrivateGet('activity_log.json');
   if (!r) return [];
   try {
@@ -2866,12 +2885,25 @@ async function fetchSolitudeGifts() {
   if (_solitudeGiftsCache && Date.now() - _solitudeGiftsCache.ts < SOLITUDE_CACHE_TTL) {
     return _solitudeGiftsCache;
   }
+  // 本地服务器优先
+  if (settings.solitudeServerUrl) {
+    try {
+      const res = await fetch(`${settings.solitudeServerUrl}/api/gifts`);
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.gifts || []);
+        _solitudeGiftsCache = { data: list, sha: null, ts: Date.now(), useLocal: true };
+        return _solitudeGiftsCache;
+      }
+    } catch (e) {}
+  }
+  // GitHub 备用
   const r = await ghPrivateGet('gifts.json');
   if (!r) return { data: [], sha: null };
   try {
     const data = JSON.parse(r.content);
     const list = Array.isArray(data) ? data : (data.gifts || []);
-    _solitudeGiftsCache = { data: list, sha: r.sha, ts: Date.now() };
+    _solitudeGiftsCache = { data: list, sha: r.sha, ts: Date.now(), useLocal: false };
     return _solitudeGiftsCache;
   } catch (e) { return { data: [], sha: r.sha }; }
 }
@@ -2879,7 +2911,7 @@ async function fetchSolitudeGifts() {
 // 返回要注入context的独处日志提示文字（最多3条未见过的）
 // 日志格式：{ id: String(Date.now()), time: "2026-04-14 17:30 北京时间", title, content, share_hint, mood }
 async function getSolitudeContextHint() {
-  if (!settings.privateToken) return null;
+  if (!settings.solitudeServerUrl && !settings.privateToken) return null;
   try {
     const logs = await fetchSolitudeLog();
     if (!logs.length) return null;
@@ -2931,8 +2963,8 @@ async function openSolitudeOverlay() {
   empty.style.display = 'block';
   empty.textContent = '加载中…';
 
-  if (!settings.privateToken) {
-    empty.textContent = '请先在设置 → 炘也独处 中填写 Private Token。';
+  if (!settings.solitudeServerUrl && !settings.privateToken) {
+    empty.textContent = '请先在设置 → 炘也独处 中填写本地服务器地址或 Private Token。';
     sub.textContent = '未连接';
     return;
   }
@@ -2992,29 +3024,39 @@ $('#btnSubmitGift').onclick = async () => {
   const type = $('#solitudeGiftType').value;
   const text = input.value.trim();
   if (!text) return;
-  if (!settings.privateToken) { toast('请先配置 Private Token'); return; }
+  if (!settings.solitudeServerUrl && !settings.privateToken) { toast('请先配置本地服务器地址或 Private Token'); return; }
   const btn = $('#btnSubmitGift');
   btn.disabled = true;
   btn.textContent = '送出中…';
   try {
-    const { data, sha } = await fetchSolitudeGifts();
-    const newGift = {
-      id: `g_${Date.now()}`,
-      type,
-      content: text,
-      from: settings.userName || '涂涂',
-      ts: Date.now(),
-      seen: false
-    };
-    const newList = [...data, newGift];
-    const newContent = JSON.stringify(newList, null, 2);
-    const result = await ghPrivatePut('gifts.json', newContent, sha, `涂涂投喂：${text.slice(0, 30)}`);
-    if (result.ok) {
-      _solitudeGiftsCache = null; // 清缓存
-      input.value = '';
-      toast('💙 已送给炘也了');
+    // 本地服务器优先
+    if (settings.solitudeServerUrl) {
+      const res = await fetch(`${settings.solitudeServerUrl}/api/gifts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, content: text, from: settings.userName || '涂涂' })
+      });
+      if (res.ok) {
+        _solitudeGiftsCache = null;
+        input.value = '';
+        toast('💙 已送给炘也了');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast(`❌ 送出失败：${err.reason || res.status}`);
+      }
     } else {
-      toast(`❌ 送出失败：${result.reason}`);
+      // GitHub 备用
+      const { data, sha } = await fetchSolitudeGifts();
+      const newGift = { id: `g_${Date.now()}`, type, content: text, from: settings.userName || '涂涂', ts: Date.now(), seen: false };
+      const newList = [...data, newGift];
+      const result = await ghPrivatePut('gifts.json', JSON.stringify(newList, null, 2), sha, `涂涂投喂：${text.slice(0, 30)}`);
+      if (result.ok) {
+        _solitudeGiftsCache = null;
+        input.value = '';
+        toast('💙 已送给炘也了');
+      } else {
+        toast(`❌ 送出失败：${result.reason}`);
+      }
     }
   } catch (e) {
     toast(`❌ 出错了：${e.message}`);
@@ -3028,25 +3070,39 @@ $('#btnSyncMemory').onclick = async () => {
   const ta = $('#setMemoryArchive');
   const content = (ta ? ta.value : settings.memoryArchive) || '';
   if (!content.trim()) { toast('记忆档案是空的，先在设置→记忆里填写'); return; }
-  if (!settings.privateToken) { toast('请先配置 Private Token'); return; }
+  if (!settings.solitudeServerUrl && !settings.privateToken) { toast('请先配置本地服务器地址或 Private Token'); return; }
   const btn = $('#btnSyncMemory');
   btn.disabled = true;
   btn.textContent = '同步中…';
   try {
-    // 先拿当前 SHA
-    const r = await ghPrivateGet('memory.md');
-    const sha = r ? r.sha : null;
-    const result = await ghPrivatePut('memory.md', content, sha, '同步记忆档案');
-    if (result.ok) {
-      toast('✅ 记忆档案已同步到私有仓库');
+    if (settings.solitudeServerUrl) {
+      // 本地服务器
+      const res = await fetch(`${settings.solitudeServerUrl}/api/memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: content
+      });
+      if (res.ok) {
+        toast('✅ 记忆档案已同步到本地');
+      } else {
+        toast(`❌ 同步失败：${res.status}`);
+      }
     } else {
-      toast(`❌ 同步失败：${result.reason}`);
+      // GitHub 备用
+      const r = await ghPrivateGet('memory.md');
+      const sha = r ? r.sha : null;
+      const result = await ghPrivatePut('memory.md', content, sha, '同步记忆档案');
+      if (result.ok) {
+        toast('✅ 记忆档案已同步到私有仓库');
+      } else {
+        toast(`❌ 同步失败：${result.reason}`);
+      }
     }
   } catch (e) {
     toast(`❌ 出错了：${e.message}`);
   }
   btn.disabled = false;
-  btn.textContent = '📤 同步记忆档案到私有仓库';
+  btn.textContent = '📤 同步记忆档案';
 };
 
 // 当前活动消息store（RP模式用rpMessages，正常用messages）
@@ -5379,6 +5435,7 @@ async function openSettings() {
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
   $('#setForumProxy').value = settings.forumProxy || '';
+  $('#setSolitudeServerUrl').value = settings.solitudeServerUrl || '';
   $('#setPrivateToken').value = settings.privateToken || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
@@ -5779,6 +5836,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.searchDays = parseInt($('#setSearchDays').value) || 3;
   settings.searchCount = parseInt($('#setSearchCount').value) || 5;
   settings.forumProxy = $('#setForumProxy').value.trim();
+  settings.solitudeServerUrl = $('#setSolitudeServerUrl').value.trim().replace(/\/$/, '');
   settings.privateToken = $('#setPrivateToken').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.fallbackPresetName = $('#setFallbackPreset').value;
