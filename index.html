@@ -3032,8 +3032,11 @@ async function openSolitudeOverlay() {
       const div = document.createElement('div');
       div.className = 'solitude-entry';
       const t = fmtSolitudeTime(entry.time, entry.id);
-      const share = (entry.share_hint === true || entry.share_hint === 'true')
-        ? '<span class="solitude-share-badge">想告诉你</span>' : '';
+      const isShared = entry.shared === true || entry.shared === 'true';
+      const share = isShared
+        ? '<span class="solitude-share-badge" style="background:rgba(100,200,150,.15);color:#4caf8a">说过了</span>'
+        : (entry.share_hint === true || entry.share_hint === 'true')
+          ? '<span class="solitude-share-badge">想告诉你</span>' : '';
       const mood = entry.mood ? `<span style="font-size:11px;color:var(--text-light);margin-left:6px">${escHtml(entry.mood)}</span>` : '';
       div.innerHTML = `
         <div class="solitude-entry-time">${escHtml(t)}</div>
