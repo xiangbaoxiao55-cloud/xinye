@@ -1031,6 +1031,12 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    // 新SW激活时自动刷新页面，让新版本生效
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.type === 'SW_UPDATED') {
+        window.location.reload();
+      }
+    });
   });
 }
 </script>
@@ -5438,7 +5444,8 @@ async function openSettings() {
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
   $('#setForumProxy').value = settings.forumProxy || '';
-  $('#setSolitudeServerUrl').value = settings.solitudeServerUrl || '';
+  const _ssEl = $('#setSolitudeServerUrl');
+  if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
   $('#setPrivateToken').value = settings.privateToken || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
@@ -5839,7 +5846,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.searchDays = parseInt($('#setSearchDays').value) || 3;
   settings.searchCount = parseInt($('#setSearchCount').value) || 5;
   settings.forumProxy = $('#setForumProxy').value.trim();
-  settings.solitudeServerUrl = $('#setSolitudeServerUrl').value.trim().replace(/\/$/, '');
+  settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
   settings.privateToken = $('#setPrivateToken').value.trim();
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
   settings.fallbackPresetName = $('#setFallbackPreset').value;

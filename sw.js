@@ -1,5 +1,5 @@
-const CACHE_NAME = 'xinye-v4';
-const STATIC_ASSETS = ['/', '/index.html'];
+const CACHE_NAME = 'xinye-v5';
+const STATIC_ASSETS = ['/', '/index.html', '/diary.html', '/reading.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -12,7 +12,12 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => {
+      // 通知所有客户端刷新页面以加载新版本
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' }));
+      });
+    })
   );
   self.clients.claim();
 });
@@ -23,12 +28,11 @@ self.addEventListener('fetch', e => {
   if (url.hostname !== self.location.hostname) return;
 
   // 缓存优先 + 后台更新（stale-while-revalidate）
-  // 先从缓存秒开，同时后台拉新版本更新缓存，下次打开就是新的
   e.respondWith(
     caches.open(CACHE_NAME).then(cache =>
       cache.match(e.request).then(cached => {
         const fetchPromise = fetch(e.request).then(res => {
-          cache.put(e.request, res.clone());
+          if (res.ok) cache.put(e.request, res.clone());
           return res;
         }).catch(() => null);
         return cached || fetchPromise;
