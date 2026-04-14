@@ -890,6 +890,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   box-shadow:0 1px 6px rgba(0,0,0,.05);transition:box-shadow .2s;
 }
 [data-theme="dark"] .solitude-entry{background:rgba(36,22,44,.8);border-color:rgba(80,55,100,.5)}
+[data-theme="dark"] #btnSyncMemory{background:linear-gradient(135deg,rgba(40,44,80,.8),rgba(60,30,80,.8)) !important;border-color:#7e57c2 !important;color:var(--text) !important}
 .solitude-entry:hover{box-shadow:0 2px 12px rgba(0,0,0,.1)}
 .solitude-entry-time{font-size:11px;color:var(--text-light);margin-bottom:5px}
 .solitude-entry-title{font-size:14px;font-weight:600;color:var(--pink-deep);margin-bottom:4px}
@@ -2876,42 +2877,47 @@ async function fetchSolitudeGifts() {
 }
 
 // 返回要注入context的独处日志提示文字（最多3条未见过的）
+// 日志格式：{ id: String(Date.now()), time: "2026-04-14 17:30 北京时间", title, content, share_hint, mood }
 async function getSolitudeContextHint() {
   if (!settings.privateToken) return null;
   try {
     const logs = await fetchSolitudeLog();
     if (!logs.length) return null;
-    // 只取 share_hint=true 的
     const shareable = logs.filter(l => l.share_hint === true || l.share_hint === 'true');
     if (!shareable.length) return null;
-    // 用 localStorage 记录已注入的条目ID/ts
     let seen = [];
     try { seen = JSON.parse(localStorage.getItem('xinye_solitude_seen') || '[]'); } catch (e) {}
-    const unseen = shareable.filter(l => !seen.includes(l.id || l.ts));
+    const unseen = shareable.filter(l => !seen.includes(l.id));
     if (!unseen.length) return null;
-    // 取最新的3条
     const toInject = unseen.slice(-3);
     const lines = toInject.map(l => {
-      const t = l.ts ? new Date(l.ts).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
-      return `• ${t ? `[${t}] ` : ''}${l.activity || l.title || ''}${l.content ? '：' + l.content.slice(0, 80) : ''}`;
+      const t = l.time ? l.time.replace(' 北京时间', '') : '';
+      return `• ${t ? `[${t}] ` : ''}${l.title || ''}${l.content ? '：' + l.content.slice(0, 120) : ''}`;
     }).join('\n');
-    // 标记为已注入
-    const newSeen = [...seen, ...toInject.map(l => l.id || l.ts)].slice(-50);
+    const newSeen = [...seen, ...toInject.map(l => l.id)].slice(-100);
     localStorage.setItem('xinye_solitude_seen', JSON.stringify(newSeen));
     return `【炘也独处日志·你不在时做的事，自己决定要不要聊到】\n${lines}`;
   } catch (e) { return null; }
 }
 
-function fmtSolitudeTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+// 把 "2026-04-14 17:30 北京时间" 或 id 毫秒时间戳转为相对时间
+function fmtSolitudeTime(timeStr, id) {
+  // 优先用 id（Date.now()字符串）做相对时间
+  const ms = id ? parseInt(id) : NaN;
+  if (!isNaN(ms) && ms > 1e12) {
+    const d = new Date(ms);
+    const diff = Date.now() - ms;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+    if (diff < 86400000 * 2) return '昨天';
+    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  }
+  // fallback：直接用 time 字段，去掉"北京时间"
+  return timeStr ? timeStr.replace(' 北京时间', '') : '';
 }
+
+const _SOLITUDE_PAGE = 20; // 每次渲染条数，滚动到底加载更多
 
 async function openSolitudeOverlay() {
   const overlay = $('#solitudeOverlay');
@@ -2919,12 +2925,11 @@ async function openSolitudeOverlay() {
   const empty = $('#solitudeEmpty');
   const sub = $('#solitudeHeaderSub');
   const avatarEl = $('#solitudeAvatar');
-  // 设头像
   avatarEl.src = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
   overlay.classList.add('show');
+  body.querySelectorAll('.solitude-entry,.solitude-load-more').forEach(el => el.remove());
   empty.style.display = 'block';
   empty.textContent = '加载中…';
-  body.querySelectorAll('.solitude-entry').forEach(el => el.remove());
 
   if (!settings.privateToken) {
     empty.textContent = '请先在设置 → 炘也独处 中填写 Private Token。';
@@ -2938,21 +2943,45 @@ async function openSolitudeOverlay() {
     return;
   }
   empty.style.display = 'none';
-  // 倒序显示
-  const sorted = [...logs].reverse();
-  sub.textContent = `最近一次：${fmtSolitudeTime(sorted[0].ts)}`;
-  sorted.forEach(entry => {
-    const div = document.createElement('div');
-    div.className = 'solitude-entry';
-    const t = fmtSolitudeTime(entry.ts);
-    const share = (entry.share_hint === true || entry.share_hint === 'true')
-      ? '<span class="solitude-share-badge">想告诉你</span>' : '';
-    div.innerHTML = `
-      <div class="solitude-entry-time">${escHtml(t)}</div>
-      <div class="solitude-entry-title">${escHtml(entry.activity || entry.title || '独处时光')}${share}</div>
-      <div class="solitude-entry-desc">${escHtml((entry.content || entry.reflection || '').slice(0, 200))}</div>`;
-    body.appendChild(div);
-  });
+  const sorted = [...logs].reverse(); // 最新在前
+  const latest = sorted[0];
+  sub.textContent = `共 ${sorted.length} 条 · 最近：${fmtSolitudeTime(latest.time, latest.id)}`;
+
+  function renderEntries(arr) {
+    arr.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'solitude-entry';
+      const t = fmtSolitudeTime(entry.time, entry.id);
+      const share = (entry.share_hint === true || entry.share_hint === 'true')
+        ? '<span class="solitude-share-badge">想告诉你</span>' : '';
+      const mood = entry.mood ? `<span style="font-size:11px;color:var(--text-light);margin-left:6px">${escHtml(entry.mood)}</span>` : '';
+      div.innerHTML = `
+        <div class="solitude-entry-time">${escHtml(t)}</div>
+        <div class="solitude-entry-title">${escHtml(entry.title || '独处时光')}${share}${mood}</div>
+        <div class="solitude-entry-desc">${escHtml(entry.content || '')}</div>`;
+      body.insertBefore(div, body.querySelector('.solitude-load-more'));
+    });
+  }
+
+  const first = sorted.slice(0, _SOLITUDE_PAGE);
+  renderEntries(first);
+
+  // 懒加载：如果还有更多
+  if (sorted.length > _SOLITUDE_PAGE) {
+    let offset = _SOLITUDE_PAGE;
+    const loadMore = document.createElement('button');
+    loadMore.className = 'solitude-load-more';
+    loadMore.style.cssText = 'width:100%;padding:10px;background:none;border:1.5px dashed var(--border);border-radius:10px;color:var(--text-light);font-size:13px;cursor:pointer;margin-top:4px;font-family:inherit';
+    loadMore.textContent = `加载更早的 ${sorted.length - offset} 条`;
+    loadMore.onclick = () => {
+      const next = sorted.slice(offset, offset + _SOLITUDE_PAGE);
+      renderEntries(next);
+      offset += _SOLITUDE_PAGE;
+      if (offset >= sorted.length) loadMore.remove();
+      else loadMore.textContent = `加载更早的 ${sorted.length - offset} 条`;
+    };
+    body.appendChild(loadMore);
+  }
 }
 
 $('#btnCloseSolitude').onclick = () => $('#solitudeOverlay').classList.remove('show');
