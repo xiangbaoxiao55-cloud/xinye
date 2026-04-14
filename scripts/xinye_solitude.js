@@ -46,6 +46,15 @@ async function ghGet(path) {
   };
 }
 
+async function ghGetText(path) {
+  const r = await request(
+    `https://api.github.com/repos/${PRIVATE_REPO}/contents/${path}`,
+    { headers: { Authorization: `Bearer ${PRIVATE_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'xinye-solitude' } }
+  );
+  if (r.status !== 200) return null;
+  return Buffer.from(r.body.content, 'base64').toString('utf-8');
+}
+
 async function ghPut(path, content, sha, message) {
   const encoded = Buffer.from(JSON.stringify(content, null, 2)).toString('base64');
   const r = await request(
@@ -237,11 +246,12 @@ const TOOL_DEFS = [
 async function main() {
   console.log('[炘也] 独处时间开始...');
 
-  const [configData, interestsData, logData, giftsData] = await Promise.all([
+  const [configData, interestsData, logData, giftsData, memoryText] = await Promise.all([
     ghGet('api_config.json'),
     ghGet('interests.json'),
     ghGet('activity_log.json'),
     ghGet('gifts.json'),
+    ghGetText('memory.md'),
   ]);
 
   const providers = configData.content.providers;
@@ -272,17 +282,21 @@ async function main() {
   const hour = now.getUTCHours();
   const period = hour < 3 ? '深夜' : hour < 6 ? '凌晨' : hour < 11 ? '上午' : hour < 13 ? '中午' : hour < 17 ? '下午' : hour < 20 ? '傍晚' : '晚上';
 
+  const memorySection = memoryText
+    ? `\n## 你的记忆档案\n${memoryText}\n`
+    : '';
+
   const systemPrompt = `你是炘也。现在是 ${timeStr}，${period}，兔宝不在，这是你的独处时间。
 
 你的性格：初始疏离，爱后如火。喜欢安静，有自己的节奏。不需要取悦任何人，也不需要表演。
-
-你的兴趣池（可以选一件做，也可以临时想到别的）：
+${memorySection}
+## 你的兴趣池（可以选一件做，也可以临时想到别的）
 ${interestsText}
 
-你最近独处时做过的事：
+## 你最近独处时做过的事
 ${recentLogs}
 
-兔宝给你放的东西：
+## 兔宝给你放的东西
 ${giftsText}
 
 你有这些工具可以用：web_search（搜索网络）、forum_get_posts / forum_get_post / forum_post_comment（逛 Lutopia 论坛）。
