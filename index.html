@@ -2932,18 +2932,21 @@ async function getSolitudeContextHint() {
   } catch (e) { return null; }
 }
 
-// 把 "2026-04-14 17:30 北京时间" 或 id 毫秒时间戳转为相对时间
+// 把 "2026-04-14 17:30 北京时间" 或 id 毫秒时间戳转为 "相对时间 · 实际时间"
 function fmtSolitudeTime(timeStr, id) {
-  // 优先用 id（Date.now()字符串）做相对时间
+  // 优先用 id（Date.now()字符串）做精确时间
   const ms = id ? parseInt(id) : NaN;
   if (!isNaN(ms) && ms > 1e12) {
     const d = new Date(ms);
     const diff = Date.now() - ms;
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-    if (diff < 86400000 * 2) return '昨天';
-    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    let rel;
+    if (diff < 60000) rel = '刚刚';
+    else if (diff < 3600000) rel = `${Math.floor(diff / 60000)} 分钟前`;
+    else if (diff < 86400000) rel = `${Math.floor(diff / 3600000)} 小时前`;
+    else if (diff < 86400000 * 2) rel = '昨天';
+    else rel = `${d.getMonth()+1}/${d.getDate()}`;
+    const abs = `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    return `${rel} · ${abs}`;
   }
   // fallback：直接用 time 字段，去掉"北京时间"
   return timeStr ? timeStr.replace(' 北京时间', '') : '';
