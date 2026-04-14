@@ -6449,6 +6449,27 @@ $('#btnExportLite').onclick = () => exportData('lite');
 $('#btnExportFull').onclick = () => exportData('full');
 
 // ======================== 导入（共用核心） ========================
+async function doImportPresetsOnly(jsonText) {
+  const data = JSON.parse(jsonText);
+  if (data.apiPresets && Array.isArray(data.apiPresets))     setApiPresets(data.apiPresets);
+  if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
+  if (data.chatStickers && Array.isArray(data.chatStickers))  saveChatStickers(data.chatStickers);
+  if (data.stickers && Array.isArray(data.stickers)) {
+    await dbClear('stickers');
+    for (const s of data.stickers) await dbPut('stickers', null, s);
+    stickers = await dbGetAll('stickers');
+    renderStickers();
+  }
+  // rpData
+  if (data.rpData) {
+    const rp = data.rpData;
+    if (rp.rp_prompt)     localStorage.setItem('rp_prompt', rp.rp_prompt);
+    if (rp.rp_presets)    localStorage.setItem('rp_presets', rp.rp_presets);
+    if (rp.rp_char_name)  localStorage.setItem('rp_char_name', rp.rp_char_name);
+    if (rp.rp_char_avatar) localStorage.setItem('rp_char_avatar', rp.rp_char_avatar);
+  }
+}
+
 async function doImport(jsonText) {
   const data = JSON.parse(jsonText);
   const isLite = data.type === 'lite' || data.type === 'auto-save';
@@ -6602,14 +6623,21 @@ $('#btnStickerS').onclick = () => { closeSettings(); $('#fileInputSticker').clic
 $('#btnClearS').onclick = () => $('#btnClear').click();
 $('#fileInputImport').onchange = async function() {
   if (!this.files[0]) return;
-  if (!confirm('导入将覆盖当前所有数据（聊天、设置、图片、贴纸），确定继续吗？')) {
+  const presetsOnly = confirm('只恢复预设和贴纸（保留聊天记录）？\n\n确定 = 只恢复预设/贴纸/设置\n取消 = 完整导入（会覆盖聊天记录）');
+  if (!presetsOnly && !confirm('完整导入将覆盖当前所有数据（聊天、设置、图片、贴纸），确定继续吗？')) {
     this.value = ''; return;
   }
   try {
     const text = await this.files[0].text();
-    await doImport(text);
-    this.value = '';
-    location.reload();
+    if (presetsOnly) {
+      await doImportPresetsOnly(text);
+      this.value = '';
+      toast('预设和贴纸已恢复 💙');
+    } else {
+      await doImport(text);
+      this.value = '';
+      location.reload();
+    }
   } catch(e) {
     toast('导入失败：' + e.message);
     console.error(e);
