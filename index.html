@@ -3226,6 +3226,7 @@ $('#btnManualSync').onclick = async () => {
   btn.disabled = true;
   btn.textContent = '同步中…';
   _lastSyncPushTime = 0; // 清除节流，强制执行
+  btn.textContent = '检查服务器…';
   const pullResult = await syncPull();
   if (pullResult === false) {
     toast('❌ 连接服务器失败，请检查 Tailscale 是否已 Connect');
@@ -3237,7 +3238,11 @@ $('#btnManualSync').onclick = async () => {
     toast('✅ 已同步最新数据');
   } else {
     // 本地已是最新或首次推送，把本地数据推上去
+    btn.textContent = '打包数据…';
     _lastSyncPushTime = 0;
+    // 给 UI 渲染一帧
+    await new Promise(r => setTimeout(r, 50));
+    btn.textContent = '上传中…';
     const pushOk = await syncPush();
     toast(pushOk ? '✅ 数据已上传到服务器' : '❌ 上传失败，请检查 Tailscale');
   }
@@ -6696,7 +6701,7 @@ async function buildSyncPayload() {
     messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
     rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
     rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
-    stickers,
+    // 装饰贴纸(stickers)不参与同步，体积太大且手机端不需要
     chatStickers: getChatStickers(),
     images: { aiAvatar: aiAvatar || null, userAvatar: userAvatar || null },
     diary: diaryData,
@@ -6712,7 +6717,7 @@ async function syncPush() {
   _lastSyncPushTime = Date.now();
   try {
     const payload = await buildSyncPayload();
-    const resp = await fetch(`${serverUrl}/api/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000) });
+    const resp = await fetch(`${serverUrl}/api/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(30000) });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     localStorage.setItem('xinye_sync_ts', String(payload.ts));
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
@@ -7147,7 +7152,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-1954';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-2002';
 
   await openDB();
   await migrateFromLocalStorage();
