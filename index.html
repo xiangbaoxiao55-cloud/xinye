@@ -894,7 +894,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .solitude-entry:hover{box-shadow:0 2px 12px rgba(0,0,0,.1)}
 .solitude-entry-time{font-size:11px;color:var(--text-light);margin-bottom:5px}
 .solitude-entry-title{font-size:14px;font-weight:600;color:var(--pink-deep);margin-bottom:4px}
-.solitude-entry-desc{font-size:13px;color:var(--text);line-height:1.6}
+.solitude-entry-desc{font-size:13px;color:var(--text);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:all .2s}
+.solitude-entry.expanded .solitude-entry-desc{display:block;overflow:visible;-webkit-line-clamp:unset}
+.solitude-entry-toggle{font-size:11px;color:var(--pink);margin-top:4px;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:2px}
+.solitude-entry-toggle::before{content:'▸';transition:transform .2s;display:inline-block}
+.solitude-entry.expanded .solitude-entry-toggle::before{transform:rotate(90deg)}
 .solitude-share-badge{
   display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;
   background:var(--pink-light);color:var(--pink-deep);margin-left:6px;vertical-align:middle;
@@ -3038,10 +3042,21 @@ async function openSolitudeOverlay() {
         : (entry.share_hint === true || entry.share_hint === 'true')
           ? '<span class="solitude-share-badge">想告诉你</span>' : '';
       const mood = entry.mood ? `<span style="font-size:11px;color:var(--text-light);margin-left:6px">${escHtml(entry.mood)}</span>` : '';
+      const content = entry.content || '';
+      // 超过60字才需要展开按钮
+      const needToggle = content.length > 60;
       div.innerHTML = `
         <div class="solitude-entry-time">${escHtml(t)}</div>
         <div class="solitude-entry-title">${escHtml(entry.title || '独处时光')}${share}${mood}</div>
-        <div class="solitude-entry-desc">${escHtml(entry.content || '')}</div>`;
+        <div class="solitude-entry-desc">${escHtml(content)}</div>
+        ${needToggle ? '<div class="solitude-entry-toggle">展开</div>' : ''}`;
+      if (needToggle) {
+        div.querySelector('.solitude-entry-toggle').onclick = (e) => {
+          e.stopPropagation();
+          const isExp = div.classList.toggle('expanded');
+          div.querySelector('.solitude-entry-toggle').textContent = isExp ? '收起' : '展开';
+        };
+      }
       body.insertBefore(div, body.querySelector('.solitude-load-more'));
     });
   }
