@@ -6815,12 +6815,9 @@ async function checkPendingMessage() {
 
 // ======================== 启动 ========================
 (async () => {
-  // 显示版本（文件最后修改时间）
+  // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) {
-    const _d = new Date(document.lastModified);
-    _verEl.textContent = `v${_d.getFullYear()}.${String(_d.getMonth()+1).padStart(2,'0')}.${String(_d.getDate()).padStart(2,'0')} ${String(_d.getHours()).padStart(2,'0')}:${String(_d.getMinutes()).padStart(2,'0')}`;
-  }
+  if (_verEl) _verEl.textContent = 'v2026.04.15-1819';
 
   await openDB();
   await migrateFromLocalStorage();
