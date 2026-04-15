@@ -6689,8 +6689,6 @@ async function buildSyncPayload() {
       };
     });
   } catch {}
-  const aiAvatar = await dbGet('images', 'aiAvatar');
-  const userAvatar = await dbGet('images', 'userAvatar');
   return {
     ts: Date.now(),
     device: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'phone' : 'pc',
@@ -6698,12 +6696,11 @@ async function buildSyncPayload() {
     settings,
     apiPresets: getApiPresets(),
     visionPresets: getVisionPresets(),
-    messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
-    rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
+    // 消息里的内嵌图片不同步（单张base64可能几百KB）
+    messages: allMsgs.map(m => ({ role: m.role, content: m.content, time: m.time })),
+    rpMessages: allRpMsgs.map(m => ({ role: m.role, content: m.content, time: m.time })),
     rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
-    // 装饰贴纸(stickers)不参与同步，体积太大且手机端不需要
     chatStickers: getChatStickers(),
-    images: { aiAvatar: aiAvatar || null, userAvatar: userAvatar || null },
     diary: diaryData,
     reading: readingData,
   };
@@ -6790,15 +6787,6 @@ async function applySyncData(data) {
     if (rp.rp_presets)     localStorage.setItem('rp_presets', rp.rp_presets);
     if (rp.rp_char_name)   localStorage.setItem('rp_char_name', rp.rp_char_name);
     if (rp.rp_char_avatar) localStorage.setItem('rp_char_avatar', rp.rp_char_avatar);
-  }
-  if (data.images) {
-    if (data.images.aiAvatar)   await dbPut('images', 'aiAvatar', data.images.aiAvatar);
-    if (data.images.userAvatar) await dbPut('images', 'userAvatar', data.images.userAvatar);
-    // 背景图不同步，各设备保留自己的
-  }
-  if (data.stickers && Array.isArray(data.stickers)) {
-    await dbClear('stickers');
-    for (const s of data.stickers) await dbPut('stickers', null, s);
   }
   if (data.chatStickers && Array.isArray(data.chatStickers) && data.chatStickers.length > 0) {
     saveChatStickers(data.chatStickers);
@@ -7152,7 +7140,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-2002';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-2005';
 
   await openDB();
   await migrateFromLocalStorage();
