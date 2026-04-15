@@ -1217,7 +1217,10 @@ if('serviceWorker' in navigator){
 <!-- 设置面板 -->
 <div class="settings-panel" id="settingsPanel">
   <div class="settings-header">
-    <h2>⚙️ 设置</h2>
+    <div>
+      <h2>⚙️ 设置</h2>
+      <div id="appVersion" style="font-size:11px;color:var(--text-light);margin-top:2px"></div>
+    </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button id="btnSaveSettingsTop" style="padding:6px 14px;background:var(--pink-deep);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">保存</button>
       <button class="btn-close" id="btnCloseSettings">✕</button>
@@ -6812,6 +6815,13 @@ async function checkPendingMessage() {
 
 // ======================== 启动 ========================
 (async () => {
+  // 显示版本（文件最后修改时间）
+  const _verEl = document.getElementById('appVersion');
+  if (_verEl) {
+    const _d = new Date(document.lastModified);
+    _verEl.textContent = `v${_d.getFullYear()}.${String(_d.getMonth()+1).padStart(2,'0')}.${String(_d.getDate()).padStart(2,'0')} ${String(_d.getHours()).padStart(2,'0')}:${String(_d.getMinutes()).padStart(2,'0')}`;
+  }
+
   await openDB();
   await migrateFromLocalStorage();
   await loadAll();
