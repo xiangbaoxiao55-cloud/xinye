@@ -3222,13 +3222,20 @@ $('#btnManualSync').onclick = async () => {
   btn.disabled = true;
   btn.textContent = '同步中…';
   _lastSyncPushTime = 0; // 清除节流，强制执行
-  try {
-    // 先pull，再push（确保双向最新）
-    await syncPull();
-    await syncPush();
-    toast('✅ 同步完成');
-  } catch(e) {
-    toast(`❌ 同步出错：${e.message}`);
+  const pullResult = await syncPull();
+  if (pullResult === false) {
+    toast('❌ 连接服务器失败，请检查 Tailscale 是否已 Connect');
+    btn.disabled = false;
+    btn.textContent = '🔄 手动同步数据';
+    return;
+  }
+  if (pullResult === 'pulled') {
+    toast('✅ 已同步最新数据');
+  } else {
+    // 本地已是最新或首次推送，把本地数据推上去
+    _lastSyncPushTime = 0;
+    const pushOk = await syncPush();
+    toast(pushOk ? '✅ 数据已上传到服务器' : '❌ 上传失败，请检查 Tailscale');
   }
   btn.disabled = false;
   btn.textContent = '🔄 手动同步数据';
@@ -6693,45 +6700,56 @@ async function buildSyncPayload() {
   };
 }
 
+// 返回 true=成功 false=失败
 async function syncPush() {
   const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) return;
-  if (Date.now() - _lastSyncPushTime < 30 * 1000) return;
+  if (!serverUrl) return false;
+  if (Date.now() - _lastSyncPushTime < 30 * 1000) return false;
   _lastSyncPushTime = Date.now();
   try {
     const payload = await buildSyncPayload();
-    await fetch(`${serverUrl}/api/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const resp = await fetch(`${serverUrl}/api/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     localStorage.setItem('xinye_sync_ts', String(payload.ts));
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     localStorage.setItem('xinye_last_sync_time', timeStr);
     console.log('[同步] push完成');
     const _sh = document.getElementById('lastSyncHint');
     if (_sh) _sh.textContent = `上次同步：${timeStr}`;
+    return true;
   } catch(e) {
     console.warn('[同步] push失败:', e.message);
+    return false;
   }
 }
 
+// 返回 'pulled'=拉取了新数据 'ok'=已是最新 'pushed'=首次推送 false=失败
 async function syncPull() {
   const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) return;
+  if (!serverUrl) return false;
   try {
     const resp = await fetch(`${serverUrl}/api/sync`, { signal: AbortSignal.timeout(5000) });
-    if (!resp.ok) { syncPush(); return; }
+    if (!resp.ok) {
+      // 服务器没有数据，说明是第一次，把本地数据push上去
+      _lastSyncPushTime = 0;
+      const ok = await syncPush();
+      return ok ? 'pushed' : false;
+    }
     const data = await resp.json();
     const serverTs = data.ts || 0;
     const localTs = parseInt(localStorage.getItem('xinye_sync_ts') || '0');
-    if (serverTs <= localTs) { console.log('[同步] 本地已是最新，跳过pull'); return; }
+    if (serverTs <= localTs) { console.log('[同步] 本地已是最新，跳过pull'); return 'ok'; }
     console.log(`[同步] 服务器数据更新 (${new Date(serverTs).toLocaleString('zh-CN')})，正在同步…`);
     await applySyncData(data);
     localStorage.setItem('xinye_sync_ts', String(serverTs));
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     localStorage.setItem('xinye_last_sync_time', timeStr);
-    toast('已同步最新数据 ✓');
     const _sh = document.getElementById('lastSyncHint');
     if (_sh) _sh.textContent = `上次同步：${timeStr}`;
+    return 'pulled';
   } catch(e) {
     console.warn('[同步] pull失败:', e.message);
+    return false;
   }
 }
 
@@ -7125,7 +7143,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-1949';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-1952';
 
   await openDB();
   await migrateFromLocalStorage();
