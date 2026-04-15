@@ -5183,6 +5183,7 @@ async function sendMessage() {
       return _res;
     }
 
+    console.warn('[ToolDefs]', _toolDefs.map(t=>t.function.name).join(', '));
     if (_toolDefs.length > 0) {
       // ====== Agent loop：第一轮流式，有工具调用才切非流式 ======
       // 普通聊天路径：1次流式，和没有工具一样快
