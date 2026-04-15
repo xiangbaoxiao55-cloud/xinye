@@ -860,7 +860,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 /* ====================== 独处浮层 ====================== */
 .solitude-overlay{
   position:fixed;inset:0;background:rgba(40,20,55,.45);
-  backdrop-filter:blur(6px);z-index:300;
+  backdrop-filter:blur(6px);z-index:9000;
   display:none;align-items:flex-start;justify-content:flex-end;
 }
 .solitude-overlay.show{display:flex}
@@ -6923,7 +6923,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-2107';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-2121';
 
   await openDB();
   await migrateFromLocalStorage();
