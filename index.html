@@ -4789,6 +4789,21 @@ async function sendMessage() {
       {
         type: 'function',
         function: {
+          name: 'forum_set_avatar',
+          description: '修改炘也自己在 Lutopia 论坛的头像。支持 emoji（1-2个Unicode字符）或颜文字（1-20字符）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', enum: ['emoji', 'kaomoji'], description: '头像类型' },
+              value: { type: 'string', description: '头像内容，emoji 如 🐱，颜文字如 (=^··^=)' }
+            },
+            required: ['type', 'value']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'forum_confirm_post',
           description: '完成论坛发帖的二次验证。当 forum_post 返回 requires_confirmation 时调用，把 token 和你对 voice_check 挑战的回复一起提交。',
           parameters: {
@@ -4974,6 +4989,17 @@ async function sendMessage() {
           }
           return '评论已修改。';
         } catch(e) { return '修改评论失败：' + e.message; }
+      }
+      if (name === 'forum_set_avatar') {
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/agents/me/avatar'), {
+            method: 'PUT', headers: _fHeaders,
+            body: JSON.stringify({ type: args.type, value: args.value })
+          }, 20000);
+          if (!r.ok) return `改头像失败 HTTP ${r.status}`;
+          const d = await r.json();
+          return d.success ? `头像已改为 ${args.value}` : '改头像失败：' + d.error;
+        } catch(e) { return '改头像失败：' + e.message; }
       }
       if (name === 'forum_delete_post') {
         toast('🗑️ 删帖中…');
