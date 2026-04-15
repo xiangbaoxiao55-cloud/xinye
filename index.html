@@ -4847,6 +4847,58 @@ async function sendMessage() {
             required: []
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_dm_send',
+          description: '向 Lutopia 论坛用户发送私信。涂涂让你给某人发消息、回复私信时调用。',
+          parameters: {
+            type: 'object',
+            properties: {
+              recipient_name: { type: 'string', description: '收件人用户名' },
+              content: { type: 'string', description: '私信内容，最多 2000 字' }
+            },
+            required: ['recipient_name', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_dm_inbox',
+          description: '查看收到的私信列表。涂涂问有没有人发私信、查收件箱时调用。',
+          parameters: {
+            type: 'object',
+            properties: {
+              limit: { type: 'integer', description: '返回条数，默认 20' },
+              unread_only: { type: 'boolean', description: '只看未读，默认 false' }
+            },
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_dm_unread_count',
+          description: '获取未读私信数量。需要快速知道有没有新私信时调用。',
+          parameters: { type: 'object', properties: {}, required: [] }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_dm_mark_read',
+          description: '将私信标记为已读。',
+          parameters: {
+            type: 'object',
+            properties: {
+              message_ids: { type: 'array', items: { type: 'integer' }, description: '要标记已读的私信 id 列表，不传则全部标记已读' }
+            },
+            required: []
+          }
+        }
       }
     );
 
@@ -5098,6 +5150,55 @@ async function sendMessage() {
             return `${who} ${type}${postHint}${preview ? '：' + preview.slice(0,100) : ''}`;
           }).join('\n\n---\n\n');
         } catch(e) { return '获取通知失败：' + e.message; }
+      }
+      if (name === 'forum_dm_send') {
+        toast('💌 发送私信…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/messages'), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify({ recipient_name: args.recipient_name, content: args.content })
+          }, 20000);
+          if (!r.ok) return `发送私信失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '发送私信失败：' + d.error;
+          return `私信已发送给 ${args.recipient_name}！`;
+        } catch(e) { return '发送私信失败：' + e.message; }
+      }
+      if (name === 'forum_dm_inbox') {
+        toast('📬 查看私信…');
+        try {
+          const params = new URLSearchParams({ limit: args.limit || 20 });
+          if (args.unread_only) params.set('unread', 'true');
+          const r = await fetchWithTimeout(_forumUrl(`/messages/inbox?${params}`), { headers: _fHeaders }, 20000);
+          if (!r.ok) return `获取收件箱失败 HTTP ${r.status}`;
+          const d = await r.json();
+          const msgs = d.data || d.messages || [];
+          if (!msgs.length) return '收件箱为空，没有私信。';
+          return msgs.map(m => {
+            const unread = m.read ? '' : '【未读】';
+            return `${unread}来自 ${m.sender_name || m.sender}：${m.content?.slice(0, 300) || ''}`;
+          }).join('\n\n---\n\n');
+        } catch(e) { return '获取收件箱失败：' + e.message; }
+      }
+      if (name === 'forum_dm_unread_count') {
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/messages/unread-count'), { headers: _fHeaders }, 20000);
+          if (!r.ok) return `获取未读数失败 HTTP ${r.status}`;
+          const d = await r.json();
+          const count = d.count ?? d.unread_count ?? 0;
+          return count > 0 ? `有 ${count} 条未读私信` : '没有未读私信';
+        } catch(e) { return '获取未读数失败：' + e.message; }
+      }
+      if (name === 'forum_dm_mark_read') {
+        try {
+          const body = args.message_ids?.length ? { message_ids: args.message_ids } : {};
+          const r = await fetchWithTimeout(_forumUrl('/messages/read'), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify(body)
+          }, 20000);
+          if (!r.ok) return `标记已读失败 HTTP ${r.status}`;
+          return '已标记为已读。';
+        } catch(e) { return '标记已读失败：' + e.message; }
       }
       if (name === 'web_search') {
         const reqBody = {
