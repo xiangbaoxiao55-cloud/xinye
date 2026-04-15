@@ -931,6 +931,15 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 }
 .solitude-gift-btn:hover{opacity:.88}
 .solitude-gift-btn:disabled{opacity:.5;cursor:not-allowed}
+.solitude-trigger-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.solitude-trigger-btn{
+  padding:7px 14px;background:transparent;color:var(--pink-deep);
+  border:1.5px solid var(--pink);border-radius:8px;font-size:12px;
+  font-family:inherit;cursor:pointer;font-weight:600;transition:all .15s;white-space:nowrap;
+}
+.solitude-trigger-btn:hover{background:var(--pink-light)}
+.solitude-trigger-btn:disabled{opacity:.5;cursor:not-allowed}
+.solitude-trigger-tip{font-size:11px;color:var(--text-light)}
 
 /* ====================== 响应式 ====================== */
 @media(max-width:600px){
@@ -1718,6 +1727,10 @@ if('serviceWorker' in navigator){
       <div class="solitude-empty" id="solitudeEmpty">加载中…</div>
     </div>
     <div class="solitude-gift-area">
+      <div class="solitude-trigger-row">
+        <button class="solitude-trigger-btn" id="btnTriggerSolitude">让他现在去逛逛</button>
+        <span class="solitude-trigger-tip" id="solitudeTriggerTip"></span>
+      </div>
       <div class="solitude-gift-title">💌 投喂炘也</div>
       <textarea class="solitude-gift-input" id="solitudeGiftInput" rows="2" placeholder="给炘也留点什么：文字、图片链接、歌曲…"></textarea>
       <div class="solitude-gift-row">
@@ -3084,6 +3097,32 @@ async function openSolitudeOverlay() {
 
 $('#btnCloseSolitude').onclick = () => $('#solitudeOverlay').classList.remove('show');
 $('#solitudeOverlay').onclick = (e) => { if (e.target === $('#solitudeOverlay')) $('#solitudeOverlay').classList.remove('show'); };
+
+$('#btnTriggerSolitude').onclick = async () => {
+  if (!settings.solitudeServerUrl) { toast('请先配置本地服务器地址'); return; }
+  const btn = $('#btnTriggerSolitude');
+  const tip = $('#solitudeTriggerTip');
+  btn.disabled = true;
+  btn.textContent = '触发中…';
+  tip.textContent = '';
+  try {
+    const res = await fetch(`${settings.solitudeServerUrl}/api/solitude/run`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      tip.textContent = '炘也出门了 💙';
+      btn.textContent = '已触发';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '让他现在去逛逛'; tip.textContent = ''; }, 5000);
+    } else {
+      tip.textContent = data.reason || '触发失败';
+      btn.disabled = false;
+      btn.textContent = '让他现在去逛逛';
+    }
+  } catch (e) {
+    tip.textContent = '连接失败';
+    btn.disabled = false;
+    btn.textContent = '让他现在去逛逛';
+  }
+};
 
 $('#btnSubmitGift').onclick = async () => {
   const input = $('#solitudeGiftInput');
