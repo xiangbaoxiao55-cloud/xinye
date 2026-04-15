@@ -7125,7 +7125,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-1939';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-1949';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -7186,6 +7186,7 @@ async function checkPendingMessage() {
   userInput.focus();
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
   setTimeout(() => syncPull(), 2000); // 延迟2秒待 settings 就绪后同步
+  setInterval(() => syncPull(), 5 * 60 * 1000); // 每5分钟检查服务器是否有新数据
 })();
 
 // ======================== 写日记功能 ========================
