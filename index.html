@@ -5401,6 +5401,10 @@ async function sendMessage() {
         await _finalizeMsg(parsed, loopMsgs); return;
       }
       // 有工具调用，执行
+      // 先把第一条流式消息的 preamble 内容存进 DB（避免刷新后消失）
+      if (parsed.aiMsg && parsed.content) {
+        try { await updateMessage(parsed.aiMsg.id, parsed.content); } catch(_e) {}
+      }
       loopMsgs.push({ role: 'assistant', content: parsed.content || null, tool_calls: parsed.tool_calls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } })) });
       for (const tc of parsed.tool_calls) {
         let result = '';
@@ -5408,6 +5412,7 @@ async function sendMessage() {
         loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
       }
       // 后续工具轮（最多3轮）：非流式
+      let _m2FinalContent = null;
       for (let _tr = 1; _tr < 4; _tr++) {
         const _r2 = await _apiFetch(loopMsgs, true, false);
         if (!_r2 || !_r2.ok) break;
@@ -5420,13 +5425,30 @@ async function sendMessage() {
             try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
-        } else { break; }
+        } else {
+          // 模型已给出最终回复（无更多工具调用），保存内容直接显示，避免多余的二次请求
+          _m2FinalContent = _m2?.content || null;
+          break;
+        }
       }
-      // 最终回复：流式打字机（不带工具定义）
-      const _rf = await _apiFetch(loopMsgs, false, true);
-      if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
-      const parsedFinal = await _liveStream(_rf);
-      await _finalizeMsg(parsedFinal, loopMsgs);
+      if (_m2FinalContent) {
+        // 直接用 _m2 的回复显示，无需再发一次请求
+        let _ft = await processSolitudeSharedMarkers(_m2FinalContent);
+        typing.classList.remove('show');
+        const _nm = await addMessage('assistant', _ft);
+        await appendMsgDOM(_nm);
+        const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
+        try { linkifyEl(_nb, _ft); applyStickerTags(_nb); } catch(_e) {}
+        try { saveTokenLog(_nm.id, loopMsgs, _ft, {}, _apiMeta, settings.model || ''); } catch(_e) {}
+        if (settings.ttsAutoPlay && _ft) enqueueTTS(_ft, _nm.id);
+        rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+      } else {
+        // _m2 为空或请求失败，回退到流式最终请求
+        const _rf = await _apiFetch(loopMsgs, false, true);
+        if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
+        const parsedFinal = await _liveStream(_rf);
+        await _finalizeMsg(parsedFinal, loopMsgs);
+      }
       }
 
     } else if (!settings.streamMode) {
