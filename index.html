@@ -904,7 +904,8 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   background:var(--pink-light);color:var(--pink-deep);margin-left:6px;vertical-align:middle;
 }
 .solitude-gift-area{
-  border-top:1px solid var(--border);padding:12px;
+  border-top:1px solid var(--border);
+  padding:12px 12px calc(12px + env(safe-area-inset-bottom, 48px));
   background:rgba(255,255,255,.5);
 }
 [data-theme="dark"] .solitude-gift-area{background:rgba(20,14,30,.5)}
@@ -6922,7 +6923,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-2028';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-2045';
 
   await openDB();
   await migrateFromLocalStorage();
