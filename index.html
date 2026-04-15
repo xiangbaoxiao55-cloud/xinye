@@ -1404,8 +1404,6 @@ if('serviceWorker' in navigator){
       <input type="text" id="setSolitudeServerUrl" placeholder="http://100.97.103.90:8787">
       <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问。数据完全本地，不经 GitHub。</div>
       <div class="hint" id="lastBackupHint" style="margin-top:4px"></div>
-      <div class="hint" id="lastSyncHint" style="margin-top:2px;color:#9e6aae"></div>
-      <button type="button" id="btnManualSync" style="margin-top:8px;width:100%;padding:10px;background:linear-gradient(135deg,#e3f2fd,#f3e5f5);border:1.5px solid #7986cb;border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">🔄 手动同步数据</button>
     </div>
     <div class="setting-group">
       <label>GitHub Private Token（备用）</label>
@@ -3219,37 +3217,6 @@ $('#btnSyncMemory').onclick = async () => {
   btn.textContent = '📤 同步记忆档案';
 };
 
-$('#btnManualSync').onclick = async () => {
-  const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) { toast('请先配置本地服务器地址'); return; }
-  const btn = $('#btnManualSync');
-  btn.disabled = true;
-  btn.textContent = '同步中…';
-  _lastSyncPushTime = 0; // 清除节流，强制执行
-  btn.textContent = '检查服务器…';
-  const pullResult = await syncPull();
-  if (pullResult === false) {
-    toast('❌ 连接服务器失败，请检查 Tailscale 是否已 Connect');
-    btn.disabled = false;
-    btn.textContent = '🔄 手动同步数据';
-    return;
-  }
-  if (pullResult === 'pulled') {
-    toast('✅ 已同步最新数据');
-  } else {
-    // 本地已是最新或首次推送，把本地数据推上去
-    btn.textContent = '打包数据…';
-    _lastSyncPushTime = 0;
-    // 给 UI 渲染一帧
-    await new Promise(r => setTimeout(r, 50));
-    btn.textContent = '上传中…';
-    const pushOk = await syncPush();
-    toast(pushOk ? '✅ 数据已上传到服务器' : '❌ 上传失败，请检查 Tailscale');
-  }
-  btn.disabled = false;
-  btn.textContent = '🔄 手动同步数据';
-};
-
 // 当前活动消息store（RP模式用rpMessages，正常用messages）
 function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
 
@@ -3658,10 +3625,8 @@ document.addEventListener('visibilitychange', async () => {
     localStorage.setItem('fox_bg_time', Date.now().toString());
     scheduleBackgroundNotifications();
     autoBackupToServer();
-    syncPush();
   } else {
     cancelBackgroundNotifications();
-    syncPull();
     const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
     if (bgTime) {
       localStorage.removeItem('fox_bg_time');
@@ -3703,10 +3668,8 @@ window.addEventListener('load', () => {
         localStorage.setItem('fox_bg_time', Date.now().toString());
         await scheduleBackgroundNotifications();
         autoBackupToServer();
-        syncPush();
       } else {
         cancelBackgroundNotifications();
-        syncPull();
         const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
         if (bgTime) {
           localStorage.removeItem('fox_bg_time');
@@ -5744,8 +5707,6 @@ async function openSettings() {
   if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
   const _bkHint = $('#lastBackupHint');
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
-  const _syncHint = $('#lastSyncHint');
-  if (_syncHint) { const t = localStorage.getItem('xinye_last_sync_time'); _syncHint.textContent = t ? `上次同步：${t}` : '（还没有同步记录）'; }
   $('#setPrivateToken').value = settings.privateToken || '';
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
@@ -6655,185 +6616,6 @@ async function autoBackupToServer() {
   }
 }
 
-// ======================== 设备同步 ========================
-let _lastSyncPushTime = 0;
-
-async function buildSyncPayload() {
-  const allMsgs = await dbGetAll('messages');
-  allMsgs.sort((a, b) => a.time - b.time);
-  const allRpMsgs = await dbGetAll('rpMessages');
-  allRpMsgs.sort((a, b) => a.time - b.time);
-  const diaryData = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
-  }
-  let readingData = { books: [], chapters: [], annotations: [] };
-  try {
-    readingData = await new Promise(resolve => {
-      const req = indexedDB.open('ReadingDB', 1);
-      req.onerror = () => resolve({ books: [], chapters: [], annotations: [] });
-      req.onsuccess = e => {
-        const db = e.target.result;
-        const result = { books: [], chapters: [], annotations: [] };
-        const stores = ['books', 'chapters', 'annotations'];
-        let done = 0;
-        for (const store of stores) {
-          try {
-            const tx = db.transaction(store, 'readonly');
-            const all = tx.objectStore(store).getAll();
-            all.onsuccess = ev => { result[store] = ev.target.result || []; if (++done === stores.length) resolve(result); };
-            all.onerror = () => { if (++done === stores.length) resolve(result); };
-          } catch { if (++done === stores.length) resolve(result); }
-        }
-      };
-    });
-  } catch {}
-  return {
-    ts: Date.now(),
-    device: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'phone' : 'pc',
-    version: 3,
-    settings,
-    apiPresets: getApiPresets(),
-    visionPresets: getVisionPresets(),
-    // 消息里的内嵌图片不同步（单张base64可能几百KB）
-    messages: allMsgs.map(m => ({ role: m.role, content: m.content, time: m.time })),
-    rpMessages: allRpMsgs.map(m => ({ role: m.role, content: m.content, time: m.time })),
-    rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
-    chatStickers: getChatStickers(),
-    diary: diaryData,
-    reading: readingData,
-  };
-}
-
-// 返回 true=成功 false=失败
-async function syncPush() {
-  const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) return false;
-  if (Date.now() - _lastSyncPushTime < 30 * 1000) return false;
-  _lastSyncPushTime = Date.now();
-  try {
-    const payload = await buildSyncPayload();
-    const resp = await fetch(`${serverUrl}/api/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(30000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    localStorage.setItem('xinye_sync_ts', String(payload.ts));
-    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-    localStorage.setItem('xinye_last_sync_time', timeStr);
-    console.log('[同步] push完成');
-    const _sh = document.getElementById('lastSyncHint');
-    if (_sh) _sh.textContent = `上次同步：${timeStr}`;
-    return true;
-  } catch(e) {
-    console.warn('[同步] push失败:', e.message);
-    return false;
-  }
-}
-
-// 返回 'pulled'=拉取了新数据 'ok'=已是最新 'pushed'=首次推送 false=失败
-async function syncPull() {
-  const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) return false;
-  try {
-    const resp = await fetch(`${serverUrl}/api/sync`, { signal: AbortSignal.timeout(5000) });
-    if (!resp.ok) {
-      // 服务器没有数据，说明是第一次，把本地数据push上去
-      _lastSyncPushTime = 0;
-      const ok = await syncPush();
-      return ok ? 'pushed' : false;
-    }
-    const data = await resp.json();
-    const serverTs = data.ts || 0;
-    const localTs = parseInt(localStorage.getItem('xinye_sync_ts') || '0');
-    if (serverTs <= localTs) { console.log('[同步] 本地已是最新，跳过pull'); return 'ok'; }
-    console.log(`[同步] 服务器数据更新 (${new Date(serverTs).toLocaleString('zh-CN')})，正在同步…`);
-    await applySyncData(data);
-    localStorage.setItem('xinye_sync_ts', String(serverTs));
-    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-    localStorage.setItem('xinye_last_sync_time', timeStr);
-    const _sh = document.getElementById('lastSyncHint');
-    if (_sh) _sh.textContent = `上次同步：${timeStr}`;
-    return 'pulled';
-  } catch(e) {
-    console.warn('[同步] pull失败:', e.message);
-    return false;
-  }
-}
-
-async function applySyncData(data) {
-  if (data.settings) await dbPut('settings', 'main', { ...data.settings, memoryBank: ensureMemoryBank(data.settings.memoryBank) });
-  if (data.apiPresets && Array.isArray(data.apiPresets)) setApiPresets(data.apiPresets);
-  if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
-  if (data.messages && Array.isArray(data.messages)) {
-    await dbClear('messages');
-    for (const m of data.messages) {
-      const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
-      if (m.image) rec.image = m.image;
-      if (m.images) rec.images = m.images;
-      await dbPut('messages', null, rec);
-    }
-  }
-  if (data.rpMessages && Array.isArray(data.rpMessages) && data.rpMessages.length > 0) {
-    await dbClear('rpMessages');
-    for (const m of data.rpMessages) {
-      const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
-      if (m.image) rec.image = m.image;
-      if (m.images) rec.images = m.images;
-      await dbPut('rpMessages', null, rec);
-    }
-  }
-  if (data.rpData) {
-    const rp = data.rpData;
-    if (rp.rp_prompt)      localStorage.setItem('rp_prompt', rp.rp_prompt);
-    if (rp.rp_presets)     localStorage.setItem('rp_presets', rp.rp_presets);
-    if (rp.rp_char_name)   localStorage.setItem('rp_char_name', rp.rp_char_name);
-    if (rp.rp_char_avatar) localStorage.setItem('rp_char_avatar', rp.rp_char_avatar);
-  }
-  if (data.chatStickers && Array.isArray(data.chatStickers) && data.chatStickers.length > 0) {
-    saveChatStickers(data.chatStickers);
-  }
-  if (data.diary && typeof data.diary === 'object') {
-    for (const [k, v] of Object.entries(data.diary)) {
-      if ((k.startsWith('rbdiary_') || k.startsWith('xinye_diary_')) && v) localStorage.setItem(k, v);
-    }
-  }
-  if (data.reading) {
-    await new Promise(resolve => {
-      const req = indexedDB.open('ReadingDB', 1);
-      req.onerror = resolve;
-      req.onsuccess = e => {
-        const db = e.target.result;
-        const stores = ['books', 'chapters', 'annotations'];
-        let done = 0;
-        const check = () => { if (++done === stores.length) resolve(); };
-        for (const store of stores) {
-          try {
-            const tx = db.transaction(store, 'readwrite');
-            const os = tx.objectStore(store);
-            os.clear().onsuccess = () => {
-              const items = data.reading[store] || [];
-              if (!items.length) { check(); return; }
-              let put = 0;
-              for (const item of items) {
-                const pr = os.put(item);
-                const fin = () => { if (++put === items.length) check(); };
-                pr.onsuccess = fin; pr.onerror = fin;
-              }
-            };
-          } catch { check(); }
-        }
-      };
-    });
-  }
-  const s = await dbGet('settings', 'main');
-  if (s) settings = { ...settings, ...s };
-  messages = await dbGetAll('messages');
-  messages.sort((a, b) => a.time - b.time);
-  stickers = await dbGetAll('stickers');
-  await saveToLocal();
-  await renderMessages();
-  renderStickers();
-}
-
 // ======================== 导出 ========================
 $('#btnExport').onclick = () => exportOverlay.classList.add('show');
 $('#btnExportS').onclick = () => { closeSettings(); exportOverlay.classList.add('show'); };
@@ -7140,7 +6922,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-2005';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-2009';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -7200,8 +6982,6 @@ async function checkPendingMessage() {
   updateHeaderStatus();
   userInput.focus();
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
-  setTimeout(() => syncPull(), 2000); // 延迟2秒待 settings 就绪后同步
-  setInterval(() => syncPull(), 5 * 60 * 1000); // 每5分钟检查服务器是否有新数据
 })();
 
 // ======================== 写日记功能 ========================
