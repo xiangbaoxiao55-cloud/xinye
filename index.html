@@ -4612,8 +4612,8 @@ async function sendMessage() {
     let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
 
-    // ====== Tool definitions (Tavily key = tool mode on) ======
-    const _hasTavily = !!(settings.braveKey);
+    // ====== Tool definitions (RP模式下禁用所有工具) ======
+    const _hasTavily = !_rpInject && !!(settings.braveKey);
     const _toolDefs = _hasTavily ? [
       {
         type: 'function',
@@ -6923,7 +6923,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-2235';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-0730';
 
   await openDB();
   await migrateFromLocalStorage();
