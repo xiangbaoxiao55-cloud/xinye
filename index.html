@@ -2967,7 +2967,7 @@ async function getSolitudeContextHint() {
     const toInject = eligible.slice(-3);
     const lines = toInject.map(l => {
       const t = l.time ? l.time.replace(' 北京时间', '') : '';
-      const preview = l.content ? l.content.slice(0, 80) : '';
+      const preview = l.content ? l.content.slice(0, 300) : '';
       return `• [id:${l.id}]${t ? ` [${t}]` : ''} ${l.title || ''}${preview ? '：' + preview : ''}`;
     }).join('\n');
     // 更新次数
@@ -6918,7 +6918,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-1704';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-1849';
 
   await openDB();
   await migrateFromLocalStorage();
