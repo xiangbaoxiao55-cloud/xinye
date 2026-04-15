@@ -2847,7 +2847,7 @@ async function saveSettings() {
 }
 
 // ======================== 炘也独处系统 ========================
-const _PRIVATE_REPO = 'xiangbaoxiao55-cloud/xinye-private';
+const _PRIVATE_REPO = 'xiangbaoxiao55-cloud/xinye-private-data';
 let _solitudeLogCache = null;      // { data: [...], ts: timestamp }
 let _solitudeGiftsCache = null;    // { data: [...], sha: '', ts: timestamp }
 const SOLITUDE_CACHE_TTL = 20 * 60 * 1000; // 20分钟
@@ -6918,7 +6918,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.15-1619';
+  if (_verEl) _verEl.textContent = 'v2026.04.15-1704';
 
   await openDB();
   await migrateFromLocalStorage();
