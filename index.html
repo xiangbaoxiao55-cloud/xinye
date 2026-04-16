@@ -1441,14 +1441,14 @@ if('serviceWorker' in navigator){
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
         <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button type="button" onclick="resetMemoryCursor()" style="flex:1;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
-          <select id="memoryCursorReset" style="padding:8px 6px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <select id="memoryCursorReset" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit">
             <option value="200">最近200条</option>
             <option value="500" selected>最近500条</option>
             <option value="800">最近800条</option>
             <option value="1200">最近1200条</option>
           </select>
+          <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
         </div>
         <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
       </div>
@@ -3076,41 +3076,71 @@ async function fetchSolitudeGifts() {
   } catch (e) { return { data: [], sha: r.sha }; }
 }
 
-// 从本地服务器拉取独处脚本提取的待导入记忆，写入 memoryBank
+// 从本地服务器或 GitHub 拉取独处脚本提取的待导入记忆，写入 memoryBank
 async function importPendingMemories() {
-  if (!settings.solitudeServerUrl) return;
-  try {
-    const r = await fetch(`${settings.solitudeServerUrl.replace(/\/$/, '')}/api/pending-memories`);
-    if (!r.ok) return;
-    const data = await r.json();
-    if (!data.memories || !data.memories.length) return;
-    const bank = ensureMemoryState();
-    let count = 0;
-    for (const mem of data.memories) {
-      if (!mem.content) continue;
-      const entry = {
-        content: mem.content,
-        kind: 'recent',
-        emotion: mem.emotion || '',
-        weight: Math.min(5, Math.max(1, mem.weight || 2)),
-        source: 'solitude',
-        createdAt: mem.createdAt || Date.now(),
-        updatedAt: mem.updatedAt || mem.createdAt || Date.now(),
-        score: mem.weight || 2,
-        tags: [],
-        accessCount: 0,
-        lastAccessedAt: 0,
-        embedding: null,
-      };
-      upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
-      count++;
+  if (!settings.solitudeServerUrl && !settings.privateToken) return;
+  let memories = null;
+  let fromGitHub = false;
+  let ghSha = null;
+
+  // 优先 Tailscale 本地服务器（取走即清空）
+  if (settings.solitudeServerUrl) {
+    try {
+      const r = await fetch(`${settings.solitudeServerUrl.replace(/\/$/, '')}/api/pending-memories`, { signal: AbortSignal.timeout(4000) });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.memories && data.memories.length) memories = data.memories;
+      }
+    } catch (e) { /* Tailscale 不通，走 GitHub */ }
+  }
+
+  // 备用：GitHub 私有仓库
+  if (!memories && settings.privateToken) {
+    try {
+      const r = await ghPrivateGet('pending_memories.json');
+      if (r && r.content) {
+        const data = JSON.parse(r.content);
+        if (data.memories && data.memories.length) {
+          memories = data.memories;
+          fromGitHub = true;
+          ghSha = r.sha;
+        }
+      }
+    } catch (e) { /* 拉取失败忽略 */ }
+  }
+
+  if (!memories || !memories.length) return;
+
+  const bank = ensureMemoryState();
+  let count = 0;
+  for (const mem of memories) {
+    if (!mem.content) continue;
+    const entry = {
+      content: mem.content,
+      kind: 'recent',
+      emotion: mem.emotion || '',
+      weight: Math.min(5, Math.max(1, mem.weight || 2)),
+      source: 'solitude',
+      createdAt: mem.createdAt || Date.now(),
+      updatedAt: mem.updatedAt || mem.createdAt || Date.now(),
+      score: mem.weight || 2,
+      tags: [],
+      accessCount: 0,
+      lastAccessedAt: 0,
+      embedding: null,
+    };
+    upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+    count++;
+  }
+  if (count > 0) {
+    archiveMemoryBank(bank);
+    await saveSettings();
+    console.log(`[Memory] 导入 ${count} 条独处记忆（来源：${fromGitHub ? 'GitHub' : 'Tailscale'}）`);
+    // GitHub 来源：写回空列表防止重复导入
+    if (fromGitHub) {
+      ghPrivatePut('pending_memories.json', JSON.stringify({ memories: [] }, null, 2), ghSha, 'clear pending memories after import').catch(() => {});
     }
-    if (count > 0) {
-      archiveMemoryBank(bank);
-      await saveSettings();
-      console.log(`[Memory] 导入 ${count} 条独处记忆`);
-    }
-  } catch (e) { /* 无 Tailscale 时正常失败，忽略 */ }
+  }
 }
 
 // 返回要注入context的独处日志提示文字（已废弃，记忆改走 memoryBank）
@@ -7119,7 +7149,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-2302';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-2313';
 
   await openDB();
   await migrateFromLocalStorage();
