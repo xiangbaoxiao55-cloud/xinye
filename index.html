@@ -1441,6 +1441,15 @@ if('serviceWorker' in navigator){
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
         <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button type="button" onclick="resetMemoryCursor()" style="flex:1;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
+          <select id="memoryCursorReset" style="padding:8px 6px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
+            <option value="200">最近200条</option>
+            <option value="500" selected>最近500条</option>
+            <option value="800">最近800条</option>
+            <option value="1200">最近1200条</option>
+          </select>
+        </div>
         <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
       </div>
     </div>
@@ -2671,6 +2680,18 @@ function setMemViewerFilter(f) {
 function openMemoryViewer() {
   const overlay = document.getElementById('memoryViewerOverlay');
   if (overlay) { overlay.style.display = 'flex'; renderMemoryViewer(); }
+}
+
+function resetMemoryCursor() {
+  const n = parseInt(document.getElementById('memoryCursorReset')?.value || '500');
+  const bank = ensureMemoryState();
+  const newIdx = Math.max(-1, messages.length - n - 1);
+  const old = bank.lastProcessedIndex;
+  bank.lastProcessedIndex = newIdx;
+  saveSettings();
+  const el = document.getElementById('memoryExtractStatus');
+  if (el) el.textContent = `🔄 游标已重置：#${old} → #${newIdx}（将重扫最近${Math.min(n, messages.length)}条消息）`;
+  toast(`✅ 游标重置完成，下次发消息开始重新提取最近${Math.min(n, messages.length)}条`);
 }
 
 function renderMemoryViewer() {
@@ -7061,7 +7082,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-1147';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-1208';
 
   await openDB();
   await migrateFromLocalStorage();
