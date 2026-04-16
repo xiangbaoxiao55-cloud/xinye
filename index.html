@@ -4206,7 +4206,9 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     bank.lastProcessedIndex = batchEnd - 1;
 
     if (parsed.save && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
-      const msgTime = toProcess[toProcess.length - 1]?.time || Date.now();
+      // 找批次内最后一条有效时间戳（老消息可能没有time字段）
+      const msgTime = [...toProcess].reverse().find(m => m.time && m.time > 1e12)?.time || Date.now();
+      console.log(`[Memory Extract] msgTime=${new Date(msgTime).toLocaleString()}，批次最后消息time=${toProcess[toProcess.length-1]?.time}`);
       for (const mem of parsed.memories) {
         await saveOneMemoryToBank(bank, mem, msgTime);
       }
@@ -7228,7 +7230,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0026';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0031';
 
   await openDB();
   await migrateFromLocalStorage();
