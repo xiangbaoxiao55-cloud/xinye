@@ -2195,7 +2195,7 @@ function upsertMemoryEntry(list, entry, maxCount) {
   const normalized = normalizeMemoryEntry(entry, entry.kind);
   if (!normalized) return list;
   const idx = list.findIndex(item => item.content === normalized.content);
-  if (idx >= 0) list[idx] = { ...list[idx], ...normalized, updatedAt: Date.now() };
+  if (idx >= 0) list[idx] = { ...list[idx], ...normalized };
   else list.unshift(normalized);
   list.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
   if (maxCount && list.length > maxCount) list.length = maxCount;
@@ -3076,9 +3076,47 @@ async function fetchSolitudeGifts() {
   } catch (e) { return { data: [], sha: r.sha }; }
 }
 
-// 返回要注入context的独处日志提示文字
+// 从本地服务器拉取独处脚本提取的待导入记忆，写入 memoryBank
+async function importPendingMemories() {
+  if (!settings.solitudeServerUrl) return;
+  try {
+    const r = await fetch(`${settings.solitudeServerUrl.replace(/\/$/, '')}/api/pending-memories`);
+    if (!r.ok) return;
+    const data = await r.json();
+    if (!data.memories || !data.memories.length) return;
+    const bank = ensureMemoryState();
+    let count = 0;
+    for (const mem of data.memories) {
+      if (!mem.content) continue;
+      const entry = {
+        content: mem.content,
+        kind: 'recent',
+        emotion: mem.emotion || '',
+        weight: Math.min(5, Math.max(1, mem.weight || 2)),
+        source: 'solitude',
+        createdAt: mem.createdAt || Date.now(),
+        updatedAt: mem.updatedAt || mem.createdAt || Date.now(),
+        score: mem.weight || 2,
+        tags: [],
+        accessCount: 0,
+        lastAccessedAt: 0,
+        embedding: null,
+      };
+      upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+      count++;
+    }
+    if (count > 0) {
+      archiveMemoryBank(bank);
+      await saveSettings();
+      console.log(`[Memory] 导入 ${count} 条独处记忆`);
+    }
+  } catch (e) { /* 无 Tailscale 时正常失败，忽略 */ }
+}
+
+// 返回要注入context的独处日志提示文字（已废弃，记忆改走 memoryBank）
 // 条件：share_hint=true、shared!=true、7天内、注入次数<3
 async function getSolitudeContextHint() {
+  return null; // 独处日志现在通过 memoryBank RAG 注入，不再单独注入
   if (!settings.solitudeServerUrl && !settings.privateToken) return null;
   try {
     const logs = await fetchSolitudeLog();
@@ -3188,11 +3226,8 @@ async function openSolitudeOverlay() {
       const div = document.createElement('div');
       div.className = 'solitude-entry';
       const t = fmtSolitudeTime(entry.time, entry.id);
-      const isShared = entry.shared === true || entry.shared === 'true';
-      const share = isShared
-        ? '<span class="solitude-share-badge" style="background:rgba(100,200,150,.15);color:#4caf8a">说过了</span>'
-        : (entry.share_hint === true || entry.share_hint === 'true')
-          ? '<span class="solitude-share-badge">想告诉你</span>' : '';
+      const memExtracted = entry.memory_extracted === true;
+      const share = memExtracted ? '<span class="solitude-share-badge" style="background:rgba(100,200,150,.15);color:#4caf8a">已入记忆</span>' : '';
       const mood = entry.mood ? `<span style="font-size:11px;color:var(--text-light);margin-left:6px">${escHtml(entry.mood)}</span>` : '';
       const content = entry.content || '';
       // 超过60字才需要展开按钮
@@ -7084,7 +7119,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-1612';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-2302';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -7120,6 +7155,7 @@ async function checkPendingMessage() {
   await checkPendingMessage();
   setupReminders();
   resetIdleTimer();
+  importPendingMemories(); // 拉取独处脚本提取的记忆，静默写入 memoryBank
   // ===== 启动时检查：处理 bgTime（Capacitor 和网页浏览器都走这里）=====
   {
     const _bgTime0 = parseInt(localStorage.getItem('fox_bg_time') || '0');
