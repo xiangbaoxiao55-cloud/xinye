@@ -4172,7 +4172,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 行为指令、习惯偏好不要写进 summary，只记录发生的事和情感。
 特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
 
-    const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 300, stream: false }, 'gpt-4o-mini');
+    const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 1000, stream: false }, 'gpt-4o-mini');
     if (!res || !res.ok) {
       console.warn(`[Memory Extract] 副API请求失败(${res?.status})，游标不前进，下次重试`);
       const el = document.getElementById('memoryExtractStatus');
@@ -4181,8 +4181,8 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     }
     const data = await res.json();
     const msg = data?.choices?.[0]?.message || {};
-    // 兼容各模型字段：content / reasoning_content / 去掉<think>标签后的内容
-    let raw = (msg.content || msg.reasoning_content || msg.text || '').trim();
+    // content优先；GLM思考模型reasoning字段是思考过程不是答案，不做兜底
+    let raw = (msg.content || msg.text || '').trim();
     // GLM思考模型：content可能包含<think>...</think>，取think之后的部分
     if (raw.includes('<think>')) {
       const afterThink = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
@@ -7228,7 +7228,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0013';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0019';
 
   await openDB();
   await migrateFromLocalStorage();
