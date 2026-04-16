@@ -1450,6 +1450,7 @@ if('serviceWorker' in navigator){
           </select>
           <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
         </div>
+        <button type="button" onclick="manualExtractBatch()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">⚡ 立即提取一批（8条）</button>
         <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
       </div>
     </div>
@@ -2692,6 +2693,27 @@ function resetMemoryCursor() {
   const el = document.getElementById('memoryExtractStatus');
   if (el) el.textContent = `🔄 游标已重置：#${old} → #${newIdx}（将重扫最近${Math.min(n, messages.length)}条消息）`;
   toast(`✅ 游标重置完成，下次发消息开始重新提取最近${Math.min(n, messages.length)}条`);
+}
+
+let _manualExtracting = false;
+async function manualExtractBatch() {
+  if (_manualExtracting) { toast('⏳ 正在提取中，稍等…'); return; }
+  _manualExtracting = true;
+  const btn = document.querySelector('button[onclick="manualExtractBatch()"]');
+  if (btn) btn.textContent = '⏳ 提取中…';
+  const el = document.getElementById('memoryExtractStatus');
+  try {
+    await updateMoodState();
+    if (el) {
+      const bank = ensureMemoryState();
+      el.textContent = `⚡ 手动提取完成 · 游标#${bank.lastProcessedIndex}`;
+    }
+  } catch(e) {
+    if (el) el.textContent = `⚡ 手动提取失败: ${e.message}`;
+  } finally {
+    _manualExtracting = false;
+    if (btn) btn.textContent = '⚡ 立即提取一批（8条）';
+  }
 }
 
 function renderMemoryViewer() {
@@ -7150,7 +7172,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-2320';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-2342';
 
   await openDB();
   await migrateFromLocalStorage();
