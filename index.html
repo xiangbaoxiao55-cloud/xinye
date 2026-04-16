@@ -1440,6 +1440,8 @@ if('serviceWorker' in navigator){
         </div>
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
+        <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
+        <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
       </div>
     </div>
 
@@ -1802,6 +1804,34 @@ if('serviceWorker' in navigator){
         <span style="font-size:12px;font-weight:400;opacity:.8">所有数据含背景图和贴纸（文件较大）</span>
       </button>
     </div>
+  </div>
+</div>
+
+<!-- 记忆查看器 -->
+<div class="modal-overlay" id="memoryViewerOverlay" style="display:none;z-index:9600;align-items:flex-start;padding-top:0">
+  <div class="modal" style="width:100%;max-width:640px;height:100dvh;max-height:100dvh;border-radius:0;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <span>🧠 记忆库</span>
+      <button class="btn-close" onclick="document.getElementById('memoryViewerOverlay').style.display='none'">✕</button>
+    </div>
+    <!-- 搜索 + 筛选 -->
+    <div style="padding:10px 16px 0;flex-shrink:0;display:flex;flex-direction:column;gap:8px">
+      <input id="memViewerSearch" type="text" placeholder="搜索记忆内容…" style="width:100%;padding:8px 12px;border:1.5px solid var(--pink);border-radius:20px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);box-sizing:border-box" oninput="renderMemoryViewer()">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="setMemViewerFilter('all')" id="mvf-all" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--pink-deep);background:var(--pink-deep);color:#fff;font-size:12px;cursor:pointer;font-family:inherit">全部</button>
+        <button onclick="setMemViewerFilter('pinned')" id="mvf-pinned" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📌 钉住</button>
+        <button onclick="setMemViewerFilter('recent')" id="mvf-recent" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">🕒 近期</button>
+        <button onclick="setMemViewerFilter('archived')" id="mvf-archived" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📦 归档</button>
+        <select id="mvSortBy" onchange="renderMemoryViewer()" style="margin-left:auto;padding:4px 8px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
+          <option value="time">按时间↓</option>
+          <option value="weight">按权重↓</option>
+          <option value="access">按访问↓</option>
+        </select>
+      </div>
+      <div id="memViewerStats" style="font-size:11px;color:var(--text-light);padding:2px 0"></div>
+    </div>
+    <!-- 记忆列表 -->
+    <div id="memViewerList" style="flex:1;overflow-y:auto;padding:10px 16px 20px;display:flex;flex-direction:column;gap:8px"></div>
   </div>
 </div>
 
@@ -2448,20 +2478,23 @@ async function getMemoryContextBlocks() {
   const preContextRecent = bank.recent.filter(item => (item.createdAt || 0) < contextStart);
   const pool = [...preContextRecent, ...bank.archived];
 
+  console.log(`[Memory RAG] 候选池：共${pool.length}条（窗口外recent ${preContextRecent.length}条 + archived ${bank.archived.length}条），上下文窗口=${n}条，pinned=${bank.pinned.length}条（始终注入）`);
+
   if (pool.length) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     const query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
     // 尝试获取query向量，失败则降级bigram
     const queryVec = query ? await getEmbedding(query) : null;
     const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
-    console.log(`[Memory RAG] 检索方式：${method}，候选池：${pool.length}条`);
+    console.log(`[Memory RAG] 检索方式：${method}，query前50字：「${query.slice(0,50)}」`);
     const relevant = await getRelevantMemoriesAsync(queryVec, query, pool, MEMORY_RAG_INJECT);
-    console.log(`[Memory RAG] 召回${relevant.length}条记忆：`, relevant.map(m => m.content));
+    console.log(`[Memory RAG] 召回${relevant.length}/${pool.length}条：`);
+    relevant.forEach((m, i) => console.log(`  #${i+1} [${m.kind}] w=${m.weight||1} access=${m.accessCount||0} 情绪=${m.emotion||'无'} | ${m.content}`));
     // 更新设置面板里的状态栏（手机上也能看）
     const ragStatusEl = document.getElementById('memoryRagStatus');
     if (ragStatusEl) {
       const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
-      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条 → 召回${relevant.length}条`;
+      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(recent${preContextRecent.length}+arch${bank.archived.length}) → 召回${relevant.length}条`;
       ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
     }
 
@@ -2618,6 +2651,83 @@ function saveMemoryEdit(id) {
     if (item) { item.content = newContent; break; }
   }
   saveSettings(); renderMemoryBankPreview();
+}
+
+// ── 记忆查看器 ────────────────────────────────────────────────────────────────
+let _memViewerFilter = 'all';
+function setMemViewerFilter(f) {
+  _memViewerFilter = f;
+  ['all','pinned','recent','archived'].forEach(k => {
+    const btn = document.getElementById('mvf-' + k);
+    if (!btn) return;
+    const active = k === f;
+    btn.style.background = active ? 'var(--pink-deep)' : 'var(--bg)';
+    btn.style.color = active ? '#fff' : 'var(--text)';
+    btn.style.borderColor = active ? 'var(--pink-deep)' : 'var(--border)';
+  });
+  renderMemoryViewer();
+}
+
+function openMemoryViewer() {
+  const overlay = document.getElementById('memoryViewerOverlay');
+  if (overlay) { overlay.style.display = 'flex'; renderMemoryViewer(); }
+}
+
+function renderMemoryViewer() {
+  const bank = ensureMemoryState();
+  const query = (document.getElementById('memViewerSearch')?.value || '').trim().toLowerCase();
+  const sortBy = document.getElementById('mvSortBy')?.value || 'time';
+
+  let pool = [];
+  if (_memViewerFilter === 'all' || _memViewerFilter === 'pinned')
+    pool.push(...bank.pinned.map(m => ({ ...m, _kind: 'pinned' })));
+  if (_memViewerFilter === 'all' || _memViewerFilter === 'recent')
+    pool.push(...bank.recent.map(m => ({ ...m, _kind: 'recent' })));
+  if (_memViewerFilter === 'all' || _memViewerFilter === 'archived')
+    pool.push(...bank.archived.map(m => ({ ...m, _kind: 'archived' })));
+
+  if (query) pool = pool.filter(m => (m.content || '').toLowerCase().includes(query) || (m.emotion || '').includes(query) || (m.tags || []).some(t => t.includes(query)));
+
+  pool.sort((a, b) => {
+    if (sortBy === 'weight') return (b.weight || 1) - (a.weight || 1) || (b.updatedAt || 0) - (a.updatedAt || 0);
+    if (sortBy === 'access') return (b.accessCount || 0) - (a.accessCount || 0);
+    return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+  });
+
+  // 统计
+  const statsEl = document.getElementById('memViewerStats');
+  const lastExtract = bank.lastAutoExtractAt ? new Date(bank.lastAutoExtractAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '从未';
+  const cursor = bank.lastProcessedIndex >= 0 ? bank.lastProcessedIndex : -1;
+  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 近期 ${bank.recent.length} · 归档 ${bank.archived.length} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
+
+  const listEl = document.getElementById('memViewerList');
+  if (!listEl) return;
+  if (!pool.length) { listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0">没有符合条件的记忆</div>'; return; }
+
+  const kindLabel = { pinned: '📌 钉住', recent: '🕒 近期', archived: '📦 归档' };
+  const kindColor = { pinned: 'var(--pink-deep)', recent: 'var(--apricot)', archived: 'var(--text-light)' };
+  const weightBar = w => '█'.repeat(Math.min(5, w || 1)) + '░'.repeat(Math.max(0, 5 - (w || 1)));
+
+  listEl.innerHTML = pool.map(m => {
+    const created = m.createdAt ? new Date(m.createdAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    const accessed = m.lastAccessedAt ? new Date(m.lastAccessedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '未访问';
+    const tags = (m.tags || []).map(t => `<span style="padding:1px 6px;border-radius:8px;background:var(--warm-bg2);font-size:10px;color:var(--text-light)">${t}</span>`).join('');
+    return `<div style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:${kindColor[m._kind]}">${kindLabel[m._kind]}</span>
+        ${m.emotion ? `<span style="font-size:11px;color:var(--text-light)">· ${m.emotion}</span>` : ''}
+        <span style="font-size:11px;color:var(--text-light);font-family:monospace" title="权重${m.weight||1}">${weightBar(m.weight)}</span>
+        ${m.embedding ? '<span style="font-size:10px;color:var(--pink-deep)" title="有向量">◆</span>' : '<span style="font-size:10px;color:var(--text-light)" title="无向量">◇</span>'}
+        <span style="margin-left:auto;font-size:10px;color:var(--text-muted)">#${m.id?.slice(-6)||'?'}</span>
+      </div>
+      <div style="font-size:13px;color:var(--text);line-height:1.5">${escHtml(m.content || '')}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div>
+      <div style="font-size:10px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap">
+        <span>📅 创建 ${created}</span>
+        <span>👁 访问 ${m.accessCount || 0}次 · ${accessed}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function getAiAvatar()   { return (await dbGet('images','aiAvatar'))   || DEFAULT_AI_AVATAR; }
@@ -3861,7 +3971,11 @@ async function saveOneMemoryToBank(bank, parsed) {
 
 async function updateMoodState() {
   const sub = getSubApiCfg();
-  if (!sub.apiKey) return;
+  if (!sub.apiKey) {
+    const el = document.getElementById('memoryExtractStatus');
+    if (el) el.textContent = '🤖 自动提取状态：副API未配置，跳过';
+    return;
+  }
   try {
     const bank = ensureMemoryState();
     const EXTRACT_INTERVAL = 6; // 每累积6条新消息提取一次
@@ -3870,14 +3984,16 @@ async function updateMoodState() {
     const nextStart = bank.lastProcessedIndex + 1;
     // 保留最新2条不处理（避免截断进行中的对话）
     const available = messages.length - 2 - nextStart;
-    if (available < EXTRACT_INTERVAL) return; // 新消息不够6条，等下次
+    if (available < EXTRACT_INTERVAL) {
+      console.log(`[Memory Extract] 新消息不足，跳过。游标#${bank.lastProcessedIndex}，总消息${messages.length}条，还差${EXTRACT_INTERVAL - available}条`);
+      return;
+    }
 
     const batchEnd = Math.min(nextStart + 8, messages.length - 2);
     const toProcess = messages.slice(nextStart, batchEnd);
     if (toProcess.length < 2) { await saveSettings(); return; }
 
-    // 提前推进游标（不管提取结果，避免重复处理）
-    bank.lastProcessedIndex = batchEnd - 1;
+    console.log(`[Memory Extract] 开始提取，处理消息 #${nextStart}~#${batchEnd-1}（共${toProcess.length}条），游标将推进到 #${batchEnd-1}`);
 
     const existingSummaries = [
       ...bank.pinned.map(m => m.content),
@@ -3903,17 +4019,25 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
 
     const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 300, stream: false }, 'gpt-4o-mini');
-    if (!res || !res.ok) { await saveSettings(); return; }
-    const data = await res.json();
-    const raw = data?.choices?.[0]?.message?.content?.trim();
-    if (!raw) { await saveSettings(); return; }
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) { await saveSettings(); return; }
-    let parsed;
-    try { parsed = JSON.parse(match[0]); } catch(e) {
-      console.warn('[Memory] JSON 解析失败', match[0]);
+    if (!res || !res.ok) {
+      console.warn(`[Memory Extract] 副API请求失败(${res?.status})，游标不前进，下次重试`);
+      const el = document.getElementById('memoryExtractStatus');
+      if (el) el.textContent = `🤖 自动提取：副API失败(${res?.status})，游标保持#${bank.lastProcessedIndex}`;
       await saveSettings(); return;
     }
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content?.trim();
+    if (!raw) { console.warn('[Memory Extract] 副API返回空内容'); await saveSettings(); return; }
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) { console.warn('[Memory Extract] 返回内容无JSON', raw); await saveSettings(); return; }
+    let parsed;
+    try { parsed = JSON.parse(match[0]); } catch(e) {
+      console.warn('[Memory Extract] JSON 解析失败', match[0]);
+      await saveSettings(); return;
+    }
+
+    // API成功后才推进游标
+    bank.lastProcessedIndex = batchEnd - 1;
 
     if (parsed.save && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
       for (const mem of parsed.memories) {
@@ -3922,12 +4046,26 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       bank.lastAutoExtractAt = Date.now();
       archiveMemoryBank(bank);
       renderMemoryBankPreview();
-      console.log(`[Memory] 本次提取 ${parsed.memories.length} 条记忆`);
+      const now = new Date();
+      const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      console.log(`[Memory Extract] ✅ 提取${parsed.memories.length}条：${parsed.memories.map(m => `「${m.summary}」`).join('，')}`);
+      const el = document.getElementById('memoryExtractStatus');
+      if (el) el.textContent = `🤖 末次提取：${ts} · 游标#${bank.lastProcessedIndex} · 写入${parsed.memories.length}条`;
+    } else {
+      console.log(`[Memory Extract] 判定不值得记，游标推至#${bank.lastProcessedIndex}`);
+      const el = document.getElementById('memoryExtractStatus');
+      if (el) {
+        const now = new Date();
+        const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        el.textContent = `🤖 末次提取：${ts} · 游标#${bank.lastProcessedIndex} · 判定不值得记`;
+      }
     }
 
     await saveSettings();
   } catch(e) {
-    console.warn('[Memory] 记忆提取失败，跳过', e);
+    console.warn('[Memory Extract] 提取失败（游标未前进）', e);
+    const el = document.getElementById('memoryExtractStatus');
+    if (el) el.textContent = `🤖 自动提取异常：${e.message}`;
   }
 }
 
@@ -6923,7 +7061,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-0730';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-1147';
 
   await openDB();
   await migrateFromLocalStorage();
