@@ -3224,6 +3224,7 @@ function fmtSolitudeTime(timeStr, id) {
 const _SOLITUDE_PAGE = 20; // 每次渲染条数，滚动到底加载更多
 
 async function openSolitudeOverlay() {
+  importPendingMemories(); // 顺便把独处记忆导入 memoryBank
   const overlay = $('#solitudeOverlay');
   const body = $('#solitudeBody');
   const empty = $('#solitudeEmpty');
@@ -7149,7 +7150,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-2313';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-2320';
 
   await openDB();
   await migrateFromLocalStorage();
