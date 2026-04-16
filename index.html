@@ -2582,7 +2582,7 @@ function renderMemoryBankPreview() {
   } else {
     const visible = recentAll.slice(0, FOLD).map(renderMemoryEntryChip).join('');
     const hidden  = recentAll.slice(FOLD).map(renderMemoryEntryChip).join('');
-    recentEl.innerHTML = `${visible}<div id="memoryRecentMore" style="display:none;margin-top:4px;display:flex;flex-direction:column;gap:6px">${hidden}</div><button onclick="(function(){var el=document.getElementById('memoryRecentMore');var btn=this;if(el.style.display==='none'||el.style.display===''){el.style.display='flex';btn.textContent='收起';}else{el.style.display='none';btn.textContent='显示更多 (${recentAll.length - FOLD}条)';}}).call(this)" style="margin-top:6px;background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text-light);cursor:pointer;width:100%">显示更多 (${recentAll.length - FOLD}条)</button>`;
+    recentEl.innerHTML = `${visible}<div id="memoryRecentMore" style="display:none;margin-top:4px;flex-direction:column;gap:6px">${hidden}</div><button onclick="(function(){var el=document.getElementById('memoryRecentMore');var btn=this;if(el.style.display==='none'||el.style.display===''){el.style.display='flex';btn.textContent='收起';}else{el.style.display='none';btn.textContent='显示更多 (${recentAll.length - FOLD}条)';}}).call(this)" style="margin-top:6px;background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text-light);cursor:pointer;width:100%">显示更多 (${recentAll.length - FOLD}条)</button>`;
   }
 
   // 归档
@@ -3912,6 +3912,48 @@ window.addEventListener('load', () => {
   }
 });
 
+async function cleanupMemoryBank(updatedArchive, silent) {
+  const sub = getSubApiCfg();
+  if (!sub.apiKey) return;
+  const bank = ensureMemoryState();
+  const recent = bank.recent;
+  if (!recent.length) return;
+  // 把近期记忆条做成编号列表
+  const numbered = recent.map((m, i) => `${i}. ${m.content}`).join('\n');
+  const prompt = `下面是炘也的记忆档案（已整理好的最新版本），以及当前的近期记忆条列表。
+请找出近期记忆条里：
+1. 与记忆档案中内容明显矛盾/已被推翻的
+2. 与记忆档案中已有内容完全重复的
+3. 过于琐碎、不值得长期保留的（普通日常闲聊、不带情感的小事）
+
+只删应该删的，有情感/有约定/有重要事件的条目保留。
+
+记忆档案：
+${updatedArchive.slice(0, 3000)}
+
+近期记忆条（编号从0开始）：
+${numbered}
+
+用JSON回复，不要任何其他文字。
+格式：{"remove":[0,3,7]}（填要删除的编号数组，没有要删的则填空数组）`;
+  try {
+    const res = await subApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 200, stream: false }, 'gpt-4o-mini');
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content?.trim() || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return;
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed.remove) || !parsed.remove.length) return;
+    // 从大到小删，避免下标偏移
+    const toRemove = [...new Set(parsed.remove)].filter(i => i >= 0 && i < recent.length).sort((a, b) => b - a);
+    toRemove.forEach(i => recent.splice(i, 1));
+    await saveSettings();
+    console.log(`[Memory] 清理了 ${toRemove.length} 条矛盾/重复记忆`);
+    if (!silent && toRemove.length > 0) toast(`🧹 清理了 ${toRemove.length} 条过时记忆`);
+  } catch (e) { console.warn('[Memory] cleanupMemoryBank 失败:', e.message); }
+}
+
 async function digestMemory() {
   if (!settings.apiKey) { toast('请先填写 API Key'); return; }
   const silent = arguments[0] === true;
@@ -3980,8 +4022,10 @@ ${chatText}`;
     } else {
       settings.memoryArchive = newMemory;
       $('#setMemoryArchive').value = newMemory;
-      renderMemoryBankPreview();
       await saveSettings();
+      // 整理完档案后，顺带清理 memoryBank 里的矛盾/过时条目
+      await cleanupMemoryBank(newMemory, silent);
+      renderMemoryBankPreview();
       if (!silent) toast('✅ 记忆档案已整合更新！');
       else toast('📝 记忆已自动更新');
     }
@@ -7172,7 +7216,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.16-2342';
+  if (_verEl) _verEl.textContent = 'v2026.04.16-2357';
 
   await openDB();
   await migrateFromLocalStorage();
