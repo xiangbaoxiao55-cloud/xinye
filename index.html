@@ -2808,7 +2808,8 @@ function renderMemoryViewer() {
   const statsEl = document.getElementById('memViewerStats');
   const lastExtract = bank.lastAutoExtractAt ? new Date(bank.lastAutoExtractAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '从未';
   const cursor = bank.lastProcessedIndex >= 0 ? bank.lastProcessedIndex : -1;
-  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 普通 ${bank.archived.length} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
+  const normalCount = bank.archived.length + (bank.recent?.length || 0);
+  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 普通 ${normalCount} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
 
   const listEl = document.getElementById('memViewerList');
   if (!listEl) return;
@@ -7326,7 +7327,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-1139';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1208';
 
   await openDB();
   await migrateFromLocalStorage();
