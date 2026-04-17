@@ -1616,6 +1616,7 @@ if('serviceWorker' in navigator){
         <button class="btn-secondary" id="btnExportS" style="flex:1">📥 导出备份</button>
         <button class="btn-secondary" id="btnImportS" style="flex:1">📤 导入备份</button>
       </div>
+      <button class="btn-secondary" id="btnBackupToPhone" style="width:100%;margin-top:8px">💾 一键备份到手机</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         <button class="btn-secondary" id="btnDecoS" style="flex:1">👁️ 装修模式</button>
         <button class="btn-secondary" id="btnStickerS" style="flex:1">🩹 添加贴纸</button>
@@ -6607,6 +6608,74 @@ async function autoBackupToServer() {
   }
 }
 
+// ======================== 一键备份到手机 ========================
+async function backupToPhone() {
+  const btn = $('#btnBackupToPhone');
+  if (btn) { btn.disabled = true; btn.textContent = '备份中…'; }
+  try {
+    const allMsgs = await dbGetAll('messages');
+    allMsgs.sort((a, b) => a.time - b.time);
+    const allRpMsgs = await dbGetAll('rpMessages');
+    allRpMsgs.sort((a, b) => a.time - b.time);
+    const diaryData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
+    }
+    let readingData = { books: [], chapters: [], annotations: [] };
+    try {
+      readingData = await new Promise((resolve) => {
+        const req = indexedDB.open('ReadingDB', 1);
+        req.onerror = () => resolve({ books: [], chapters: [], annotations: [] });
+        req.onsuccess = e => {
+          const rdb = e.target.result;
+          const result = { books: [], chapters: [], annotations: [] };
+          const stores = ['books', 'chapters', 'annotations'];
+          let done = 0;
+          for (const store of stores) {
+            try {
+              const tx = rdb.transaction(store, 'readonly');
+              const all = tx.objectStore(store).getAll();
+              all.onsuccess = ev => { result[store] = ev.target.result || []; if (++done === stores.length) resolve(result); };
+              all.onerror = () => { if (++done === stores.length) resolve(result); };
+            } catch { if (++done === stores.length) resolve(result); }
+          }
+        };
+      });
+    } catch {}
+    const payload = JSON.stringify({
+      version: 3, type: 'auto',
+      exportTime: new Date().toISOString(),
+      settings, apiPresets: getApiPresets(),
+      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
+      rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
+      rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
+      stickers, chatStickers: getChatStickers(),
+      diary: diaryData, reading: readingData,
+    });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+    const filename = `xinye_backup_${stamp}.json`;
+    if (window.AndroidDownload) {
+      const ok = window.AndroidDownload.saveToDownloads(filename, payload);
+      if (ok) { toast('✅ 已备份到 Download/' + filename); closeSettings(); return; }
+    }
+    // 浏览器fallback
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast('✅ 备份已导出');
+    closeSettings();
+  } catch(e) {
+    toast('❌ 备份失败：' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 一键备份到手机'; }
+  }
+}
+$('#btnBackupToPhone').onclick = backupToPhone;
+
 // ======================== 导出 ========================
 $('#btnExport').onclick = () => exportOverlay.classList.add('show');
 $('#btnExportS').onclick = () => { closeSettings(); exportOverlay.classList.add('show'); };
@@ -6822,6 +6891,43 @@ async function doImport(jsonText) {
     if (d.rp_char_avatar) localStorage.setItem('rp_char_avatar', d.rp_char_avatar);
   }
 
+  // 导入日记数据（localStorage）
+  if (data.diary && typeof data.diary === 'object') {
+    for (const [k, v] of Object.entries(data.diary)) {
+      if (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_')) localStorage.setItem(k, v);
+    }
+  }
+
+  // 导入共读数据（IndexedDB ReadingDB）
+  if (data.reading && (data.reading.books?.length || data.reading.chapters?.length || data.reading.annotations?.length)) {
+    try {
+      await new Promise((resolve, reject) => {
+        const req = indexedDB.open('ReadingDB', 1);
+        req.onerror = reject;
+        req.onupgradeneeded = e => {
+          const rdb = e.target.result;
+          if (!rdb.objectStoreNames.contains('books'))       rdb.createObjectStore('books', { keyPath: 'id' });
+          if (!rdb.objectStoreNames.contains('chapters'))    rdb.createObjectStore('chapters', { keyPath: 'bookId' });
+          if (!rdb.objectStoreNames.contains('annotations')) rdb.createObjectStore('annotations', { keyPath: 'bookId' });
+        };
+        req.onsuccess = e => {
+          const rdb = e.target.result;
+          const stores = ['books', 'chapters', 'annotations'];
+          let done = 0;
+          for (const store of stores) {
+            const tx = rdb.transaction(store, 'readwrite');
+            const os = tx.objectStore(store);
+            os.clear();
+            const items = data.reading[store] || [];
+            for (const item of items) os.put(item);
+            tx.oncomplete = () => { if (++done === stores.length) resolve(); };
+            tx.onerror = reject;
+          }
+        };
+      });
+    } catch(e) { console.warn('[导入] 共读数据恢复失败：', e.message); }
+  }
+
   // 刷新内存状态 & 同步 localStorage
   const s = await dbGet('settings', 'main');
   if (s) settings = { ...settings, ...s };
@@ -6913,7 +7019,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-2231';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-2252';
 
   await openDB();
   await migrateFromLocalStorage();
