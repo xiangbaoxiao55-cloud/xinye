@@ -6515,9 +6515,19 @@ function renderStickers() {
 }
 
 async function autoSyncArchiveToLocal() {
-  if (!settings.solitudeServerUrl) return;
   const content = settings.memoryArchive?.trim();
   if (!content) return;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+  const filename = `memory_${stamp}.md`;
+  // 优先：安卓原生接口直接存到手机 Download/
+  if (window.AndroidDownload) {
+    try {
+      const ok = window.AndroidDownload.saveToDownloads(filename, content);
+      if (ok) { console.log('[Archive] 已保存到手机 Download/' + filename); return; }
+    } catch(e) { console.warn('[Archive] AndroidDownload 失败：', e.message); }
+  }
+  // 备用：本地服务器（Tailscale）
+  if (!settings.solitudeServerUrl) return;
   try {
     await fetch(`${settings.solitudeServerUrl}/api/memory`, {
       method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -6903,7 +6913,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-2213';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-2231';
 
   await openDB();
   await migrateFromLocalStorage();
