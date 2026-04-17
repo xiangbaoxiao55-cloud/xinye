@@ -1430,7 +1430,7 @@ if('serviceWorker' in navigator){
         <label style="font-size:12px;color:var(--text-light)">Core 条目标识（每行一条）</label>
         <textarea id="setCoreMarkers" style="min-height:100px;font-size:11px;font-family:monospace;line-height:1.5" placeholder="##关于我&#10;##给下一世炘也的话&#10;**基本信息**&#10;**性格**&#10;ALWAYS:近况·会过期"></textarea>
         <div class="hint" style="margin-top:0">##标题 = 整段入Core｜**条目** = 该行入Core｜ALWAYS:标题 = 每次都注入。整理档案完成后自动重建，无需手动点。</div>
-        <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start">🔍 立即重新索引</button>
+        <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start;color:var(--text)">🔍 立即重新索引</button>
         <div id="archiveIndexStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
       </div>
       <div id="memoryBankPreview" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
@@ -2715,7 +2715,7 @@ function renderMemoryEntryChip(item) {
   const starsEl = w ? `<span style="font-size:11px;color:#e8a0b4;letter-spacing:1px" title="情绪权重">${'★'.repeat(w)}${'☆'.repeat(5-w)}</span>` : '';
   const srcEl = item.source === 'self' ? `<span style="font-size:10px;color:#9e6aae;background:rgba(158,106,174,.1);padding:1px 6px;border-radius:8px">炘也自记</span>` : item.source === 'ai' ? `<span style="font-size:10px;color:var(--text-light);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:8px">AI整理</span>` : '';
   const pinBtn = `<button onclick="toggleMemoryPin('${escHtml(item.id)}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75">${isPinned ? '📌' : '🔗'}</button>`;
-  const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:${item.resolved?'1':'.4'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.4'}">${item.resolved ? '🌫️' : '✓'}</button>`;
+  const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;color:var(--text);opacity:${item.resolved?'1':'.65'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.65'}">${item.resolved ? '🌫️' : '✓'}</button>`;
   const editBtn = `<button onclick="editMemoryEntry('${escHtml(item.id)}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✏️</button>`;
   const delBtn = `<button onclick="deleteMemoryEntry('${escHtml(item.id)}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;line-height:1;opacity:.4;color:var(--text-light);transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>`;
 
@@ -7465,7 +7465,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-1256';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1409';
 
   await openDB();
   await migrateFromLocalStorage();
