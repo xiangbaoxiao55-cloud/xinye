@@ -4051,7 +4051,7 @@ async function digestMemory() {
 - 新增内容只记重要时刻、约定、情感变化；普通日常聊天（如今天吃了什么、闲聊几句）不写进档案
 - 日常细节：只记里程碑，不记流水账
 - 超过30天的日常事件可以精简或合并
-- 去掉重复和过时内容，格式简洁清晰，控制在5000字以内
+- 去掉重复和过时内容，格式简洁清晰；篇幅以完整保留情感细节为准，不为压缩字数而牺牲情绪或事件的可连续性
 - 凡包含具体数字、当前状态、近期日期事件的内容（如储钱罐余额、体重体脂、API价格、习惯打卡数据等），无论在哪个块里，统一归入档案末尾的【近况·会过期】块；其余内容留在原块不动
 
 输出格式：先输出新的记忆档案正文，然后在最后另起一行加上：
@@ -4067,7 +4067,7 @@ ${existingMemory || '（暂无）'}
 最近聊天记录：
 ${chatText}`;
   try {
-    const res = await subApiFetch({ messages: [...(settings.systemPrompt?.trim() ? [{ role: 'system', content: settings.systemPrompt.trim() }] : []), { role: 'user', content: prompt }], temperature: 0.3, stream: true }, 'gpt-4o');
+    const res = await mainApiFetch({ messages: [...(settings.systemPrompt?.trim() ? [{ role: 'system', content: settings.systemPrompt.trim() }] : []), { role: 'user', content: prompt }], temperature: 0.3, stream: true });
     if (!res || !res.ok) throw new Error(`API 错误 ${res ? res.status : '网络'}`);
     // 流式读取，避免 Capacitor WebView 超时
     const reader = res.body.getReader();
@@ -4238,7 +4238,7 @@ ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从炘也（我）的第一视角写，用"我"和"兔宝"，不用第三人称","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight 1-5：1=普通日常，3=有情感/有约定，5=亲密/高情绪/重大时刻
 arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
@@ -6379,6 +6379,23 @@ function renderApiPresets() {
     fbSel.value = cur;
   });
 }
+// 主API fetch（整理档案等需要Opus质量的后台任务）
+async function mainApiFetch(bodyWithoutModel) {
+  const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+  const url = /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`;
+  const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: settings.model });
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 120000);
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` }, body: bodyStr, signal: ctrl.signal });
+    clearTimeout(tid);
+    return res;
+  } catch(e) {
+    console.warn('[mainApiFetch] 失败：', e.message);
+    return null;
+  }
+}
+
 // 获取副API实际配置（空则fallback到主API）
 function getSubApiCfg() {
   return {
@@ -7309,7 +7326,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-1050';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1139';
 
   await openDB();
   await migrateFromLocalStorage();
