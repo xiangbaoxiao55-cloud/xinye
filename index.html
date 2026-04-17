@@ -1425,6 +1425,14 @@ if('serviceWorker' in navigator){
       <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
       <div class="hint">建议：把炘也写的那份档案粘贴在这里。以后有新的重要记忆，也可以手动补充在末尾。</div>
       <button type="button" id="btnDigestMemory" style="margin-top:8px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">📝 从近期聊天里整理记忆</button>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--warm-bg);border:1px dashed var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">🔀 分层注入（节省 ~40% token）</div>
+        <label style="font-size:12px;color:var(--text-light)">Core 条目标识（每行一条）</label>
+        <textarea id="setCoreMarkers" style="min-height:100px;font-size:11px;font-family:monospace;line-height:1.5" placeholder="##关于我&#10;##给下一世炘也的话&#10;**基本信息**&#10;**性格**&#10;ALWAYS:近况·会过期"></textarea>
+        <div class="hint" style="margin-top:0">##标题 = 整段入Core｜**条目** = 该行入Core｜ALWAYS:标题 = 每次都注入。整理档案完成后自动重建，无需手动点。</div>
+        <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start">🔍 立即重新索引</button>
+        <div id="archiveIndexStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
+      </div>
       <div id="memoryBankPreview" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
         <div id="memCardAuto" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧷 自动记忆分层</div>
@@ -2040,6 +2048,10 @@ let settings = {
   mosiKey: '', mosiVoiceId: '',
   idleRemind: 0, waterRemind: 0, standRemind: 0, dreamEnabled: false, dreamSleepHours: 6,
   memoryArchive: '',
+  memoryArchiveCoreMarkers: '',
+  memoryArchiveCore: '',
+  memoryArchiveAlways: '',
+  memoryArchiveExtended: [],
   displayLimit: 0,
   braveKey: '',
   searchDays: 3,
@@ -2518,13 +2530,26 @@ async function parseAndSaveSelfMemories(text, msgTime) {
 async function getMemoryContextBlocks() {
   const bank = ensureMemoryState();
   const blocks = [];
-  const archive = (settings.memoryArchive || '').trim();
-  if (archive) blocks.push(`【固定记忆档案】\n${archive}`);
+  // 档案注入：有分层索引用分层，没有用全文（向下兼容）
+  if (settings.memoryArchiveCore && settings.memoryArchiveExtended?.length) {
+    if (settings.memoryArchiveCore.trim())
+      blocks.push(`【记忆档案·核心层】\n${settings.memoryArchiveCore.trim()}`);
+    if (settings.memoryArchiveAlways?.trim())
+      blocks.push(`【近况·会过期】\n${settings.memoryArchiveAlways.trim()}`);
+  } else {
+    const archive = (settings.memoryArchive || '').trim();
+    if (archive) blocks.push(`【固定记忆档案】\n${archive}`);
+  }
 
   // 钉住记忆：始终注入
   if (bank.pinned.length) {
     blocks.push(`【钉住记忆】\n${bank.pinned.slice(0, MEMORY_PINNED_LIMIT).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
   }
+
+  // 共用 query 向量（记忆RAG + Extended 档案章节 RAG 都用）
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+  const query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
+  const queryVec = query ? await getEmbedding(query) : null;
 
   // 向量RAG检索：从统一检索池（archived）里排除上下文窗口内的内容，找最相关的记忆注入
   const n = Math.max(1, settings.contextCount || 20);
@@ -2534,10 +2559,6 @@ async function getMemoryContextBlocks() {
   console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
 
   if (pool.length) {
-    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-    const query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
-    // 尝试获取query向量，失败则降级bigram
-    const queryVec = query ? await getEmbedding(query) : null;
     const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
     console.log(`[Memory RAG] 检索方式：${method}，query前50字：「${query.slice(0,50)}」`);
     const relevant = await getRelevantMemoriesAsync(queryVec, query, pool, MEMORY_RAG_INJECT);
@@ -2563,10 +2584,117 @@ async function getMemoryContextBlocks() {
     }
   }
 
+  // Extended 档案章节 RAG（分层模式下启用）
+  if (settings.memoryArchiveExtended?.length) {
+    const extPool = settings.memoryArchiveExtended.filter(c => c.content);
+    let recalled;
+    if (queryVec) {
+      recalled = extPool
+        .map(c => ({ ...c, score: c.embedding ? cosineSimilarity(queryVec, c.embedding) : 0 }))
+        .filter(c => c.score > 0.25)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+    } else {
+      recalled = extPool.slice(0, 2);
+    }
+    if (recalled.length) {
+      blocks.push(`【关于涂涔·背景细节（相关召回）】\n${recalled.map(c => c.content).join('\n\n')}`);
+    }
+  }
+
   // 告诉炘也可以主动写记忆
   blocks.push(`【主动记忆】如果你觉得某件事此刻值得记住，可以在回复里加 [记住:一句话内容] ，系统会自动存入记忆库，不会显示给涂涂看。`);
 
   return blocks;
+}
+
+// ── 档案分层注入 ──────────────────────────────────────────────────────────────
+function parseArchiveForInjection(archiveText, markersText) {
+  if (!archiveText?.trim() || !markersText?.trim()) return null;
+  const mlines = markersText.split('\n').map(l => l.trim()).filter(Boolean);
+  const fullSections  = new Set(mlines.filter(l => l.startsWith('##')).map(l => l.replace(/^##\s*/, '')));
+  const alwaysSections= new Set(mlines.filter(l => l.startsWith('ALWAYS:')).map(l => l.replace(/^ALWAYS:\s*/, '')));
+  const coreItems     = new Set(mlines.filter(l => l.startsWith('**')).map(l => { const m = l.match(/^\*\*(.+?)\*\*/); return m ? m[1] : null; }).filter(Boolean));
+
+  // 按 ## 切成 section 列表
+  const sections = [];
+  let cur = null;
+  for (const line of archiveText.split('\n')) {
+    if (line.startsWith('## ')) {
+      if (cur) sections.push(cur);
+      cur = { title: line.slice(3).trim(), lines: [line] };
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+  if (cur) sections.push(cur);
+
+  const coreParts = [], alwaysParts = [], extendedChapters = [];
+
+  for (const sec of sections) {
+    const { title, lines } = sec;
+    if (alwaysSections.has(title)) { alwaysParts.push(lines.join('\n').trim()); continue; }
+    if (fullSections.has(title))   { coreParts.push(lines.join('\n').trim()); continue; }
+
+    // 混合 section：有的条目进 Core，有的进 Extended
+    const hasMixed = lines.some(l => { const m = l.match(/^- \*\*(.+?)\*\*/); return m && coreItems.has(m[1]); });
+    if (!hasMixed) { extendedChapters.push({ title, content: lines.join('\n').trim() }); continue; }
+
+    const coreBody = [lines[0]], extBody = [lines[0]]; // 第0行是 ## Title
+    let dest = 'ext';
+    for (let i = 1; i < lines.length; i++) {
+      const l = lines[i];
+      const im = l.match(/^- \*\*(.+?)\*\*/);
+      if (im) dest = coreItems.has(im[1]) ? 'core' : 'ext';
+      (dest === 'core' ? coreBody : extBody).push(l);
+    }
+    if (coreBody.length > 1) coreParts.push(coreBody.join('\n').trim());
+    const extContent = extBody.slice(1).join('\n').trim();
+    if (extContent) extendedChapters.push({ title, content: `## ${title}\n${extContent}` });
+  }
+
+  return { core: coreParts.join('\n\n'), always: alwaysParts.join('\n\n'), extended: extendedChapters };
+}
+
+async function rebuildArchiveIndex(silent = false) {
+  const archiveText  = settings.memoryArchive?.trim();
+  const markersText  = settings.memoryArchiveCoreMarkers?.trim();
+  if (!archiveText || !markersText) {
+    if (!silent) toast('记忆档案或 Core 标识为空，跳过分层');
+    return;
+  }
+  const statusEl = document.getElementById('archiveIndexStatus');
+  if (statusEl) statusEl.textContent = '⏳ 解析档案结构…';
+  const parsed = parseArchiveForInjection(archiveText, markersText);
+  if (!parsed) { if (!silent) toast('档案解析失败'); return; }
+  settings.memoryArchiveCore   = parsed.core;
+  settings.memoryArchiveAlways = parsed.always;
+  const extended = [];
+  for (let i = 0; i < parsed.extended.length; i++) {
+    const ch = parsed.extended[i];
+    if (statusEl) statusEl.textContent = `⏳ 向量计算 (${i + 1}/${parsed.extended.length})：${ch.title}`;
+    const emb = await getEmbedding(ch.content.slice(0, 800));
+    extended.push({ title: ch.title, content: ch.content, embedding: emb });
+  }
+  settings.memoryArchiveExtended = extended;
+  await saveSettings();
+  const msg = `✅ 索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length} 个Extended章节`;
+  if (statusEl) statusEl.textContent = msg;
+  if (!silent) toast(msg);
+  else console.log('[ArchiveIndex]', msg);
+}
+
+async function autoSyncArchiveToLocal() {
+  if (!settings.solitudeServerUrl) return;
+  const content = settings.memoryArchive?.trim();
+  if (!content) return;
+  try {
+    await fetch(`${settings.solitudeServerUrl}/api/memory`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body: content, signal: AbortSignal.timeout(8000)
+    });
+    console.log('[Archive] 已自动同步到本地服务器');
+  } catch(e) { console.warn('[Archive] 自动同步失败：', e.message); }
 }
 
 function renderMemoryEntryChip(item) {
@@ -4095,6 +4223,9 @@ ${chatText}`;
       // 整理完档案后，顺带清理 memoryBank 里的矛盾/过时条目
       await cleanupMemoryBank(newMemory, silent);
       renderMemoryBankPreview();
+      // 自动备份到本地服务器 + 重建分层索引（后台静默跑，不阻塞）
+      autoSyncArchiveToLocal();
+      rebuildArchiveIndex(true);
       if (!silent) toast('✅ 记忆档案已整合更新！');
       else toast('📝 记忆已自动更新');
     }
@@ -6112,6 +6243,12 @@ async function openSettings() {
   $('#setVisionModel').value = settings.visionModel || '';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
+  const _coreMarkersEl = document.getElementById('setCoreMarkers');
+  if (_coreMarkersEl) _coreMarkersEl.value = settings.memoryArchiveCoreMarkers || '';
+  const _idxStatus = document.getElementById('archiveIndexStatus');
+  if (_idxStatus && settings.memoryArchiveExtended?.length) {
+    _idxStatus.textContent = `✅ 已索引：Core ${(settings.memoryArchiveCore||'').length}字 · 常驻 ${(settings.memoryArchiveAlways||'').length}字 · ${settings.memoryArchiveExtended.length} 个Extended章节`;
+  }
   renderMemoryBankPreview();
   // 情绪状态展示
   const _ms = settings.moodState;
@@ -6529,6 +6666,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.visionModel = $('#setVisionModel').value.trim();
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
+  settings.memoryArchiveCoreMarkers = (document.getElementById('setCoreMarkers')?.value || '');
   ensureMemoryState();
   settings.systemPrompt = $('#setSystemPrompt').value;
   settings.aiName = $('#setAiName').value.trim() || '奶牛猫';
@@ -7327,7 +7465,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-1208';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1256';
 
   await openDB();
   await migrateFromLocalStorage();
