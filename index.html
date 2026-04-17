@@ -2430,7 +2430,7 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
   if (queryVec) {
     const scored = pool.map(mem => {
       const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
-      const weightBonus = (mem.weight || 1) * 0.05;
+      const weightBonus = (mem.weight || 1) * 0.12;
       const tagBonus = _queryTagBonus(query, mem.tags);
       return { mem, score: sim + weightBonus + tagBonus };
     });
@@ -2449,7 +2449,7 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
     let hits = 0;
     qBigrams.forEach(bg => { if (c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
-    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.15 + tagBonus };
+    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.25 + tagBonus };
   });
   return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
 }
@@ -2466,7 +2466,7 @@ function getRelevantMemories(query, pool, topK) {
     const c = (mem.content||'').replace(/\s/g,''); let hits=0;
     qBg.forEach(bg => { if(c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
-    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.15+tagBonus };
+    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.25+tagBonus };
   }).sort((a,b)=>b.score-a.score).slice(0,topK).map(s=>s.mem);
 }
 
@@ -7258,7 +7258,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0903';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0907';
 
   await openDB();
   await migrateFromLocalStorage();
