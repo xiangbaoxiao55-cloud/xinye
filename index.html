@@ -3644,7 +3644,8 @@ ${chatText}`;
       // 整理完档案后，顺带清理 memoryBank 里的矛盾/过时条目
       await cleanupMemoryBank(newMemory, silent);
       renderMemoryBankPreview();
-      // 重建分层索引（后台静默跑，不阻塞）
+      // 自动备份到本地服务器 + 重建分层索引（后台静默跑，不阻塞）
+      autoSyncArchiveToLocal();
       rebuildArchiveIndex(true);
       if (!silent) toast('✅ 记忆档案已整合更新！');
       else toast('📝 记忆已自动更新');
@@ -6499,6 +6500,19 @@ function renderStickers() {
   stickers.forEach(s => createStickerDOM(s));
 }
 
+async function autoSyncArchiveToLocal() {
+  if (!settings.solitudeServerUrl) return;
+  const content = settings.memoryArchive?.trim();
+  if (!content) return;
+  try {
+    await fetch(`${settings.solitudeServerUrl}/api/memory`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body: content, signal: AbortSignal.timeout(8000)
+    });
+    console.log('[Archive] 已自动同步到本地服务器');
+  } catch(e) { console.warn('[Archive] 自动同步失败：', e.message); }
+}
+
 // ======================== 自动备份到本地服务器 ========================
 let _lastAutoBackupTime = 0;
 
@@ -6875,7 +6889,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-2112';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-2146';
 
   await openDB();
   await migrateFromLocalStorage();
