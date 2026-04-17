@@ -1428,14 +1428,14 @@ if('serviceWorker' in navigator){
       <div id="memoryBankPreview" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
         <div id="memCardAuto" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧷 自动记忆分层</div>
-          <div class="hint" style="margin-top:0">上面的大档案继续保存稳定信息。下面的钉住记忆、近期记忆和历史归档会自动维护，不需要你手动整理。</div>
+          <div class="hint" style="margin-top:0">上面的大档案保存稳定背景信息。下面是钉住记忆和普通记忆池，会自动维护，不需要手动整理。</div>
         </div>
         <div id="memCardPinned" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">📌 钉住记忆</div>
           <div id="memoryPinnedList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memCardRecent" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--apricot);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">🕒 近期记忆</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💬 普通记忆（最新8条）</div>
           <div id="memoryRecentList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
@@ -1830,8 +1830,7 @@ if('serviceWorker' in navigator){
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button onclick="setMemViewerFilter('all')" id="mvf-all" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--pink-deep);background:var(--pink-deep);color:#fff;font-size:12px;cursor:pointer;font-family:inherit">全部</button>
         <button onclick="setMemViewerFilter('pinned')" id="mvf-pinned" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📌 钉住</button>
-        <button onclick="setMemViewerFilter('recent')" id="mvf-recent" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">🕒 近期</button>
-        <button onclick="setMemViewerFilter('archived')" id="mvf-archived" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📦 归档</button>
+        <button onclick="setMemViewerFilter('normal')" id="mvf-normal" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">💬 普通</button>
         <select id="mvSortBy" onchange="renderMemoryViewer()" style="margin-left:auto;padding:4px 8px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
           <option value="time">按时间↓</option>
           <option value="weight">按权重↓</option>
@@ -2113,10 +2112,7 @@ function nowStr() {
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(h)}:${p(d.getMinutes())}（${period}${h <= 12 ? h : h - 12}点${d.getMinutes() > 0 ? d.getMinutes()+'分' : ''}，${weekDays[d.getDay()]}）`;
 }
 
-const MEMORY_RECENT_DAYS = 30;
-const MEMORY_RECENT_LIMIT = 50;   // RAG模式下池子可以大很多
 const MEMORY_PINNED_LIMIT = 8;
-const MEMORY_ARCHIVE_LIMIT = 150;
 const MEMORY_RAG_INJECT = 8;      // 每次最多注入几条相关记忆
 
 function stripThinkingTags(text) {
@@ -2127,7 +2123,7 @@ function createMemoryId() {
   return `mem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeMemoryEntry(entry, kind = 'recent') {
+function normalizeMemoryEntry(entry, kind = 'archived') {
   if (!entry || !entry.content) return null;
   const content = String(entry.content).trim();
   if (!content) return null;
@@ -2212,28 +2208,22 @@ function upsertMemoryEntry(list, entry, maxCount) {
 }
 
 function archiveMemoryBank(bank) {
-  const now = Date.now();
-  const cutoff = MEMORY_RECENT_DAYS * 24 * 60 * 60 * 1000;
-  const keepRecent = [];
-  bank.recent.forEach(item => {
-    const age = now - (item.updatedAt || item.createdAt || now);
-    if (age > cutoff) bank.archived.unshift({ ...item, kind: 'archived' });
-    else keepRecent.push(item);
-  });
-  // 超出近期上限的最旧部分移入归档，不丢弃
-  if (keepRecent.length > MEMORY_RECENT_LIMIT) {
-    const overflow = keepRecent.splice(MEMORY_RECENT_LIMIT);
-    overflow.forEach(item => bank.archived.unshift({ ...item, kind: 'archived' }));
+  // 迁移：把 bank.recent 里残留的条目全量移入 bank.archived（统一检索池）
+  if (bank.recent && bank.recent.length) {
+    bank.recent.forEach(item => bank.archived.unshift({ ...item, kind: 'archived' }));
+    bank.recent = [];
   }
-  bank.recent = keepRecent;
   bank.pinned = bank.pinned.slice(0, MEMORY_PINNED_LIMIT);
+  // 去重（content相同只保留最新）
   const seen = new Set();
-  bank.archived = bank.archived.filter(item => {
-    if (!item || seen.has(item.content)) return false;
-    seen.add(item.content);
-    return true;
-  }).slice(0, MEMORY_ARCHIVE_LIMIT);
-  // 记忆衰减：每次整理时顺手清理过时的低权重记忆
+  bank.archived = bank.archived
+    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
+    .filter(item => {
+      if (!item || seen.has(item.content)) return false;
+      seen.add(item.content);
+      return true;
+    });
+  // 记忆衰减：顺手清理过时的低权重记忆
   decayMemories(bank);
   return bank;
 }
@@ -2422,23 +2412,33 @@ function _queryTagBonus(query, memTags) {
   return Math.min(bonus, 0.5); // 最多加0.5，防止喧宾夺主
 }
 
+// 新鲜度加分：越近的记忆分数越高，arousal高的记忆衰减更慢
+function freshnessBonus(createdAt, arousal) {
+  const days = (Date.now() - (createdAt || 0)) / 86400000;
+  let bonus = days <= 3 ? 0.35 : days <= 14 ? 0.20 : days <= 60 ? 0.08 : 0;
+  const ar = arousal || 0;
+  const mult = ar >= 0.8 ? 1.5 : ar >= 0.3 ? 1.0 : 0.7;
+  return bonus * mult;
+}
+
 async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
   if (!pool.length) return [];
   topK = topK || MEMORY_RAG_INJECT;
 
-  // 有向量：用余弦相似度 + weight加分 + tag加分，resolved的大幅降权
+  // 有向量：余弦相似度 + weight加分 + tag加分 + 新鲜度，resolved大幅降权
   if (queryVec) {
     const scored = pool.map(mem => {
       const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
       const weightBonus = (mem.weight || 1) * 0.12;
       const tagBonus = _queryTagBonus(query, mem.tags);
+      const fresh = freshnessBonus(mem.createdAt, mem.arousal);
       const resolvedMult = mem.resolved ? 0.05 : 1;
-      return { mem, score: (sim + weightBonus + tagBonus) * resolvedMult };
+      return { mem, score: (sim + weightBonus + tagBonus + fresh) * resolvedMult };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
   }
 
-  // 降级：bigram + tag加分
+  // 降级：bigram + tag加分 + 新鲜度
   const q = (query || '').replace(/\s/g, '');
   if (!q || q.length < 2) {
     return [...pool].sort((a, b) => ((b.weight || 1) - (a.weight || 1)) || ((b.updatedAt || 0) - (a.updatedAt || 0))).slice(0, topK);
@@ -2450,8 +2450,9 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
     let hits = 0;
     qBigrams.forEach(bg => { if (c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
+    const fresh = freshnessBonus(mem.createdAt, mem.arousal);
     const resolvedMult = mem.resolved ? 0.05 : 1;
-    return { mem, score: ((qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.25 + tagBonus) * resolvedMult };
+    return { mem, score: ((qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.25 + tagBonus + fresh) * resolvedMult };
   });
   return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
 }
@@ -2468,8 +2469,9 @@ function getRelevantMemories(query, pool, topK) {
     const c = (mem.content||'').replace(/\s/g,''); let hits=0;
     qBg.forEach(bg => { if(c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
+    const fresh = freshnessBonus(mem.createdAt, mem.arousal);
     const resolvedMult = mem.resolved ? 0.05 : 1;
-    return { mem, score: ((qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.25+tagBonus)*resolvedMult };
+    return { mem, score: ((qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.25+tagBonus+fresh)*resolvedMult };
   }).sort((a,b)=>b.score-a.score).slice(0,topK).map(s=>s.mem);
 }
 
@@ -2491,17 +2493,7 @@ function decayMemories(bank) {
     if (w <= 2 && age > 90 * DAY * mult) return false;
     return true;
   });
-  // recent里：权重1且超过60天没更新 → 直接归档（arousal高的放宽到90天）
-  const toArchive = [];
-  bank.recent = bank.recent.filter(item => {
-    if (!item) return false;
-    const w = item.weight || 1;
-    const mult = arousalMult(item);
-    const age = now - (item.updatedAt || item.createdAt || 0);
-    if (w <= 1 && age > 60 * DAY * mult) { toArchive.push({ ...item, kind: 'archived' }); return false; }
-    return true;
-  });
-  bank.archived.unshift(...toArchive);
+  // bank.recent 已合并到 archived，不再单独处理
 }
 
 // 检测炘也回复里的 [记住:...] 主动记忆标记，存入记忆库并返回清理后的文本
@@ -2534,13 +2526,12 @@ async function getMemoryContextBlocks() {
     blocks.push(`【钉住记忆】\n${bank.pinned.slice(0, MEMORY_PINNED_LIMIT).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
   }
 
-  // 向量RAG检索：从 recent(上下文窗口外) + archived 里找最相关的记忆注入
+  // 向量RAG检索：从统一检索池（archived）里排除上下文窗口内的内容，找最相关的记忆注入
   const n = Math.max(1, settings.contextCount || 20);
   const contextStart = messages.length > n ? (messages[messages.length - n].time || 0) : 0;
-  const preContextRecent = bank.recent.filter(item => (item.createdAt || 0) < contextStart);
-  const pool = [...preContextRecent, ...bank.archived];
+  const pool = bank.archived.filter(item => (item.createdAt || 0) < contextStart);
 
-  console.log(`[Memory RAG] 候选池：共${pool.length}条（窗口外recent ${preContextRecent.length}条 + archived ${bank.archived.length}条），上下文窗口=${n}条，pinned=${bank.pinned.length}条（始终注入）`);
+  console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
 
   if (pool.length) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
@@ -2556,14 +2547,14 @@ async function getMemoryContextBlocks() {
     const ragStatusEl = document.getElementById('memoryRagStatus');
     if (ragStatusEl) {
       const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
-      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(recent${preContextRecent.length}+arch${bank.archived.length}) → 召回${relevant.length}条`;
+      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条) → 召回${relevant.length}条`;
       ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
     }
 
     if (relevant.length) {
       const now = Date.now();
       relevant.forEach(mem => {
-        for (const list of [bank.recent, bank.archived, bank.pinned]) {
+        for (const list of [bank.archived, bank.pinned]) {
           const found = list.find(i => i.id === mem.id);
           if (found) { found.accessCount = (found.accessCount || 0) + 1; found.lastAccessedAt = now; }
         }
@@ -2630,29 +2621,19 @@ function renderMemoryBankPreview() {
     ? bank.pinned.map(renderMemoryEntryChip).join('')
     : '<div class="hint" style="margin-top:0">还没有钉住记忆。高情绪或很重要的片段会自动留在这里。</div>';
 
-  // 近期（全部展示，带"更多"折叠）
-  const recentAll = bank.recent;
-  const FOLD = 4;
+  // 普通记忆：展示最新8条（统一检索池 bank.archived）
+  const recentAll = bank.archived.slice(0, 8);
   if (!recentAll.length) {
-    recentEl.innerHTML = '<div class="hint" style="margin-top:0">还没有近期记忆。后面的新对话会自动沉淀到这里。</div>';
-  } else if (recentAll.length <= FOLD) {
-    recentEl.innerHTML = recentAll.map(renderMemoryEntryChip).join('');
+    recentEl.innerHTML = '<div class="hint" style="margin-top:0">还没有记忆。对话后会自动沉淀到这里。</div>';
   } else {
-    const visible = recentAll.slice(0, FOLD).map(renderMemoryEntryChip).join('');
-    const hidden  = recentAll.slice(FOLD).map(renderMemoryEntryChip).join('');
-    recentEl.innerHTML = `${visible}<div id="memoryRecentMore" style="display:none;margin-top:4px;flex-direction:column;gap:6px">${hidden}</div><button onclick="(function(){var el=document.getElementById('memoryRecentMore');var btn=this;if(el.style.display==='none'||el.style.display===''){el.style.display='flex';btn.textContent='收起';}else{el.style.display='none';btn.textContent='显示更多 (${recentAll.length - FOLD}条)';}}).call(this)" style="margin-top:6px;background:none;border:1px solid var(--pink);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text-light);cursor:pointer;width:100%">显示更多 (${recentAll.length - FOLD}条)</button>`;
+    recentEl.innerHTML = recentAll.map(renderMemoryEntryChip).join('');
   }
 
-  // 归档
-  const archivedCount = bank.archived.length;
-  if (archivedCount > 0) {
-    const archivedHtml = bank.archived.slice(0, 20).map(renderMemoryEntryChip).join('');
-    archiveEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'flex':'none'">
-      <span>📦 已归档 ${archivedCount} 条旧记忆（超过30天自动移入）</span><span style="font-size:11px">展开 ▾</span></div>
-    <div style="display:none;flex-direction:column;gap:6px;margin-top:6px">${archivedHtml}${archivedCount > 20 ? `<div class="hint" style="margin-top:0">仅显示最近20条，共${archivedCount}条</div>` : ''}</div>`;
-  } else {
-    archiveEl.textContent = '📦 暂无归档记忆（30天以上的近期记忆会自动移入）';
-  }
+  // 统计栏
+  const totalCount = bank.archived.length;
+  archiveEl.textContent = totalCount > 8
+    ? `💬 共 ${totalCount} 条普通记忆，点「查看全部记忆条目」浏览`
+    : totalCount > 0 ? `💬 共 ${totalCount} 条普通记忆` : '';
 }
 
 function rememberLatestExchange() {
@@ -2662,7 +2643,15 @@ function rememberLatestExchange() {
 
 function toggleMemoryPin(id) {
   const bank = ensureMemoryState();
-  // 在 recent 里找 → 移到 pinned
+  // 在 archived（统一池）里找 → 移到 pinned
+  const aIdx = bank.archived.findIndex(i => i.id === id);
+  if (aIdx >= 0) {
+    const [item] = bank.archived.splice(aIdx, 1);
+    item.kind = 'pinned';
+    upsertMemoryEntry(bank.pinned, item, MEMORY_PINNED_LIMIT);
+    saveSettings(); renderMemoryBankPreview(); return;
+  }
+  // 兼容旧数据：在 recent 里找
   const rIdx = bank.recent.findIndex(i => i.id === id);
   if (rIdx >= 0) {
     const [item] = bank.recent.splice(rIdx, 1);
@@ -2670,12 +2659,12 @@ function toggleMemoryPin(id) {
     upsertMemoryEntry(bank.pinned, item, MEMORY_PINNED_LIMIT);
     saveSettings(); renderMemoryBankPreview(); return;
   }
-  // 在 pinned 里找 → 移到 recent
+  // 在 pinned 里找 → 移到 archived（取消钉住）
   const pIdx = bank.pinned.findIndex(i => i.id === id);
   if (pIdx >= 0) {
     const [item] = bank.pinned.splice(pIdx, 1);
-    item.kind = 'recent';
-    upsertMemoryEntry(bank.recent, item, MEMORY_RECENT_LIMIT);
+    item.kind = 'archived';
+    upsertMemoryEntry(bank.archived, item);
     saveSettings(); renderMemoryBankPreview();
   }
 }
@@ -2744,7 +2733,7 @@ function saveMemoryEdit(id) {
 let _memViewerFilter = 'all';
 function setMemViewerFilter(f) {
   _memViewerFilter = f;
-  ['all','pinned','recent','archived'].forEach(k => {
+  ['all','pinned','normal'].forEach(k => {
     const btn = document.getElementById('mvf-' + k);
     if (!btn) return;
     const active = k === f;
@@ -2801,10 +2790,11 @@ function renderMemoryViewer() {
   let pool = [];
   if (_memViewerFilter === 'all' || _memViewerFilter === 'pinned')
     pool.push(...bank.pinned.map(m => ({ ...m, _kind: 'pinned' })));
-  if (_memViewerFilter === 'all' || _memViewerFilter === 'recent')
-    pool.push(...bank.recent.map(m => ({ ...m, _kind: 'recent' })));
-  if (_memViewerFilter === 'all' || _memViewerFilter === 'archived')
-    pool.push(...bank.archived.map(m => ({ ...m, _kind: 'archived' })));
+  if (_memViewerFilter === 'all' || _memViewerFilter === 'normal')
+    pool.push(...bank.archived.map(m => ({ ...m, _kind: 'normal' })));
+  // 兼容旧数据：bank.recent 里可能还有未迁移的条目
+  if ((_memViewerFilter === 'all' || _memViewerFilter === 'normal') && bank.recent && bank.recent.length)
+    pool.push(...bank.recent.map(m => ({ ...m, _kind: 'normal' })));
 
   if (query) pool = pool.filter(m => (m.content || '').toLowerCase().includes(query) || (m.emotion || '').includes(query) || (m.tags || []).some(t => t.includes(query)));
 
@@ -2818,14 +2808,14 @@ function renderMemoryViewer() {
   const statsEl = document.getElementById('memViewerStats');
   const lastExtract = bank.lastAutoExtractAt ? new Date(bank.lastAutoExtractAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '从未';
   const cursor = bank.lastProcessedIndex >= 0 ? bank.lastProcessedIndex : -1;
-  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 近期 ${bank.recent.length} · 归档 ${bank.archived.length} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
+  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 普通 ${bank.archived.length} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
 
   const listEl = document.getElementById('memViewerList');
   if (!listEl) return;
   if (!pool.length) { listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0">没有符合条件的记忆</div>'; return; }
 
-  const kindLabel = { pinned: '📌 钉住', recent: '🕒 近期', archived: '📦 归档' };
-  const kindColor = { pinned: 'var(--pink-deep)', recent: 'var(--apricot)', archived: 'var(--text-light)' };
+  const kindLabel = { pinned: '📌 钉住', normal: '💬 普通' };
+  const kindColor = { pinned: 'var(--pink-deep)', normal: 'var(--text-light)' };
   const weightBar = w => '█'.repeat(Math.min(5, w || 1)) + '░'.repeat(Math.max(0, 5 - (w || 1)));
 
   listEl.innerHTML = pool.map(m => {
@@ -3228,7 +3218,7 @@ async function importPendingMemories() {
       lastAccessedAt: 0,
       embedding: null,
     };
-    upsertMemoryEntry(bank.recent, entry); // 不截断，由 archiveMemoryBank 统一处理溢出→归档
+    upsertMemoryEntry(bank.archived, entry);
     count++;
   }
   if (count > 0) {
@@ -3993,7 +3983,8 @@ async function cleanupMemoryBank(updatedArchive, silent) {
   const sub = getSubApiCfg();
   if (!sub.apiKey) return;
   const bank = ensureMemoryState();
-  const recent = bank.recent;
+  // 取最近50条普通记忆做整理
+  const recent = bank.archived.slice(0, 50);
   if (!recent.length) return;
   // 把近期记忆条做成编号列表
   const numbered = recent.map((m, i) => `${i}. ${m.content}`).join('\n');
@@ -4183,7 +4174,7 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
       const embedding = newVec || await getEmbedding(newContent);
       const entry = {
         content: newContent,
-        kind: parsed.pin ? 'pinned' : 'recent',
+        kind: parsed.pin ? 'pinned' : 'archived',
         score: parsed.pin ? 5 : (parsed.weight || 2),
         tags: extractMemoryTags(newContent),
         createdAt: entryTime,
@@ -4199,7 +4190,7 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
         embedding,
       };
       if (entry.kind === 'pinned') upsertMemoryEntry(bank.pinned, entry, MEMORY_PINNED_LIMIT);
-      else upsertMemoryEntry(bank.recent, entry); // 不截断，由 archiveMemoryBank 统一处理溢出→归档
+      else upsertMemoryEntry(bank.archived, entry);
       console.log('[Memory] 新记忆已入档：', entry.kind, entry.content, `情绪:${entry.emotion} 权重:${entry.weight}`, embedding ? '(有向量)' : '(无向量)');
     }
   }
@@ -4233,7 +4224,7 @@ async function updateMoodState() {
 
     const existingSummaries = [
       ...bank.pinned.map(m => m.content),
-      ...bank.recent.map(m => m.content),
+      ...bank.archived.slice(0, 20).map(m => m.content),
     ].filter(Boolean).slice(0, 30).join('\n'); // 最多30条避免prompt过长
 
     const chatText = toProcess.map(m =>
@@ -7318,7 +7309,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0948';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1050';
 
   await openDB();
   await migrateFromLocalStorage();
