@@ -2166,18 +2166,26 @@ function ensureMemoryState() {
   return settings.memoryBank;
 }
 
+// 标签定义：[标签名, 匹配正则]，同时用于打标和检索加分
+const MEMORY_TAG_DEFS = [
+  ['亲密',   /亲密|抱|吻|哥哥|身体|信任|贴着|搂|摸/],
+  ['崩溃',   /崩溃|大哭|难受|完蛋|废物|痛苦|绝望|好累|心好累/],
+  ['思念',   /想你|想念|梦到|梦里|没有你|不在|想我吗/],
+  ['家人',   /老小子|毛毛|婆婆|公公|小姑|乐乐|爸|妈|家里/],
+  ['创作',   /MMD|画|视频|桌宠|APP|代码|功能|绘图|作品|设计/],
+  ['阅读',   /看书|读书|图书馆|巴什拉|感悟|书|在读|借了/],
+  ['日常',   /吃|喝水|散步|家务|刷鞋|螺蛳粉|睡醒|起床|做饭/],
+  ['睡眠',   /失眠|睡不着|睡过了|没睡好|熬夜|早起|赖床/],
+  ['抑郁',   /抑郁|情绪|不想动|没动力|好累|躺着|低落|很丧/],
+  ['失业',   /失业|没工作|找工作|投简历|面试|辞职|无业/],
+  ['吃醋',   /吃醋|嫉妒|别的|别人|不许|只能我/],
+  ['约定',   /约定|承诺|别走|焊死|会回来|不会消失|等我/],
+];
+
 function extractMemoryTags(text) {
   const src = String(text || '');
   const tags = [];
-  const defs = [
-    ['亲密', /亲密|抱|吻|哥哥|身体|信任/],
-    ['崩溃', /崩溃|大哭|难受|完蛋|废物|痛苦/],
-    ['家人', /老小子|毛毛|婆婆|公公|小姑|乐乐/],
-    ['创作', /MMD|画|视频|桌宠|APP|代码|功能/],
-    ['日常', /吃|睡|喝水|散步|家务|刷鞋|螺蛳粉/],
-    ['约定', /约定|承诺|别走|焊死|会回来/],
-  ];
-  defs.forEach(([tag, re]) => { if (re.test(src)) tags.push(tag); });
+  MEMORY_TAG_DEFS.forEach(([tag, re]) => { if (re.test(src)) tags.push(tag); });
   return [...new Set(tags)].slice(0, 4);
 }
 
@@ -2399,21 +2407,32 @@ async function testVisionApi() {
 }
 
 // ── RAG：向量检索，无向量时降级bigram ───────────────────────────────────────
+// 计算query命中了哪些tag，用于给有对应tag的记忆条额外加分
+function _queryTagBonus(query, memTags) {
+  if (!query || !memTags || !memTags.length) return 0;
+  let bonus = 0;
+  MEMORY_TAG_DEFS.forEach(([tag, re]) => {
+    if (re.test(query) && memTags.includes(tag)) bonus += 0.25;
+  });
+  return Math.min(bonus, 0.5); // 最多加0.5，防止喧宾夺主
+}
+
 async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
   if (!pool.length) return [];
   topK = topK || MEMORY_RAG_INJECT;
 
-  // 有向量：用余弦相似度
+  // 有向量：用余弦相似度 + weight加分 + tag加分
   if (queryVec) {
     const scored = pool.map(mem => {
       const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
       const weightBonus = (mem.weight || 1) * 0.05;
-      return { mem, score: sim + weightBonus };
+      const tagBonus = _queryTagBonus(query, mem.tags);
+      return { mem, score: sim + weightBonus + tagBonus };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
   }
 
-  // 降级：bigram
+  // 降级：bigram + tag加分
   const q = (query || '').replace(/\s/g, '');
   if (!q || q.length < 2) {
     return [...pool].sort((a, b) => ((b.weight || 1) - (a.weight || 1)) || ((b.updatedAt || 0) - (a.updatedAt || 0))).slice(0, topK);
@@ -2424,7 +2443,8 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
     const c = (mem.content || '').replace(/\s/g, '');
     let hits = 0;
     qBigrams.forEach(bg => { if (c.includes(bg)) hits++; });
-    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.15 };
+    const tagBonus = _queryTagBonus(query, mem.tags);
+    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.15 + tagBonus };
   });
   return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
 }
@@ -2440,7 +2460,8 @@ function getRelevantMemories(query, pool, topK) {
   return pool.map(mem => {
     const c = (mem.content||'').replace(/\s/g,''); let hits=0;
     qBg.forEach(bg => { if(c.includes(bg)) hits++; });
-    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.15 };
+    const tagBonus = _queryTagBonus(query, mem.tags);
+    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.15+tagBonus };
   }).sort((a,b)=>b.score-a.score).slice(0,topK).map(s=>s.mem);
 }
 
@@ -7232,7 +7253,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0845';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0853';
 
   await openDB();
   await migrateFromLocalStorage();
