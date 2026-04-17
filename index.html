@@ -2426,13 +2426,14 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
   if (!pool.length) return [];
   topK = topK || MEMORY_RAG_INJECT;
 
-  // 有向量：用余弦相似度 + weight加分 + tag加分
+  // 有向量：用余弦相似度 + weight加分 + tag加分，resolved的大幅降权
   if (queryVec) {
     const scored = pool.map(mem => {
       const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
       const weightBonus = (mem.weight || 1) * 0.12;
       const tagBonus = _queryTagBonus(query, mem.tags);
-      return { mem, score: sim + weightBonus + tagBonus };
+      const resolvedMult = mem.resolved ? 0.05 : 1;
+      return { mem, score: (sim + weightBonus + tagBonus) * resolvedMult };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
   }
@@ -2449,7 +2450,8 @@ async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
     let hits = 0;
     qBigrams.forEach(bg => { if (c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
-    return { mem, score: (qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.25 + tagBonus };
+    const resolvedMult = mem.resolved ? 0.05 : 1;
+    return { mem, score: ((qBigrams.size > 0 ? hits / qBigrams.size : 0) * 3 + (mem.weight || 1) * 0.25 + tagBonus) * resolvedMult };
   });
   return scored.sort((a, b) => b.score - a.score).slice(0, topK).map(s => s.mem);
 }
@@ -2466,35 +2468,59 @@ function getRelevantMemories(query, pool, topK) {
     const c = (mem.content||'').replace(/\s/g,''); let hits=0;
     qBg.forEach(bg => { if(c.includes(bg)) hits++; });
     const tagBonus = _queryTagBonus(query, mem.tags);
-    return { mem, score: (qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.25+tagBonus };
+    const resolvedMult = mem.resolved ? 0.05 : 1;
+    return { mem, score: ((qBg.size>0?hits/qBg.size:0)*3+(mem.weight||1)*0.25+tagBonus)*resolvedMult };
   }).sort((a,b)=>b.score-a.score).slice(0,topK).map(s=>s.mem);
 }
 
-// ── 记忆衰减：低权重旧记忆自然淡忘 ──────────────────────────────────────────
+// ── 记忆衰减：低权重旧记忆自然淡忘，高arousal衰减更慢 ───────────────────────
 function decayMemories(bank) {
   const now = Date.now();
-  const d60 = 60 * 24 * 3600 * 1000;
-  const d120 = 120 * 24 * 3600 * 1000;
-  // archived里：权重1且120天没访问 → 删除；权重2且90天没访问 → 删除
+  const DAY = 24 * 3600 * 1000;
+  // arousal加成：arousal越高，基准天数乘以更大倍数（最高2x）
+  const arousalMult = (item) => 1 + (item.arousal ?? 0.3);
+
+  // archived里按权重+arousal决定保留期
   bank.archived = bank.archived.filter(item => {
     if (!item) return false;
     const w = item.weight || 1;
+    const mult = arousalMult(item);
     const last = item.lastAccessedAt || item.updatedAt || item.createdAt || 0;
     const age = now - last;
-    if (w <= 1 && age > d120) return false;
-    if (w <= 2 && age > d60 * 1.5) return false;
+    if (w <= 1 && age > 120 * DAY * mult) return false;
+    if (w <= 2 && age > 90 * DAY * mult) return false;
     return true;
   });
-  // recent里：权重1且超过60天没更新 → 直接归档（不等30天cutoff）
+  // recent里：权重1且超过60天没更新 → 直接归档（arousal高的放宽到90天）
   const toArchive = [];
   bank.recent = bank.recent.filter(item => {
     if (!item) return false;
     const w = item.weight || 1;
+    const mult = arousalMult(item);
     const age = now - (item.updatedAt || item.createdAt || 0);
-    if (w <= 1 && age > d60) { toArchive.push({ ...item, kind: 'archived' }); return false; }
+    if (w <= 1 && age > 60 * DAY * mult) { toArchive.push({ ...item, kind: 'archived' }); return false; }
     return true;
   });
   bank.archived.unshift(...toArchive);
+}
+
+// 检测炘也回复里的 [记住:...] 主动记忆标记，存入记忆库并返回清理后的文本
+async function parseAndSaveSelfMemories(text, msgTime) {
+  if (!text || !text.includes('[记住:')) return text;
+  const re = /\[记住[:：](.*?)\]/g;
+  let match;
+  const bank = ensureMemoryState();
+  let cleaned = text;
+  while ((match = re.exec(text)) !== null) {
+    const summary = match[1].trim();
+    if (!summary) continue;
+    await saveOneMemoryToBank(bank, { summary, pin: false, weight: 3, arousal: 0.4, valence: 0, emotion: '自记' }, msgTime || Date.now());
+    console.log('[Memory Self-Write] 炘也主动写入：', summary);
+  }
+  // 从显示文本里去掉标记
+  cleaned = cleaned.replace(/\s*\[记住[:：].*?\]\s*/g, ' ').trim();
+  if (cleaned !== text) { archiveMemoryBank(bank); renderMemoryBankPreview(); await saveSettings(); }
+  return cleaned;
 }
 
 async function getMemoryContextBlocks() {
@@ -2546,6 +2572,9 @@ async function getMemoryContextBlocks() {
     }
   }
 
+  // 告诉炘也可以主动写记忆
+  blocks.push(`【主动记忆】如果你觉得某件事此刻值得记住，可以在回复里加 [记住:一句话内容] ，系统会自动存入记忆库，不会显示给涂涂看。`);
+
   return blocks;
 }
 
@@ -2567,15 +2596,18 @@ function renderMemoryEntryChip(item) {
   const starsEl = w ? `<span style="font-size:11px;color:#e8a0b4;letter-spacing:1px" title="情绪权重">${'★'.repeat(w)}${'☆'.repeat(5-w)}</span>` : '';
   const srcEl = item.source === 'ai' ? `<span style="font-size:10px;color:var(--text-light);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:8px">AI整理</span>` : '';
   const pinBtn = `<button onclick="toggleMemoryPin('${escHtml(item.id)}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75">${isPinned ? '📌' : '🔗'}</button>`;
+  const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:${item.resolved?'1':'.4'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.4'}">${item.resolved ? '🌫️' : '✓'}</button>`;
   const editBtn = `<button onclick="editMemoryEntry('${escHtml(item.id)}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✏️</button>`;
   const delBtn = `<button onclick="deleteMemoryEntry('${escHtml(item.id)}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;line-height:1;opacity:.4;color:var(--text-light);transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>`;
 
-  return `<div id="memchip_${escHtml(item.id)}" style="display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:${cardBg};border:1px solid ${cardBorder};box-shadow:0 1px 8px rgba(0,0,0,.06);transition:box-shadow .2s">
+  const resolvedOverlay = item.resolved ? `<div style="position:absolute;inset:0;border-radius:14px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="color:rgba(255,255,255,.6);font-size:11px">已过去</span></div>` : '';
+  return `<div id="memchip_${escHtml(item.id)}" style="position:relative;display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:${cardBg};border:1px solid ${cardBorder};box-shadow:0 1px 8px rgba(0,0,0,.06);transition:box-shadow .2s;${item.resolved?'opacity:.55':''}">
+  ${resolvedOverlay}
   <img src="${avatarSrc}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 6px rgba(0,0,0,.12)" onerror="this.style.fontSize='20px';this.textContent='🦊'">
   <div style="flex:1;min-width:0">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
       <span style="font-size:13px;font-weight:700;color:var(--pink-deep)">${escHtml(aiName)}</span>
-      <div style="display:flex;align-items:center;gap:0">${pinBtn}${editBtn}${delBtn}</div>
+      <div style="display:flex;align-items:center;gap:0">${pinBtn}${resolvedBtn}${editBtn}${delBtn}</div>
     </div>
     <div style="font-size:13px;line-height:1.7;color:var(--text);word-break:break-word;white-space:pre-wrap">${escHtml(item.content)}</div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:8px">
@@ -2645,6 +2677,25 @@ function toggleMemoryPin(id) {
     item.kind = 'recent';
     upsertMemoryEntry(bank.recent, item, MEMORY_RECENT_LIMIT);
     saveSettings(); renderMemoryBankPreview();
+  }
+}
+
+function toggleMemoryResolved(id) {
+  const bank = ensureMemoryState();
+  for (const list of [bank.pinned, bank.recent, bank.archived]) {
+    const item = list.find(i => i.id === id);
+    if (item) {
+      item.resolved = !item.resolved;
+      saveSettings();
+      // 刷新设置面板预览和记忆库
+      renderMemoryBankPreview();
+      const chip = document.getElementById('memchip_' + id);
+      if (chip) chip.outerHTML = renderMemoryEntryChip(item);
+      const viewerChip = document.getElementById('mvchip_' + id);
+      if (viewerChip) renderMemoryViewer();
+      toast(item.resolved ? '已标记为已过去' : '已恢复');
+      return;
+    }
   }
 }
 
@@ -4083,6 +4134,8 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
     existing.updatedAt = Date.now();
     existing.weight = Math.min(5, Math.max(existing.weight || 1, parsed.weight || 2));
     existing.emotion = parsed.emotion || existing.emotion;
+    existing.arousal = parsed.arousal != null ? Math.min(1, Math.max(0, parsed.arousal)) : (existing.arousal ?? 0.3);
+    existing.valence = parsed.valence != null ? Math.min(1, Math.max(-1, parsed.valence)) : (existing.valence ?? 0);
     existing.tags = extractMemoryTags(newContent);
     getEmbedding(newContent).then(vec => { if (vec) { existing.embedding = vec; saveSettings(); } });
   };
@@ -4138,6 +4191,9 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
         source: 'ai',
         emotion: parsed.emotion || '',
         weight: Math.min(5, Math.max(1, parsed.weight || 2)),
+        arousal: parsed.arousal != null ? Math.min(1, Math.max(0, parsed.arousal)) : 0.3,
+        valence: parsed.valence != null ? Math.min(1, Math.max(-1, parsed.valence)) : 0,
+        resolved: false,
         accessCount: 0,
         lastAccessedAt: 0,
         embedding,
@@ -4191,9 +4247,11 @@ ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内","emotion":"当时情绪，4字以内","weight":3}]}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight 1-5：1=普通日常，3=有情感/有约定，5=亲密/高情绪/重大时刻
+arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
+valence -1~1：情感正负，-1=极负面痛苦，0=中性，1=极正面幸福。
 pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 行为指令、习惯偏好不要写进 summary，只记录发生的事和情感。
 特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
@@ -5734,6 +5792,7 @@ async function sendMessage() {
       async function _finalizeMsg(parsed, loopMsgs) {
         let finalText = parsed.content || '（没有收到回复）';
         finalText = await processSolitudeSharedMarkers(finalText);
+        finalText = await parseAndSaveSelfMemories(finalText);
         if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); applyStickerTags(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
@@ -5758,6 +5817,7 @@ async function sendMessage() {
         // ====== 非流式 Agent loop（有搜索Key + 关闭流式）======
         async function _showNonStream(text, msgList, usage) {
           text = await processSolitudeSharedMarkers(text);
+          text = await parseAndSaveSelfMemories(text);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
           await appendMsgDOM(_nm);
@@ -7258,7 +7318,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0907';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0945';
 
   await openDB();
   await migrateFromLocalStorage();
