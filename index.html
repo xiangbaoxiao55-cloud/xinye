@@ -2220,7 +2220,12 @@ function archiveMemoryBank(bank) {
     if (age > cutoff) bank.archived.unshift({ ...item, kind: 'archived' });
     else keepRecent.push(item);
   });
-  bank.recent = keepRecent.slice(0, MEMORY_RECENT_LIMIT);
+  // 超出近期上限的最旧部分移入归档，不丢弃
+  if (keepRecent.length > MEMORY_RECENT_LIMIT) {
+    const overflow = keepRecent.splice(MEMORY_RECENT_LIMIT);
+    overflow.forEach(item => bank.archived.unshift({ ...item, kind: 'archived' }));
+  }
+  bank.recent = keepRecent;
   bank.pinned = bank.pinned.slice(0, MEMORY_PINNED_LIMIT);
   const seen = new Set();
   bank.archived = bank.archived.filter(item => {
@@ -3172,7 +3177,7 @@ async function importPendingMemories() {
       lastAccessedAt: 0,
       embedding: null,
     };
-    upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+    upsertMemoryEntry(bank.recent, entry); // 不截断，由 archiveMemoryBank 统一处理溢出→归档
     count++;
   }
   if (count > 0) {
@@ -4138,7 +4143,7 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
         embedding,
       };
       if (entry.kind === 'pinned') upsertMemoryEntry(bank.pinned, entry, MEMORY_PINNED_LIMIT);
-      else upsertMemoryEntry(bank.recent, entry, MEMORY_RECENT_LIMIT);
+      else upsertMemoryEntry(bank.recent, entry); // 不截断，由 archiveMemoryBank 统一处理溢出→归档
       console.log('[Memory] 新记忆已入档：', entry.kind, entry.content, `情绪:${entry.emotion} 权重:${entry.weight}`, embedding ? '(有向量)' : '(无向量)');
     }
   }
@@ -7253,7 +7258,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0858';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0903';
 
   await openDB();
   await migrateFromLocalStorage();
