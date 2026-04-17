@@ -2554,7 +2554,7 @@ function renderMemoryEntryChip(item) {
     <div style="font-size:13px;line-height:1.7;color:var(--text);word-break:break-word;white-space:pre-wrap">${escHtml(item.content)}</div>
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:8px">
       ${emotionEl}${tagsEl}${starsEl}${srcEl}
-      <span style="margin-left:auto;font-size:11px;color:var(--text-light)">${fmtTime(item.updatedAt || item.createdAt)}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text-light)">${fmtTime(item.createdAt || item.updatedAt)}</span>
     </div>
   </div>
 </div>`;
@@ -7230,7 +7230,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0031';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0827';
 
   await openDB();
   await migrateFromLocalStorage();
