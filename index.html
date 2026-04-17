@@ -2514,7 +2514,7 @@ async function parseAndSaveSelfMemories(text, msgTime) {
   while ((match = re.exec(text)) !== null) {
     const summary = match[1].trim();
     if (!summary) continue;
-    await saveOneMemoryToBank(bank, { summary, pin: false, weight: 3, arousal: 0.4, valence: 0, emotion: '自记' }, msgTime || Date.now());
+    await saveOneMemoryToBank(bank, { summary, pin: false, weight: 3, arousal: 0.4, valence: 0, emotion: '自记', _source: 'self' }, msgTime || Date.now());
     console.log('[Memory Self-Write] 炘也主动写入：', summary);
   }
   // 从显示文本里去掉标记
@@ -2594,7 +2594,7 @@ function renderMemoryEntryChip(item) {
     : '';
   const w = Math.min(5, Math.max(1, item.weight || 0));
   const starsEl = w ? `<span style="font-size:11px;color:#e8a0b4;letter-spacing:1px" title="情绪权重">${'★'.repeat(w)}${'☆'.repeat(5-w)}</span>` : '';
-  const srcEl = item.source === 'ai' ? `<span style="font-size:10px;color:var(--text-light);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:8px">AI整理</span>` : '';
+  const srcEl = item.source === 'self' ? `<span style="font-size:10px;color:#9e6aae;background:rgba(158,106,174,.1);padding:1px 6px;border-radius:8px">炘也自记</span>` : item.source === 'ai' ? `<span style="font-size:10px;color:var(--text-light);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:8px">AI整理</span>` : '';
   const pinBtn = `<button onclick="toggleMemoryPin('${escHtml(item.id)}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75">${isPinned ? '📌' : '🔗'}</button>`;
   const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:${item.resolved?'1':'.4'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.4'}">${item.resolved ? '🌫️' : '✓'}</button>`;
   const editBtn = `<button onclick="editMemoryEntry('${escHtml(item.id)}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✏️</button>`;
@@ -4188,7 +4188,7 @@ async function saveOneMemoryToBank(bank, parsed, msgTime) {
         tags: extractMemoryTags(newContent),
         createdAt: entryTime,
         updatedAt: entryTime,
-        source: 'ai',
+        source: parsed._source || 'ai',
         emotion: parsed.emotion || '',
         weight: Math.min(5, Math.max(1, parsed.weight || 2)),
         arousal: parsed.arousal != null ? Math.min(1, Math.max(0, parsed.arousal)) : 0.3,
@@ -7318,7 +7318,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0945';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0948';
 
   await openDB();
   await migrateFromLocalStorage();
