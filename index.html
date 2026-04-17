@@ -5585,10 +5585,11 @@ async function sendMessage() {
             const tid = setTimeout(() => ctrl.abort(), 90000);
             _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}`}, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
-            if (_res.ok || (_res.status !== 503 && _res.status !== 0)) {
+            if (_res.ok) {
               if (ci > 0 && !_usingFallback) { _usingFallback = true; toast(`🔄 已切换到备用「${_fallbackPreset.name}」`); }
               return _res;
             }
+            // 4xx/5xx 都触发重试，重试耗尽后走备用
           } catch(fe) {
             if (fe.name === 'AbortError') { toast('请求超时…'); _res = null; }
             else { _res = null; }
@@ -6347,10 +6348,11 @@ async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
           body: bodyStr, signal: ctrl.signal
         });
         clearTimeout(tid);
-        if (_res.ok || (_res.status !== 503 && _res.status !== 0)) {
+        if (_res.ok) {
           if (ci > 0) toast(`🔄 副 API 已切换到「${_subFbPreset.name}」`);
           return _res;
         }
+        // 4xx/5xx 都触发重试，重试耗尽后走备用
       } catch(e) { _res = null; }
     }
     if (ci === 0 && _subFbPreset) toast(`副 API 无响应，尝试备用「${_subFbPreset.name}」…`);
@@ -7230,7 +7232,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-0827';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-0845';
 
   await openDB();
   await migrateFromLocalStorage();
