@@ -4512,7 +4512,21 @@ async function sendMessage() {
           apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
           _apiMeta.push({ label: 'system · 健康数据' });
         }
-
+        // 距上次对话时长（超过1小时才注入）
+        const _prevMsg = recent.length >= 2 ? recent[recent.length - 2] : null;
+        if (_prevMsg && _prevMsg.time) {
+          const _gapMs = Date.now() - _prevMsg.time;
+          const _gapH = _gapMs / 3600000;
+          if (_gapH >= 1) {
+            const _pd = new Date(_prevMsg.time);
+            const _pStr = `${_pd.getMonth()+1}月${_pd.getDate()}日 ${_pd.getHours().toString().padStart(2,'0')}:${_pd.getMinutes().toString().padStart(2,'0')}`;
+            const _gapStr = _gapH < 24
+              ? `约${Math.round(_gapH * 10) / 10}小时`
+              : `约${Math.floor(_gapH / 24)}天${Math.round(_gapH % 24)}小时`;
+            apiMsgs.push({ role: 'system', content: `[上次对话结束时间：${_pStr}，距现在${_gapStr}]` });
+            _apiMeta.push({ label: 'system · 离线时长' });
+          }
+        }
       }
 
       // 图片处理：有 imageDescs 用文字描述（省token且历史可引用），否则原逻辑发图
@@ -6889,7 +6903,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-2146';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-2213';
 
   await openDB();
   await migrateFromLocalStorage();
