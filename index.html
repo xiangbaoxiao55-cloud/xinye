@@ -3240,7 +3240,19 @@ async function fetchSolitudeLog(force) {
   if (!force && _solitudeLogCache && Date.now() - _solitudeLogCache.ts < SOLITUDE_CACHE_TTL) {
     return _solitudeLogCache.data;
   }
-  // 有 GitHub token 优先读 GitHub（日志存在私有仓库）
+  // 优先用本地服务器（Tailscale，独处脚本同时写本地+GitHub，数据一致）
+  if (settings.solitudeServerUrl) {
+    try {
+      const res = await fetch(`${settings.solitudeServerUrl}/api/logs`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const data = await res.json();
+        const logs = Array.isArray(data) ? data : (data.logs || []);
+        _solitudeLogCache = { data: logs, ts: Date.now() };
+        return logs;
+      }
+    } catch (e) {}
+  }
+  // 本地不可达时fallback到GitHub（需VPN）
   if (settings.privateToken) {
     const r = await ghPrivateGet('activity_log.json');
     if (r) {
@@ -3251,18 +3263,6 @@ async function fetchSolitudeLog(force) {
         return logs;
       } catch (e) {}
     }
-  }
-  // 没有 token 时用本地服务器
-  if (settings.solitudeServerUrl) {
-    try {
-      const res = await fetch(`${settings.solitudeServerUrl}/api/logs`);
-      if (res.ok) {
-        const data = await res.json();
-        const logs = Array.isArray(data) ? data : (data.logs || []);
-        _solitudeLogCache = { data: logs, ts: Date.now() };
-        return logs;
-      }
-    } catch (e) {}
   }
   return [];
 }
@@ -7465,7 +7465,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-1409';
+  if (_verEl) _verEl.textContent = 'v2026.04.17-1417';
 
   await openDB();
   await migrateFromLocalStorage();
