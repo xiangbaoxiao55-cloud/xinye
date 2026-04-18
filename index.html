@@ -1355,7 +1355,7 @@ if('serviceWorker' in navigator){
           <div id="memoryPinnedList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memCardRecent" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--apricot);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💬 普通记忆（最新8条）</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💬 普通记忆</div>
           <div id="memoryRecentList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
@@ -2618,12 +2618,18 @@ function renderMemoryBankPreview() {
     ? bank.pinned.map(renderMemoryEntryChip).join('')
     : '<div class="hint" style="margin-top:0">还没有钉住记忆。高情绪或很重要的片段会自动留在这里。</div>';
 
-  // 普通记忆：展示最新8条（统一检索池 bank.archived）
-  const recentAll = bank.archived.slice(0, 8);
-  if (!recentAll.length) {
+  // 普通记忆：默认展示最新4条，可展开
+  const _allArchived = bank.archived;
+  const _previewLimit = 4;
+  const _expanded = !!window._memPreviewExpanded;
+  const _shown = _expanded ? _allArchived : _allArchived.slice(0, _previewLimit);
+  if (!_allArchived.length) {
     recentEl.innerHTML = '<div class="hint" style="margin-top:0">还没有记忆。对话后会自动沉淀到这里。</div>';
   } else {
-    recentEl.innerHTML = recentAll.map(renderMemoryEntryChip).join('');
+    const moreBtn = _allArchived.length > _previewLimit
+      ? `<button onclick="window._memPreviewExpanded=!window._memPreviewExpanded;renderMemoryBankPreview()" style="width:100%;margin-top:4px;padding:6px;background:transparent;border:1px dashed var(--pink);border-radius:8px;cursor:pointer;font-size:12px;color:var(--pink-deep);font-family:inherit">${_expanded ? '▲ 收起' : `▼ 查看更多（还有 ${_allArchived.length - _previewLimit} 条）`}</button>`
+      : '';
+    recentEl.innerHTML = _shown.map(renderMemoryEntryChip).join('') + moreBtn;
   }
 
   // 统计栏
@@ -2691,28 +2697,31 @@ function deleteMemoryEntry(id) {
   bank.recent  = bank.recent.filter(i => i.id !== id);
   bank.archived = bank.archived.filter(i => i.id !== id);
   saveSettings(); renderMemoryBankPreview();
+  const viewerOverlay = document.getElementById('memoryViewerOverlay');
+  if (viewerOverlay && viewerOverlay.style.display !== 'none') renderMemoryViewer();
 }
 
 function editMemoryEntry(id) {
-  const chip = document.getElementById('memchip_' + id);
+  const chip = document.getElementById('memchip_' + id) || document.getElementById('mvchip_' + id);
   if (!chip) return;
+  const isViewer = chip.id.startsWith('mvchip_');
   const bank = ensureMemoryState();
   const item = [...bank.pinned, ...bank.recent, ...bank.archived].find(i => i.id === id);
   if (!item) return;
   const dark = isDarkMode();
   const bg = dark ? 'rgba(46,28,58,.7)' : 'rgba(255,255,255,.75)';
-  const border = dark ? 'rgba(80,60,100,.9)' : 'rgba(240,230,218,.9)';
+  const cancelFn = isViewer ? 'renderMemoryViewer()' : 'renderMemoryBankPreview()';
   chip.innerHTML = `<div style="flex:1;width:100%">
     <textarea id="memedit_${escHtml(id)}" style="width:100%;box-sizing:border-box;border:1px solid var(--pink);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;line-height:1.6;resize:vertical;background:${bg};color:var(--text);min-height:60px">${escHtml(item.content)}</textarea>
     <div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
-      <button onclick="saveMemoryEdit('${escHtml(id)}')" style="padding:3px 10px;font-size:12px;background:var(--pink-deep);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit">保存</button>
-      <button onclick="renderMemoryBankPreview()" style="padding:3px 10px;font-size:12px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:inherit">取消</button>
+      <button onclick="saveMemoryEdit('${escHtml(id)}',${isViewer})" style="padding:3px 10px;font-size:12px;background:var(--pink-deep);color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit">保存</button>
+      <button onclick="${cancelFn}" style="padding:3px 10px;font-size:12px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:inherit">取消</button>
     </div>
   </div>`;
 }
 
-function saveMemoryEdit(id) {
-  const chip = document.getElementById('memchip_' + id);
+function saveMemoryEdit(id, isViewer) {
+  const chip = document.getElementById('memchip_' + id) || document.getElementById('mvchip_' + id);
   const taEl = chip ? chip.querySelector('textarea') : null;
   if (!taEl) return;
   const newContent = taEl.value.trim();
@@ -2723,7 +2732,8 @@ function saveMemoryEdit(id) {
     const item = list.find(i => i.id === id);
     if (item) { item.content = newContent; break; }
   }
-  saveSettings(); renderMemoryBankPreview();
+  saveSettings();
+  if (isViewer) renderMemoryViewer(); else renderMemoryBankPreview();
 }
 
 // ── 记忆查看器 ────────────────────────────────────────────────────────────────
@@ -2812,29 +2822,10 @@ function renderMemoryViewer() {
   if (!listEl) return;
   if (!pool.length) { listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0">没有符合条件的记忆</div>'; return; }
 
-  const kindLabel = { pinned: '📌 钉住', normal: '💬 普通' };
-  const kindColor = { pinned: 'var(--pink-deep)', normal: 'var(--text-light)' };
-  const weightBar = w => '█'.repeat(Math.min(5, w || 1)) + '░'.repeat(Math.max(0, 5 - (w || 1)));
-
+  // 复用 chip 组件，ID 改为 mvchip_ 前缀避免与设置面板冲突
   listEl.innerHTML = pool.map(m => {
-    const created = m.createdAt ? new Date(m.createdAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
-    const accessed = m.lastAccessedAt ? new Date(m.lastAccessedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '未访问';
-    const tags = (m.tags || []).map(t => `<span style="padding:1px 6px;border-radius:8px;background:var(--warm-bg2);font-size:10px;color:var(--text-light)">${t}</span>`).join('');
-    return `<div style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:5px">
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;color:${kindColor[m._kind]}">${kindLabel[m._kind]}</span>
-        ${m.emotion ? `<span style="font-size:11px;color:var(--text-light)">· ${m.emotion}</span>` : ''}
-        <span style="font-size:11px;color:var(--text-light);font-family:monospace" title="权重${m.weight||1}">${weightBar(m.weight)}</span>
-        ${m.embedding ? '<span style="font-size:10px;color:var(--pink-deep)" title="有向量">◆</span>' : '<span style="font-size:10px;color:var(--text-light)" title="无向量">◇</span>'}
-        <span style="margin-left:auto;font-size:10px;color:var(--text-muted)">#${m.id?.slice(-6)||'?'}</span>
-      </div>
-      <div style="font-size:13px;color:var(--text);line-height:1.5">${escHtml(m.content || '')}</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div>
-      <div style="font-size:10px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap">
-        <span>📅 创建 ${created}</span>
-        <span>👁 访问 ${m.accessCount || 0}次 · ${accessed}</span>
-      </div>
-    </div>`;
+    const chip = renderMemoryEntryChip(m);
+    return chip.replace(`id="memchip_${escHtml(m.id)}"`, `id="mvchip_${escHtml(m.id)}"`);
   }).join('');
 }
 
@@ -7044,7 +7035,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1603';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1637';
 
   await openDB();
   await migrateFromLocalStorage();
