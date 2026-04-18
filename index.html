@@ -1184,15 +1184,15 @@ if('serviceWorker' in navigator){
       <input type="url" id="setBaseUrl" placeholder="https://api.openai.com">
     </div>
     <div class="setting-group">
+      <label>模型（主）</label>
+      <input type="text" id="setModel" placeholder="gpt-4o">
+    </div>
+    <div class="setting-group">
       <label>备用 API 预设（主 API 挂了依次切换）</label>
       <select id="setFallbackPreset0" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用1：不启用 —</option></select>
       <select id="setFallbackPreset1" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用2：不启用 —</option></select>
       <select id="setFallbackPreset2" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用3：不启用 —</option></select>
       <div class="hint">主 API 失败时依次尝试备用1→2→3，整套切换（key + URL + 模型全换）</div>
-    </div>
-    <div class="setting-group">
-      <label>模型（主）</label>
-      <input type="text" id="setModel" placeholder="gpt-4o">
     </div>
     <div class="setting-divider">🔧 副 API（记忆整理 / 闲置提醒）</div>
     <div class="setting-group">
@@ -1214,15 +1214,15 @@ if('serviceWorker' in navigator){
       <input type="url" id="setSubBaseUrl" placeholder="留空则用主 API URL">
     </div>
     <div class="setting-group">
+      <label>模型（副）</label>
+      <input type="text" id="setSubModel" placeholder="留空则用主模型">
+    </div>
+    <div class="setting-group">
       <label>备用 API 预设（副 API 挂了依次切换）</label>
       <select id="setSubFallbackPreset0" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用1：不启用 —</option></select>
       <select id="setSubFallbackPreset1" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用2：不启用 —</option></select>
       <select id="setSubFallbackPreset2" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用3：不启用 —</option></select>
       <div class="hint">副 API 失败时依次尝试备用1→2→3，整套切换</div>
-    </div>
-    <div class="setting-group">
-      <label>模型（副）</label>
-      <input type="text" id="setSubModel" placeholder="留空则用主模型">
     </div>
     <div class="setting-divider">🔮 Embedding API（记忆向量检索）</div>
     <div class="setting-group">
@@ -7017,7 +7017,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1125';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1134';
 
   await openDB();
   await migrateFromLocalStorage();
