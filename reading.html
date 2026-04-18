@@ -1350,9 +1350,13 @@ async function exportAll() {
   try {
     const allBooks = await dbGetAll('books');
     const allAnns  = await dbGetAll('annotations');
-    // 不含章节正文（太大），只备份书目信息和批注
-    const data = { version: 2, exportedAt: Date.now(), books: allBooks, annotations: allAnns };
-    await saveFile(JSON.stringify(data), '书架批注备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json');
+    const allChapters = [];
+    for (const b of allBooks) {
+      const cd = await dbGet('chapters', b.id);
+      if (cd) allChapters.push(cd);
+    }
+    const data = { version: 3, exportedAt: Date.now(), books: allBooks, chapters: allChapters, annotations: allAnns };
+    await saveFile(JSON.stringify(data), '书架完整备份_' + new Date().toLocaleDateString('zh').replace(/\//g,'-') + '.json');
   } catch(e) { alert('导出失败：' + e.message); }
   hideLoading();
 }
