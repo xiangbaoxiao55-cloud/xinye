@@ -3646,6 +3646,9 @@ ${chatText}`;
     newMemory = newMemory.trim();
     if (!newMemory) {
       toast('整理结果为空，未做修改');
+    } else if (/^\[Backend Error\]|^\[Error\]|^error:/i.test(newMemory)) {
+      toast('整理失败：API 返回错误内容，档案未修改');
+      console.warn('[digestMemory] 检测到错误内容，拒绝覆写档案：', newMemory.slice(0, 100));
     } else {
       settings.memoryArchive = newMemory;
       $('#setMemoryArchive').value = newMemory;
@@ -5960,21 +5963,39 @@ function renderApiPresets() {
     });
   });
 }
-// 主API fetch（整理档案等需要Opus质量的后台任务）
+// 主API fetch（整理档案等需要Opus质量的后台任务，带备用预设自动切换）
 async function mainApiFetch(bodyWithoutModel) {
-  const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-  const url = /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`;
-  const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: settings.model });
-  try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 120000);
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` }, body: bodyStr, signal: ctrl.signal });
-    clearTimeout(tid);
-    return res;
-  } catch(e) {
-    console.warn('[mainApiFetch] 失败：', e.message);
-    return null;
+  const _fbPresets = (settings.fallbackPresetNames || [])
+    .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
+  const _allCfgs = [null, ..._fbPresets];
+  function _buildCfg(preset) {
+    if (preset) {
+      const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
+    }
+    const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model };
   }
+  let _res;
+  for (let pi = 0; pi < _allCfgs.length; pi++) {
+    const cfg = _buildCfg(_allCfgs[pi]);
+    const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
+    for (let _a = 0; _a < 2; _a++) {
+      if (_a > 0) await new Promise(r => setTimeout(r, 4000));
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 120000);
+        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
+        clearTimeout(tid);
+        if (_res.ok) {
+          if (pi > 0) toast(`🔄 主API已切换到备用${pi}「${_fbPresets[pi-1].name}」`);
+          return _res;
+        }
+      } catch(e) { _res = null; }
+    }
+    if (pi + 1 < _allCfgs.length) toast(`主API无响应，尝试备用${pi+1}「${_fbPresets[pi].name}」…`);
+  }
+  return _res;
 }
 
 // 获取副API实际配置（空则fallback到主API）
@@ -7023,7 +7044,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1424';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1603';
 
   await openDB();
   await migrateFromLocalStorage();
