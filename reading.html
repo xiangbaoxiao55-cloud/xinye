@@ -159,6 +159,11 @@ body { font-family: -apple-system, 'PingFang SC', sans-serif; background: var(--
   font-family: inherit; outline: none;
 }
 .ann-input:focus { border-color: var(--pink); }
+.ann-note-view {
+  background: #f9f9f9; border-radius: 12px; padding: 12px;
+  font-size: 15px; color: var(--text); line-height: 1.7; white-space: pre-wrap; margin-bottom: 4px;
+}
+body.dark .ann-note-view { background: #1a1a2e; }
 .ann-actions { display: flex; gap: 8px; margin-top: 12px; }
 .btn-save-ann {
   flex: 1; background: var(--pink); color: white; border: none;
@@ -399,11 +404,21 @@ body.dark .footer-center { color: var(--text); }
 <div id="annModal">
   <div class="ann-sheet">
     <div class="ann-quote" id="annQuote"></div>
-    <textarea class="ann-input" id="annInput" placeholder="写下你的想法……"></textarea>
-    <div class="ann-actions">
-      <button class="btn-cancel-ann" onclick="closeAnn()">取消</button>
-      <button class="btn-del-ann" id="btnDelAnn" onclick="deleteAnn()" style="display:none">删除</button>
-      <button class="btn-save-ann" style="background:#64b5f6" id="btnAskFromAnn" onclick="askFromAnnotation()" style="display:none">💙 问炘也</button>
+    <!-- 查看模式：静态批注文字 -->
+    <div id="annNoteView" class="ann-note-view" style="display:none"></div>
+    <div class="ann-actions" id="annActionsView" style="display:none;flex-wrap:wrap">
+      <button class="btn-cancel-ann" style="flex:1" onclick="closeAnn()">关闭</button>
+      <button class="btn-del-ann" style="flex:1" onclick="deleteAnn()">删除</button>
+      <button class="btn-cancel-ann" style="flex:1" onclick="startEditAnn()">✏️ 编辑</button>
+      <button class="btn-save-ann" style="flex:2;background:#64b5f6" onclick="askFromAnnotation()">💙 问炘也</button>
+    </div>
+    <!-- 炘也回复 -->
+    <div id="annXinyeNote" class="ann-xinye-note" style="display:none"></div>
+    <button id="annContinueBtn" class="btn-save-ann" style="display:none;margin-top:8px;background:#9575cd;width:100%" onclick="continueWithXinye()">💬 继续和炘也聊</button>
+    <!-- 新建/编辑模式：输入框 -->
+    <textarea class="ann-input" id="annInput" placeholder="写下你的想法……" style="display:none"></textarea>
+    <div class="ann-actions" id="annActionsEdit" style="display:none">
+      <button class="btn-cancel-ann" onclick="cancelOrCloseAnn()">取消</button>
       <button class="btn-save-ann" onclick="saveAnn()">保存</button>
     </div>
   </div>
@@ -537,7 +552,7 @@ const dbGetAll = (store)      => dbOp(store, 'readonly',  s => s.getAll());
 // ==================== STATE ====================
 let books = [];
 let curBook = null, curChapters = [], curChapterIdx = 0, curAnns = [];
-let pendingSel = null, editingAnnId = null;
+let pendingSel = null, editingAnnId = null, _annIsNewMode = false;
 let menuBookId = null;
 
 // ==================== INIT ====================
@@ -938,11 +953,15 @@ function clearSel()   { window.getSelection()?.removeAllRanges(); hideSelBar(); 
 // ==================== 批注 ====================
 function doAnnotate() {
   if (!pendingSel) return;
-  editingAnnId = null;
+  editingAnnId = null; _annIsNewMode = true;
   document.getElementById('annQuote').textContent = '「' + (pendingSel.fullQuote || pendingSel.selectedText) + '」';
+  document.getElementById('annNoteView').style.display = 'none';
+  document.getElementById('annActionsView').style.display = 'none';
+  document.getElementById('annXinyeNote').style.display = 'none';
+  document.getElementById('annContinueBtn').style.display = 'none';
   document.getElementById('annInput').value = '';
-  document.getElementById('btnDelAnn').style.display = 'none';
-  document.getElementById('btnAskFromAnn').style.display = 'none';
+  document.getElementById('annInput').style.display = 'block';
+  document.getElementById('annActionsEdit').style.display = 'flex';
   document.getElementById('annModal').classList.add('show');
   hideSelBar();
   setTimeout(() => document.getElementById('annInput').focus(), 300);
@@ -950,73 +969,85 @@ function doAnnotate() {
 
 function openExistingAnn(annId) {
   const a = curAnns.find(x => x.id === annId); if (!a) return;
-  editingAnnId = annId;
+  editingAnnId = annId; _annIsNewMode = false;
   pendingSel = { selectedText: a.selectedText, fullQuote: a.fullQuote||a.selectedText, startOffset: a.startOffset, endOffset: a.endOffset };
   document.getElementById('annQuote').textContent = '「' + (a.fullQuote || a.selectedText) + '」';
-  document.getElementById('annInput').value = a.note || '';
-  document.getElementById('btnDelAnn').style.display = 'block';
-  // 如果有炘也批注，显示在 textarea 下方（用户在上，炘也在下）
-  const xinyeArea = document.getElementById('annXinyeNote');
-  if (xinyeArea) xinyeArea.remove();
+  // 查看模式：静态文字
+  const noteView = document.getElementById('annNoteView');
+  noteView.textContent = a.note || '（无文字批注）';
+  noteView.style.display = 'block';
+  document.getElementById('annActionsView').style.display = 'flex';
+  // 炘也回复
+  const xinyeNote = document.getElementById('annXinyeNote');
   if (a.xinye_note) {
-    const div = document.createElement('div');
-    div.id = 'annXinyeNote';
-    div.className = 'ann-xinye-note';
-    div.innerHTML = '💙 炘也：' + esc(a.xinye_note);
-    // 插到 textarea 之后、按钮行之前
-    const actions = document.querySelector('#annModal .ann-actions');
-    actions.parentNode.insertBefore(div, actions);
+    xinyeNote.innerHTML = '💙 炘也：' + esc(a.xinye_note);
+    xinyeNote.style.display = 'block';
+    document.getElementById('annContinueBtn').style.display = 'block';
+  } else {
+    xinyeNote.style.display = 'none';
+    document.getElementById('annContinueBtn').style.display = 'none';
   }
-  document.getElementById('btnAskFromAnn').style.display = 'block';
+  // 隐藏编辑模式
+  document.getElementById('annInput').style.display = 'none';
+  document.getElementById('annActionsEdit').style.display = 'none';
   document.getElementById('annModal').classList.add('show');
 }
 
 function closeAnn() {
   document.getElementById('annModal').classList.remove('show');
-  document.getElementById('annXinyeNote')?.remove();
-  pendingSel = null; editingAnnId = null;
+  pendingSel = null; editingAnnId = null; _annIsNewMode = false;
+}
+function startEditAnn() {
+  const a = curAnns.find(x => x.id === editingAnnId);
+  document.getElementById('annNoteView').style.display = 'none';
+  document.getElementById('annActionsView').style.display = 'none';
+  document.getElementById('annXinyeNote').style.display = 'none';
+  document.getElementById('annContinueBtn').style.display = 'none';
+  document.getElementById('annInput').value = a?.note || '';
+  document.getElementById('annInput').style.display = 'block';
+  document.getElementById('annActionsEdit').style.display = 'flex';
+  setTimeout(() => document.getElementById('annInput').focus(), 100);
+}
+function cancelOrCloseAnn() {
+  if (_annIsNewMode) { closeAnn(); } else { openExistingAnn(editingAnnId); }
+}
+function continueWithXinye() {
+  const a = curAnns.find(x => x.id === editingAnnId); if (!a) return;
+  const ch = curChapters[curChapterIdx];
+  let msg = `📖《${curBook.title}》${ch.title}\n\n我的批注：\n「${a.fullQuote || a.selectedText}」`;
+  if (a.note) msg += `\n\n我的想法：${a.note}`;
+  if (a.xinye_note) msg += `\n\n炘也说：${a.xinye_note}`;
+  msg += '\n\n（继续聊这段）';
+  closeAnn();
+  sendMsg(msg);
 }
 
 async function askFromAnnotation() {
-  const note = document.getElementById('annInput').value.trim();
-  // 先保存批注
-  if (pendingSel) {
-    if (editingAnnId) {
-      const a = curAnns.find(x => x.id === editingAnnId);
-      if (a) a.note = note;
-    } else {
-      const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
-        selectedText:pendingSel.selectedText, startOffset:pendingSel.startOffset,
-        endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
-      curAnns.push(newAnn);
-    }
-    await dbPut('annotations', { bookId:curBook.id, list:curAnns });
-    curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
-    renderChapter();
-  }
-  // 手动关弹窗，不用 closeAnn()——closeAnn 会清掉 pendingSel，导致 doAskXinye 失效
+  // 关弹窗，保留 pendingSel 给 doAskXinye 用
   document.getElementById('annModal').classList.remove('show');
-  document.getElementById('annXinyeNote')?.remove();
-  editingAnnId = null;
-  // pendingSel 保留，给 doAskXinye 用
+  editingAnnId = null; _annIsNewMode = false;
   doAskXinye();
 }
 
 async function saveAnn() {
   if (!pendingSel) { alert('没有选中文字，重新选一下'); return; }
   const note = document.getElementById('annInput').value.trim();
-  const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
-    selectedText:pendingSel.selectedText, fullQuote:pendingSel.fullQuote||pendingSel.selectedText,
-    startOffset:pendingSel.startOffset, endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
   if (editingAnnId) {
     const a = curAnns.find(x => x.id === editingAnnId);
     if (a) a.note = note;
   } else {
+    const newAnn = { id:'ann_'+Date.now(), chapterIndex:curChapterIdx,
+      selectedText:pendingSel.selectedText, fullQuote:pendingSel.fullQuote||pendingSel.selectedText,
+      startOffset:pendingSel.startOffset, endOffset:pendingSel.endOffset, note, createdAt:Date.now() };
     curAnns.push(newAnn);
+    editingAnnId = newAnn.id;
   }
   await dbPut('annotations', { bookId:curBook.id, list:curAnns });
   curBook.annotationCount = curAnns.length; await dbPut('books', curBook);
-  closeAnn(); renderChapter();
+  renderChapter();
+  // 保存后回到查看模式（不关弹窗）
+  _annIsNewMode = false;
+  openExistingAnn(editingAnnId);
 }
 
 async function deleteAnn() {
@@ -1074,6 +1105,10 @@ function doSendSelected() {
 
 function sendMsg(msg) {
   localStorage.setItem('sendToXinye', msg);
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'switchToChat' }, '*');
+    return;
+  }
   const base = window.location.href.replace(/reading\.html.*/, '');
   const target = window.Capacitor ? base + 'index.html' : base + '炘也.html';
   window.location.href = target;
