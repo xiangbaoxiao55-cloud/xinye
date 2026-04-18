@@ -2646,13 +2646,17 @@ function rememberLatestExchange() {
 
 function toggleMemoryPin(id) {
   const bank = ensureMemoryState();
+  const _refreshViewer = () => {
+    const ov = document.getElementById('memoryViewerOverlay');
+    if (ov && ov.style.display !== 'none') renderMemoryViewer();
+  };
   // 在 archived（统一池）里找 → 移到 pinned
   const aIdx = bank.archived.findIndex(i => i.id === id);
   if (aIdx >= 0) {
     const [item] = bank.archived.splice(aIdx, 1);
     item.kind = 'pinned';
     upsertMemoryEntry(bank.pinned, item, MEMORY_PINNED_LIMIT);
-    saveSettings(); renderMemoryBankPreview(); return;
+    saveSettings(); renderMemoryBankPreview(); _refreshViewer(); return;
   }
   // 兼容旧数据：在 recent 里找
   const rIdx = bank.recent.findIndex(i => i.id === id);
@@ -2660,7 +2664,7 @@ function toggleMemoryPin(id) {
     const [item] = bank.recent.splice(rIdx, 1);
     item.kind = 'pinned';
     upsertMemoryEntry(bank.pinned, item, MEMORY_PINNED_LIMIT);
-    saveSettings(); renderMemoryBankPreview(); return;
+    saveSettings(); renderMemoryBankPreview(); _refreshViewer(); return;
   }
   // 在 pinned 里找 → 移到 archived（取消钉住）
   const pIdx = bank.pinned.findIndex(i => i.id === id);
@@ -2668,7 +2672,7 @@ function toggleMemoryPin(id) {
     const [item] = bank.pinned.splice(pIdx, 1);
     item.kind = 'archived';
     upsertMemoryEntry(bank.archived, item);
-    saveSettings(); renderMemoryBankPreview();
+    saveSettings(); renderMemoryBankPreview(); _refreshViewer();
   }
 }
 
@@ -2822,10 +2826,33 @@ function renderMemoryViewer() {
   if (!listEl) return;
   if (!pool.length) { listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0">没有符合条件的记忆</div>'; return; }
 
-  // 复用 chip 组件，ID 改为 mvchip_ 前缀避免与设置面板冲突
+  const kindLabel = { pinned: '📌', normal: '💬' };
+  const kindColor = { pinned: 'var(--pink-deep)', normal: 'var(--text-light)' };
   listEl.innerHTML = pool.map(m => {
-    const chip = renderMemoryEntryChip(m);
-    return chip.replace(`id="memchip_${escHtml(m.id)}"`, `id="mvchip_${escHtml(m.id)}"`);
+    const eid = escHtml(m.id);
+    const created = m.createdAt ? new Date(m.createdAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+    const tags = (m.tags || []).map(t => `<span style="padding:1px 6px;border-radius:8px;background:var(--warm-bg2);font-size:10px;color:var(--text-light)">${escHtml(t)}</span>`).join('');
+    const w = Math.min(5, Math.max(1, m.weight || 1));
+    const stars = '★'.repeat(w) + '☆'.repeat(5-w);
+    const isPinned = m._kind === 'pinned';
+    return `<div id="mvchip_${eid}" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--border);display:flex;flex-direction:column;gap:5px${m.resolved?';opacity:.55':''}">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:${kindColor[m._kind]}">${kindLabel[m._kind]}</span>
+        ${m.emotion ? `<span style="font-size:11px;color:var(--text-light)">· ${escHtml(m.emotion)}</span>` : ''}
+        <span style="font-size:11px;color:#e8a0b4;letter-spacing:1px">${stars}</span>
+        <div style="margin-left:auto;display:flex;gap:2px">
+          <button onclick="toggleMemoryPin('${eid}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.7">${isPinned?'📌':'🔗'}</button>
+          <button onclick="editMemoryEntry('${eid}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.5">✏️</button>
+          <button onclick="deleteMemoryEntry('${eid}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;opacity:.4;color:var(--text-light)">✕</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escHtml(m.content || '')}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div>
+      <div style="font-size:10px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap">
+        <span>📅 ${created}</span>
+        <span>👁 ${m.accessCount || 0}次</span>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -7035,7 +7062,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1637';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1655';
 
   await openDB();
   await migrateFromLocalStorage();
