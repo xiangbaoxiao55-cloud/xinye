@@ -968,6 +968,12 @@ if('serviceWorker' in navigator){
       }
     });
   });
+  // APK切回前台时主动检查SW更新（切回不触发load，需手动check）
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => reg.update()).catch(()=>{});
+    }
+  });
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/vconsole@3/dist/vconsole.min.js"></script>
@@ -7023,7 +7029,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1052';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1111';
 
   await openDB();
   await migrateFromLocalStorage();

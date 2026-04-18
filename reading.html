@@ -1273,16 +1273,35 @@ async function doAsk() {
     const model = cfg.model || 'claude-sonnet-4-6';
     const sysPrompt = cfg.systemPrompt || '';
     const memory = cfg.memoryArchive || '';
+    const contextCount = cfg.contextCount || 40;
 
+    // 读最近 N 条聊天历史
+    const recentMsgs = await new Promise((res) => {
+      const results = [];
+      const req = xinyeDB.transaction('messages','readonly').objectStore('messages').openCursor(null,'prev');
+      req.onsuccess = e => {
+        const c = e.target.result;
+        if (c && results.length < contextCount) { results.unshift(c.value); c.continue(); }
+        else res(results);
+      };
+      req.onerror = () => res([]);
+    });
+
+    // 组装用户消息
     const ch = curChapters[curChapterIdx];
-    const userNote = curAnns.find(a => a.chapterIndex === curChapterIdx && a.startOffset === pendingSel.startOffset)?.note || '';
+    const ann = curAnns.find(a => a.chapterIndex === curChapterIdx && a.startOffset === pendingSel.startOffset);
     const quote = pendingSel.fullQuote || pendingSel.selectedText;
-    const prompt = `我在读《${curBook.title}》，选了这段文字：\n\n「${quote}」\n\n${userNote ? `我的想法：${userNote}\n\n` : ''}你怎么看这段？`;
+    const userNote = ann?.note || '';
+    const userText = `📖《${curBook.title}》${ch.title}\n\n我选了这段：\n「${quote}」${userNote ? `\n\n我的想法：${userNote}` : ''}\n\n你怎么看？`;
 
+    // 组装请求（和聊天界面相同结构）
     const msgs = [];
     if (sysPrompt) msgs.push({ role:'system', content: sysPrompt });
     if (memory) msgs.push({ role:'user', content:`【记忆档案】\n${memory}` }, { role:'assistant', content:'好，我记住了。' });
-    msgs.push({ role:'user', content: prompt });
+    for (const m of recentMsgs) {
+      if (m.role === 'user' || m.role === 'assistant') msgs.push({ role: m.role, content: m.content || '' });
+    }
+    msgs.push({ role:'user', content: userText });
 
     const url = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
     const resp = await fetch(url, {
@@ -1293,6 +1312,17 @@ async function doAsk() {
     if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || resp.status); }
     const result = await resp.json();
     askReplyText = result.choices?.[0]?.message?.content?.trim() || '';
+
+    // 存入聊天记录（两条消息）
+    const now = Date.now();
+    await new Promise((res, rej) => {
+      const tx = xinyeDB.transaction('messages','readwrite');
+      const store = tx.objectStore('messages');
+      store.add({ role:'user', content: userText, time: now });
+      store.add({ role:'assistant', content: askReplyText, time: now + 1 });
+      tx.oncomplete = res; tx.onerror = rej;
+    });
+
     document.getElementById('askLoading').style.display = 'none';
     document.getElementById('askReply').textContent = askReplyText;
     document.getElementById('askReply').style.display = 'block';
