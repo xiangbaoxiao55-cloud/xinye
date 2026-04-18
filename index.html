@@ -1975,6 +1975,8 @@ function toast(msg) {
   toastEl.classList.add('show');
   clearTimeout(toastT);
   toastT = setTimeout(() => toastEl.classList.remove('show'), 2400);
+  const t = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  console.log(`[Toast ${t}] ${msg}`);
 }
 
 // ======================== 工具 ========================
@@ -6601,8 +6603,10 @@ async function autoBackupToServer() {
     });
 
     await fetch(`${serverUrl}/api/backup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+    const backupTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     console.log('[自动备份] 完成');
-    localStorage.setItem('lastAutoBackupTime', new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }));
+    localStorage.setItem('lastAutoBackupTime', backupTime);
+    toast('💾 已自动备份到电脑');
   } catch (e) {
     console.warn('[自动备份] 失败:', e.message);
   }
@@ -7019,7 +7023,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.17-2252';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1028';
 
   await openDB();
   await migrateFromLocalStorage();
