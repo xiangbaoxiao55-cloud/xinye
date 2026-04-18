@@ -1184,11 +1184,11 @@ if('serviceWorker' in navigator){
       <input type="url" id="setBaseUrl" placeholder="https://api.openai.com">
     </div>
     <div class="setting-group">
-      <label>备用 API 预设（主 API 挂了整套切换）</label>
-      <select id="setFallbackPreset" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)">
-        <option value="">— 不启用备用 —</option>
-      </select>
-      <div class="hint">主 API 失败时自动切换整套配置（key + URL + 模型全换），不只是换 URL</div>
+      <label>备用 API 预设（主 API 挂了依次切换）</label>
+      <select id="setFallbackPreset0" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用1：不启用 —</option></select>
+      <select id="setFallbackPreset1" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用2：不启用 —</option></select>
+      <select id="setFallbackPreset2" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用3：不启用 —</option></select>
+      <div class="hint">主 API 失败时依次尝试备用1→2→3，整套切换（key + URL + 模型全换）</div>
     </div>
     <div class="setting-group">
       <label>模型（主）</label>
@@ -1214,11 +1214,11 @@ if('serviceWorker' in navigator){
       <input type="url" id="setSubBaseUrl" placeholder="留空则用主 API URL">
     </div>
     <div class="setting-group">
-      <label>备用 API 预设（副 API 挂了整套切换）</label>
-      <select id="setSubFallbackPreset" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)">
-        <option value="">— 不启用备用 —</option>
-      </select>
-      <div class="hint">副 API 失败时自动切换整套配置（key + URL + 模型全换）</div>
+      <label>备用 API 预设（副 API 挂了依次切换）</label>
+      <select id="setSubFallbackPreset0" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用1：不启用 —</option></select>
+      <select id="setSubFallbackPreset1" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用2：不启用 —</option></select>
+      <select id="setSubFallbackPreset2" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用3：不启用 —</option></select>
+      <div class="hint">副 API 失败时依次尝试备用1→2→3，整套切换</div>
     </div>
     <div class="setting-group">
       <label>模型（副）</label>
@@ -1909,8 +1909,8 @@ function dbGetAllKeys(store) {
 
 // ======================== 状态 ========================
 let settings = {
-  apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetName: '', model: 'gpt-4o',
-  subApiKey: '', subBaseUrl: '', subFallbackPresetName: '', subModel: '',
+  apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetNames: [], model: 'gpt-4o',
+  subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
   embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
   contextCount: 20, systemPrompt: '', shortReply: false,
@@ -5199,26 +5199,22 @@ async function sendMessage() {
 
     // ====== API fetch helper with retry + fallback preset failover ======
     const _fbPresetList = getApiPresets();
-    const _fallbackPreset = settings.fallbackPresetName
-      ? (_fbPresetList.find(p => p.name === settings.fallbackPresetName) || null)
-      : null;
-    let _usingFallback = false;
-    function _buildCfg(useFallback) {
-      if (useFallback && _fallbackPreset) {
-        const raw = (_fallbackPreset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        return {
-          url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
-          apiKey: _fallbackPreset.apiKey || settings.apiKey,
-          model: _fallbackPreset.model || settings.model || 'gpt-4o'
-        };
+    const _fallbackPresets = (settings.fallbackPresetNames || [])
+      .map(n => _fbPresetList.find(p => p.name === n)).filter(Boolean);
+    // _allCfgs[0]=主API(null), [1..n]=备用1..n
+    const _allCfgs = [null, ..._fallbackPresets];
+    let _activeCfgIdx = 0;
+    function _buildCfg(preset) {
+      if (preset) {
+        const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+        return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o' };
       }
       return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o' };
     }
     async function _apiFetch(msgs, withTools, streamMode) {
-      const _cfgs = _usingFallback ? [true] : ((_fallbackPreset) ? [false, true] : [false]);
       let _res;
-      for (let ci = 0; ci < _cfgs.length; ci++) {
-        const cfg = _buildCfg(_cfgs[ci]);
+      for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
+        const cfg = _buildCfg(_allCfgs[pi]);
         const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: streamMode };
         if (streamMode) bodyObj.stream_options = { include_usage: true };
         if (withTools && _toolDefs.length) { bodyObj.tools = _toolDefs; bodyObj.tool_choice = 'auto'; }
@@ -5231,16 +5227,15 @@ async function sendMessage() {
             _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}`}, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
             if (_res.ok) {
-              if (ci > 0 && !_usingFallback) { _usingFallback = true; toast(`🔄 已切换到备用「${_fallbackPreset.name}」`); }
+              if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
               return _res;
             }
-            // 4xx/5xx 都触发重试，重试耗尽后走备用
           } catch(fe) {
             if (fe.name === 'AbortError') { toast('请求超时…'); _res = null; }
             else { _res = null; }
           }
         }
-        if (ci === 0 && _fallbackPreset) toast(`主 API 无响应，尝试备用「${_fallbackPreset.name}」…`);
+        if (pi + 1 < _allCfgs.length) toast(`API无响应，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
       }
       return _res;
     }
@@ -5664,11 +5659,16 @@ async function openSettings() {
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
   renderVisionPresets();
-  $('#setFallbackPreset').value = settings.fallbackPresetName || '';
+  // 兼容旧的单备用字段
+  if (!settings.fallbackPresetNames?.length && settings.fallbackPresetName) settings.fallbackPresetNames = [settings.fallbackPresetName];
+  if (!settings.subFallbackPresetNames?.length && settings.subFallbackPresetName) settings.subFallbackPresetNames = [settings.subFallbackPresetName];
+  [0,1,2].forEach(i => {
+    const el = $(`#setFallbackPreset${i}`); if (el) el.value = (settings.fallbackPresetNames||[])[i] || '';
+    const sub = $(`#setSubFallbackPreset${i}`); if (sub) sub.value = (settings.subFallbackPresetNames||[])[i] || '';
+  });
   $('#setModel').value = settings.model;
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
-  $('#setSubFallbackPreset').value = settings.subFallbackPresetName || '';
   $('#setSubModel').value = settings.subModel || '';
   $('#setEmbeddingApiKey').value = settings.embeddingApiKey || '';
   $('#setEmbeddingBaseUrl').value = settings.embeddingBaseUrl || '';
@@ -5938,18 +5938,20 @@ function renderApiPresets() {
     });
     sel.value = cur;
   });
-  // 也渲染主/副备用预设下拉
-  ['setFallbackPreset', 'setSubFallbackPreset'].forEach(id => {
-    const fbSel = $('#' + id);
-    if (!fbSel) return;
-    const cur = fbSel.value;
-    fbSel.innerHTML = '<option value="">— 不启用备用 —</option>';
-    presets.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.name; opt.textContent = p.name;
-      fbSel.appendChild(opt);
+  // 渲染主/副备用预设下拉（各3个槽）
+  [0,1,2].forEach(i => {
+    ['setFallbackPreset','setSubFallbackPreset'].forEach(base => {
+      const fbSel = $(`#${base}${i}`);
+      if (!fbSel) return;
+      const cur = fbSel.value;
+      fbSel.innerHTML = `<option value="">— 备用${i+1}：不启用 —</option>`;
+      presets.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name; opt.textContent = p.name;
+        fbSel.appendChild(opt);
+      });
+      fbSel.value = cur;
     });
-    fbSel.value = cur;
   });
 }
 // 主API fetch（整理档案等需要Opus质量的后台任务）
@@ -5980,49 +5982,35 @@ function getSubApiCfg() {
 // 副API fetch（带备用预设自动切换）
 async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
   const sub = getSubApiCfg();
-  const _subFbPreset = settings.subFallbackPresetName
-    ? (getApiPresets().find(p => p.name === settings.subFallbackPresetName) || null)
-    : null;
-  function _buildSubCfg(useFallback) {
-    if (useFallback && _subFbPreset) {
-      const raw = (_subFbPreset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return {
-        url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
-        apiKey: _subFbPreset.apiKey || sub.apiKey,
-        model: _subFbPreset.model || sub.model || defaultModel,
-      };
+  const _subFbPresets = (settings.subFallbackPresetNames || [])
+    .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
+  const _subAllCfgs = [null, ..._subFbPresets];
+  function _buildSubCfg(preset) {
+    if (preset) {
+      const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || sub.apiKey, model: preset.model || sub.model || defaultModel };
     }
     const raw = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return {
-      url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
-      apiKey: sub.apiKey,
-      model: sub.model || defaultModel,
-    };
+    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: sub.apiKey, model: sub.model || defaultModel };
   }
-  const _cfgList = _subFbPreset ? [false, true] : [false];
   let _res;
-  for (let ci = 0; ci < _cfgList.length; ci++) {
-    const cfg = _buildSubCfg(_cfgList[ci]);
+  for (let pi = 0; pi < _subAllCfgs.length; pi++) {
+    const cfg = _buildSubCfg(_subAllCfgs[pi]);
     const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
     for (let _a = 0; _a < 2; _a++) {
       if (_a > 0) await new Promise(r => setTimeout(r, 4000));
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 60000);
-        _res = await fetch(cfg.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` },
-          body: bodyStr, signal: ctrl.signal
-        });
+        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
-          if (ci > 0) toast(`🔄 副 API 已切换到「${_subFbPreset.name}」`);
+          if (pi > 0) toast(`🔄 副API已切换到备用${pi}「${_subFbPresets[pi-1].name}」`);
           return _res;
         }
-        // 4xx/5xx 都触发重试，重试耗尽后走备用
       } catch(e) { _res = null; }
     }
-    if (ci === 0 && _subFbPreset) toast(`副 API 无响应，尝试备用「${_subFbPreset.name}」…`);
+    if (pi + 1 < _subAllCfgs.length) toast(`副API无响应，尝试备用${pi+1}「${_subFbPresets[pi].name}」…`);
   }
   return _res;
 }
@@ -6086,11 +6074,11 @@ $('#btnSaveSettings').onclick = async () => {
   settings.forumProxy = $('#setForumProxy').value.trim();
   settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
   settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
-  settings.fallbackPresetName = $('#setFallbackPreset').value;
+  settings.fallbackPresetNames = [0,1,2].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
   settings.model = $('#setModel').value.trim() || 'gpt-4o';
   settings.subApiKey = $('#setSubApiKey').value.trim();
   settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
-  settings.subFallbackPresetName = $('#setSubFallbackPreset').value;
+  settings.subFallbackPresetNames = [0,1,2].map(i => ($(`#setSubFallbackPreset${i}`)?.value || '')).filter(v=>v);
   settings.subModel = $('#setSubModel').value.trim();
   settings.embeddingApiKey = $('#setEmbeddingApiKey').value.trim();
   settings.embeddingBaseUrl = $('#setEmbeddingBaseUrl').value.trim();
@@ -7029,7 +7017,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.18-1111';
+  if (_verEl) _verEl.textContent = 'v2026.04.18-1125';
 
   await openDB();
   await migrateFromLocalStorage();
