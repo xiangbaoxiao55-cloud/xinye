@@ -3944,10 +3944,11 @@ async function updateMoodState() {
     const EXTRACT_INTERVAL = 6; // 每累积6条新消息提取一次
 
     // lastProcessedIndex 追踪已提取到哪条消息（-1 = 从未提取）
-    // 游标越界（消息被清/恢复后缩水）则重置到当前末尾，下次新消息再触发
+    // 游标越界（消息被清/恢复后缩水）则回退30条重新提取，避免遗漏近期消息
     if (bank.lastProcessedIndex >= messages.length) {
-      console.log(`[Memory Extract] 游标#${bank.lastProcessedIndex}越界（总消息${messages.length}条），自动重置`);
-      bank.lastProcessedIndex = messages.length - 1;
+      const newIdx = Math.max(-1, messages.length - 1 - 30);
+      console.log(`[Memory Extract] 游标#${bank.lastProcessedIndex}越界（总消息${messages.length}条），回退到#${newIdx}重新提取`);
+      bank.lastProcessedIndex = newIdx;
       await saveSettings();
     }
     const nextStart = bank.lastProcessedIndex + 1;
@@ -4039,6 +4040,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       if (el) el.textContent = `🤖 末次提取：${ts} · 游标#${bank.lastProcessedIndex} · 写入${parsed.memories.length}条`;
     } else {
       console.log(`[Memory Extract] 判定不值得记，游标推至#${bank.lastProcessedIndex}`);
+      renderMemoryBankPreview();
       const el = document.getElementById('memoryExtractStatus');
       if (el) {
         const now = new Date();
@@ -7216,7 +7218,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.19-1627';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-0755';
 
   await openDB();
   await migrateFromLocalStorage();
