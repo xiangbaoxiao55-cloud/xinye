@@ -3786,20 +3786,37 @@ ${chatText}`;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let newMemory = '';
+    let rawBuf = '';   // 暂存原始文本，用于非流式 fallback
     outer: while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const lines = decoder.decode(value).split('\n');
+      const chunk = decoder.decode(value);
+      rawBuf += chunk;
+      const lines = chunk.split('\n');
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const d = line.slice(6).trim();
         if (d === '[DONE]') break outer;
-        try { newMemory += JSON.parse(d).choices?.[0]?.delta?.content || ''; } catch {}
+        try {
+          const j = JSON.parse(d);
+          const delta = j.choices?.[0]?.delta;
+          // 兼容各家 API 字段差异
+          newMemory += delta?.content || delta?.text || delta?.reasoning_content || '';
+        } catch {}
       }
     }
     newMemory = newMemory.trim();
+    // 流式解析没拿到内容时，尝试当普通 JSON 解析（部分 API 忽略 stream:true）
+    if (!newMemory && rawBuf.trim()) {
+      try {
+        const j = JSON.parse(rawBuf.trim());
+        newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || '').trim();
+        if (newMemory) console.log('[digestMemory] 非流式响应，已 fallback 解析');
+      } catch {}
+    }
     if (!newMemory) {
-      toast('整理结果为空，未做修改');
+      console.warn('[digestMemory] 响应内容为空，原始前200字符：', rawBuf.slice(0, 200));
+      toast('整理结果为空，未做修改（可打开控制台查看原始响应）');
     } else if (/^\[Backend Error\]|^\[Error\]|^error:/i.test(newMemory)) {
       toast('整理失败：API 返回错误内容，档案未修改');
       console.warn('[digestMemory] 检测到错误内容，拒绝覆写档案：', newMemory.slice(0, 100));
@@ -7199,7 +7216,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.19-1548';
+  if (_verEl) _verEl.textContent = 'v2026.04.19-1552';
 
   await openDB();
   await migrateFromLocalStorage();
