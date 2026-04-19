@@ -1039,9 +1039,9 @@ if('serviceWorker' in navigator){
 <div class="app" id="app">
   <!-- 顶栏 -->
   <div class="header">
-    <div class="header-left" onclick="openBookmarksPanel()" style="cursor:pointer" title="查看收藏">
+    <div class="header-left">
       <div style="position:relative;flex-shrink:0">
-        <img class="header-avatar" id="headerAvatar" src="" alt="">
+        <img class="header-avatar" id="headerAvatar" src="" alt="" onclick="openBookmarksPanel()" style="cursor:pointer" title="查看收藏">
         <div id="bookmarkBadge" style="display:none;position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:var(--pink-deep);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center">
           <svg width="8" height="8" viewBox="0 0 24 24" fill="white"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="white"/></svg>
         </div>
@@ -7199,7 +7199,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.19-1009';
+  if (_verEl) _verEl.textContent = 'v2026.04.19-1548';
 
   await openDB();
   await migrateFromLocalStorage();
