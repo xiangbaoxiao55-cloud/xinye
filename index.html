@@ -3780,7 +3780,7 @@ ${existingMemory || '（暂无）'}
 最近聊天记录：
 ${chatText}`;
   try {
-    const res = await mainApiFetch({ messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 8000, stream: true });
+    const res = await mainApiFetch({ messages: [...(settings.systemPrompt?.trim() ? [{ role: 'system', content: settings.systemPrompt.trim() }] : []), { role: 'user', content: prompt }], temperature: 0.3, max_tokens: 8000, stream: true });
     if (!res || !res.ok) throw new Error(`API 错误 ${res ? res.status : '网络'}`);
     // 流式读取，避免 Capacitor WebView 超时
     const reader = res.body.getReader();
@@ -7216,7 +7216,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.19-1615';
+  if (_verEl) _verEl.textContent = 'v2026.04.19-1618';
 
   await openDB();
   await migrateFromLocalStorage();
