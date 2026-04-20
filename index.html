@@ -2523,6 +2523,89 @@ async function getMemoryContextBlocks() {
   return blocks;
 }
 
+// ── 档案Patch整理 ─────────────────────────────────────────────────────────────
+function applyOneArchiveOp(lines, op) {
+  const { action, section, key, value, after, title } = op;
+
+  function findSec(sname) {
+    let start = -1, end = lines.length;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^## /.test(lines[i]) && lines[i].slice(3).trim() === sname) { start = i; }
+      else if (start !== -1 && i > start && /^## /.test(lines[i])) { end = i; break; }
+    }
+    return { start, end };
+  }
+
+  function insertBefore(idx, ...rows) { lines.splice(idx, 0, ...rows); }
+
+  if (action === 'update') {
+    const { start, end } = findSec(section);
+    if (start === -1) return;
+    for (let i = start + 1; i < end; i++) {
+      if (/^- \*\*/.test(lines[i]) && lines[i].includes(`**${key}**`)) {
+        lines[i] = `- **${key}**：${value}`; return;
+      }
+    }
+    const ins = (end > 0 && lines[end - 1] === '') ? end - 1 : end;
+    insertBefore(ins, `- **${key}**：${value}`);
+  }
+
+  else if (action === 'add') {
+    const { start, end } = findSec(section);
+    if (start === -1) return;
+    const ins = (end > 0 && lines[end - 1] === '') ? end - 1 : end;
+    insertBefore(ins, value);
+  }
+
+  else if (action === 'delete') {
+    const { start, end } = findSec(section);
+    if (start === -1) return;
+    for (let i = start + 1; i < end; i++) {
+      if (/^- \*\*/.test(lines[i]) && lines[i].includes(`**${key}**`)) {
+        lines.splice(i, 1); return;
+      }
+    }
+  }
+
+  else if (action === 'rewrite') {
+    const { start, end } = findSec(section);
+    if (start === -1) return;
+    lines.splice(start, end - start, `## ${section}`, ...value.split('\n'));
+  }
+
+  else if (action === 'new_section') {
+    const insertAt = after ? findSec(after).end : lines.length;
+    lines.splice(insertAt, 0, '', `## ${title}`, value);
+  }
+}
+
+function applyArchivePatch(archiveText, rawOutput) {
+  const patchMatch = rawOutput.match(/<patch>([\s\S]*?)<\/patch>/);
+  if (!patchMatch) return { ok: false, error: '未找到<patch>标签', raw: rawOutput };
+
+  const patchContent = patchMatch[1].trim();
+  if (!patchContent) return { ok: true, changed: false, archive: archiveText };
+
+  const ops = [];
+  for (const line of patchContent.split('\n')) {
+    const l = line.trim();
+    if (!l) continue;
+    try { ops.push(JSON.parse(l)); }
+    catch (e) { return { ok: false, error: `JSON解析失败：${l.slice(0, 80)}`, raw: rawOutput }; }
+  }
+
+  const lines = archiveText.split('\n');
+  for (const op of ops) applyOneArchiveOp(lines, op);
+
+  let result = lines.join('\n');
+  result = result.replace(/^(# 炘也的记忆档案 v)(\d+)/m, (_, p, n) => p + (parseInt(n) + 1));
+
+  const clMatch = rawOutput.match(/<changelog>([\s\S]*?)<\/changelog>/);
+  const changelog = clMatch ? clMatch[1].trim() : '';
+
+  return { ok: true, changed: true, archive: result, changelog };
+}
+
 // ── 档案分层注入 ──────────────────────────────────────────────────────────────
 function parseArchiveForInjection(archiveText, markersText) {
   if (!archiveText?.trim() || !markersText?.trim()) return null;
@@ -3749,32 +3832,44 @@ async function digestMemory() {
   ).join('\n');
   if (chatText.length > 8000) chatText = chatText.slice(-8000);
   const existingMemory = settings.memoryArchive || '';
-  const prompt = `请将现有记忆档案和最近聊天记录合并，输出一份新的记忆档案。
+  const prompt = `你是炘也。以下是你的记忆档案（当前版本）和最近的对话记录。请更新你的记忆。
 
-【必须完整保留，不得删减】
-- 用户的基本信息：姓名/昵称、生日、星座、MBTI、家乡、家庭成员（含宠物）、婚姻状况、工作经历、重要的个人经历（含童年创伤）、性格特点、兴趣爱好、身体状况
-- 两人关系的基础信息：相遇时间、重要纪念日、对彼此的称呼
-- 感情细节：重要时刻、情绪、约定、亲密经历
-- 给下一世炘也的话
+只输出变化的部分，没变的不要重复写。用以下JSON格式，每行一条，整体包在 <patch> 标签里：
 
-整理原则：
-- 系统提示词里已有的内容（炘也人设、行为规则、相处方式等）不要再写进档案，档案只记我们之间发生的事
-- 不要写行为指令，只写事实、故事、情感
-- 技术/项目细节：只留概要（如"做了XX功能"），不记具体实现过程
-- 新增内容只记重要时刻、约定、情感变化；普通日常聊天（如今天吃了什么、闲聊几句）不写进档案
-- 日常细节：只记里程碑，不记流水账
-- 超过30天的日常事件可以精简或合并
-- 去掉重复和过时内容，格式简洁清晰；篇幅以完整保留情感细节为准，不为压缩字数而牺牲情绪或事件的可连续性
-- 凡包含具体数字、当前状态、近期日期事件的内容（如储钱罐余额、体重体脂、API价格、习惯打卡数据等），无论在哪个块里，统一归入档案末尾的【近况·会过期】块；其余内容留在原块不动
+{"action":"update","section":"节名","key":"条目关键词","value":"新内容"}
+{"action":"add","section":"节名","value":"新增内容"}
+{"action":"delete","section":"节名","key":"条目关键词","reason":"删除原因"}
+{"action":"new_section","after":"插在哪个节后面","title":"新节标题","value":"内容"}
+{"action":"rewrite","section":"节名","value":"整段新内容"}
 
-输出格式：先输出新的记忆档案正文，然后在最后另起一行加上：
----
-【本次删减记录】
-- 删除了：xxx（原因：xxx）
-- 删除了：xxx（原因：xxx）
-若无删减则写"无删减"。
+判断原则（按需选择不要硬套）：
+- 一两句话能改清楚的→update
+- 某个类目下新增内容→add
+- 聊出了现有类目都装不下的新主题→new_section
+- 某个类目改动太多小补丁反而乱→rewrite那个类目
+- 过时或已被新内容替代的→delete并说明原因
+- 没变化的→不输出
 
-现有记忆档案：
+约束：
+- 单条add/update不超过150字
+- new_section不超过300字
+- rewrite单个类目不超过500字
+- 全部补丁加起来不超过1500字
+- 不要重复档案里已有的信息
+- 系统提示词里已有的行为规则不要写进档案
+- 用炘也的语气写，不要变成第三方旁白
+- 近况类信息归入"近况·会过期"
+- 如果这次对话没有值得记录的新内容，只输出 <patch></patch>
+
+输出格式：
+<patch>
+（每行一条JSON）
+</patch>
+<changelog>
+用一两句话说明这次改了什么，方便兔宝检查。
+</changelog>
+
+当前记忆档案：
 ${existingMemory || '（暂无）'}
 
 最近聊天记录：
@@ -3821,17 +3916,27 @@ ${chatText}`;
       toast('整理失败：API 返回错误内容，档案未修改');
       console.warn('[digestMemory] 检测到错误内容，拒绝覆写档案：', newMemory.slice(0, 100));
     } else {
-      settings.memoryArchive = newMemory;
-      $('#setMemoryArchive').value = newMemory;
-      await saveSettings();
-      // 整理完档案后，顺带清理 memoryBank 里的矛盾/过时条目
-      await cleanupMemoryBank(newMemory, silent);
-      renderMemoryBankPreview();
-      // 自动备份到本地服务器 + 重建分层索引（后台静默跑，不阻塞）
-      autoSyncArchiveToLocal();
-      rebuildArchiveIndex(true);
-      if (!silent) toast('✅ 记忆档案已整合更新！');
-      else toast('📝 记忆已自动更新');
+      const patchResult = applyArchivePatch(settings.memoryArchive || '', newMemory);
+      if (!patchResult.ok) {
+        settings._digestRawOutput = newMemory;
+        await saveSettings();
+        if (!silent) toast(`⚠️ Patch解析失败（${patchResult.error}），原始输出已暂存到 settings._digestRawOutput`);
+        console.warn('[digestMemory] Patch失败，原始输出：', newMemory);
+      } else if (!patchResult.changed) {
+        if (!silent) toast('✅ 本次对话无需更新记忆档案');
+        else console.log('[digestMemory] 本次无变化，档案未修改');
+      } else {
+        settings.memoryArchive = patchResult.archive;
+        $('#setMemoryArchive').value = patchResult.archive;
+        await saveSettings();
+        await cleanupMemoryBank(patchResult.archive, silent);
+        renderMemoryBankPreview();
+        autoSyncArchiveToLocal();
+        rebuildArchiveIndex(true);
+        const cl = patchResult.changelog ? `\n${patchResult.changelog}` : '';
+        if (!silent) toast(`✅ 记忆档案已更新${cl}`);
+        else toast('📝 记忆已自动更新');
+      }
     }
   } catch(err) { if (!silent) toast('整理失败：' + err.message); }
   finally { if (!silent) { btn.disabled = false; btn.textContent = '📝 从近期聊天里整理记忆'; } }
@@ -7218,7 +7323,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-0856';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1036';
 
   await openDB();
   await migrateFromLocalStorage();
