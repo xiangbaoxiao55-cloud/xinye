@@ -2741,11 +2741,11 @@ function deleteMemoryEntry(id) {
 
 function editMemoryEntry(id) {
   const chip = document.getElementById('memchip_' + id) || document.getElementById('mvchip_' + id);
-  if (!chip) return;
+  if (!chip) { toast('⚠️ 找不到记忆元素：' + id.slice(0, 20)); return; }
   const isViewer = chip.id.startsWith('mvchip_');
   const bank = ensureMemoryState();
   const item = [...bank.pinned, ...bank.recent, ...bank.archived].find(i => i.id === id);
-  if (!item) return;
+  if (!item) { toast('⚠️ 找不到记忆数据：' + id.slice(0, 20)); return; }
   const dark = isDarkMode();
   const bg = dark ? 'rgba(46,28,58,.7)' : 'rgba(255,255,255,.75)';
   const cancelFn = isViewer ? 'renderMemoryViewer()' : 'renderMemoryBankPreview()';
@@ -7218,7 +7218,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-0755';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-0833';
 
   await openDB();
   await migrateFromLocalStorage();
