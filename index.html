@@ -1866,6 +1866,16 @@ function dbGet(store, key) {
   });
 }
 
+// 把 localStorage 某个 key 的值备份到 IDB settings 里（防华为清缓存丢数据）
+function lsBackup(key, value) {
+  if (!db) return;
+  dbPut('settings', 'ls_' + key, value).catch(() => {});
+}
+function lsRemoveBackup(key) {
+  if (!db) return;
+  try { const tx = db.transaction('settings', 'readwrite'); tx.objectStore('settings').delete('ls_' + key); } catch(_) {}
+}
+
 function dbGetAll(store) {
   if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
@@ -3281,6 +3291,14 @@ async function loadAll() {
   const s = await dbGet('settings', 'main');
   if (s) settings = { ...settings, ...s };
   ensureMemoryState();
+  // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
+  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
+  for (const _k of _lsBackupKeys) {
+    if (localStorage.getItem(_k) === null) {
+      const _v = await dbGet('settings', 'ls_' + _k);
+      if (_v != null) localStorage.setItem(_k, _v);
+    }
+  }
   // 只加载最近 N 条到内存，大幅加快启动速度
   // 至少 2000 条，确保本周/今日统计准确，同时远少于全量加载
   const loadCount = Math.max(settings.displayLimit || 0, 2000);
@@ -6181,7 +6199,9 @@ function getVisionPresets() {
   try { return JSON.parse(localStorage.getItem('xinye_vision_presets') || '[]'); } catch(e) { return []; }
 }
 function setVisionPresets(arr) {
-  localStorage.setItem('xinye_vision_presets', JSON.stringify(arr));
+  const _v = JSON.stringify(arr);
+  localStorage.setItem('xinye_vision_presets', _v);
+  lsBackup('xinye_vision_presets', _v);
 }
 function renderVisionPresets() {
   const presets = getVisionPresets();
@@ -6232,7 +6252,9 @@ function getApiPresets() {
   try { return JSON.parse(localStorage.getItem('xinye_api_presets') || '[]'); } catch(e) { return []; }
 }
 function setApiPresets(arr) {
-  localStorage.setItem('xinye_api_presets', JSON.stringify(arr));
+  const _v = JSON.stringify(arr);
+  localStorage.setItem('xinye_api_presets', _v);
+  lsBackup('xinye_api_presets', _v);
 }
 function renderApiPresets() {
   const presets = getApiPresets();
@@ -7115,10 +7137,10 @@ async function doImportPresetsOnly(jsonText) {
   // rpData
   if (data.rpData) {
     const rp = data.rpData;
-    if (rp.rp_prompt)     localStorage.setItem('rp_prompt', rp.rp_prompt);
-    if (rp.rp_presets)    localStorage.setItem('rp_presets', rp.rp_presets);
-    if (rp.rp_char_name)  localStorage.setItem('rp_char_name', rp.rp_char_name);
-    if (rp.rp_char_avatar) localStorage.setItem('rp_char_avatar', rp.rp_char_avatar);
+    if (rp.rp_prompt)     { localStorage.setItem('rp_prompt', rp.rp_prompt); lsBackup('rp_prompt', rp.rp_prompt); }
+    if (rp.rp_presets)    { localStorage.setItem('rp_presets', rp.rp_presets); lsBackup('rp_presets', rp.rp_presets); }
+    if (rp.rp_char_name)  { localStorage.setItem('rp_char_name', rp.rp_char_name); lsBackup('rp_char_name', rp.rp_char_name); }
+    if (rp.rp_char_avatar){ localStorage.setItem('rp_char_avatar', rp.rp_char_avatar); lsBackup('rp_char_avatar', rp.rp_char_avatar); }
   }
 }
 
@@ -7227,10 +7249,10 @@ async function doImport(jsonText) {
   // 导入RP角色卡设置（rp_active 不恢复，避免导入后意外进入RP模式）
   if (data.rpData) {
     const d = data.rpData;
-    if (d.rp_prompt)      localStorage.setItem('rp_prompt', d.rp_prompt);
-    if (d.rp_presets)     localStorage.setItem('rp_presets', d.rp_presets);
-    if (d.rp_char_name)   localStorage.setItem('rp_char_name', d.rp_char_name);
-    if (d.rp_char_avatar) localStorage.setItem('rp_char_avatar', d.rp_char_avatar);
+    if (d.rp_prompt)      { localStorage.setItem('rp_prompt', d.rp_prompt); lsBackup('rp_prompt', d.rp_prompt); }
+    if (d.rp_presets)     { localStorage.setItem('rp_presets', d.rp_presets); lsBackup('rp_presets', d.rp_presets); }
+    if (d.rp_char_name)   { localStorage.setItem('rp_char_name', d.rp_char_name); lsBackup('rp_char_name', d.rp_char_name); }
+    if (d.rp_char_avatar) { localStorage.setItem('rp_char_avatar', d.rp_char_avatar); lsBackup('rp_char_avatar', d.rp_char_avatar); }
   }
 
   // 导入日记数据（localStorage）
@@ -7362,7 +7384,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1223';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1242';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -7668,7 +7690,7 @@ function getChatStickers() {
   try { const r = localStorage.getItem('xinye_chat_stickers'); if (r) return JSON.parse(r); } catch(e){}
   return _DEFAULT_STICKERS.map(s => ({...s}));
 }
-function saveChatStickers(arr) { localStorage.setItem('xinye_chat_stickers', JSON.stringify(arr)); }
+function saveChatStickers(arr) { const _v = JSON.stringify(arr); localStorage.setItem('xinye_chat_stickers', _v); lsBackup('xinye_chat_stickers', _v); }
 function getStickerByName(name) { return getChatStickers().find(s => s.name === name); }
 function renderStickerHTML(name) {
   const s = getStickerByName(name);
@@ -7859,6 +7881,7 @@ function _qnToast(msg) {
     const reader = new FileReader();
     reader.onload = e => {
       localStorage.setItem('rp_char_avatar', e.target.result);
+      lsBackup('rp_char_avatar', e.target.result);
       refreshRpCharAvatar();
       if (rpActive) applyRpHeader();
     };
@@ -7869,6 +7892,7 @@ function _qnToast(msg) {
   // ---- 清除TA的头像 ----
   window.clearRpAvatar = function() {
     localStorage.removeItem('rp_char_avatar');
+    lsRemoveBackup('rp_char_avatar');
     refreshRpCharAvatar();
     if (rpActive) applyRpHeader();
   };
@@ -7880,6 +7904,7 @@ function _qnToast(msg) {
     const reader = new FileReader();
     reader.onload = e => {
       localStorage.setItem('rp_user_avatar', e.target.result);
+      lsBackup('rp_user_avatar', e.target.result);
       refreshRpUserAvatar();
     };
     reader.readAsDataURL(file);
@@ -7889,6 +7914,7 @@ function _qnToast(msg) {
   // ---- 清除我的头像 ----
   window.clearRpUserAvatar = function() {
     localStorage.removeItem('rp_user_avatar');
+    lsRemoveBackup('rp_user_avatar');
     refreshRpUserAvatar();
   };
 
@@ -7896,8 +7922,10 @@ function _qnToast(msg) {
   window.saveRpCharInfo = function() {
     const name = document.getElementById('rpCharName')?.value || '';
     localStorage.setItem('rp_char_name', name);
+    lsBackup('rp_char_name', name);
     const userName = document.getElementById('rpUserName')?.value || '';
     localStorage.setItem('rp_user_name', userName);
+    lsBackup('rp_user_name', userName);
     if (rpActive) applyRpHeader();
   };
 
@@ -7995,6 +8023,7 @@ function _qnToast(msg) {
   window.toggleRpActive = async function() {
     rpActive = !rpActive;
     localStorage.setItem('rp_active', rpActive ? '1' : '0');
+    lsBackup('rp_active', rpActive ? '1' : '0');
     window._rpActive = rpActive;
     applyRpUI();
     toast(rpActive ? '🎭 RP模式已开启，对话已隔离' : '🎭 RP模式已关闭，恢复正常聊天');
@@ -8006,6 +8035,7 @@ function _qnToast(msg) {
   window.saveRpPrompt = function() {
     const val = document.getElementById('rpPromptInput').value;
     localStorage.setItem('rp_prompt', val);
+    lsBackup('rp_prompt', val);
   };
 
   // ---- 保存为预设 ----
@@ -8022,7 +8052,9 @@ function _qnToast(msg) {
     const idx = rpPresets.findIndex(p => p.name === name);
     if (idx >= 0) rpPresets[idx] = preset;
     else rpPresets.push(preset);
-    localStorage.setItem('rp_presets', JSON.stringify(rpPresets));
+    const _rpPresetsStr = JSON.stringify(rpPresets);
+    localStorage.setItem('rp_presets', _rpPresetsStr);
+    lsBackup('rp_presets', _rpPresetsStr);
     refreshRpPresetSelect();
     if (nameInput) nameInput.value = '';
     toast('✨ 已保存「' + name + '」');
@@ -8037,13 +8069,16 @@ function _qnToast(msg) {
     if (!p) return;
     document.getElementById('rpPromptInput').value = p.text;
     localStorage.setItem('rp_prompt', p.text);
+    lsBackup('rp_prompt', p.text);
     // 恢复角色名和头像
     const nameInput = document.getElementById('rpCharName');
     if (nameInput) nameInput.value = p.charName || '';
     localStorage.setItem('rp_char_name', p.charName || '');
+    lsBackup('rp_char_name', p.charName || '');
     const userNameInput2 = document.getElementById('rpUserName');
     if (userNameInput2) userNameInput2.value = p.userName || '';
     localStorage.setItem('rp_user_name', p.userName || '');
+    lsBackup('rp_user_name', p.userName || '');
     // 头像不随预设切换（太大），只切名字和文本
     refreshRpCharAvatar();
     refreshRpUserAvatar();
@@ -8057,7 +8092,9 @@ function _qnToast(msg) {
     if (isNaN(idx) || idx < 0) { toast('先选一个预设'); return; }
     const name = rpPresets[idx].name;
     rpPresets.splice(idx, 1);
-    localStorage.setItem('rp_presets', JSON.stringify(rpPresets));
+    const _rpDelStr = JSON.stringify(rpPresets);
+    localStorage.setItem('rp_presets', _rpDelStr);
+    lsBackup('rp_presets', _rpDelStr);
     refreshRpPresetSelect();
     toast('已删除「' + name + '」');
   };
