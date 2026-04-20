@@ -2612,8 +2612,34 @@ function applyArchivePatch(archiveText, rawOutput) {
   const patchContent = patchMatch[1].trim();
   if (!patchContent) return { ok: true, changed: false, archive: archiveText };
 
+  // 修复value里的未转义英文双引号：状态机逐字符判断哪个"是字符串结束
+  function repairJson(s) {
+    let r = '', i = 0, inStr = false;
+    while (i < s.length) {
+      const ch = s[i];
+      if (!inStr) {
+        if (ch === '"') inStr = true;
+        r += ch; i++; continue;
+      }
+      if (ch === '\\') { r += ch + (s[i+1] || ''); i += 2; continue; }
+      if (ch === '"') {
+        let j = i + 1;
+        while (j < s.length && (s[j] === ' ' || s[j] === '\t')) j++;
+        const nx = s[j];
+        if (nx === ':' || nx === ',' || nx === '}' || nx === '\n' || nx === '\r' || j >= s.length) {
+          inStr = false; r += ch;
+        } else {
+          r += '\\"'; // 内容里的引号，转义
+        }
+        i++; continue;
+      }
+      r += ch; i++;
+    }
+    return r;
+  }
   function tryParseJson(s) {
     try { return JSON.parse(s); } catch {}
+    try { return JSON.parse(repairJson(s)); } catch {}
     return null;
   }
   const ops = [];
@@ -7438,7 +7464,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1632';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1637';
 
   await openDB();
   await migrateFromLocalStorage();
