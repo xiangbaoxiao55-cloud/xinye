@@ -1358,7 +1358,14 @@ if('serviceWorker' in navigator){
       <label>记忆档案</label>
       <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
       <div class="hint">建议：把炘也写的那份档案粘贴在这里。以后有新的重要记忆，也可以手动补充在末尾。</div>
-      <button type="button" id="btnDigestMemory" style="margin-top:8px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">📝 从近期聊天里整理记忆</button>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+        <label style="font-size:12px;color:var(--text-light);white-space:nowrap;flex-shrink:0">整理用API</label>
+        <select id="setDigestPreset" style="flex:1;padding:6px 8px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);background:var(--warm-bg)">
+          <option value="">主API（默认）</option>
+          <option value="__sub__">副API</option>
+        </select>
+      </div>
+      <button type="button" id="btnDigestMemory" style="margin-top:6px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">📝 从近期聊天里整理记忆</button>
       <div style="margin-top:12px;padding:10px 12px;background:var(--warm-bg);border:1px dashed var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px">
         <div style="font-size:12px;font-weight:700;color:var(--text)">🔀 分层注入（节省 ~40% token）</div>
         <label style="font-size:12px;color:var(--text-light)">Core 条目标识（每行一条）</label>
@@ -3875,7 +3882,22 @@ ${existingMemory || '（暂无）'}
 最近聊天记录：
 ${chatText}`;
   try {
-    const res = await mainApiFetch({ messages: [...(settings.systemPrompt?.trim() ? [{ role: 'system', content: settings.systemPrompt.trim() }] : []), { role: 'user', content: prompt }], temperature: 0.3, stream: true });
+    const _digestBody = { messages: [...(settings.systemPrompt?.trim() ? [{ role: 'system', content: settings.systemPrompt.trim() }] : []), { role: 'user', content: prompt }], temperature: 0.3, stream: true };
+    const _dp = settings.digestPresetName;
+    let res;
+    if (!_dp) {
+      res = await mainApiFetch(_digestBody);
+    } else if (_dp === '__sub__') {
+      const _raw = (settings.subBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      const _url = /\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`;
+      res = await fetch(_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.subApiKey || settings.apiKey}` }, body: JSON.stringify({ ..._digestBody, model: settings.subModel || settings.model }) });
+    } else {
+      const _pr = getApiPresets().find(p => p.name === _dp);
+      if (!_pr) throw new Error(`找不到预设「${_dp}」`);
+      const _raw = (_pr.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      const _url = /\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`;
+      res = await fetch(_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_pr.apiKey || settings.apiKey}` }, body: JSON.stringify({ ..._digestBody, model: _pr.model || settings.model }) });
+    }
     if (!res || !res.ok) throw new Error(`API 错误 ${res ? res.status : '网络'}`);
     // 流式读取，避免 Capacitor WebView 超时
     const reader = res.body.getReader();
@@ -5953,6 +5975,7 @@ async function openSettings() {
     const el = $(`#setFallbackPreset${i}`); if (el) el.value = (settings.fallbackPresetNames||[])[i] || '';
     const sub = $(`#setSubFallbackPreset${i}`); if (sub) sub.value = (settings.subFallbackPresetNames||[])[i] || '';
   });
+  const _dp = $('#setDigestPreset'); if (_dp) _dp.value = settings.digestPresetName || '';
   $('#setModel').value = settings.model;
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
@@ -6240,6 +6263,18 @@ function renderApiPresets() {
       fbSel.value = cur;
     });
   });
+  // 整理记忆用API
+  const digestSel = $('#setDigestPreset');
+  if (digestSel) {
+    const cur = digestSel.value;
+    digestSel.innerHTML = '<option value="">主API（默认）</option><option value="__sub__">副API</option>';
+    presets.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name; opt.textContent = p.name;
+      digestSel.appendChild(opt);
+    });
+    digestSel.value = cur;
+  }
 }
 // 主API fetch（整理档案等需要Opus质量的后台任务，带备用预设自动切换）
 async function mainApiFetch(bodyWithoutModel) {
@@ -6385,6 +6420,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
   settings.subFallbackPresetNames = [0,1,2].map(i => ($(`#setSubFallbackPreset${i}`)?.value || '')).filter(v=>v);
   settings.subModel = $('#setSubModel').value.trim();
+  settings.digestPresetName = $('#setDigestPreset')?.value || '';
   settings.embeddingApiKey = $('#setEmbeddingApiKey').value.trim();
   settings.embeddingBaseUrl = $('#setEmbeddingBaseUrl').value.trim();
   settings.embeddingModel = $('#setEmbeddingModel').value.trim();
@@ -7323,7 +7359,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1036';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1049';
 
   await openDB();
   await migrateFromLocalStorage();
