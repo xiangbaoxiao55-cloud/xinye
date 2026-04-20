@@ -2608,11 +2608,22 @@ function applyArchivePatch(archiveText, rawOutput) {
   if (!patchContent) return { ok: true, changed: false, archive: archiveText };
 
   const ops = [];
+  let buf = '';
   for (const line of patchContent.split('\n')) {
     const l = line.trim();
     if (!l) continue;
-    try { ops.push(JSON.parse(l)); }
-    catch (e) { return { ok: false, error: `JSON解析失败：${l.slice(0, 80)}`, raw: rawOutput }; }
+    // 新对象开始时先尝试flush上一个buf
+    if (buf && l.startsWith('{')) {
+      try { ops.push(JSON.parse(buf)); buf = ''; }
+      catch (e) { /* 继续拼 */ }
+    }
+    buf = buf ? buf + ' ' + l : l;
+    try { ops.push(JSON.parse(buf)); buf = ''; }
+    catch (e) { /* 继续累积下一行 */ }
+  }
+  if (buf.trim()) {
+    try { ops.push(JSON.parse(buf)); }
+    catch (e) { return { ok: false, error: `JSON解析失败：${buf.slice(0, 80)}`, raw: rawOutput }; }
   }
 
   const lines = archiveText.split('\n');
@@ -7412,7 +7423,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1324';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1519';
 
   await openDB();
   await migrateFromLocalStorage();
