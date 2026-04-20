@@ -2494,7 +2494,8 @@ async function getMemoryContextBlocks() {
   const contextStart = messages.length > n ? (messages[messages.length - n].time || 0) : 0;
   const pool = bank.archived.filter(item => (item.createdAt || 0) < contextStart);
 
-  console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
+  const withVecTotal = bank.archived.filter(i => i.embedding).length;
+  console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，有向量${withVecTotal}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
 
   if (pool.length) {
     const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
@@ -7478,7 +7479,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1856';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1859';
 
   await openDB();
   await migrateFromLocalStorage();
