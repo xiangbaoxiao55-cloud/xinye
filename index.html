@@ -7314,20 +7314,20 @@ $('#btnStickerS').onclick = () => { closeSettings(); $('#fileInputSticker').clic
 $('#btnClearS').onclick = () => $('#btnClear').click();
 $('#fileInputImport').onchange = async function() {
   if (!this.files[0]) return;
-  const presetsOnly = confirm('只恢复预设和贴纸（保留聊天记录）？\n\n确定 = 只恢复预设/贴纸/设置\n取消 = 完整导入（会覆盖聊天记录）');
-  if (!presetsOnly && !confirm('完整导入将覆盖当前所有数据（聊天、设置、图片、贴纸），确定继续吗？')) {
+  const full = confirm('📥 完整导入（含聊天记录）？\n\n确定 = 完整导入，恢复聊天+设置+预设（会覆盖现有聊天记录）\n取消 = 只恢复设置/预设/贴纸，聊天记录不动');
+  if (full && !confirm('完整导入将覆盖当前聊天记录，确定继续吗？')) {
     this.value = ''; return;
   }
   try {
     const text = await this.files[0].text();
-    if (presetsOnly) {
-      await doImportPresetsOnly(text);
-      this.value = '';
-      toast('预设和贴纸已恢复 💙');
-    } else {
+    if (full) {
       await doImport(text);
       this.value = '';
       location.reload();
+    } else {
+      await doImportPresetsOnly(text);
+      this.value = '';
+      toast('设置、预设和贴纸已恢复 💙');
     }
   } catch(e) {
     toast('导入失败：' + e.message);
@@ -7363,7 +7363,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1112';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1135';
 
   await openDB();
   await migrateFromLocalStorage();
