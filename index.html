@@ -2609,10 +2609,6 @@ function applyArchivePatch(archiveText, rawOutput) {
 
   function tryParseJson(s) {
     try { return JSON.parse(s); } catch {}
-    // 兼容AI误用全角标点作为JSON结构符
-    const fixed = s.replace(/，(?=[^"]*(?:"[^"]*"[^"]*)*$)/g, ',')
-                   .replace(/：(?=[^"]*(?:"[^"]*"[^"]*)*$)/g, ':');
-    try { return JSON.parse(fixed); } catch {}
     return null;
   }
   const ops = [];
@@ -3907,11 +3903,13 @@ async function digestMemory() {
 - 用炘也的语气写，不要变成第三方旁白
 - 近况类信息归入"近况·会过期"
 - 如果这次对话没有值得记录的新内容，只输出 <patch></patch>
-- JSON结构符号（逗号、冒号、引号、括号）必须用半角ASCII字符，不要用全角，value内容可以用中文
+- JSON结构符号（逗号、冒号、括号）必须用半角ASCII字符，不要用全角
+- value里的换行用 \n 转义，不要直接换行
+- value里不能出现英文双引号 " ——如需引用，改用中文引号「」
 
 输出格式：
 <patch>
-（每行一条JSON，value里的换行用 \n 转义，不要直接换行）
+（每行一条JSON）
 </patch>
 <changelog>
 用一两句话说明这次改了什么，方便兔宝检查。
@@ -7432,7 +7430,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1522';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1525';
 
   await openDB();
   await migrateFromLocalStorage();
