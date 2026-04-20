@@ -4166,7 +4166,7 @@ async function updateMoodState() {
   }
   try {
     const bank = ensureMemoryState();
-    const EXTRACT_INTERVAL = 6; // 每累积6条新消息提取一次
+    const EXTRACT_INTERVAL = 20; // 每累积20条新消息（10轮对话）提取一次
 
     // lastProcessedIndex 追踪已提取到哪条消息（-1 = 从未提取）
     // 游标越界（消息被清/恢复后缩水）则回退30条重新提取，避免遗漏近期消息
@@ -7479,7 +7479,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1859';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1944';
 
   await openDB();
   await migrateFromLocalStorage();
