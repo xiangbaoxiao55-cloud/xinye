@@ -2740,7 +2740,9 @@ function deleteMemoryEntry(id) {
 }
 
 function editMemoryEntry(id) {
+  console.log('[editMemoryEntry] called, id=', id);
   const chip = document.getElementById('memchip_' + id) || document.getElementById('mvchip_' + id);
+  console.log('[editMemoryEntry] chip=', chip ? chip.id : 'null');
   if (!chip) { toast('⚠️ 找不到记忆元素：' + id.slice(0, 20)); return; }
   const isViewer = chip.id.startsWith('mvchip_');
   const bank = ensureMemoryState();
@@ -7218,7 +7220,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-0833';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-0845';
 
   await openDB();
   await migrateFromLocalStorage();
