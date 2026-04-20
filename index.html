@@ -4055,7 +4055,7 @@ ${chatText}`;
         rebuildArchiveIndex(true);
         const cl = patchResult.changelog ? `\n${patchResult.changelog}` : '';
         if (!silent) toast(`✅ 记忆档案已更新${cl}`);
-        else toast('📝 记忆已自动更新');
+        else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）'); toast('📝 记忆已自动更新'); }
       }
     }
   } catch(err) { if (!silent) toast('整理失败：' + err.message); }
@@ -7533,7 +7533,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-2121';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-2133';
 
   await openDB();
   await migrateFromLocalStorage();
