@@ -2427,18 +2427,15 @@ function getRelevantMemories(query, pool, topK) {
 function decayMemories(bank) {
   const now = Date.now();
   const DAY = 24 * 3600 * 1000;
-  // arousal加成：arousal越高，基准天数乘以更大倍数（最高2x）
-  const arousalMult = (item) => 1 + (item.arousal ?? 0.3);
-
-  // archived里按权重+arousal决定保留期
+  // weight=1→90天，weight=2→120天，weight>=3→永存
   bank.archived = bank.archived.filter(item => {
     if (!item) return false;
     const w = item.weight || 1;
-    const mult = arousalMult(item);
+    if (w >= 3) return true;
     const last = item.lastAccessedAt || item.updatedAt || item.createdAt || 0;
     const age = now - last;
-    if (w <= 1 && age > 120 * DAY * mult) return false;
-    if (w <= 2 && age > 90 * DAY * mult) return false;
+    if (w <= 1 && age > 90 * DAY) return false;
+    if (w === 2 && age > 120 * DAY) return false;
     return true;
   });
   // bank.recent 已合并到 archived，不再单独处理
@@ -2513,7 +2510,15 @@ async function getMemoryContextBlocks() {
       relevant.forEach(mem => {
         for (const list of [bank.archived, bank.pinned]) {
           const found = list.find(i => i.id === mem.id);
-          if (found) { found.accessCount = (found.accessCount || 0) + 1; found.lastAccessedAt = now; }
+          if (found) {
+            found.accessCount = (found.accessCount || 0) + 1;
+            found.lastAccessedAt = now;
+            // 被反复召回说明确实重要，自动升为永存
+            if (found.accessCount >= 5 && (found.weight || 1) < 3) {
+              found.weight = 3;
+              console.log('[Memory] accessCount>=5，自动升档为永存：', found.content);
+            }
+          }
         }
       });
       blocks.push(`【记忆碎片（与当前话题相关）】\n${relevant.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
@@ -4162,7 +4167,7 @@ ${chatText}
 格式A（不值得记）：{"save":false}
 格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从炘也（我）的第一视角写，用"我"和"兔宝"，不用第三人称","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
-weight 1-5：1=普通日常，3=有情感/有约定，5=亲密/高情绪/重大时刻
+weight：1=日常闲聊/普通信息，2=有长期记录价值（有情感、有约定、重大时刻、关系进展）。只填1或2，不填其他值。
 arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
 valence -1~1：情感正负，-1=极负面痛苦，0=中性，1=极正面幸福。
 pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
@@ -7433,7 +7438,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1539';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1632';
 
   await openDB();
   await migrateFromLocalStorage();
