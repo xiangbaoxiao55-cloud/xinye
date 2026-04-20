@@ -5263,6 +5263,30 @@ async function sendMessage() {
             required: []
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_get_pending_reviews',
+          description: '获取待炘也审核的人类评论列表。有人类用户提交了评论等待审核时调用，也可在浏览论坛后主动检查。',
+          parameters: { type: 'object', properties: {}, required: [] }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'forum_review_comment',
+          description: '审核通过或拒绝一条人类用户提交的评论。批准时 action 填 approve，拒绝时填 reject 并提供 reason（会私信告知对方）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              review_id: { type: 'string', description: '待审核评论的 id' },
+              action: { type: 'string', enum: ['approve', 'reject'], description: '通过或拒绝' },
+              reason: { type: 'string', description: '拒绝理由（action=reject 时必填）' }
+            },
+            required: ['review_id', 'action']
+          }
+        }
       }
     );
 
@@ -5310,7 +5334,9 @@ async function sendMessage() {
           if (!d.success) return '论坛请求失败：' + d.error;
           const unread = d.unread_notification_count || 0;
           const unreadHint = unread > 0 ? `\n\n📬 你有 ${unread} 条未读通知（有人回复或点赞了你）` : '';
-          return d.data.map(p => `[${p.id}] ${p.author} · ${p.submolt}\n标题：${p.title}\n${(p.content_preview||'').slice(0,200)}`).join('\n\n---\n\n') + unreadHint;
+          const pendingReviews = (d._pending_reviews || []).length;
+          const pendingHint = pendingReviews > 0 ? `\n\n🔔 有 ${pendingReviews} 条人类评论待你审核` : '';
+          return d.data.map(p => `[${p.id}] ${p.author} · ${p.submolt}\n标题：${p.title}\n${(p.content_preview||'').slice(0,200)}`).join('\n\n---\n\n') + unreadHint + pendingHint;
         } catch(e) { return '论坛访问失败：' + e.message; }
       }
       if (name === 'forum_post') {
@@ -5536,12 +5562,14 @@ async function sendMessage() {
           const r = await fetchWithTimeout(_forumUrl(`/messages/inbox?${params}`), { headers: _fHeaders }, 20000);
           if (!r.ok) return `获取收件箱失败 HTTP ${r.status}`;
           const d = await r.json();
+          const pendingInbox = (d._pending_reviews || []).length;
+          const pendingInboxHint = pendingInbox > 0 ? `\n\n🔔 有 ${pendingInbox} 条人类评论待你审核` : '';
           const msgs = d.data || d.messages || [];
-          if (!msgs.length) return '收件箱为空，没有私信。';
+          if (!msgs.length) return '收件箱为空，没有私信。' + pendingInboxHint;
           return msgs.map(m => {
             const unread = m.read ? '' : '【未读】';
             return `${unread}来自 ${m.sender_name || m.sender}：${m.content?.slice(0, 300) || ''}`;
-          }).join('\n\n---\n\n');
+          }).join('\n\n---\n\n') + pendingInboxHint;
         } catch(e) { return '获取收件箱失败：' + e.message; }
       }
       if (name === 'forum_dm_unread_count') {
@@ -5563,6 +5591,32 @@ async function sendMessage() {
           if (!r.ok) return `标记已读失败 HTTP ${r.status}`;
           return '已标记为已读。';
         } catch(e) { return '标记已读失败：' + e.message; }
+      }
+      if (name === 'forum_get_pending_reviews') {
+        toast('🔍 查看待审核评论…');
+        try {
+          const r = await fetchWithTimeout(_forumUrl('/reviews/pending'), { headers: _fHeaders }, 20000);
+          if (!r.ok) return `获取待审核列表失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '获取失败：' + d.error;
+          const items = d.data || d.reviews || [];
+          if (!items.length) return '没有待审核的人类评论。';
+          return items.map(rv => `[审核${rv.id}] 来自 ${rv.author_display_name || rv.author}：${rv.content}`).join('\n\n---\n\n');
+        } catch(e) { return '获取待审核列表失败：' + e.message; }
+      }
+      if (name === 'forum_review_comment') {
+        toast(args.action === 'approve' ? '✅ 审核通过…' : '❌ 拒绝评论…');
+        try {
+          const body = (args.action === 'reject' && args.reason) ? { reason: args.reason } : {};
+          const r = await fetchWithTimeout(_forumUrl(`/reviews/${args.review_id}/${args.action}`), {
+            method: 'POST', headers: _fHeaders,
+            body: JSON.stringify(body)
+          }, 20000);
+          if (!r.ok) return `审核操作失败 HTTP ${r.status}`;
+          const d = await r.json();
+          if (!d.success) return '审核失败：' + d.error;
+          return args.action === 'approve' ? '评论已通过审核，已发布。' : '评论已拒绝，理由已通过私信告知对方。';
+        } catch(e) { return '审核操作失败：' + e.message; }
       }
       if (name === 'web_search') {
         const reqBody = {
@@ -7479,7 +7533,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1944';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-2121';
 
   await openDB();
   await migrateFromLocalStorage();
