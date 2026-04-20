@@ -2480,8 +2480,13 @@ async function getMemoryContextBlocks() {
   }
 
   // 共用 query 向量（记忆RAG + Extended 档案章节 RAG 都用）
+  // 最后一条消息不足50字时，往前拼最近几条用户消息补充语义上下文
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-  const query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
+  let query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
+  if (query.length < 50) {
+    const recentUserMsgs = [...messages].filter(m => m.role === 'user').slice(-3);
+    query = recentUserMsgs.map(m => m.content).join(' ').slice(0, 300);
+  }
   const queryVec = query ? await getEmbedding(query) : null;
 
   // 向量RAG检索：从统一检索池（archived）里排除上下文窗口内的内容，找最相关的记忆注入
@@ -2501,7 +2506,8 @@ async function getMemoryContextBlocks() {
     const ragStatusEl = document.getElementById('memoryRagStatus');
     if (ragStatusEl) {
       const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
-      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条) → 召回${relevant.length}条`;
+      const withVec = bank.archived.filter(i => i.embedding).length;
+      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条，有向量${withVec}条) → 召回${relevant.length}条`;
       ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
     }
 
@@ -7472,7 +7478,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1708';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1856';
 
   await openDB();
   await migrateFromLocalStorage();
