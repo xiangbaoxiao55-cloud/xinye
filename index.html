@@ -3150,8 +3150,11 @@ async function saveToLocal() {
   try {
     // 本地备份保留最近2000条，作为 IndexedDB 被清除时的恢复来源
     const recentMsgs = messages.length > 2000 ? messages.slice(-2000) : messages;
-    // 向量数据不进localStorage备份（太大会撑爆5MB限额）
+    // localStorage副本只保留恢复必要的小字段，大数据留在IndexedDB
     const settingsForLocal = JSON.parse(JSON.stringify(settings));
+    // 剔除大字段（记忆档案、分层索引缓存、向量）
+    const _bigFields = ['memoryArchive','memoryArchiveCore','memoryArchiveAlways','memoryArchiveExtended','memoryArchiveCoreMarkers','_digestRawOutput'];
+    _bigFields.forEach(k => { delete settingsForLocal[k]; });
     if (settingsForLocal.memoryBank) {
       for (const list of ['pinned', 'recent', 'archived']) {
         (settingsForLocal.memoryBank[list] || []).forEach(m => { delete m.embedding; });
@@ -3165,10 +3168,6 @@ async function saveToLocal() {
         if (m.image) r.image = m.image;
         return r;
       }),
-      images: {
-        aiAvatar: await dbGet('images', 'aiAvatar') || null,
-        userAvatar: await dbGet('images', 'userAvatar') || null,
-      }
     };
     localStorage.setItem('fox_auto_save', JSON.stringify(localData));
   } catch (e) {
@@ -7363,7 +7362,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1135';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1223';
 
   await openDB();
   await migrateFromLocalStorage();
