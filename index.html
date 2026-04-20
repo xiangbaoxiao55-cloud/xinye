@@ -2759,7 +2759,7 @@ function editMemoryEntry(id) {
 }
 
 function saveMemoryEdit(id, isViewer) {
-  const chip = document.getElementById('memchip_' + id) || document.getElementById('mvchip_' + id);
+  const chip = document.getElementById('mvchip_' + id) || document.getElementById('memchip_' + id);
   const taEl = chip ? chip.querySelector('textarea') : null;
   if (!taEl) return;
   const newContent = taEl.value.trim();
@@ -7218,7 +7218,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-0849';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-0856';
 
   await openDB();
   await migrateFromLocalStorage();
