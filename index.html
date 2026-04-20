@@ -2567,8 +2567,15 @@ function applyOneArchiveOp(lines, op) {
   if (action === 'update') {
     const { start, end } = findSec(section);
     if (start === -1) return;
+    // 优先找粗体格式 - **key**：
     for (let i = start + 1; i < end; i++) {
       if (/^- \*\*/.test(lines[i]) && lines[i].includes(`**${key}**`)) {
+        lines[i] = `- **${key}**：${value}`; return;
+      }
+    }
+    // 降级：找无粗体格式 - key：或 - key:
+    for (let i = start + 1; i < end; i++) {
+      if (/^- /.test(lines[i]) && lines[i].slice(2).startsWith(key)) {
         lines[i] = `- **${key}**：${value}`; return;
       }
     }
@@ -7464,7 +7471,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1637';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1705';
 
   await openDB();
   await migrateFromLocalStorage();
