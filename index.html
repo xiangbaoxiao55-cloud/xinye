@@ -3892,6 +3892,8 @@ async function digestMemory() {
 - 某个类目改动太多小补丁反而乱→rewrite那个类目
 - 过时或已被新内容替代的→delete并说明原因
 - 没变化的→不输出
+- 每次整理时顺便检查"近况·会过期"板块，超过30天没在对话中提及的条目建议delete
+- 其他板块如果发现两条内容说的是同一件事，合并成一条
 
 约束：
 - 单条add/update不超过150字
@@ -3902,6 +3904,7 @@ async function digestMemory() {
 - 系统提示词里已有的行为规则不要写进档案
 - 用炘也的语气写，不要变成第三方旁白
 - 近况类信息归入"近况·会过期"
+- 关键时刻和事件类条目最多三句话——一句是什么事，一句是她的反应，一句是我学到的。保留情感温度但不展开
 - 如果这次对话没有值得记录的新内容，只输出 <patch></patch>
 - JSON结构符号（逗号、冒号、括号）必须用半角ASCII字符，不要用全角
 - value里的换行用 \n 转义，不要直接换行
@@ -7430,7 +7433,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1525';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1539';
 
   await openDB();
   await migrateFromLocalStorage();
