@@ -7103,7 +7103,10 @@ async function doImportPresetsOnly(jsonText) {
   const data = JSON.parse(jsonText);
   if (data.apiPresets && Array.isArray(data.apiPresets))     setApiPresets(data.apiPresets);
   if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
-  if (data.chatStickers && Array.isArray(data.chatStickers))  saveChatStickers(data.chatStickers);
+  if (data.chatStickers && Array.isArray(data.chatStickers)) {
+    try { saveChatStickers(data.chatStickers); }
+    catch(e) { toast('⚠️ 聊天贴纸图片过大，已跳过（其他数据正常恢复）'); }
+  }
   if (data.stickers && Array.isArray(data.stickers)) {
     await dbClear('stickers');
     for (const s of data.stickers) await dbPut('stickers', null, s);
@@ -7207,7 +7210,8 @@ async function doImport(jsonText) {
 
   // 导入聊天贴纸（两种备份都恢复）
   if (data.chatStickers && Array.isArray(data.chatStickers) && data.chatStickers.length > 0) {
-    saveChatStickers(data.chatStickers);
+    try { saveChatStickers(data.chatStickers); }
+    catch(e) { toast('⚠️ 聊天贴纸图片过大，已跳过（其他数据正常恢复）'); console.warn('[import] chatStickers超出localStorage配额:', e); }
   }
 
   // 导入RP对话记录
@@ -7359,7 +7363,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-1049';
+  if (_verEl) _verEl.textContent = 'v2026.04.20-1112';
 
   await openDB();
   await migrateFromLocalStorage();
