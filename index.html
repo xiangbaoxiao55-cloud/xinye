@@ -1508,6 +1508,7 @@ if('serviceWorker' in navigator){
         <option value="local">本地 GPT-SoVITS（电脑用）</option>
         <option value="doubao">豆包云端 TTS（需服务器中转）</option>
         <option value="mosi">MOSI-TTS 云端（音色克隆）</option>
+        <option value="minimax">MiniMax TTS 云端</option>
         <option value="omnivoice">OmniVoice 本地（音色克隆）</option>
       </select>
     </div>
@@ -1557,6 +1558,32 @@ if('serviceWorker' in navigator){
         <label>Cloudflare 代理地址（解决手机 CORS）</label>
         <input type="url" id="setDoubaoProxy" placeholder="https://doubao-tts-proxy.你.workers.dev">
         <div class="hint">填入 Cloudflare Worker 地址后，语音请求经代理发出，手机浏览器也能用豆包专用音色</div>
+      </div>
+    </div>
+    <!-- MiniMax TTS 字段 -->
+    <div id="minimaxFields">
+      <div class="setting-group">
+        <label>MiniMax API Key</label>
+        <input type="password" id="setMinimaxKey" placeholder="eyJ...">
+      </div>
+      <div class="setting-group">
+        <label>Group ID</label>
+        <input type="text" id="setMinimaxGroupId" placeholder="在 MiniMax 开放平台获取">
+      </div>
+      <div class="setting-group-row">
+        <div class="setting-group">
+          <label>Voice ID</label>
+          <input type="text" id="setMinimaxVoiceId" placeholder="female-shaonv">
+        </div>
+        <div class="setting-group">
+          <label>模型</label>
+          <input type="text" id="setMinimaxModel" placeholder="speech-01-turbo">
+        </div>
+      </div>
+      <div class="setting-group">
+        <label>代理地址（解决 CORS）</label>
+        <input type="url" id="setMinimaxProxy" placeholder="https://minimax-tts-proxy.你.workers.dev">
+        <div class="hint">手机访问需 Cloudflare Worker 中转，电脑直接填空即可</div>
       </div>
     </div>
     <!-- MOSI TTS 字段 -->
@@ -2010,6 +2037,7 @@ let settings = {
   doubaoAppId: '', doubaoToken: '', doubaoVoice: '', doubaoCluster: 'volcano_tts',
   doubaoProxy: '',
   mosiKey: '', mosiVoiceId: '',
+  minimaxKey: '', minimaxGroupId: '', minimaxVoiceId: '', minimaxModel: '', minimaxProxy: '',
   idleRemind: 0, waterRemind: 0, standRemind: 0, dreamEnabled: false, dreamSleepHours: 6,
   memoryArchive: '',
   memoryArchiveCoreMarkers: '',
@@ -4447,6 +4475,31 @@ function fetchWithTimeout(url, opts, ms = 60000) {
 }
 
 async function generateTTSBlob(text) {
+  // ---- MiniMax TTS ----
+  if (settings.ttsType === 'minimax') {
+    if (!settings.minimaxKey || !settings.minimaxGroupId) { toast('请先填写 MiniMax API Key 和 Group ID'); return null; }
+    const endpoint = (settings.minimaxProxy || '').trim()
+      ? settings.minimaxProxy.trim().replace(/\/+$/, '')
+      : `https://api.minimax.chat/v1/t2a_v2?GroupId=${settings.minimaxGroupId}`;
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.minimaxKey}` },
+      body: JSON.stringify({
+        model: settings.minimaxModel || 'speech-01-turbo',
+        text,
+        stream: false,
+        voice_setting: { voice_id: settings.minimaxVoiceId || 'female-shaonv', speed: 1.0, vol: 1.0, pitch: 0 },
+        audio_setting: { audio_sample_rate: 32000, bitrate: 128000, format: 'mp3' }
+      })
+    }, 60000);
+    if (!res.ok) throw new Error(`MiniMax TTS HTTP ${res.status}`);
+    const j = await res.json();
+    const hex = j.data?.audio;
+    if (!hex) throw new Error('MiniMax TTS 未返回音频，请检查 Key / Group ID / Voice ID');
+    const arr = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < arr.length; i++) arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    return new Blob([arr], { type: 'audio/mpeg' });
+  }
   // ---- MOSI TTS ----
   if (settings.ttsType === 'mosi') {
     if (!settings.mosiKey || !settings.mosiVoiceId) { toast('请先填写 MOSI API Key 和 Voice ID'); return null; }
@@ -6270,6 +6323,11 @@ async function openSettings() {
   $('#setDoubaoProxy').value = settings.doubaoProxy || '';
   $('#setMosiKey').value = settings.mosiKey || '';
   $('#setMosiVoiceId').value = settings.mosiVoiceId || '';
+  $('#setMinimaxKey').value = settings.minimaxKey || '';
+  $('#setMinimaxGroupId').value = settings.minimaxGroupId || '';
+  $('#setMinimaxVoiceId').value = settings.minimaxVoiceId || '';
+  $('#setMinimaxModel').value = settings.minimaxModel || '';
+  $('#setMinimaxProxy').value = settings.minimaxProxy || '';
   $('#setDisplayLimit').value = settings.displayLimit || 0;
   $('#setIdleRemind').value = settings.idleRemind || 0;
   $('#setWaterRemind').value = settings.waterRemind || 0;
@@ -6702,6 +6760,11 @@ $('#btnSaveSettings').onclick = async () => {
   settings.doubaoProxy = $('#setDoubaoProxy').value.trim();
   settings.mosiKey = $('#setMosiKey').value.trim();
   settings.mosiVoiceId = $('#setMosiVoiceId').value.trim();
+  settings.minimaxKey = $('#setMinimaxKey').value.trim();
+  settings.minimaxGroupId = $('#setMinimaxGroupId').value.trim();
+  settings.minimaxVoiceId = $('#setMinimaxVoiceId').value.trim();
+  settings.minimaxModel = $('#setMinimaxModel').value.trim();
+  settings.minimaxProxy = $('#setMinimaxProxy').value.trim();
   settings.omnivoiceUrl = $('#setOmnivoiceUrl').value.trim() || 'https://xinye-omni-tts.cpolar.top';
   settings.omnivoiceXinyeAudio = $('#setOmnivoiceXinyeAudio').value.trim() || '';
   settings.omnivoiceChouAudio = $('#setOmnivoiceChouAudio').value.trim() || '';
@@ -6731,10 +6794,12 @@ function updateTtsTypeUI() {
   const local = $('#localTtsFields');
   const mosi = $('#mosiFields');
   const omnivoice = $('#omnivoiceFields');
+  const minimax = $('#minimaxFields');
   if (doubao) doubao.style.display = type === 'doubao' ? '' : 'none';
   if (local) local.style.display = type === 'local' ? '' : 'none';
   if (mosi) mosi.style.display = type === 'mosi' ? '' : 'none';
   if (omnivoice) omnivoice.style.display = type === 'omnivoice' ? '' : 'none';
+  if (minimax) minimax.style.display = type === 'minimax' ? '' : 'none';
 }
 
 // ======================== 音色预设管理 ========================
@@ -7609,7 +7674,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-1921';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-1936';
 
   await openDB();
   await migrateFromLocalStorage();
