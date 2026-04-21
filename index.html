@@ -4478,9 +4478,10 @@ async function generateTTSBlob(text) {
   // ---- MiniMax TTS ----
   if (settings.ttsType === 'minimax') {
     if (!settings.minimaxKey || !settings.minimaxGroupId) { toast('请先填写 MiniMax API Key 和 Group ID'); return null; }
-    const endpoint = (settings.minimaxProxy || '').trim()
+    const _mmBase = (settings.minimaxProxy || '').trim()
       ? settings.minimaxProxy.trim().replace(/\/+$/, '')
-      : `https://api.minimax.chat/v1/t2a_v2?GroupId=${settings.minimaxGroupId}`;
+      : 'https://api.minimax.chat/v1/t2a_v2';
+    const endpoint = _mmBase.includes('GroupId') ? _mmBase : `${_mmBase}?GroupId=${settings.minimaxGroupId}`;
     const res = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.minimaxKey}` },
@@ -7674,7 +7675,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-1936';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2027';
 
   await openDB();
   await migrateFromLocalStorage();
