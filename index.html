@@ -3502,13 +3502,19 @@ async function renderMessages() {
     if (!isUser && msg.content) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); applyStickerTags(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
-  // 标记已缓存语音按钮
+  // 标记已缓存语音按钮，并恢复speak语音条
   try {
     const cachedKeys = new Set(await dbGetAllKeys('ttsCache'));
     if (cachedKeys.size > 0) {
       chatArea.querySelectorAll('.btn-tts,.btn-tts-dl').forEach(btn => {
         if (cachedKeys.has(Number(btn.dataset.id))) btn.classList.add('cached');
       });
+    }
+    // 恢复speak触发的语音条
+    const speakMsgs = messages.filter(m => m._speakTTS && m.role === 'assistant');
+    for (const msg of speakMsgs) {
+      const blob = await dbGet('ttsCache', msg.id);
+      if (blob) showVoiceBar(msg.id, blob);
     }
   } catch(_){}
   scrollBottom();
@@ -4717,6 +4723,10 @@ async function playTTS(text, btnEl, msgId) {
 function maybeTTS(text, msgId) {
   const sr = !!window._speakRequested;
   window._speakRequested = false;
+  if (sr) {
+    const msg = messages.find(m => m.id === msgId);
+    if (msg) { msg._speakTTS = true; saveSettings(); }
+  }
   if ((settings.ttsAutoPlay || sr) && text) enqueueTTS(text, msgId, sr);
 }
 function enqueueTTS(text, msgId, showBar = false) {
@@ -7727,7 +7737,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2150';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2155';
 
   await openDB();
   await migrateFromLocalStorage();
