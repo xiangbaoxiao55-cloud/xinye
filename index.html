@@ -3513,7 +3513,8 @@ async function renderMessages() {
       });
     }
     // 恢复speak触发的语音条
-    const speakMsgs = messages.filter(m => m._speakTTS && m.role === 'assistant');
+    const speakIds = new Set(settings.speakTTSIds || []);
+    const speakMsgs = messages.filter(m => speakIds.has(m.id) && m.role === 'assistant');
     for (const msg of speakMsgs) {
       const blob = await dbGet('ttsCache', msg.id);
       if (blob) showVoiceBar(msg.id, blob);
@@ -4726,8 +4727,9 @@ function maybeTTS(text, msgId) {
   const sr = !!window._speakRequested;
   window._speakRequested = false;
   if (sr) {
-    const msg = messages.find(m => m.id === msgId);
-    if (msg) { msg._speakTTS = true; saveSettings(); }
+    settings.speakTTSIds = settings.speakTTSIds || [];
+    if (!settings.speakTTSIds.includes(msgId)) settings.speakTTSIds.push(msgId);
+    saveSettings();
   }
   if ((settings.ttsAutoPlay || sr) && text) enqueueTTS(text, msgId, sr);
 }
@@ -7739,7 +7741,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2207';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2212';
 
   await openDB();
   await migrateFromLocalStorage();
