@@ -273,6 +273,8 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
 @keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
 .tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
+.tts-vbar-toggle{font-size:11px;color:var(--text-light);cursor:pointer;padding:2px 4px;opacity:.7;display:block;margin-bottom:3px}
+.tts-vbar-toggle:hover{opacity:1}
 
 /* 收藏面板卡片 */
 .bm-card-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 5px rgba(0,0,0,.1);background:var(--bm-avatar) center/cover no-repeat}
@@ -3598,7 +3600,7 @@ chatArea.addEventListener('click', e => {
   if (dlBtn) {
     const id = Number(dlBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
-    if (msg) downloadTTS(stripThinking(msg.content), id);
+    if (msg) downloadTTS(stripForTTS(msg.content), id);
     return;
   }
   // TTS 播放
@@ -4460,6 +4462,19 @@ let _ttsQueueRunning = false;
 function stripThinking(t) {
   return t.replace(/<thinking>[\s\S]*?<\/thinking>\s*/gi, '').trim();
 }
+function stripForTTS(t) {
+  return t
+    .replace(/<thinking>[\s\S]*?<\/thinking>\s*/gi, '') // 思考链
+    .replace(/\[sticker:[^\]]{1,20}\]/g, '')             // sticker标签
+    .replace(/（.+?发了一个「.+?」贴纸）/g, '')           // 贴纸消息
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')              // emoji高位
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')                // 杂项符号emoji
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')                // 变体选择符
+    .replace(/[\u1400-\u167F]+/g, '')                    // 加拿大音节文字（ᓚᘏᗢ类）
+    .replace(/[（(][^\u4e00-\u9fa5a-zA-Z\n]{1,20}[）)]/g, '') // ASCII颜文字
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 function blobExt(blob) {
   if (blob.type.includes('mpeg') || blob.type.includes('mp3')) return 'mp3';
@@ -4636,7 +4651,7 @@ function playAudioBlob(blob, btnEl) {
 }
 
 async function playTTS(text, btnEl, msgId) {
-  text = stripThinking(text); // 过滤思考链
+  text = stripForTTS(text);
   if (!text) return;
   // ---- 浏览器内置 speechSynthesis ----
   if (settings.ttsType === 'browser') {
@@ -4703,7 +4718,7 @@ function maybeTTS(text, msgId) {
   if ((settings.ttsAutoPlay || sr) && text) enqueueTTS(text, msgId, sr);
 }
 function enqueueTTS(text, msgId, showBar = false) {
-  text = stripThinking(text);
+  text = stripForTTS(text);
   if (!text) return;
   _ttsQueue.push({ text, msgId, showBar });
   if (!_ttsQueueRunning) _drainTTSQueue();
@@ -4747,14 +4762,26 @@ function showVoiceBar(msgId, blob) {
     const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
     bar.querySelector('.tts-vbar-dur').textContent = `${dur}″`;
   });
-  // 点击播放/暂停
+  // 点击语音条播放/暂停
   bar.addEventListener('click', () => btnEl.click());
   // 同步playing状态
   const observer = new MutationObserver(() => {
     bar.classList.toggle('playing', btnEl.classList.contains('playing'));
   });
   observer.observe(btnEl, { attributes: true, attributeFilter: ['class'] });
+  // 折叠文字气泡，添加展开按钮
+  if (bubble) bubble.style.display = 'none';
+  const toggleBtn = document.createElement('span');
+  toggleBtn.className = 'tts-vbar-toggle';
+  toggleBtn.textContent = '展开文字';
+  toggleBtn.onclick = (e) => {
+    e.stopPropagation();
+    const hidden = bubble.style.display === 'none';
+    bubble.style.display = hidden ? '' : 'none';
+    toggleBtn.textContent = hidden ? '收起' : '展开文字';
+  };
   content.insertBefore(bar, bubble);
+  content.insertBefore(toggleBtn, bubble);
 }
 
 async function downloadTTS(text, msgId) {
@@ -7675,7 +7702,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2027';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2116';
 
   await openDB();
   await migrateFromLocalStorage();
