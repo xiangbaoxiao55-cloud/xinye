@@ -273,8 +273,10 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
 @keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
 .tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
-.tts-vbar-progress{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:0 2px}
-.tts-vbar-progress-fill{height:100%;width:0%;background:var(--pink,#e88);border-radius:2px;transition:width .2s linear}
+.tts-voice-bar{flex-direction:column;align-items:stretch;gap:5px}
+.tts-vbar-row{display:flex;align-items:center;gap:8px}
+.tts-vbar-progress{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
+.tts-vbar-progress-fill{height:100%;width:0%;background:var(--pink,#e88);border-radius:2px;transition:width .25s linear}
 .tts-vbar-toggle{font-size:11px;color:var(--text-light);cursor:pointer;padding:2px 4px;opacity:.7;display:block;margin-bottom:3px}
 .tts-vbar-toggle:hover{opacity:1}
 
@@ -4772,7 +4774,7 @@ function showVoiceBar(msgId, blob) {
   const bar = document.createElement('div');
   bar.className = 'tts-voice-bar';
   bar.dataset.id = msgId;
-  bar.innerHTML = `<button class="tts-vbar-play">▶</button><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div><span class="tts-vbar-dur">…</span>`;
+  bar.innerHTML = `<div class="tts-vbar-row"><button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span></div><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div>`;
   const playBtn = bar.querySelector('.tts-vbar-play');
   const fill = bar.querySelector('.tts-vbar-progress-fill');
   const durEl = bar.querySelector('.tts-vbar-dur');
@@ -7737,7 +7739,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2155';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2207';
 
   await openDB();
   await migrateFromLocalStorage();
