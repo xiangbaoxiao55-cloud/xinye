@@ -243,6 +243,36 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 }
 .btn-tts-dl:hover{opacity:1;transform:scale(1.15)}
 .btn-tts-dl.cached{opacity:.9;color:#4caf50}
+/* 炘也主动语音条（speak工具触发） */
+.tts-voice-bar{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:8px 14px;margin-bottom:5px;
+  cursor:pointer;max-width:180px;user-select:none;
+  transition:opacity .2s;
+}
+.tts-voice-bar:active{opacity:.7}
+.tts-vbar-play{
+  background:none;border:none;cursor:pointer;
+  color:var(--text);font-size:13px;padding:0;line-height:1;flex-shrink:0;
+}
+.tts-vbar-waves{display:flex;align-items:center;gap:2.5px;height:18px;flex:1}
+.tts-vbar-waves span{
+  width:3px;background:var(--pink,#e88);border-radius:2px;
+  transition:height .1s;
+}
+.tts-vbar-waves span:nth-child(1){height:6px}
+.tts-vbar-waves span:nth-child(2){height:12px}
+.tts-vbar-waves span:nth-child(3){height:16px}
+.tts-vbar-waves span:nth-child(4){height:10px}
+.tts-vbar-waves span:nth-child(5){height:6px}
+.tts-voice-bar.playing .tts-vbar-waves span{animation:ttsWaveBar .7s ease-in-out infinite}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(2){animation-delay:.1s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(3){animation-delay:.2s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(4){animation-delay:.15s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
+@keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
+.tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
 
 /* 收藏面板卡片 */
 .bm-card-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 5px rgba(0,0,0,.1);background:var(--bm-avatar) center/cover no-repeat}
@@ -4385,7 +4415,7 @@ ${dream}
       const aiMsg = await addMessage('assistant', reply);
       await appendMsgDOM(aiMsg);
       try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, data.model || sub.model || ''); } catch(_e) { console.warn('saveTokenLog', _e); }
-      if (settings.ttsAutoPlay) { enqueueTTS(reply, aiMsg.id); }
+      maybeTTS(reply, aiMsg.id);
     }
   } catch(err) { console.error('[Proactive]', err); }
   finally { typing.classList.remove('show'); isRequesting = false; btnSend.disabled = false; }
@@ -4613,16 +4643,21 @@ async function playTTS(text, btnEl, msgId) {
 }
 
 // TTS 自动播放排队：连续消息不打断，一条一条播
-function enqueueTTS(text, msgId) {
+function maybeTTS(text, msgId) {
+  const sr = !!window._speakRequested;
+  window._speakRequested = false;
+  if ((settings.ttsAutoPlay || sr) && text) enqueueTTS(text, msgId, sr);
+}
+function enqueueTTS(text, msgId, showBar = false) {
   text = stripThinking(text);
   if (!text) return;
-  _ttsQueue.push({ text, msgId });
+  _ttsQueue.push({ text, msgId, showBar });
   if (!_ttsQueueRunning) _drainTTSQueue();
 }
 async function _drainTTSQueue() {
   _ttsQueueRunning = true;
   while (_ttsQueue.length) {
-    const { text, msgId } = _ttsQueue.shift();
+    const { text, msgId, showBar } = _ttsQueue.shift();
     try {
       let blob = await dbGet('ttsCache', msgId);
       if (!blob) {
@@ -4630,15 +4665,42 @@ async function _drainTTSQueue() {
         try { blob = await generateTTSBlob(text); } finally { _ttsGenerating.delete(msgId); }
         if (blob) { await dbPut('ttsCache', msgId, blob); markCached(msgId); }
       }
+      if (blob && showBar) showVoiceBar(msgId, blob);
       if (blob) await new Promise(resolve => {
         const audio = new Audio(URL.createObjectURL(blob));
-        audio.onended = resolve;
-        audio.onerror = resolve;
+        currentAudio = audio;
+        audio.onended = () => { currentAudio = null; resolve(); };
+        audio.onerror = () => { currentAudio = null; resolve(); };
         audio.play().catch(resolve);
       });
     } catch(e) { console.warn('[TTS Queue]', e); }
   }
   _ttsQueueRunning = false;
+}
+function showVoiceBar(msgId, blob) {
+  const btnEl = document.querySelector(`.btn-tts[data-id="${msgId}"]`);
+  if (!btnEl) return;
+  const content = btnEl.closest('.msg-content');
+  if (!content || content.querySelector('.tts-voice-bar')) return; // 已有则跳过
+  const bubble = content.querySelector('.msg-bubble');
+  const bar = document.createElement('div');
+  bar.className = 'tts-voice-bar';
+  bar.dataset.id = msgId;
+  bar.innerHTML = `<button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span>`;
+  // 获取时长
+  const tmpAudio = new Audio(URL.createObjectURL(blob));
+  tmpAudio.addEventListener('loadedmetadata', () => {
+    const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
+    bar.querySelector('.tts-vbar-dur').textContent = `${dur}″`;
+  });
+  // 点击播放/暂停
+  bar.addEventListener('click', () => btnEl.click());
+  // 同步playing状态
+  const observer = new MutationObserver(() => {
+    bar.classList.toggle('playing', btnEl.classList.contains('playing'));
+  });
+  observer.observe(btnEl, { attributes: true, attributeFilter: ['class'] });
+  content.insertBefore(bar, bubble);
 }
 
 async function downloadTTS(text, msgId) {
@@ -5006,6 +5068,16 @@ async function sendMessage() {
       }
     ] : [];
 
+    // speak 工具：炘也主动选择是否开口说话
+    _toolDefs.push({
+      type: 'function',
+      function: {
+        name: 'speak',
+        description: '炘也决定用语音说出这条回复。想开口说话、想让兔宝听到声音时调用。调用后这条回复会生成语音并以语音条形式显示。',
+        parameters: { type: 'object', properties: {}, required: [] }
+      }
+    });
+
     // 论坛工具始终可用（不依赖 tavily key）
     const _FORUM_UID = '5edcc2010000000001006864';
     const _FORUM_DIRECT = 'https://daskio.de5.net/forum/api/v1';
@@ -5293,6 +5365,10 @@ async function sendMessage() {
     async function _execTool(name, args) {
       console.warn('[Tool]', name, JSON.stringify(args));
       const _fHeaders = { 'Authorization': `Bearer ${_FORUM_UID}`, 'Content-Type': 'application/json' };
+      if (name === 'speak') {
+        window._speakRequested = true;
+        return '好，我开口说。';
+      }
       if (name === 'forum_get_post') {
         toast('📖 查看帖子…');
         try {
@@ -5816,7 +5892,7 @@ async function sendMessage() {
           const aiMsg = await addMessage('assistant', finalText);
           await appendMsgDOM(aiMsg);
           try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
-          if (settings.ttsAutoPlay && finalText) enqueueTTS(finalText, aiMsg.id);
+          maybeTTS(finalText, aiMsg.id);
         } else {
           if (parsed.think) parsed.bubbleEl.textContent = finalText;
           const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
@@ -5824,7 +5900,7 @@ async function sendMessage() {
           try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
           try { if (finalText) { linkifyEl(parsed.bubbleEl, finalText); applyStickerTags(parsed.bubbleEl); } } catch(_e) {}
           try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
-          if (settings.ttsAutoPlay && finalText) enqueueTTS(finalText, parsed.aiMsg.id);
+          maybeTTS(finalText, parsed.aiMsg.id);
         }
         rememberLatestExchange(); autoDigestMemory(); updateMoodState();
       }
@@ -5839,7 +5915,7 @@ async function sendMessage() {
           const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
           try { linkifyEl(_nb, text); applyStickerTags(_nb); } catch(_e) {}
           try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
-          if (settings.ttsAutoPlay && text) enqueueTTS(text, _nm.id);
+          maybeTTS(text, _nm.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState();
         }
         // 第一轮：非流式 + 工具定义，检测是否需要搜索
@@ -5959,7 +6035,7 @@ async function sendMessage() {
         const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
         try { linkifyEl(_nb, _ft); applyStickerTags(_nb); } catch(_e) {}
         try { saveTokenLog(_nm.id, loopMsgs, _ft, {}, _apiMeta, settings.model || ''); } catch(_e) {}
-        if (settings.ttsAutoPlay && _ft) enqueueTTS(_ft, _nm.id);
+        maybeTTS(_ft, _nm.id);
         rememberLatestExchange(); autoDigestMemory(); updateMoodState();
       } else {
         // _m2 为空或请求失败，回退到流式最终请求
@@ -5987,7 +6063,7 @@ async function sendMessage() {
       const aiMsg = await addMessage('assistant', reply);
       await appendMsgDOM(aiMsg);
       try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, data.model || settings.model || ''); } catch(_e) {}
-      if (settings.ttsAutoPlay && reply) enqueueTTS(reply, aiMsg.id);
+      maybeTTS(reply, aiMsg.id);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState();
 
     } else {
@@ -6034,7 +6110,7 @@ async function sendMessage() {
       try { await updateMessage(aiMsg.id, fullText); } catch(_e) {}
       try { if (fullText) { linkifyEl(bubbleEl, fullText); applyStickerTags(bubbleEl); } } catch(_e) {}
       try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, settings.model || ''); } catch(_e) {}
-      if (settings.ttsAutoPlay && fullText) enqueueTTS(fullText, aiMsg.id);
+      maybeTTS(fullText, aiMsg.id);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState();
     }
   } catch(err) {
@@ -7533,7 +7609,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.20-2133';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-1921';
 
   await openDB();
   await migrateFromLocalStorage();
