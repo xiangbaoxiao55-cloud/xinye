@@ -273,6 +273,8 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
 @keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
 .tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
+.tts-vbar-progress{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:0 2px}
+.tts-vbar-progress-fill{height:100%;width:0%;background:var(--pink,#e88);border-radius:2px;transition:width .2s linear}
 .tts-vbar-toggle{font-size:11px;color:var(--text-light);cursor:pointer;padding:2px 4px;opacity:.7;display:block;margin-bottom:3px}
 .tts-vbar-toggle:hover{opacity:1}
 
@@ -4734,12 +4736,17 @@ async function _drainTTSQueue() {
         try { blob = await generateTTSBlob(text); } finally { _ttsGenerating.delete(msgId); }
         if (blob) { await dbPut('ttsCache', msgId, blob); markCached(msgId); }
       }
-      if (blob && showBar) showVoiceBar(msgId, blob);
+      const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
       if (blob) await new Promise(resolve => {
-        const audio = new Audio(URL.createObjectURL(blob));
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
         currentAudio = audio;
-        audio.onended = () => { currentAudio = null; resolve(); };
-        audio.onerror = () => { currentAudio = null; resolve(); };
+        if (barCtrl) barCtrl.setPlaying(true);
+        audio.addEventListener('timeupdate', () => {
+          if (barCtrl && audio.duration) barCtrl.setProgress(audio.currentTime / audio.duration);
+        });
+        audio.onended = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
+        audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
         audio.play().catch(resolve);
       });
     } catch(e) { console.warn('[TTS Queue]', e); }
@@ -4748,28 +4755,45 @@ async function _drainTTSQueue() {
 }
 function showVoiceBar(msgId, blob) {
   const btnEl = document.querySelector(`.btn-tts[data-id="${msgId}"]`);
-  if (!btnEl) return;
+  if (!btnEl) return null;
   const content = btnEl.closest('.msg-content');
-  if (!content || content.querySelector('.tts-voice-bar')) return; // 已有则跳过
+  if (!content || content.querySelector('.tts-voice-bar')) return null;
   const bubble = content.querySelector('.msg-bubble');
   const bar = document.createElement('div');
   bar.className = 'tts-voice-bar';
   bar.dataset.id = msgId;
-  bar.innerHTML = `<button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span>`;
+  bar.innerHTML = `<button class="tts-vbar-play">▶</button><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div><span class="tts-vbar-dur">…</span>`;
+  const playBtn = bar.querySelector('.tts-vbar-play');
+  const fill = bar.querySelector('.tts-vbar-progress-fill');
+  const durEl = bar.querySelector('.tts-vbar-dur');
   // 获取时长
   const tmpAudio = new Audio(URL.createObjectURL(blob));
   tmpAudio.addEventListener('loadedmetadata', () => {
     const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
-    bar.querySelector('.tts-vbar-dur').textContent = `${dur}″`;
+    durEl.textContent = `${dur}″`;
   });
-  // 点击语音条播放/暂停
+  // 控制器：供外部设置播放状态和进度
+  const ctrl = {
+    setPlaying(playing) {
+      bar.classList.toggle('playing', playing);
+      playBtn.textContent = playing ? '⏸' : '▶';
+      if (!playing) fill.style.width = '0%';
+    },
+    setProgress(ratio) {
+      fill.style.width = `${Math.min(100, ratio * 100).toFixed(1)}%`;
+    }
+  };
+  // 点击语音条：如果已结束就重播，正在播就暂停
   bar.addEventListener('click', () => btnEl.click());
-  // 同步playing状态
+  // 同步btnEl的playing类（手动点📢时）
   const observer = new MutationObserver(() => {
-    bar.classList.toggle('playing', btnEl.classList.contains('playing'));
+    const playing = btnEl.classList.contains('playing');
+    bar.classList.toggle('playing', playing);
+    playBtn.textContent = playing ? '⏸' : '▶';
+    if (!playing) fill.style.width = '0%';
   });
   observer.observe(btnEl, { attributes: true, attributeFilter: ['class'] });
-  // 折叠文字气泡，添加展开按钮
+  // 折叠文字气泡
   if (bubble) bubble.style.display = 'none';
   const toggleBtn = document.createElement('span');
   toggleBtn.className = 'tts-vbar-toggle';
@@ -4782,6 +4806,7 @@ function showVoiceBar(msgId, blob) {
   };
   content.insertBefore(bar, bubble);
   content.insertBefore(toggleBtn, bubble);
+  return ctrl;
 }
 
 async function downloadTTS(text, msgId) {
@@ -7702,7 +7727,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2116';
+  if (_verEl) _verEl.textContent = 'v2026.04.21-2150';
 
   await openDB();
   await migrateFromLocalStorage();
