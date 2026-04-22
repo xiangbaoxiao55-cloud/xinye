@@ -3520,7 +3520,7 @@ async function renderMessages() {
     if (_stickerName) {
       _bubbleInner = renderStickerHTML(_stickerName);
     } else if (!isUser && msg.isGenImage && msg.genImageData) {
-      _bubbleInner = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="max-width:220px;border-radius:12px;display:block"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+      _bubbleInner = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer" onclick="this.style.cssText=this.dataset.big==='1'?'width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer':'width:100%;height:auto;border-radius:12px;display:block;cursor:pointer';this.dataset.big=this.dataset.big==='1'?'':'1'"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -3576,7 +3576,7 @@ async function appendMsgDOM(msg) {
   if (_sn) {
     _bi = renderStickerHTML(_sn);
   } else if (!isUser && msg.isGenImage && msg.genImageData) {
-    _bi = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="max-width:220px;border-radius:12px;display:block"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+    _bi = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer" onclick="this.style.cssText=this.dataset.big==='1'?'width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer':'width:100%;height:auto;border-radius:12px;display:block;cursor:pointer';this.dataset.big=this.dataset.big==='1'?'':'1'"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -7947,7 +7947,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1840';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1843';
 
   await openDB();
   await migrateFromLocalStorage();
