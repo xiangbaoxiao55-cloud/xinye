@@ -5040,6 +5040,48 @@ function renderTokenLog(msgId) {
   panel.style.display = 'block';
 }
 // ======================== 画图功能 ========================
+async function autoSaveGenImage(dataUrl, msgId) {
+  const filename = `炘也画的图_${msgId}.png`;
+  try {
+    // 统一先拿到 base64 字符串和 blob
+    let b64, blob;
+    if (dataUrl.startsWith('data:')) {
+      b64 = dataUrl.split(',')[1];
+      const mime = dataUrl.match(/:(.*?);/)?.[1] || 'image/png';
+      const u8 = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      blob = new Blob([u8], { type: mime });
+    } else {
+      // 外部URL，先fetch
+      const resp = await fetch(dataUrl);
+      blob = await resp.blob();
+      b64 = await new Promise(r => {
+        const fr = new FileReader();
+        fr.onload = () => r(fr.result.split(',')[1]);
+        fr.readAsDataURL(blob);
+      });
+    }
+
+    if (window.AndroidDownload) {
+      // 手机APK：存到 Download 文件夹
+      window.AndroidDownload.downloadFile(filename, blob.type || 'image/png', b64);
+      toast('🎨 图片已保存到手机 Download');
+    } else {
+      // 电脑：触发浏览器下载到默认下载文件夹
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      toast('🎨 图片已下载到本地');
+    }
+  } catch(e) {
+    console.error('[画图] 自动保存失败', e);
+  }
+}
+
 function triggerDrawImage() {
   const desc = userInput.value.trim();
   if (!desc) { toast('在输入框写想画什么，再点🎨~'); return; }
@@ -5164,6 +5206,9 @@ async function generateImage(userDesc) {
     if (_idx >= 0) messages[_idx] = aiMsg;
 
     await appendMsgDOM(aiMsg);
+
+    // 自动保存图片
+    autoSaveGenImage(dataUrl, aiMsg.id);
 
   } catch(e) {
     if (e.name === 'AbortError') {
@@ -7947,7 +7992,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1843';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1846';
 
   await openDB();
   await migrateFromLocalStorage();
