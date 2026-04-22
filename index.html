@@ -5423,6 +5423,24 @@ async function sendMessage() {
       }
     });
 
+    // 画图工具：配置了画图API时激活
+    if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel !== 'gpt-image-1')) {
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'generate_image',
+          description: '当兔宝想让你帮她画图、或你想画图送给她时调用。你来决定画面内容和风格，用中文描述即可。',
+          parameters: {
+            type: 'object',
+            properties: {
+              prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' }
+            },
+            required: ['prompt']
+          }
+        }
+      });
+    }
+
     // 论坛工具始终可用（不依赖 tavily key）
     const _FORUM_UID = '5edcc2010000000001006864';
     const _FORUM_DIRECT = 'https://daskio.de5.net/forum/api/v1';
@@ -6038,6 +6056,49 @@ async function sendMessage() {
           if (!d.success) return '审核失败：' + d.error;
           return args.action === 'approve' ? '评论已通过审核，已发布。' : '评论已拒绝，理由已通过私信告知对方。';
         } catch(e) { return '审核操作失败：' + e.message; }
+      }
+      if (name === 'generate_image') {
+        toast('炘也正在画...');
+        const _imgKey = settings.imageApiKey || settings.apiKey;
+        const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+        const _imgModel = settings.imageModel || 'gpt-image-1';
+        try {
+          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
+          const _ctrl = new AbortController();
+          const _tid = setTimeout(() => _ctrl.abort(), 360000);
+          const _imgRes = await fetch(_genEp, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+            body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
+            signal: _ctrl.signal
+          });
+          clearTimeout(_tid);
+          if (!_imgRes.ok) {
+            const _ed = await _imgRes.json().catch(() => ({}));
+            return '画图失败：' + (_ed.error?.message || _imgRes.status);
+          }
+          const _imgData = await _imgRes.json();
+          console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
+          const _imgItem = _imgData.data?.[0] || _imgData.images?.[0] || _imgData;
+          let _dataUrl;
+          if (_imgItem?.b64_json) _dataUrl = `data:image/png;base64,${_imgItem.b64_json}`;
+          else if (_imgItem?.url) _dataUrl = _imgItem.url;
+          else return '画图API没返回图片';
+          // 单独存一条图片消息插入对话
+          const _ctxDesc = `[🎨 炘也画了一张图]\n描述：${args.prompt}`;
+          const _genMsg = await addMessage('assistant', _ctxDesc);
+          _genMsg.isGenImage = true;
+          _genMsg.genImageData = _dataUrl;
+          await dbPut(activeStore(), null, _genMsg);
+          const _gi = messages.findIndex(m => m.id === _genMsg.id);
+          if (_gi >= 0) messages[_gi] = _genMsg;
+          await appendMsgDOM(_genMsg);
+          autoSaveGenImage(_dataUrl, _genMsg.id);
+          return '[图已画好并展示给兔宝了]';
+        } catch(e) {
+          if (e.name === 'AbortError') return '画图超时了';
+          return '画图出错：' + e.message;
+        }
       }
       if (name === 'web_search') {
         const reqBody = {
@@ -7978,7 +8039,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1915';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1930';
 
   await openDB();
   await migrateFromLocalStorage();
