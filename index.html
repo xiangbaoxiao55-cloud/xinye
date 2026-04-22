@@ -5132,8 +5132,9 @@ async function generateImage(userDesc) {
     const tid = setTimeout(() => ctrl.abort(), 360000);
     let imgRes;
 
+    const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
     if (hasRef) {
-      // 有垫图：走 /images/edits，multipart/form-data
+      // 有垫图：先尝试 /images/edits，不支持时fallback到 /images/generations
       const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
       const editsEndpoint = `${baseRaw}/images/edits`;
       const form = new FormData();
@@ -5150,9 +5151,18 @@ async function generateImage(userDesc) {
         body: form,
         signal: ctrl.signal
       });
+      // API不支持edits时自动fallback到generations
+      if (imgRes.status === 404) {
+        console.log('[画图] edits接口不支持，fallback到generations');
+        imgRes = await fetch(genEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+          body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
+          signal: ctrl.signal
+        });
+      }
     } else {
       // 无垫图：走 /images/generations，JSON
-      const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
       imgRes = await fetch(genEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
@@ -6067,8 +6077,9 @@ async function sendMessage() {
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 360000);
           let _imgRes;
+          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           if (_hasRef) {
-            // 有垫图：走 edits，multipart/form-data
+            // 有垫图：先尝试 edits，不支持时fallback到generations
             const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
             const _form = new FormData();
             _form.append('model', _imgModel);
@@ -6082,9 +6093,18 @@ async function sendMessage() {
               body: _form,
               signal: _ctrl.signal
             });
+            // API不支持edits时自动fallback到generations
+            if (_imgRes.status === 404) {
+              console.log('[画图] edits接口不支持，fallback到generations');
+              _imgRes = await fetch(_genEp, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
+                signal: _ctrl.signal
+              });
+            }
           } else {
             // 无垫图：走 generations，JSON
-            const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
             _imgRes = await fetch(_genEp, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
@@ -8059,7 +8079,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-2108';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-2137';
 
   await openDB();
   await migrateFromLocalStorage();
