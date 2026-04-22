@@ -2124,7 +2124,7 @@ const MEMORY_PINNED_LIMIT = 8;
 const MEMORY_RAG_INJECT = 8;      // 每次最多注入几条相关记忆
 
 function stripThinkingTags(text) {
-  return String(text || '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+  return String(text || '').replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '').trim();
 }
 
 function createMemoryId() {
@@ -3692,8 +3692,8 @@ function renderMdHtml(text) {
     });
 }
 function linkifyEl(el, text) {
-  // 提取 <thinking> 块
-  const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/gi;
+  // 提取思考块，兼容多种括号格式：<thinking>、<think>、〈thinking〉、《thinking》
+  const thinkRegex = /(?:<thinking>|<think>|〈thinking〉|《thinking》)([\s\S]*?)(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi;
   let thinkHtml = '';
   let match;
   while ((match = thinkRegex.exec(text)) !== null) {
@@ -3703,7 +3703,7 @@ function linkifyEl(el, text) {
       thinkHtml += `<div class="thinking-block" onclick="this.classList.toggle('open')"><div class="thinking-header">💭 思考过程</div><div class="thinking-body">${esc(body)}</div></div>`;
     }
   }
-  const cleaned = text.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+  const cleaned = text.replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '').trim();
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
   // 渲染 LaTeX（$...$、$$...$$、\textcolor 等）
   if (typeof renderMathInElement !== 'undefined') {
@@ -7753,7 +7753,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1423';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1441';
 
   await openDB();
   await migrateFromLocalStorage();
