@@ -5038,17 +5038,27 @@ function triggerDrawImage() {
   generateImage(desc);
 }
 
+function base64ToFile(dataUrl, filename) {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1] || 'image/png';
+  const bstr = atob(arr[1]);
+  const u8arr = new Uint8Array(bstr.length);
+  for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+  return new File([u8arr], filename, { type: mime });
+}
+
 async function generateImage(userDesc) {
   if (!settings.apiKey) { toast('请先设置 API Key'); return; }
   if (isRequesting) return;
 
+  const refImgs = [...pendingImages];
   userInput.value = '';
   autoResize();
   pendingImages = [];
   $('#imgPreview').classList.remove('show');
   resetIdleTimer();
 
-  const userMsg = await addMessage('user', userDesc);
+  const userMsg = await addMessage('user', userDesc, refImgs.length ? refImgs : null);
   await appendMsgDOM(userMsg);
 
   isRequesting = true;
@@ -5056,12 +5066,17 @@ async function generateImage(userDesc) {
   typing.classList.add('show');
   scrollBottom();
 
+  const hasRef = refImgs.length > 0;
+
   try {
     // Step 1: 炘也生成英文提示词
-    toast('炘也正在想画面...');
+    toast(hasRef ? '炘也看图想画面...' : '炘也正在想画面...');
+    const sysPrompt = hasRef
+      ? '你是专业AI绘图提示词工程师。用户提供了参考图，并用中文描述了想要的效果。请生成一段高质量的英文绘图提示词（prompt），结合参考图的风格/构图意图和用户描述。直接输出提示词，不要任何解释或前缀，一段即可。'
+      : '你是专业AI绘图提示词工程师。根据用户的中文描述，生成一段高质量的英文绘图提示词（prompt）。要求：英文，简洁但视觉细节丰富，包含风格、光线、构图、色调等元素。直接输出提示词，不要任何解释或前缀，一段即可。';
     const promptRes = await mainApiFetch({
       messages: [
-        { role: 'system', content: '你是专业AI绘图提示词工程师。根据用户的中文描述，生成一段高质量的英文绘图提示词（prompt）。要求：英文，简洁但视觉细节丰富，包含风格、光线、构图、色调等元素。直接输出提示词，不要任何解释或前缀，一段即可。' },
+        { role: 'system', content: sysPrompt },
         { role: 'user', content: userDesc }
       ],
       max_tokens: 300,
@@ -5070,22 +5085,44 @@ async function generateImage(userDesc) {
     if (!promptRes || !promptRes.ok) throw new Error('生成提示词失败');
     const promptData = await promptRes.json();
     const prompt = promptData.choices[0].message.content.trim();
-    console.log('[画图] 提示词:', prompt);
+    console.log('[画图] 模式:', hasRef ? '垫图/改图' : '生成', '提示词:', prompt);
 
-    // Step 2: 调用画图API（复用主API的key+baseUrl）
-    toast('炘也正在画...');
+    // Step 2: 调用画图API
+    toast(hasRef ? '炘也正在改图...' : '炘也正在画...');
     const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const imgEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
     const imgModel = settings.imageModel || 'gpt-image-1';
-
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 180000);
-    const imgRes = await fetch(imgEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
-      body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
-      signal: ctrl.signal
-    });
+    let imgRes;
+
+    if (hasRef) {
+      // 有垫图：走 /images/edits，multipart/form-data
+      const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
+      const editsEndpoint = `${baseRaw}/images/edits`;
+      const form = new FormData();
+      form.append('model', imgModel);
+      form.append('prompt', prompt);
+      form.append('n', '1');
+      form.append('size', '1024x1024');
+      refImgs.forEach((dataUrl, i) => {
+        form.append('image[]', base64ToFile(dataUrl, `ref${i}.png`));
+      });
+      imgRes = await fetch(editsEndpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${settings.apiKey}` },
+        body: form,
+        signal: ctrl.signal
+      });
+    } else {
+      // 无垫图：走 /images/generations，JSON
+      const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
+      imgRes = await fetch(genEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+        body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
+        signal: ctrl.signal
+      });
+    }
     clearTimeout(tid);
 
     if (!imgRes.ok) {
@@ -5104,7 +5141,7 @@ async function generateImage(userDesc) {
     }
 
     // Step 3: 存消息（content给炘也看，genImageData是图片数据给用户看）
-    const ctxDesc = `[🎨 炘也给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
+    const ctxDesc = `[🎨 炘也${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
@@ -7892,7 +7929,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1751';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1805';
 
   await openDB();
   await migrateFromLocalStorage();
