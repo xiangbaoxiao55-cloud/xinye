@@ -4261,7 +4261,7 @@ async function updateMoodState() {
       return;
     }
 
-    const batchEnd = Math.min(nextStart + 8, messages.length - 2);
+    const batchEnd = Math.min(nextStart + 20, messages.length - 2);
     const toProcess = messages.slice(nextStart, batchEnd);
     if (toProcess.length < 2) { await saveSettings(); return; }
 
@@ -7753,7 +7753,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1441';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1450';
 
   await openDB();
   await migrateFromLocalStorage();
