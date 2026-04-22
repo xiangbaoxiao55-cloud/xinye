@@ -5101,7 +5101,7 @@ async function generateImage(userDesc) {
     const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const imgModel = settings.imageModel || 'gpt-image-1';
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 180000);
+    const tid = setTimeout(() => ctrl.abort(), 360000);
     let imgRes;
 
     if (hasRef) {
@@ -7947,7 +7947,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1829';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1840';
 
   await openDB();
   await migrateFromLocalStorage();
