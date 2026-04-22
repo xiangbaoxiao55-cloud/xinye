@@ -5151,15 +5151,9 @@ async function generateImage(userDesc) {
         body: form,
         signal: ctrl.signal
       });
-      // API不支持edits时自动fallback到generations
+      // API不支持edits时报清楚的错（不降级，降级丢垫图没意义）
       if (imgRes.status === 404) {
-        console.log('[画图] edits接口不支持，fallback到generations');
-        imgRes = await fetch(genEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-          body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
-          signal: ctrl.signal
-        });
+        throw new Error('当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）');
       }
     } else {
       // 无垫图：走 /images/generations，JSON
@@ -6093,15 +6087,9 @@ async function sendMessage() {
               body: _form,
               signal: _ctrl.signal
             });
-            // API不支持edits时自动fallback到generations
+            // API不支持edits时报清楚的错（不降级，降级丢垫图没意义）
             if (_imgRes.status === 404) {
-              console.log('[画图] edits接口不支持，fallback到generations');
-              _imgRes = await fetch(_genEp, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
-                signal: _ctrl.signal
-              });
+              return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
             }
           } else {
             // 无垫图：走 generations，JSON
@@ -6395,6 +6383,13 @@ async function sendMessage() {
             try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
+          // 画图工具执行完直接结束，不发第二次API请求
+          if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
+            typing.classList.remove('show');
+            isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+            rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+            return;
+          }
           // 后续工具轮（最多3轮）：非流式
           for (let _tr = 1; _tr < 4; _tr++) {
             const _r2 = await _apiFetch(loopMsgs, true, false);
@@ -6451,6 +6446,13 @@ async function sendMessage() {
         let result = '';
         try { result = await _execTool(tc.name, JSON.parse(tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
         loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
+      }
+      // 画图工具执行完直接结束，不发第二次API请求（图已展示，无需模型再回复）
+      if (parsed.tool_calls.every(tc => tc.name === 'generate_image')) {
+        typing.classList.remove('show');
+        isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+        rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+        return;
       }
       // 后续工具轮（最多3轮）：非流式
       let _m2FinalContent = null;
@@ -8079,7 +8081,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-2137';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-2202';
 
   await openDB();
   await migrateFromLocalStorage();
