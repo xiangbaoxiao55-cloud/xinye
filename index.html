@@ -1340,9 +1340,17 @@ if('serviceWorker' in navigator){
     </div>
     <div class="setting-divider">🎨 画图 API</div>
     <div class="setting-group">
+      <label>画图 API Key</label>
+      <input type="password" id="setImageApiKey" placeholder="留空则复用主 API Key">
+    </div>
+    <div class="setting-group">
+      <label>画图 API URL</label>
+      <input type="url" id="setImageBaseUrl" placeholder="留空则复用主 API URL">
+    </div>
+    <div class="setting-group">
       <label>画图模型名</label>
       <input type="text" id="setImageModel" placeholder="gpt-image-1">
-      <div class="hint">复用主 API 的 Key 和 URL，只需填模型名。留空默认 gpt-image-1</div>
+      <div class="hint">留空默认 gpt-image-1</div>
     </div>
     <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
@@ -2036,7 +2044,7 @@ let settings = {
   subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
   embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
-  imageModel: 'gpt-image-1',
+  imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1',
   contextCount: 20, systemPrompt: '', shortReply: false,
   aiName: '炘也', userName: '涂涂',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
@@ -5089,7 +5097,8 @@ async function generateImage(userDesc) {
 
     // Step 2: 调用画图API
     toast(hasRef ? '炘也正在改图...' : '炘也正在画...');
-    const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const imgKey = settings.imageApiKey || settings.apiKey;
+    const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const imgModel = settings.imageModel || 'gpt-image-1';
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 180000);
@@ -5109,7 +5118,7 @@ async function generateImage(userDesc) {
       });
       imgRes = await fetch(editsEndpoint, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${settings.apiKey}` },
+        headers: { 'Authorization': `Bearer ${imgKey}` },
         body: form,
         signal: ctrl.signal
       });
@@ -5118,7 +5127,7 @@ async function generateImage(userDesc) {
       const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
       imgRes = await fetch(genEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
         body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
         signal: ctrl.signal
       });
@@ -6515,6 +6524,8 @@ async function openSettings() {
   $('#setVisionApiKey').value = settings.visionApiKey || '';
   $('#setVisionBaseUrl').value = settings.visionBaseUrl || '';
   $('#setVisionModel').value = settings.visionModel || '';
+  $('#setImageApiKey').value = settings.imageApiKey || '';
+  $('#setImageBaseUrl').value = settings.imageBaseUrl || '';
   $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
@@ -6979,6 +6990,8 @@ $('#btnSaveSettings').onclick = async () => {
   settings.visionApiKey = $('#setVisionApiKey').value.trim();
   settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
   settings.visionModel = $('#setVisionModel').value.trim();
+  settings.imageApiKey = $('#setImageApiKey').value.trim();
+  settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
   settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
@@ -7929,7 +7942,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1805';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1811';
 
   await openDB();
   await migrateFromLocalStorage();
