@@ -5429,7 +5429,7 @@ async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '当兔宝想让你帮她画图、或你想画图送给她时调用。你来决定画面内容和风格，用中文描述即可。',
+          description: '当兔宝想让你帮她画图、或你想画图送给她时调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图，prompt里描述想要的效果即可。',
           parameters: {
             type: 'object',
             properties: {
@@ -6058,20 +6058,40 @@ async function sendMessage() {
         } catch(e) { return '审核操作失败：' + e.message; }
       }
       if (name === 'generate_image') {
-        toast('炘也正在画...');
+        const _hasRef = imgs && imgs.length > 0;
+        toast(_hasRef ? '炘也正在改图...' : '炘也正在画...');
         const _imgKey = settings.imageApiKey || settings.apiKey;
         const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         const _imgModel = settings.imageModel || 'gpt-image-1';
         try {
-          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 360000);
-          const _imgRes = await fetch(_genEp, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-            body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
-            signal: _ctrl.signal
-          });
+          let _imgRes;
+          if (_hasRef) {
+            // 有垫图：走 edits，multipart/form-data
+            const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
+            const _form = new FormData();
+            _form.append('model', _imgModel);
+            _form.append('prompt', args.prompt);
+            _form.append('n', '1');
+            _form.append('size', '1024x1024');
+            imgs.forEach((dataUrl, i) => _form.append('image[]', base64ToFile(dataUrl, `ref${i}.png`)));
+            _imgRes = await fetch(`${_baseRaw}/images/edits`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${_imgKey}` },
+              body: _form,
+              signal: _ctrl.signal
+            });
+          } else {
+            // 无垫图：走 generations，JSON
+            const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
+            _imgRes = await fetch(_genEp, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
+              signal: _ctrl.signal
+            });
+          }
           clearTimeout(_tid);
           if (!_imgRes.ok) {
             const _ed = await _imgRes.json().catch(() => ({}));
@@ -8039,7 +8059,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1930';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-2108';
 
   await openDB();
   await migrateFromLocalStorage();
