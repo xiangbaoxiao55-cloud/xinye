@@ -1431,13 +1431,9 @@ if('serviceWorker' in navigator){
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
         <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <select id="memoryCursorReset" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit">
-            <option value="200">最近200条</option>
-            <option value="500" selected>最近500条</option>
-            <option value="800">最近800条</option>
-            <option value="1200">最近1200条</option>
-          </select>
+          <input id="memoryCursorReset" type="number" min="1" value="500" placeholder="条数" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box" />
           <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
+          <button type="button" onclick="skipMemoryCursorToEnd()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">⏭️ 跳过旧消息（游标→末尾）</button>
         </div>
         <button type="button" onclick="manualExtractBatch()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">⚡ 立即提取一批（8条）</button>
         <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
@@ -3021,6 +3017,16 @@ function setMemViewerFilter(f) {
 function openMemoryViewer() {
   const overlay = document.getElementById('memoryViewerOverlay');
   if (overlay) { overlay.style.display = 'flex'; renderMemoryViewer(); }
+}
+
+function skipMemoryCursorToEnd() {
+  const bank = ensureMemoryState();
+  const old = bank.lastProcessedIndex;
+  bank.lastProcessedIndex = messages.length - 1;
+  saveSettings();
+  const el = document.getElementById('memoryExtractStatus');
+  if (el) el.textContent = `⏭️ 游标已跳至末尾：#${old} → #${bank.lastProcessedIndex}，只提取之后新消息`;
+  toast(`✅ 游标已跳到末尾，从现在起只提取新消息`);
 }
 
 function resetMemoryCursor() {
@@ -7559,6 +7565,12 @@ async function doImport(jsonText) {
       if (m.images) rec.images = m.images;
       await dbPut('messages', null, rec);
     }
+    // 导入后把游标对齐到备份末尾，避免重复提取备份内已有消息
+    const importedSettings = await dbGet('settings', 'main');
+    if (importedSettings?.memoryBank) {
+      importedSettings.memoryBank.lastProcessedIndex = msgList.length - 1;
+      await dbPut('settings', 'main', importedSettings);
+    }
   }
 
   // 导入图片
@@ -7741,7 +7753,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.21-2212';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1423';
 
   await openDB();
   await migrateFromLocalStorage();

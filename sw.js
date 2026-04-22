@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260421-2212';
+const CACHE_NAME = 'xinye-20260422-1423';
 const STATIC_ASSETS = ['/', '/index.html', '/diary.html', '/reading.html', '/jszip.min.js'];
 
 self.addEventListener('install', e => {
