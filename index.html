@@ -5119,25 +5119,11 @@ async function generateImage(userDesc) {
   const hasRef = refImgs.length > 0;
 
   try {
-    // Step 1: 炘也生成英文提示词
-    toast(hasRef ? '炘也看图想画面...' : '炘也正在想画面...');
-    const sysPrompt = hasRef
-      ? '你是专业AI绘图提示词工程师。用户提供了参考图，并用中文描述了想要的效果。请生成一段高质量的英文绘图提示词（prompt），结合参考图的风格/构图意图和用户描述。直接输出提示词，不要任何解释或前缀，一段即可。'
-      : '你是专业AI绘图提示词工程师。根据用户的中文描述，生成一段高质量的英文绘图提示词（prompt）。要求：英文，简洁但视觉细节丰富，包含风格、光线、构图、色调等元素。直接输出提示词，不要任何解释或前缀，一段即可。';
-    const promptRes = await mainApiFetch({
-      messages: [
-        { role: 'system', content: sysPrompt },
-        { role: 'user', content: userDesc }
-      ],
-      max_tokens: 300,
-      temperature: 0.8
-    });
-    if (!promptRes || !promptRes.ok) throw new Error('生成提示词失败');
-    const promptData = await promptRes.json();
-    const prompt = promptData.choices[0].message.content.trim();
-    console.log('[画图] 模式:', hasRef ? '垫图/改图' : '生成', '提示词:', prompt);
+    // 直接用用户描述作为prompt，gpt-image-2支持中文
+    const prompt = userDesc;
+    console.log('[画图] 模式:', hasRef ? '垫图/改图' : '生成', 'prompt:', prompt);
 
-    // Step 2: 调用画图API
+    // 调用画图API
     toast(hasRef ? '炘也正在改图...' : '炘也正在画...');
     const imgKey = settings.imageApiKey || settings.apiKey;
     const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
@@ -7992,7 +7978,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1846';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1915';
 
   await openDB();
   await migrateFromLocalStorage();
