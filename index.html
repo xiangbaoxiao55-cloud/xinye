@@ -5140,13 +5140,18 @@ async function generateImage(userDesc) {
     }
 
     const imgData = await imgRes.json();
+    console.log('[画图] API返回:', JSON.stringify(imgData).slice(0, 300));
     let dataUrl;
-    if (imgData.data[0].b64_json) {
-      dataUrl = `data:image/png;base64,${imgData.data[0].b64_json}`;
-    } else if (imgData.data[0].url) {
-      dataUrl = imgData.data[0].url;
+    const imgItem = imgData.data?.[0] || imgData.images?.[0] || imgData;
+    if (imgItem?.b64_json) {
+      dataUrl = `data:image/png;base64,${imgItem.b64_json}`;
+    } else if (imgItem?.url) {
+      dataUrl = imgItem.url;
+    } else if (typeof imgItem === 'string' && imgItem.startsWith('http')) {
+      dataUrl = imgItem;
     } else {
-      throw new Error('画图API没返回图片');
+      console.log('[画图] 完整返回:', JSON.stringify(imgData));
+      throw new Error('画图API没返回图片，vConsole查看完整返回');
     }
 
     // Step 3: 存消息（content给炘也看，genImageData是图片数据给用户看）
@@ -7942,7 +7947,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1814';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1819';
 
   await openDB();
   await migrateFromLocalStorage();
