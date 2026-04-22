@@ -3610,9 +3610,9 @@ async function deleteMessage(id) {
 
 chatArea.addEventListener('click', e => {
   // 下载生成图片
-  const dlBtn = e.target.closest('.btn-gen-img-dl');
-  if (dlBtn) {
-    const id = Number(dlBtn.dataset.id);
+  const genImgDlBtn = e.target.closest('.btn-gen-img-dl');
+  if (genImgDlBtn) {
+    const id = Number(genImgDlBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
     if (msg && msg.genImageData) {
       const a = document.createElement('a');
@@ -7942,7 +7942,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1811';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1814';
 
   await openDB();
   await migrateFromLocalStorage();
