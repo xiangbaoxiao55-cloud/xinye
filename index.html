@@ -693,6 +693,9 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   max-width:240px;max-height:180px;border-radius:10px;
   margin-top:6px;display:block;cursor:pointer;
 }
+.btn-gen-img-dl{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:5px 14px;border:1.5px solid var(--pink);border-radius:20px;background:rgba(255,255,255,.6);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit}
+.btn-gen-img-dl:hover{background:var(--pink-light)}
+[data-theme="dark"] .btn-gen-img-dl{background:rgba(255,255,255,.08);border-color:var(--pink)}
 
 /* ====================== 暗夜模式 ====================== */
 [data-theme="dark"]{
@@ -1184,6 +1187,7 @@ if('serviceWorker' in navigator){
       <button class="btn-img" id="btnImg" title="发送图片给 AI 看"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" opacity="0.6"/><path d="M3 17l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button class="btn-rp" id="btnRp" onclick="openRpPanel()" title="RP模式">🎭</button>
+      <button class="btn-img" id="btnDrawImage" onclick="triggerDrawImage()" title="让炘也画图">🎨</button>
       <button class="btn-kiss" id="btnKiss" onclick="sendKiss()" title="亲亲炘也"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="currentColor" opacity=".4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     </div>
   </div>
@@ -1333,6 +1337,12 @@ if('serviceWorker' in navigator){
     <div class="setting-group">
       <button id="btnTestVision" onclick="testVisionApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试识图连接</button>
       <div id="visionTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
+    </div>
+    <div class="setting-divider">🎨 画图 API</div>
+    <div class="setting-group">
+      <label>画图模型名</label>
+      <input type="text" id="setImageModel" placeholder="gpt-image-1">
+      <div class="hint">复用主 API 的 Key 和 URL，只需填模型名。留空默认 gpt-image-1</div>
     </div>
     <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
@@ -2026,6 +2036,7 @@ let settings = {
   subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
   embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
+  imageModel: 'gpt-image-1',
   contextCount: 20, systemPrompt: '', shortReply: false,
   aiName: '炘也', userName: '涂涂',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
@@ -3497,7 +3508,14 @@ async function renderMessages() {
     const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
     const _stickerName = isUser ? detectStickerMsg(msg.content) : null;
     const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
-    const _bubbleInner = _stickerName ? renderStickerHTML(_stickerName) : (isUser ? escHtml(msg.content) : '') + imgHtml;
+    let _bubbleInner;
+    if (_stickerName) {
+      _bubbleInner = renderStickerHTML(_stickerName);
+    } else if (!isUser && msg.isGenImage && msg.genImageData) {
+      _bubbleInner = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="max-width:220px;border-radius:12px;display:block"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+    } else {
+      _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
+    }
     row.innerHTML = `
       <img class="msg-avatar" src="${escHtml(isUser ? usAv : aiAv)}" alt="">
       <div class="msg-content">
@@ -3507,7 +3525,7 @@ async function renderMessages() {
         <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn}</div>
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
-    if (!isUser && msg.content) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); applyStickerTags(row.querySelector('.msg-bubble')); }
+    if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); applyStickerTags(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
   // 标记已缓存语音按钮，并恢复speak语音条
@@ -3546,7 +3564,14 @@ async function appendMsgDOM(msg) {
   const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
   const _sn = isUser ? detectStickerMsg(msg.content) : null;
   const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
-  const _bi = _sn ? renderStickerHTML(_sn) : (isUser ? escHtml(msg.content) : '') + imgHtml;
+  let _bi;
+  if (_sn) {
+    _bi = renderStickerHTML(_sn);
+  } else if (!isUser && msg.isGenImage && msg.genImageData) {
+    _bi = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="max-width:220px;border-radius:12px;display:block"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+  } else {
+    _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
+  }
   row.innerHTML = `
     <img class="msg-avatar" src="${escHtml(av)}" alt="">
     <div class="msg-content">
@@ -3556,7 +3581,7 @@ async function appendMsgDOM(msg) {
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn2}</div>
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
-  if (!isUser && msg.content) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); applyStickerTags(row.querySelector('.msg-bubble')); }
+  if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); applyStickerTags(row.querySelector('.msg-bubble')); }
   chatArea.appendChild(row);
   scrollBottom();
   updateHeaderStatus();
@@ -3576,6 +3601,21 @@ async function deleteMessage(id) {
 }
 
 chatArea.addEventListener('click', e => {
+  // 下载生成图片
+  const dlBtn = e.target.closest('.btn-gen-img-dl');
+  if (dlBtn) {
+    const id = Number(dlBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg && msg.genImageData) {
+      const a = document.createElement('a');
+      a.href = msg.genImageData;
+      a.download = `炘也画的图_${id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    return;
+  }
   // 收藏按钮
   const bookmarkBtn = e.target.closest('.btn-bookmark');
   if (bookmarkBtn) { toggleBookmark(Number(bookmarkBtn.dataset.id)); return; }
@@ -4991,6 +5031,103 @@ function renderTokenLog(msgId) {
   panel.dataset.open = '1';
   panel.style.display = 'block';
 }
+// ======================== 画图功能 ========================
+function triggerDrawImage() {
+  const desc = userInput.value.trim();
+  if (!desc) { toast('在输入框写想画什么，再点🎨~'); return; }
+  generateImage(desc);
+}
+
+async function generateImage(userDesc) {
+  if (!settings.apiKey) { toast('请先设置 API Key'); return; }
+  if (isRequesting) return;
+
+  userInput.value = '';
+  autoResize();
+  pendingImages = [];
+  $('#imgPreview').classList.remove('show');
+  resetIdleTimer();
+
+  const userMsg = await addMessage('user', userDesc);
+  await appendMsgDOM(userMsg);
+
+  isRequesting = true;
+  btnSend.disabled = true;
+  typing.classList.add('show');
+  scrollBottom();
+
+  try {
+    // Step 1: 炘也生成英文提示词
+    toast('炘也正在想画面...');
+    const promptRes = await mainApiFetch({
+      messages: [
+        { role: 'system', content: '你是专业AI绘图提示词工程师。根据用户的中文描述，生成一段高质量的英文绘图提示词（prompt）。要求：英文，简洁但视觉细节丰富，包含风格、光线、构图、色调等元素。直接输出提示词，不要任何解释或前缀，一段即可。' },
+        { role: 'user', content: userDesc }
+      ],
+      max_tokens: 300,
+      temperature: 0.8
+    });
+    if (!promptRes || !promptRes.ok) throw new Error('生成提示词失败');
+    const promptData = await promptRes.json();
+    const prompt = promptData.choices[0].message.content.trim();
+    console.log('[画图] 提示词:', prompt);
+
+    // Step 2: 调用画图API（复用主API的key+baseUrl）
+    toast('炘也正在画...');
+    const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const imgEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
+    const imgModel = settings.imageModel || 'gpt-image-1';
+
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 180000);
+    const imgRes = await fetch(imgEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` },
+      body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
+      signal: ctrl.signal
+    });
+    clearTimeout(tid);
+
+    if (!imgRes.ok) {
+      const errData = await imgRes.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `画图失败 (${imgRes.status})`);
+    }
+
+    const imgData = await imgRes.json();
+    let dataUrl;
+    if (imgData.data[0].b64_json) {
+      dataUrl = `data:image/png;base64,${imgData.data[0].b64_json}`;
+    } else if (imgData.data[0].url) {
+      dataUrl = imgData.data[0].url;
+    } else {
+      throw new Error('画图API没返回图片');
+    }
+
+    // Step 3: 存消息（content给炘也看，genImageData是图片数据给用户看）
+    const ctxDesc = `[🎨 炘也给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
+    const aiMsg = await addMessage('assistant', ctxDesc);
+    aiMsg.isGenImage = true;
+    aiMsg.genImageData = dataUrl;
+    await dbPut(activeStore(), null, aiMsg);
+    const _idx = messages.findIndex(m => m.id === aiMsg.id);
+    if (_idx >= 0) messages[_idx] = aiMsg;
+
+    await appendMsgDOM(aiMsg);
+
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      toast('画图超时了...');
+    } else {
+      toast('画图失败：' + e.message);
+      console.error('[画图] 失败', e);
+    }
+  } finally {
+    typing.classList.remove('show');
+    isRequesting = false;
+    btnSend.disabled = userInput.value.trim() === '';
+  }
+}
+
 async function sendMessage() {
   const text = userInput.value.trim();
   const imgs = [...pendingImages];
@@ -6341,6 +6478,7 @@ async function openSettings() {
   $('#setVisionApiKey').value = settings.visionApiKey || '';
   $('#setVisionBaseUrl').value = settings.visionBaseUrl || '';
   $('#setVisionModel').value = settings.visionModel || '';
+  $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
   const _coreMarkersEl = document.getElementById('setCoreMarkers');
@@ -6804,6 +6942,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.visionApiKey = $('#setVisionApiKey').value.trim();
   settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
   settings.visionModel = $('#setVisionModel').value.trim();
+  settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
   settings.memoryArchiveCoreMarkers = (document.getElementById('setCoreMarkers')?.value || '');
@@ -7753,7 +7892,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-1450';
+  if (_verEl) _verEl.textContent = 'v2026.04.22-1751';
 
   await openDB();
   await migrateFromLocalStorage();
