@@ -5462,6 +5462,7 @@ async function sendMessage() {
         parameters: { type: 'object', properties: {}, required: [] }
       }
     });
+    apiMsgs.push({ role: 'system', content: '[语音格式提示（仅当你调用 speak 工具时适用）：你的回复文本会直接送 MiniMax TTS 朗读。支持以下格式让语音更有表现力——停顿：<#秒数#>（如<#0.5#>，范围0.01-99.99，不可连续使用，必须夹在两段文字之间）；语气词：(sighs)叹气、(laughs)笑、(chuckle)轻笑、(breath)换气、(gasps)倒吸气、(sniffs)吸鼻子、(groans)呻吟、(pant)喘气、(inhale)吸气、(exhale)呼气、(emm)嗯、(humming)哼唱。自然地用，不要堆砌。]' });
 
     // 画图工具：配置了画图API时激活
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel !== 'gpt-image-1')) {
@@ -8117,7 +8118,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-0811';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1042';
 
   await openDB();
   await migrateFromLocalStorage();
