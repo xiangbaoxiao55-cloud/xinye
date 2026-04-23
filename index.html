@@ -4601,12 +4601,13 @@ const _ttsQueue = [];           // 自动播放排队
 let _ttsQueueRunning = false;
 
 // 去掉思考链内容，只保留正文给TTS
+const _THINK_RE = /(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)\s*/gi;
 function stripThinking(t) {
-  return t.replace(/<thinking>[\s\S]*?<\/thinking>\s*/gi, '').trim();
+  return t.replace(_THINK_RE, '').trim();
 }
 function stripForTTS(t) {
   return t
-    .replace(/<thinking>[\s\S]*?<\/thinking>\s*/gi, '') // 思考链
+    .replace(_THINK_RE, '') // 思考链
     .replace(/\[sticker:[^\]]{1,20}\]/g, '')             // sticker标签
     .replace(/（.+?发了一个「.+?」贴纸）/g, '')           // 贴纸消息
     .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')              // emoji高位
@@ -8292,7 +8293,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1616';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-2315';
 
   await openDB();
   await migrateFromLocalStorage();
