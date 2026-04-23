@@ -5212,6 +5212,7 @@ async function generateImage(userDesc) {
       form.append('prompt', prompt);
       form.append('n', '1');
       form.append('size', '1024x1024');
+      form.append('response_format', 'b64_json');
       const composited = await compositeRefImages(refImgs);
       form.append('image', base64ToFile(composited, 'ref.png'));
       imgRes = await fetch(editsEndpoint, {
@@ -6156,6 +6157,7 @@ async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', '1024x1024');
+            _form.append('response_format', 'b64_json');
             const _composited = await compositeRefImages(imgs);
             _form.append('image', base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
@@ -8191,7 +8193,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1428';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1457';
 
   await openDB();
   await migrateFromLocalStorage();
