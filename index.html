@@ -5143,6 +5143,30 @@ function base64ToFile(dataUrl, filename) {
   return new File([u8arr], filename, { type: mime });
 }
 
+// 多张垫图横拼成一张，避免中转API不支持 image[] 多文件上传
+async function compositeRefImages(dataUrls) {
+  if (dataUrls.length === 1) return dataUrls[0];
+  const imgs = await Promise.all(dataUrls.map(url => new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = url;
+  })));
+  const h = Math.max(...imgs.map(i => i.naturalHeight));
+  const totalW = imgs.reduce((s, i) => s + Math.round(i.naturalWidth * h / i.naturalHeight), 0);
+  const canvas = document.createElement('canvas');
+  canvas.width = totalW;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  let x = 0;
+  for (const img of imgs) {
+    const w = Math.round(img.naturalWidth * h / img.naturalHeight);
+    ctx.drawImage(img, x, 0, w, h);
+    x += w;
+  }
+  return canvas.toDataURL('image/png');
+}
+
 async function generateImage(userDesc) {
   if (!settings.apiKey) { toast('请先设置 API Key'); return; }
   if (isRequesting) return;
@@ -5188,9 +5212,8 @@ async function generateImage(userDesc) {
       form.append('prompt', prompt);
       form.append('n', '1');
       form.append('size', '1024x1024');
-      refImgs.forEach((dataUrl, i) => {
-        form.append('image[]', base64ToFile(dataUrl, `ref${i}.png`));
-      });
+      const composited = await compositeRefImages(refImgs);
+      form.append('image', base64ToFile(composited, 'ref.png'));
       imgRes = await fetch(editsEndpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${imgKey}` },
@@ -6133,7 +6156,8 @@ async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', '1024x1024');
-            imgs.forEach((dataUrl, i) => _form.append('image[]', base64ToFile(dataUrl, `ref${i}.png`)));
+            const _composited = await compositeRefImages(imgs);
+            _form.append('image', base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
@@ -8167,7 +8191,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1149';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1428';
 
   await openDB();
   await migrateFromLocalStorage();
