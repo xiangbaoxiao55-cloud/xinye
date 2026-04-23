@@ -4573,15 +4573,15 @@ function stripForTTS(t) {
     .replace(/[\u{FE00}-\u{FE0F}]/gu, '')                // 变体选择符
     .replace(/[\u1400-\u167F]+/g, '')                    // 加拿大音节文字（ᓚᘏᗢ类）
     .replace(/[（(][^\u4e00-\u9fa5a-zA-Z\n]{1,20}[）)]/g, '') // ASCII颜文字
-    // 全角标点规范化（模型有时混用全角括号/尖括号）
-    .replace(/＜#([\d.]+)#＞/g, '<#$1#>')
+    // 全角/CJK标点规范化（模型用＜＞〈〉《》等各种角括号写停顿标记）
+    .replace(/[＜〈《]#([\d.]+)#[＞〉》]/g, '<#$1#>')
     .replace(/[（(](laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|sighs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)[）)]/g, '($1)')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 const _TTS_TONE_RE = /[（(](laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|sighs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)[）)]/;
 function _hasTTSMarkers(t) {
-  return /<#[\d.]+#[＞>]/.test(t) || _TTS_TONE_RE.test(t);
+  return /[<＜〈《]#[\d.]+#[>＞〉》]/.test(t) || _TTS_TONE_RE.test(t);
 }
 
 function blobExt(blob) {
@@ -8167,7 +8167,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1141';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1149';
 
   await openDB();
   await migrateFromLocalStorage();
