@@ -6430,11 +6430,15 @@ async function sendMessage() {
             try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
-          // 画图工具执行完直接结束，不发第二次API请求
-          if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
+          // 画图/speak工具执行完直接结束，不发第二次API请求
+          if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image' || tc.function.name === 'speak')) {
+            if (_m1.tool_calls.some(tc => tc.function.name === 'speak') && _m1.content) {
+              await _showNonStream(_m1.content, loopMsgs, _d1.usage);
+            } else {
+              rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+            }
             typing.classList.remove('show');
             isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
-            rememberLatestExchange(); autoDigestMemory(); updateMoodState();
             return;
           }
           // 后续工具轮（最多3轮）：非流式
@@ -6494,11 +6498,15 @@ async function sendMessage() {
         try { result = await _execTool(tc.name, JSON.parse(tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
         loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
       }
-      // 画图工具执行完直接结束，不发第二次API请求（图已展示，无需模型再回复）
-      if (parsed.tool_calls.every(tc => tc.name === 'generate_image')) {
+      // 画图/speak工具执行完直接结束，不发第二次API请求
+      if (parsed.tool_calls.every(tc => tc.name === 'generate_image' || tc.name === 'speak')) {
+        if (parsed.tool_calls.some(tc => tc.name === 'speak')) {
+          await _finalizeMsg(parsed, loopMsgs); // 含maybeTTS触发+rememberLatestExchange等
+        } else {
+          rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+        }
         typing.classList.remove('show');
         isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
-        rememberLatestExchange(); autoDigestMemory(); updateMoodState();
         return;
       }
       // 后续工具轮（最多3轮）：非流式
@@ -8128,7 +8136,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1106';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1119';
 
   await openDB();
   await migrateFromLocalStorage();
