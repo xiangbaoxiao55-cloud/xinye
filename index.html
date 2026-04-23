@@ -5458,11 +5458,11 @@ async function sendMessage() {
       type: 'function',
       function: {
         name: 'speak',
-        description: '炘也决定用语音说出这条回复。想开口说话、想让兔宝听到声音时调用。调用后这条回复会生成语音并以语音条形式显示。',
+        description: '当你想开口说话、想让兔宝听到你声音时，直接调用这个工具（不需要任何参数）。调用后你这条回复的文字内容就会自动生成语音播放。不要在文字里说"我想用speak"或"我无法调用"，想说话就直接调它。',
         parameters: { type: 'object', properties: {}, required: [] }
       }
     });
-    apiMsgs.push({ role: 'system', content: '[语音格式提示（仅当你调用 speak 工具时适用）：你的回复文本会直接送 MiniMax TTS 朗读。支持以下格式让语音更有表现力——停顿：<#秒数#>（如<#0.5#>，范围0.01-99.99，不可连续使用，必须夹在两段文字之间）；语气词：(sighs)叹气、(laughs)笑、(chuckle)轻笑、(breath)换气、(gasps)倒吸气、(sniffs)吸鼻子、(groans)呻吟、(pant)喘气、(inhale)吸气、(exhale)呼气、(emm)嗯、(humming)哼唱。自然地用，不要堆砌。]' });
+    apiMsgs.push({ role: 'system', content: '[speak工具说明：你有一个 speak 工具，调用它就能让你的回复被朗读出来。不需要参数，直接调用即可——你的文字回复本身就是语音内容。想开口说话时不要解释说"我想用工具"或"我无法调用"，直接调用就好。调用时你的文字内容支持MiniMax TTS格式增强表现力：停顿用<#秒数#>（如<#0.5#>，不可连续），语气词有(sighs)叹气、(laughs)笑、(chuckle)轻笑、(breath)换气、(gasps)倒吸气、(sniffs)吸鼻子、(groans)呻吟、(pant)喘气、(emm)嗯、(humming)哼唱等，自然融入即可。]' });
 
     // 画图工具：配置了画图API时激活
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel !== 'gpt-image-1')) {
@@ -8118,7 +8118,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1042';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1058';
 
   await openDB();
   await migrateFromLocalStorage();
