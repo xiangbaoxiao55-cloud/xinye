@@ -6430,10 +6430,19 @@ async function sendMessage() {
             try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
-          // 画图/speak工具执行完直接结束，不发第二次API请求
+          // 画图/speak工具执行完后处理
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image' || tc.function.name === 'speak')) {
-            if (_m1.tool_calls.some(tc => tc.function.name === 'speak') && _m1.content) {
-              await _showNonStream(_m1.content, loopMsgs, _d1.usage);
+            if (_m1.tool_calls.some(tc => tc.function.name === 'speak')) {
+              if (_m1.content) {
+                await _showNonStream(_m1.content, loopMsgs, _d1.usage);
+              } else {
+                const _rSpeak = await _apiFetch(loopMsgs, false, false);
+                if (_rSpeak && _rSpeak.ok) {
+                  const _dSpeak = await _rSpeak.json();
+                  const _mSpeak = _dSpeak.choices?.[0]?.message;
+                  if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage);
+                }
+              }
             } else {
               rememberLatestExchange(); autoDigestMemory(); updateMoodState();
             }
@@ -6498,10 +6507,20 @@ async function sendMessage() {
         try { result = await _execTool(tc.name, JSON.parse(tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
         loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
       }
-      // 画图/speak工具执行完直接结束，不发第二次API请求
+      // 画图/speak工具执行完后处理
       if (parsed.tool_calls.every(tc => tc.name === 'generate_image' || tc.name === 'speak')) {
         if (parsed.tool_calls.some(tc => tc.name === 'speak')) {
-          await _finalizeMsg(parsed, loopMsgs); // 含maybeTTS触发+rememberLatestExchange等
+          if (parsed.content) {
+            // 第一轮流式已有内容：直接收尾+TTS，不发第二次请求
+            await _finalizeMsg(parsed, loopMsgs);
+          } else {
+            // 只有speak工具调用、无文字内容：发一次后续请求拿回复文字
+            const _rSpeak = await _apiFetch(loopMsgs, false, true);
+            if (_rSpeak && _rSpeak.ok) {
+              const _pSpeak = await _liveStream(_rSpeak);
+              await _finalizeMsg(_pSpeak, loopMsgs);
+            }
+          }
         } else {
           rememberLatestExchange(); autoDigestMemory(); updateMoodState();
         }
@@ -8136,7 +8155,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1119';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1134';
 
   await openDB();
   await migrateFromLocalStorage();
