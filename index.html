@@ -693,6 +693,19 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   max-width:240px;max-height:180px;border-radius:10px;
   margin-top:6px;display:block;cursor:pointer;
 }
+.gen-img{
+  max-width:260px;max-height:260px;width:auto;height:auto;
+  border-radius:12px;display:block;cursor:pointer;margin-top:6px;
+}
+#imgLightbox{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:9999;align-items:center;justify-content:center;
+}
+#imgLightbox.show{display:flex}
+#imgLightbox img{
+  max-width:95vw;max-height:90vh;object-fit:contain;
+  border-radius:10px;box-shadow:0 4px 40px rgba(0,0,0,.5);
+}
 .btn-gen-img-dl{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:5px 14px;border:1.5px solid var(--pink);border-radius:20px;background:rgba(255,255,255,.6);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit}
 .btn-gen-img-dl:hover{background:var(--pink-light)}
 [data-theme="dark"] .btn-gen-img-dl{background:rgba(255,255,255,.08);border-color:var(--pink)}
@@ -1805,6 +1818,11 @@ if('serviceWorker' in navigator){
       <div id="checkerList" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
+</div>
+
+<!-- 图片全屏预览 -->
+<div id="imgLightbox" onclick="this.classList.remove('show')">
+  <img id="imgLightboxImg" src="" alt="">
 </div>
 
 <!-- 编辑消息模态框 -->
@@ -3570,7 +3588,7 @@ async function renderMessages() {
     if (_stickerName) {
       _bubbleInner = renderStickerHTML(_stickerName);
     } else if (!isUser && msg.isGenImage && msg.genImageData) {
-      _bubbleInner = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer" onclick="this.style.cssText=this.dataset.big==='1'?'width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer':'width:100%;height:auto;border-radius:12px;display:block;cursor:pointer';this.dataset.big=this.dataset.big==='1'?'':'1'"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+      _bubbleInner = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -3626,7 +3644,7 @@ async function appendMsgDOM(msg) {
   if (_sn) {
     _bi = renderStickerHTML(_sn);
   } else if (!isUser && msg.isGenImage && msg.genImageData) {
-    _bi = `<img class="bubble-img gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" style="width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer" onclick="this.style.cssText=this.dataset.big==='1'?'width:220px;height:220px;object-fit:cover;border-radius:12px;display:block;cursor:pointer':'width:100%;height:auto;border-radius:12px;display:block;cursor:pointer';this.dataset.big=this.dataset.big==='1'?'':'1'"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+    _bi = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -3659,6 +3677,15 @@ async function deleteMessage(id) {
 }
 
 chatArea.addEventListener('click', e => {
+  // 图片点击放大
+  if (e.target.matches('.gen-img, .bubble-img')) {
+    const src = e.target.dataset.src || e.target.src;
+    if (src) {
+      $('#imgLightboxImg').src = src;
+      $('#imgLightbox').classList.add('show');
+      return;
+    }
+  }
   // 下载生成图片
   const genImgDlBtn = e.target.closest('.btn-gen-img-dl');
   if (genImgDlBtn) {
@@ -8265,7 +8292,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1531';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1538';
 
   await openDB();
   await migrateFromLocalStorage();
