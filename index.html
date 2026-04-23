@@ -1020,7 +1020,14 @@ if('serviceWorker' in navigator){
     // 新SW激活时自动刷新页面，让新版本生效
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data && e.data.type === 'SW_UPDATED') {
-        window.location.reload();
+        // 有请求进行中时等待结束再reload，避免中断画图/聊天被重复扣费
+        if (typeof isRequesting !== 'undefined' && isRequesting) {
+          const _waitReload = setInterval(() => {
+            if (!isRequesting) { clearInterval(_waitReload); window.location.reload(); }
+          }, 1000);
+        } else {
+          window.location.reload();
+        }
       }
     });
   });
@@ -1247,7 +1254,11 @@ if('serviceWorker' in navigator){
     </div>
     <div class="setting-group">
       <label>模型（主）</label>
-      <input type="text" id="setModel" placeholder="gpt-4o">
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="setModel" placeholder="gpt-4o" style="flex:1">
+        <button type="button" onclick="fetchModelList('setBaseUrl','setApiKey','setModel','modelListMain')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
+      </div>
+      <select id="modelListMain" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){$('#setModel').value=this.value;this.style.display='none'}"></select>
     </div>
     <div class="setting-group">
       <label>备用 API 预设（主 API 挂了依次切换）</label>
@@ -1277,7 +1288,11 @@ if('serviceWorker' in navigator){
     </div>
     <div class="setting-group">
       <label>模型（副）</label>
-      <input type="text" id="setSubModel" placeholder="留空则用主模型">
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="setSubModel" placeholder="留空则用主模型" style="flex:1">
+        <button type="button" onclick="fetchModelList('setSubBaseUrl','setSubApiKey','setSubModel','modelListSub')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
+      </div>
+      <select id="modelListSub" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){$('#setSubModel').value=this.value;this.style.display='none'}"></select>
     </div>
     <div class="setting-group">
       <label>备用 API 预设（副 API 挂了依次切换）</label>
@@ -3462,6 +3477,27 @@ async function loadAll() {
   const _msgStore = _initRpActive ? 'rpMessages' : 'messages';
   messages = await dbGetRecent(_msgStore, loadCount);
   stickers = await dbGetAll('stickers');
+}
+
+async function fetchModelList(urlInputId, keyInputId, modelInputId, selectId) {
+  const rawUrl = $('#' + urlInputId).value.trim() || ($('#setBaseUrl') ? $('#setBaseUrl').value.trim() : '') || 'https://api.openai.com';
+  const baseUrl = rawUrl.replace(/\/+$/, '');
+  const apiKey = $('#' + keyInputId).value.trim() || ($('#setApiKey') ? $('#setApiKey').value.trim() : '');
+  const sel = $('#' + selectId);
+  if (!baseUrl && !apiKey) { toast('请先填写 Base URL 和 API Key'); return; }
+  const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
+  sel.innerHTML = '<option value="">⏳ 获取中…</option>';
+  sel.style.display = 'block';
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
+    if (!models.length) { sel.innerHTML = '<option value="">（无可用模型）</option>'; return; }
+    sel.innerHTML = '<option value="">— 选择模型 —</option>' + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+  } catch(e) {
+    sel.innerHTML = `<option value="">❌ 获取失败：${escHtml(e.message)}</option>`;
+  }
 }
 
 async function saveSettings() {
@@ -8081,7 +8117,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.22-2202';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-0811';
 
   await openDB();
   await migrateFromLocalStorage();
