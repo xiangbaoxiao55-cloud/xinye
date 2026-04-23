@@ -694,7 +694,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   margin-top:6px;display:block;cursor:pointer;
 }
 .gen-img{
-  max-width:260px;max-height:260px;width:auto;height:auto;
+  max-width:min(260px,100%);max-height:260px;width:auto;height:auto;
   border-radius:12px;display:block;cursor:pointer;margin-top:6px;
 }
 #imgLightbox{
@@ -8292,7 +8292,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1538';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1616';
 
   await openDB();
   await migrateFromLocalStorage();
