@@ -1355,6 +1355,21 @@ if('serviceWorker' in navigator){
     </div>
     <div class="setting-divider">🎨 画图 API</div>
     <div class="setting-group">
+      <label>预设</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="imagePresetSelect" style="flex:1;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)">
+          <option value="">— 选择预设 —</option>
+        </select>
+        <button type="button" id="btnLoadImagePreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活</button>
+        <button type="button" id="btnDelImagePreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="imagePresetName" placeholder="预设名称（如：兔子家 / 另一家）" style="flex:1">
+        <button type="button" id="btnSaveImagePreset" style="padding:8px 12px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">保存当前</button>
+      </div>
+      <div class="hint">激活后填入下方字段，点「保存设置」生效</div>
+    </div>
+    <div class="setting-group">
       <label>画图 API Key</label>
       <input type="password" id="setImageApiKey" placeholder="留空则复用主 API Key">
     </div>
@@ -1365,7 +1380,6 @@ if('serviceWorker' in navigator){
     <div class="setting-group">
       <label>画图模型名</label>
       <input type="text" id="setImageModel" placeholder="gpt-image-1">
-      <div class="hint">留空默认 gpt-image-1</div>
     </div>
     <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
@@ -3461,7 +3475,7 @@ async function loadAll() {
   if (s) settings = { ...settings, ...s };
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
-  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
+  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
   for (const _k of _lsBackupKeys) {
     if (localStorage.getItem(_k) === null) {
       const _v = await dbGet('settings', 'ls_' + _k);
@@ -5197,7 +5211,7 @@ async function generateImage(userDesc) {
     toast(hasRef ? '炘也正在改图...' : '炘也正在画...');
     const imgKey = settings.imageApiKey || settings.apiKey;
     const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const imgModel = settings.imageModel || 'gpt-image-1';
+    const imgModel = settings.imageModel;
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 360000);
     let imgRes;
@@ -5504,7 +5518,7 @@ async function sendMessage() {
     });
 
     // 画图工具：配置了画图API时激活
-    if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel !== 'gpt-image-1')) {
+    if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel)) {
       _toolDefs.push({
         type: 'function',
         function: {
@@ -6143,7 +6157,7 @@ async function sendMessage() {
         toast(_hasRef ? '炘也正在改图...' : '炘也正在画...');
         const _imgKey = settings.imageApiKey || settings.apiKey;
         const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        const _imgModel = settings.imageModel || 'gpt-image-1';
+        const _imgModel = settings.imageModel;
         try {
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 360000);
@@ -6756,6 +6770,7 @@ async function openSettings() {
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
   renderVisionPresets();
+  renderImagePresets();
   // 兼容旧的单备用字段
   if (!settings.fallbackPresetNames?.length && settings.fallbackPresetName) settings.fallbackPresetNames = [settings.fallbackPresetName];
   if (!settings.subFallbackPresetNames?.length && settings.subFallbackPresetName) settings.subFallbackPresetNames = [settings.subFallbackPresetName];
@@ -6847,6 +6862,7 @@ async function openSettings() {
   renderTtsPresets();
   renderApiPresets();
   renderVisionPresets();
+  renderImagePresets();
   renderStickerMgr();
 
   settingsPanel.classList.add('show');
@@ -7025,6 +7041,59 @@ $('#btnDelVisionPreset').onclick = () => {
   setVisionPresets(presets);
   renderVisionPresets();
   toast(`已删除识图预设「${name}」`);
+};
+
+// ======================== 画图预设 ========================
+function getImagePresets() {
+  try { return JSON.parse(localStorage.getItem('xinye_image_presets') || '[]'); } catch(e) { return []; }
+}
+function setImagePresets(arr) {
+  const _v = JSON.stringify(arr);
+  localStorage.setItem('xinye_image_presets', _v);
+  lsBackup('xinye_image_presets', _v);
+}
+function renderImagePresets() {
+  const presets = getImagePresets();
+  const sel = $('#imagePresetSelect');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— 选择预设 —</option>';
+  presets.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  sel.value = cur;
+}
+$('#btnLoadImagePreset').onclick = () => {
+  const i = parseInt($('#imagePresetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const p = getImagePresets()[i];
+  if (!p) return;
+  $('#setImageApiKey').value = p.apiKey || '';
+  $('#setImageBaseUrl').value = p.baseUrl || '';
+  $('#setImageModel').value = p.model || '';
+  toast(`🎨 画图预设「${p.name}」已激活，记得点保存设置`);
+};
+$('#btnSaveImagePreset').onclick = () => {
+  const name = $('#imagePresetName').value.trim();
+  if (!name) { toast('请先填写预设名称'); return; }
+  const presets = getImagePresets();
+  const p = { name, apiKey: $('#setImageApiKey').value.trim(), baseUrl: $('#setImageBaseUrl').value.trim(), model: $('#setImageModel').value.trim() };
+  const idx = presets.findIndex(x => x.name === name);
+  if (idx >= 0) presets[idx] = p; else presets.push(p);
+  setImagePresets(presets);
+  renderImagePresets();
+  toast(`🎨 画图预设「${name}」已保存`);
+};
+$('#btnDelImagePreset').onclick = () => {
+  const i = parseInt($('#imagePresetSelect').value);
+  if (isNaN(i)) { toast('请先选择一个预设'); return; }
+  const presets = getImagePresets();
+  const name = presets[i]?.name;
+  presets.splice(i, 1);
+  setImagePresets(presets);
+  renderImagePresets();
+  toast(`已删除画图预设「${name}」`);
 };
 
 // ======================== API 预设 ========================
@@ -7863,6 +7932,7 @@ async function exportData(mode) {
     settings,
     apiPresets: getApiPresets(),
     visionPresets: getVisionPresets(),
+    imagePresets: getImagePresets(),
     messages: allMsgs.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
@@ -7927,6 +7997,7 @@ async function doImportPresetsOnly(jsonText) {
   const data = JSON.parse(jsonText);
   if (data.apiPresets && Array.isArray(data.apiPresets))     setApiPresets(data.apiPresets);
   if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
+  if (data.imagePresets && Array.isArray(data.imagePresets))  setImagePresets(data.imagePresets);
   if (data.chatStickers && Array.isArray(data.chatStickers)) {
     try { saveChatStickers(data.chatStickers); }
     catch(e) { toast('⚠️ 聊天贴纸图片过大，已跳过（其他数据正常恢复）'); }
@@ -7993,6 +8064,9 @@ async function doImport(jsonText) {
   }
   if (data.visionPresets && Array.isArray(data.visionPresets)) {
     setVisionPresets(data.visionPresets);
+  }
+  if (data.imagePresets && Array.isArray(data.imagePresets)) {
+    setImagePresets(data.imagePresets);
   }
 
   // 导入消息（兼容 messages / history 两种字段名）
@@ -8193,7 +8267,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1457';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1508';
 
   await openDB();
   await migrateFromLocalStorage();
