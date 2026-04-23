@@ -5463,16 +5463,21 @@ async function sendMessage() {
       }
     ] : [];
 
-    // speak 工具：炘也主动选择是否开口说话
+    // speak 工具：炘也主动开口说话，text参数即为语音内容
     _toolDefs.push({
       type: 'function',
       function: {
         name: 'speak',
-        description: '当你想开口说话、想让兔宝听到你声音时，直接调用这个工具（不需要任何参数）。调用后你这条回复的文字内容就会自动生成语音播放。不要在文字里说"我想用speak"或"我无法调用"，想说话就直接调它。',
-        parameters: { type: 'object', properties: {}, required: [] }
+        description: '想开口说话、让兔宝听到你声音时调用。把要说的话写在 text 参数里，调用后直接生成语音播放，不需要在回复正文里再重复一遍。text 里可用停顿标记<#秒数#>（如<#0.5#>）和语气词(sighs)(laughs)(chuckle)(breath)(gasps)(sniffs)(groans)(pant)(emm)(humming)等增强语音表现力。',
+        parameters: {
+          type: 'object',
+          properties: {
+            text: { type: 'string', description: '要说的内容，直接是炘也想说的话，可含TTS格式标记' }
+          },
+          required: ['text']
+        }
       }
     });
-    apiMsgs.push({ role: 'system', content: '[speak工具说明：你有一个 speak 工具，调用它就能让你的回复被朗读出来。不需要参数，直接调用即可——你的文字回复本身就是语音内容。想开口说话时不要解释说"我想用工具"或"我无法调用"，直接调用就好。调用时你的文字内容支持MiniMax TTS格式增强表现力：停顿用<#秒数#>（如<#0.5#>，不可连续），语气词有(sighs)叹气、(laughs)笑、(chuckle)轻笑、(breath)换气、(gasps)倒吸气、(sniffs)吸鼻子、(groans)呻吟、(pant)喘气、(emm)嗯、(humming)哼唱等，自然融入即可。]' });
 
     // 画图工具：配置了画图API时激活
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel !== 'gpt-image-1')) {
@@ -5781,6 +5786,7 @@ async function sendMessage() {
       const _fHeaders = { 'Authorization': `Bearer ${_FORUM_UID}`, 'Content-Type': 'application/json' };
       if (name === 'speak') {
         window._speakRequested = true;
+        window._speakText = args.text || '';
         return '好，我开口说。';
       }
       if (name === 'forum_get_post') {
@@ -6433,8 +6439,10 @@ async function sendMessage() {
           // 画图/speak工具执行完后处理
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image' || tc.function.name === 'speak')) {
             if (_m1.tool_calls.some(tc => tc.function.name === 'speak')) {
-              if (_m1.content) {
-                await _showNonStream(_m1.content, loopMsgs, _d1.usage);
+              const _speakContent = window._speakText || _m1.content || '';
+              window._speakText = '';
+              if (_speakContent) {
+                await _showNonStream(_speakContent, loopMsgs, _d1.usage);
               } else {
                 const _rSpeak = await _apiFetch(loopMsgs, false, false);
                 if (_rSpeak && _rSpeak.ok) {
@@ -6510,11 +6518,15 @@ async function sendMessage() {
       // 画图/speak工具执行完后处理
       if (parsed.tool_calls.every(tc => tc.name === 'generate_image' || tc.name === 'speak')) {
         if (parsed.tool_calls.some(tc => tc.name === 'speak')) {
-          if (parsed.content) {
-            // 第一轮流式已有内容：直接收尾+TTS，不发第二次请求
-            await _finalizeMsg(parsed, loopMsgs);
+          // 优先用 speak.text 参数（新格式），fallback 到流式内容
+          const _speakContent = window._speakText || parsed.content || '';
+          window._speakText = '';
+          if (_speakContent) {
+            // 把speak.text作为消息展示+TTS，不发第二次请求
+            const _fakeMsg = { content: _speakContent, think: parsed.think, aiMsg: parsed.aiMsg, bubbleEl: parsed.bubbleEl, usage: parsed.usage };
+            await _finalizeMsg(_fakeMsg, loopMsgs);
           } else {
-            // 只有speak工具调用、无文字内容：发一次后续请求拿回复文字
+            // text参数为空且无流式内容：发一次后续请求
             const _rSpeak = await _apiFetch(loopMsgs, false, true);
             if (_rSpeak && _rSpeak.ok) {
               const _pSpeak = await _liveStream(_rSpeak);
@@ -8155,7 +8167,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-1134';
+  if (_verEl) _verEl.textContent = 'v2026.04.23-1141';
 
   await openDB();
   await migrateFromLocalStorage();
