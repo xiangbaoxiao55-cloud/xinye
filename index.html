@@ -1395,6 +1395,19 @@ if('serviceWorker' in navigator){
       <input type="text" id="setImageModel" placeholder="gpt-image-1">
     </div>
     <div class="setting-group">
+      <label>画图尺寸</label>
+      <select id="setImageSize">
+        <option value="1024x1024">1024×1024（默认）</option>
+        <option value="1536x1024">1536×1024（横版）</option>
+        <option value="1024x1536">1024×1536（竖版）</option>
+        <option value="2048x2048">2048×2048（2K方形）</option>
+        <option value="2048x1152">2048×1152（2K横版）</option>
+        <option value="1152x2048">1152×2048（2K竖版）</option>
+        <option value="3840x2160">3840×2160（4K横版）</option>
+        <option value="2160x3840">2160×3840（4K竖版）</option>
+      </select>
+    </div>
+    <div class="setting-group">
       <label>携带历史消息数量（省钱模式）</label>
       <input type="number" id="setContextCount" min="1" max="200" value="20">
       <div class="hint">每次请求只发送最近 N 条消息 + 系统提示词</div>
@@ -2091,7 +2104,7 @@ let settings = {
   subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
   embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
-  imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1',
+  imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1', imageSize: '1024x1024',
   contextCount: 20, systemPrompt: '', shortReply: false,
   aiName: '炘也', userName: '涂涂',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
@@ -5256,7 +5269,7 @@ async function generateImage(userDesc) {
       form.append('model', imgModel);
       form.append('prompt', prompt);
       form.append('n', '1');
-      form.append('size', '1024x1024');
+      form.append('size', settings.imageSize || '1024x1024');
       const composited = await compositeRefImages(refImgs);
       form.append('image', base64ToFile(composited, 'ref.png'));
       imgRes = await fetch(editsEndpoint, {
@@ -5274,7 +5287,7 @@ async function generateImage(userDesc) {
       imgRes = await fetch(genEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-        body: JSON.stringify({ model: imgModel, prompt, n: 1, size: '1024x1024' }),
+        body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024' }),
         signal: ctrl.signal
       });
     }
@@ -6200,7 +6213,7 @@ async function sendMessage() {
             _form.append('model', _imgModel);
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
-            _form.append('size', '1024x1024');
+            _form.append('size', settings.imageSize || '1024x1024');
             const _composited = await compositeRefImages(imgs);
             _form.append('image', base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
@@ -6218,7 +6231,7 @@ async function sendMessage() {
             _imgRes = await fetch(_genEp, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: '1024x1024' }),
+              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
               signal: _ctrl.signal
             });
           }
@@ -6873,6 +6886,7 @@ async function openSettings() {
   $('#setImageApiKey').value = settings.imageApiKey || '';
   $('#setImageBaseUrl').value = settings.imageBaseUrl || '';
   $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
+  $('#setImageSize').value = settings.imageSize || '1024x1024';
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
   const _coreMarkersEl = document.getElementById('setCoreMarkers');
@@ -7393,6 +7407,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.imageApiKey = $('#setImageApiKey').value.trim();
   settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
   settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
+  settings.imageSize = $('#setImageSize').value || '1024x1024';
   settings.contextCount = parseInt($('#setContextCount').value) || 20;
   settings.memoryArchive = $('#setMemoryArchive').value;
   settings.memoryArchiveCoreMarkers = (document.getElementById('setCoreMarkers')?.value || '');
@@ -8362,7 +8377,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-1455';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-2018';
 
   await openDB();
   await migrateFromLocalStorage();
