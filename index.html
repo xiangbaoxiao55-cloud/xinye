@@ -1015,12 +1015,12 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 
 /* ====================== 朋友们 ====================== */
 .friends-panel{
-  position:absolute;inset:0 0 56px 0;
+  position:fixed;inset:0 0 56px 0;
   overflow-y:auto;
   display:none;
   flex-direction:column;
   background:var(--bg);
-  z-index:10;
+  z-index:7500;
 }
 .friends-panel.open{display:flex}
 .friends-header{
@@ -8702,7 +8702,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0024';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0034';
 
   await openDB();
   await migrateFromLocalStorage();
