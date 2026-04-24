@@ -5295,7 +5295,23 @@ async function generateImage(userDesc) {
 
     if (!imgRes.ok) {
       const errData = await imgRes.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `画图失败 (${imgRes.status})`);
+      const errMsg = errData.error?.message || '';
+      // 尺寸不支持时，去掉size参数静默重试
+      if (!hasRef && /size/i.test(errMsg)) {
+        toast('此API不支持该尺寸，用默认尺寸重试...');
+        imgRes = await fetch(genEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+          body: JSON.stringify({ model: imgModel, prompt, n: 1 }),
+          signal: ctrl.signal
+        });
+        if (!imgRes.ok) {
+          const e2 = await imgRes.json().catch(() => ({}));
+          throw new Error(e2.error?.message || `画图失败 (${imgRes.status})`);
+        }
+      } else {
+        throw new Error(errMsg || `画图失败 (${imgRes.status})`);
+      }
     }
 
     const imgData = await imgRes.json();
@@ -6238,7 +6254,22 @@ async function sendMessage() {
           clearTimeout(_tid);
           if (!_imgRes.ok) {
             const _ed = await _imgRes.json().catch(() => ({}));
-            return '画图失败：' + (_ed.error?.message || _imgRes.status);
+            const _em = _ed.error?.message || '';
+            if (!_hasRef && /size/i.test(_em)) {
+              toast('此API不支持该尺寸，用默认尺寸重试...');
+              _imgRes = await fetch(_genEp, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1 }),
+                signal: _ctrl.signal
+              });
+              if (!_imgRes.ok) {
+                const _e2 = await _imgRes.json().catch(() => ({}));
+                return '画图失败：' + (_e2.error?.message || _imgRes.status);
+              }
+            } else {
+              return '画图失败：' + (_em || _imgRes.status);
+            }
           }
           const _imgData = await _imgRes.json();
           console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
@@ -8377,7 +8408,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-2018';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-2020';
 
   await openDB();
   await migrateFromLocalStorage();
