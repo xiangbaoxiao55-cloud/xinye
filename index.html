@@ -3748,7 +3748,7 @@ async function loadAll() {
   if (s) settings = { ...settings, ...s };
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
-  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
+  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar','xinye_friends'];
   for (const _k of _lsBackupKeys) {
     if (localStorage.getItem(_k) === null) {
       const _v = await dbGet('settings', 'ls_' + _k);
@@ -8210,6 +8210,7 @@ async function autoBackupToServer() {
       stickers, chatStickers: getChatStickers(),
       diary: diaryData,
       reading: readingData,
+      friendsData: getFriendsBackupData(),
     });
 
     await fetch(`${serverUrl}/api/backup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
@@ -8223,6 +8224,18 @@ async function autoBackupToServer() {
 }
 
 // ======================== 一键备份到手机 ========================
+function getFriendsBackupData() {
+  try {
+    const friends = JSON.parse(localStorage.getItem('xinye_friends') || '[]');
+    const chats = {};
+    friends.forEach(f => {
+      const raw = localStorage.getItem('friend_chat_' + f.id);
+      if (raw) try { chats[f.id] = JSON.parse(raw); } catch(e) {}
+    });
+    return { friends, chats };
+  } catch(e) { return { friends: [], chats: {} }; }
+}
+
 async function backupToPhone() {
   const btn = $('#btnBackupToPhone');
   if (btn) { btn.disabled = true; btn.textContent = '备份中…'; }
@@ -8266,6 +8279,7 @@ async function backupToPhone() {
       rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
       stickers, chatStickers: getChatStickers(),
       diary: diaryData, reading: readingData,
+      friendsData: getFriendsBackupData(),
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
     const filename = `xinye_backup_${stamp}.json`;
@@ -8342,6 +8356,7 @@ async function exportData(mode) {
     },
     stickers: isLite ? [] : stickers,
     chatStickers: getChatStickers(),
+    friendsData: getFriendsBackupData(),
   };
 
   const label = isLite ? '轻量' : '完整';
@@ -8557,6 +8572,16 @@ async function doImport(jsonText) {
     } catch(e) { console.warn('[导入] 共读数据恢复失败：', e.message); }
   }
 
+  // 导入好友数据
+  if (data.friendsData?.friends && Array.isArray(data.friendsData.friends)) {
+    localStorage.setItem('xinye_friends', JSON.stringify(data.friendsData.friends));
+    if (data.friendsData.chats && typeof data.friendsData.chats === 'object') {
+      for (const [fid, msgs] of Object.entries(data.friendsData.chats)) {
+        if (Array.isArray(msgs)) localStorage.setItem('friend_chat_' + fid, JSON.stringify(msgs));
+      }
+    }
+  }
+
   // 刷新内存状态 & 同步 localStorage
   const s = await dbGet('settings', 'main');
   if (s) settings = { ...settings, ...s };
@@ -8649,7 +8674,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-2346';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0000';
 
   await openDB();
   await migrateFromLocalStorage();
