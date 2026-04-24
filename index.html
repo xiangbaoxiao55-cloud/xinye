@@ -2206,7 +2206,7 @@ const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns
 
 // ======================== IndexedDB 封装 ========================
 const DB_NAME = 'XinyeChatDB';
-const DB_VER = 3;
+const DB_VER = 4;
 let db = null;
 
 function openDB() {
@@ -2220,6 +2220,11 @@ function openDB() {
       if (!d.objectStoreNames.contains('stickers'))  d.createObjectStore('stickers', { keyPath: 'id' });
       if (!d.objectStoreNames.contains('ttsCache'))    d.createObjectStore('ttsCache');
       if (!d.objectStoreNames.contains('rpMessages'))  d.createObjectStore('rpMessages', { keyPath: 'id', autoIncrement: true });
+      if (!d.objectStoreNames.contains('friends'))     d.createObjectStore('friends', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('friendMessages')) {
+        const fms = d.createObjectStore('friendMessages', { keyPath: 'id', autoIncrement: true });
+        fms.createIndex('byFriend', 'friendId', { unique: false });
+      }
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
     req.onerror = (e) => reject(e.target.error);
@@ -3748,7 +3753,7 @@ async function loadAll() {
   if (s) settings = { ...settings, ...s };
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
-  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar','xinye_friends'];
+  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
   for (const _k of _lsBackupKeys) {
     if (localStorage.getItem(_k) === null) {
       const _v = await dbGet('settings', 'ls_' + _k);
@@ -8210,7 +8215,7 @@ async function autoBackupToServer() {
       stickers, chatStickers: getChatStickers(),
       diary: diaryData,
       reading: readingData,
-      friendsData: getFriendsBackupData(),
+      friendsData: await getFriendsBackupData(),
     });
 
     await fetch(`${serverUrl}/api/backup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
@@ -8224,14 +8229,22 @@ async function autoBackupToServer() {
 }
 
 // ======================== 一键备份到手机 ========================
-function getFriendsBackupData() {
+async function getFriendsBackupData() {
   try {
-    const friends = JSON.parse(localStorage.getItem('xinye_friends') || '[]');
+    const friends = await dbGetAll('friends');
     const chats = {};
-    friends.forEach(f => {
-      const raw = localStorage.getItem('friend_chat_' + f.id);
-      if (raw) try { chats[f.id] = JSON.parse(raw); } catch(e) {}
-    });
+    for (const f of friends) {
+      const msgs = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction('friendMessages', 'readonly');
+          const idx = tx.objectStore('friendMessages').index('byFriend');
+          const req = idx.getAll(f.id);
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch(e) { resolve([]); }
+      });
+      if (msgs.length) chats[f.id] = msgs;
+    }
     return { friends, chats };
   } catch(e) { return { friends: [], chats: {} }; }
 }
@@ -8279,7 +8292,7 @@ async function backupToPhone() {
       rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
       stickers, chatStickers: getChatStickers(),
       diary: diaryData, reading: readingData,
-      friendsData: getFriendsBackupData(),
+      friendsData: await getFriendsBackupData(),
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
     const filename = `xinye_backup_${stamp}.json`;
@@ -8356,7 +8369,7 @@ async function exportData(mode) {
     },
     stickers: isLite ? [] : stickers,
     chatStickers: getChatStickers(),
-    friendsData: getFriendsBackupData(),
+    friendsData: await getFriendsBackupData(),
   };
 
   const label = isLite ? '轻量' : '完整';
@@ -8572,12 +8585,19 @@ async function doImport(jsonText) {
     } catch(e) { console.warn('[导入] 共读数据恢复失败：', e.message); }
   }
 
-  // 导入好友数据
+  // 导入好友数据（写入 IDB）
   if (data.friendsData?.friends && Array.isArray(data.friendsData.friends)) {
-    localStorage.setItem('xinye_friends', JSON.stringify(data.friendsData.friends));
+    await dbClear('friends');
+    await dbClear('friendMessages');
+    for (const f of data.friendsData.friends) await dbPut('friends', null, f);
     if (data.friendsData.chats && typeof data.friendsData.chats === 'object') {
-      for (const [fid, msgs] of Object.entries(data.friendsData.chats)) {
-        if (Array.isArray(msgs)) localStorage.setItem('friend_chat_' + fid, JSON.stringify(msgs));
+      for (const msgs of Object.values(data.friendsData.chats)) {
+        if (Array.isArray(msgs)) {
+          for (const m of msgs) {
+            const rec = { role: m.role, content: m.content, friendId: m.friendId, ts: m.ts || m.id || Date.now() };
+            await dbPut('friendMessages', null, rec);
+          }
+        }
       }
     }
   }
@@ -8674,7 +8694,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0000';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0006';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9437,24 +9457,50 @@ function _qnToast(msg) {
 <!-- ====================== 朋友们 JS ====================== -->
 <script>
 (function() {
-  const LS_FRIENDS = 'xinye_friends';
   let _friends = [];
   let _editingFriendId = null;
   let _currentFriend = null;
-  let _friendMessages = [];
+  let _friendMessages = []; // 当前聊天的内存副本
   let _friendSending = false;
 
-  function loadFriends() {
-    try { _friends = JSON.parse(localStorage.getItem(LS_FRIENDS) || '[]'); } catch(e) { _friends = []; }
+  // IDB helpers（借用主脚本里的全局 db 和 dbPut/dbGet/dbGetAll/dbDelete）
+  function idbGetFriendMsgs(friendId) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('friendMessages', 'readonly');
+      const idx = tx.objectStore('friendMessages').index('byFriend');
+      const req = idx.getAll(friendId);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    });
   }
-  function saveFriends() {
-    localStorage.setItem(LS_FRIENDS, JSON.stringify(_friends));
+  function idbAddFriendMsg(msg) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('friendMessages', 'readwrite');
+      const req = tx.objectStore('friendMessages').add(msg);
+      req.onsuccess = () => { msg.id = req.result; resolve(msg); };
+      req.onerror = e => reject(e.target.error);
+    });
   }
-  function loadFriendMessages(fid) {
-    try { return JSON.parse(localStorage.getItem('friend_chat_' + fid) || '[]'); } catch(e) { return []; }
+  function idbDeleteFriendMsgs(friendId) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('friendMessages', 'readwrite');
+      const idx = tx.objectStore('friendMessages').index('byFriend');
+      const req = idx.openCursor(IDBKeyRange.only(friendId));
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor) { cursor.delete(); cursor.continue(); } else resolve();
+      };
+      req.onerror = e => reject(e.target.error);
+    });
   }
-  function saveFriendMessages(fid, msgs) {
-    localStorage.setItem('friend_chat_' + fid, JSON.stringify(msgs.slice(-200)));
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function loadFriends() {
+    _friends = await dbGetAll('friends');
+    _friends.sort((a, b) => (a.createdAt||0) - (b.createdAt||0));
   }
 
   function renderFriendsList() {
@@ -9476,10 +9522,6 @@ function _qnToast(msg) {
     `).join('');
   }
 
-  function escHtml(s) {
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
   window.openFriendModal = function(fid) {
     _editingFriendId = fid || null;
     const f = fid ? _friends.find(x => x.id === fid) : null;
@@ -9490,7 +9532,6 @@ function _qnToast(msg) {
     document.getElementById('fmModel').value = f ? f.model : '';
     document.getElementById('fmSysPrompt').value = f ? (f.sysPrompt||'') : '';
     document.getElementById('fmDelBtn').style.display = f ? '' : 'none';
-    // emoji
     const selectedEmoji = f ? (f.emoji||'🤖') : '🤖';
     document.querySelectorAll('.friend-modal-emoji-btn').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.emoji === selectedEmoji);
@@ -9508,7 +9549,7 @@ function _qnToast(msg) {
     btn.classList.add('selected');
   };
 
-  window.saveFriend = function() {
+  window.saveFriend = async function() {
     const name = document.getElementById('fmName').value.trim();
     if (!name) { alert('请填写名字'); return; }
     const apiKey = document.getElementById('fmApiKey').value.trim();
@@ -9519,32 +9560,31 @@ function _qnToast(msg) {
     const emoji = selectedBtn ? selectedBtn.dataset.emoji : '🤖';
     const bgColors = {'🤖':'rgba(16,163,127,.15)','🦋':'rgba(156,39,176,.12)','🐳':'rgba(30,136,229,.12)','🐬':'rgba(0,172,193,.12)','🦊':'rgba(230,81,0,.12)','🐼':'rgba(100,100,100,.1)','🌟':'rgba(251,192,45,.12)','🌊':'rgba(41,182,246,.12)','💎':'rgba(0,150,136,.12)','🔮':'rgba(94,53,177,.12)'};
     const bgColor = bgColors[emoji] || 'rgba(128,128,128,.1)';
-    if (_editingFriendId) {
-      const idx = _friends.findIndex(x => x.id === _editingFriendId);
-      if (idx >= 0) _friends[idx] = { ..._friends[idx], name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor };
-    } else {
-      _friends.push({ id: 'f_'+Date.now(), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor, createdAt: Date.now() });
-    }
-    saveFriends();
+    const fObj = _editingFriendId
+      ? { ...(_friends.find(x=>x.id===_editingFriendId)||{}), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor }
+      : { id: 'f_'+Date.now(), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor, createdAt: Date.now() };
+    await dbPut('friends', null, fObj);
+    await loadFriends();
     renderFriendsList();
     closeFriendModal();
   };
 
-  window.deleteFriend = function() {
+  window.deleteFriend = async function() {
     if (!_editingFriendId) return;
     if (!confirm('确定删除这个朋友？聊天记录也会一起清掉。')) return;
-    localStorage.removeItem('friend_chat_' + _editingFriendId);
-    _friends = _friends.filter(x => x.id !== _editingFriendId);
-    saveFriends();
+    await idbDeleteFriendMsgs(_editingFriendId);
+    await dbDelete('friends', _editingFriendId);
+    await loadFriends();
     renderFriendsList();
     closeFriendModal();
   };
 
-  window.openFriendChat = function(fid) {
+  window.openFriendChat = async function(fid) {
     const f = _friends.find(x => x.id === fid);
     if (!f) return;
     _currentFriend = f;
-    _friendMessages = loadFriendMessages(fid);
+    _friendMessages = await idbGetFriendMsgs(fid);
+    _friendMessages.sort((a,b) => (a.ts||0)-(b.ts||0));
     document.getElementById('friendChatAvatar').textContent = f.emoji || '🤖';
     document.getElementById('friendChatAvatar').style.background = f.bgColor || 'rgba(128,128,128,.12)';
     document.getElementById('friendChatTitle').textContent = f.name;
@@ -9563,11 +9603,11 @@ function _qnToast(msg) {
     _friendMessages = [];
   };
 
-  window.clearFriendChat = function() {
+  window.clearFriendChat = async function() {
     if (!_currentFriend) return;
     if (!confirm('清空和TA的聊天记录？')) return;
+    await idbDeleteFriendMsgs(_currentFriend.id);
     _friendMessages = [];
-    saveFriendMessages(_currentFriend.id, []);
     renderFriendChatMessages();
   };
 
@@ -9588,16 +9628,10 @@ function _qnToast(msg) {
     const isUser = msg.role === 'user';
     const row = document.createElement('div');
     row.className = 'friend-msg-row ' + (isUser ? 'user' : 'ai');
-    row.dataset.msgId = msg.id || '';
     const avatarEl = document.createElement('div');
     avatarEl.className = 'friend-msg-avatar';
-    if (isUser) {
-      avatarEl.textContent = '🐰';
-      avatarEl.style.background = 'rgba(255,182,193,.2)';
-    } else {
-      avatarEl.textContent = _currentFriend.emoji || '🤖';
-      avatarEl.style.background = _currentFriend.bgColor || 'rgba(128,128,128,.12)';
-    }
+    if (isUser) { avatarEl.textContent = '🐰'; avatarEl.style.background = 'rgba(255,182,193,.2)'; }
+    else { avatarEl.textContent = _currentFriend.emoji||'🤖'; avatarEl.style.background = _currentFriend.bgColor||'rgba(128,128,128,.12)'; }
     const bubble = document.createElement('div');
     bubble.className = 'friend-msg-bubble';
     bubble.textContent = msg.content;
@@ -9616,31 +9650,27 @@ function _qnToast(msg) {
     if (!_currentFriend.apiKey && !_currentFriend.baseUrl) {
       alert('请先在编辑朋友页填写 API Key 和 Base URL'); return;
     }
-    input.value = '';
-    input.style.height = 'auto';
-    const userMsg = { role: 'user', content: text, id: Date.now() };
-    _friendMessages.push(userMsg);
-    appendFriendMsgDOM(userMsg, true);
-    // 删除之前的空提示
+    input.value = ''; input.style.height = 'auto';
     const area = document.getElementById('friendChatArea');
-    const emptyHint = area.querySelector('div[style*="打个招呼"]');
-    if (emptyHint) emptyHint.remove();
+    area.querySelector('div[style*="打个招呼"]')?.remove();
+
+    const userRec = { role: 'user', content: text, friendId: _currentFriend.id, ts: Date.now() };
+    await idbAddFriendMsg(userRec);
+    _friendMessages.push(userRec);
+    appendFriendMsgDOM(userRec, true);
 
     _friendSending = true;
     document.getElementById('friendChatSend').disabled = true;
 
-    // 构建API消息（带上下文20条）
     const ctx = _friendMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
     const sysPrompt = _currentFriend.sysPrompt ? _currentFriend.sysPrompt.trim() : '';
     const apiMsgs = sysPrompt ? [{ role: 'system', content: sysPrompt }, ...ctx] : ctx;
-
     const rawBase = (_currentFriend.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const apiUrl = /\/v\d+$/.test(rawBase) ? rawBase + '/chat/completions' : rawBase + '/v1/chat/completions';
     const model = _currentFriend.model || 'gpt-4o';
 
-    // 占位气泡
-    const placeholderMsg = { role: 'assistant', content: '…', id: Date.now() + 1 };
-    const bubble = appendFriendMsgDOM(placeholderMsg, true);
+    const placeholderRec = { role: 'assistant', content: '…', friendId: _currentFriend.id, ts: Date.now()+1 };
+    const bubble = appendFriendMsgDOM(placeholderRec, true);
 
     try {
       const ctrl = new AbortController();
@@ -9656,69 +9686,80 @@ function _qnToast(msg) {
         const errText = await resp.text().catch(()=>'');
         throw new Error('HTTP ' + resp.status + ': ' + errText.slice(0,200));
       }
-      // 流式读取
       const reader = resp.body.getReader();
       const dec = new TextDecoder();
-      let fullText = '';
-      let buf = '';
+      let fullText = '', buf = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop();
+        const lines = buf.split('\n'); buf = lines.pop();
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (!trimmed.startsWith('data: ')) continue;
+          const t = line.trim();
+          if (!t || t === 'data: [DONE]' || !t.startsWith('data: ')) continue;
           try {
-            const chunk = JSON.parse(trimmed.slice(6));
-            const delta = chunk.choices?.[0]?.delta?.content || '';
-            if (delta) { fullText += delta; if (bubble) bubble.textContent = fullText; if (area) area.scrollTop = area.scrollHeight; }
+            const delta = JSON.parse(t.slice(6)).choices?.[0]?.delta?.content || '';
+            if (delta) { fullText += delta; if (bubble) bubble.textContent = fullText; area.scrollTop = area.scrollHeight; }
           } catch(e) {}
         }
       }
       if (!fullText) fullText = '（无回复）';
       if (bubble) bubble.textContent = fullText;
-      const aiMsg = { role: 'assistant', content: fullText, id: Date.now() + 2 };
-      _friendMessages.push(aiMsg);
-      saveFriendMessages(_currentFriend.id, _friendMessages);
+      const aiRec = { role: 'assistant', content: fullText, friendId: _currentFriend.id, ts: Date.now()+2 };
+      await idbAddFriendMsg(aiRec);
+      _friendMessages.push(aiRec);
     } catch(e) {
       const errMsg = e.name === 'AbortError' ? '请求超时' : (e.message || '请求失败');
       if (bubble) { bubble.textContent = '❌ ' + errMsg; bubble.style.color = '#e57373'; }
-      _friendMessages.pop(); // 移除刚才的user消息不保存（失败了）
+      // 移除刚存的 user 消息（请求失败，不保留）
+      if (userRec.id) { try { await dbDelete('friendMessages', userRec.id); } catch(e){} }
+      _friendMessages.pop();
     } finally {
       _friendSending = false;
       document.getElementById('friendChatSend').disabled = false;
     }
   };
 
-  // 自动扩展输入框
   document.addEventListener('DOMContentLoaded', function() {
     const inp = document.getElementById('friendChatInput');
     if (inp) {
-      inp.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-      });
-      inp.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFriendMessage(); }
-      });
+      inp.addEventListener('input', function() { this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
+      inp.addEventListener('keydown', function(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFriendMessage();} });
     }
   });
 
-  // 初始化
-  function friendsInit() {
-    loadFriends();
+  async function friendsInit() {
+    // 迁移：如果旧LS数据存在，搬进IDB，然后清掉LS
+    const lsFriends = localStorage.getItem('xinye_friends');
+    if (lsFriends) {
+      try {
+        const old = JSON.parse(lsFriends);
+        for (const f of old) {
+          await dbPut('friends', null, f);
+          const oldMsgs = localStorage.getItem('friend_chat_' + f.id);
+          if (oldMsgs) {
+            const msgs = JSON.parse(oldMsgs);
+            for (const m of msgs) {
+              await idbAddFriendMsg({ role: m.role, content: m.content, friendId: f.id, ts: m.id || Date.now() });
+            }
+            localStorage.removeItem('friend_chat_' + f.id);
+          }
+        }
+        localStorage.removeItem('xinye_friends');
+      } catch(e) { console.warn('[Friends] 迁移失败', e); }
+    }
+    await loadFriends();
     renderFriendsList();
   }
+
+  // 等主脚本 openDB() 完成后再初始化（openDB 在 DOMContentLoaded 之前执行完）
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', friendsInit);
   } else {
     friendsInit();
   }
 
-  window._friendsRenderList = renderFriendsList;
+  window._friendsRenderList = async function() { await loadFriends(); renderFriendsList(); };
 })();
 </script>
 
