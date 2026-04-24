@@ -7453,20 +7453,30 @@ async function activateTtsPreset(i) {
   settings.ttsTargetLang  = p.ttsTargetLang || 'zh';
   settings.ttsGptWeights  = p.gptWeights    || '';
   settings.ttsSovitsWeights = p.sovitsWeights || '';
-  if (p.mosiKey)         settings.mosiKey          = p.mosiKey;
-  if (p.mosiVoiceId)     settings.mosiVoiceId      = p.mosiVoiceId;
+  if (p.mosiKey)         settings.mosiKey           = p.mosiKey;
+  if (p.mosiVoiceId)     settings.mosiVoiceId       = p.mosiVoiceId;
+  if (p.minimaxKey)      settings.minimaxKey         = p.minimaxKey;
+  if (p.minimaxGroupId)  settings.minimaxGroupId     = p.minimaxGroupId;
+  settings.minimaxVoiceId  = p.minimaxVoiceId  || '';
+  settings.minimaxModel    = p.minimaxModel    || '';
+  settings.minimaxProxy    = p.minimaxProxy    || '';
   await saveSettings();
   // 同步面板显示
-  $('#setTtsType').value         = settings.ttsType;
-  $('#setTtsUrl').value          = settings.ttsUrl;
-  $('#setTtsRefPath').value      = settings.ttsRefPath;
-  $('#setTtsRefText').value      = settings.ttsRefText;
-  $('#setTtsRefLang').value      = settings.ttsRefLang;
-  $('#setTtsTargetLang').value   = settings.ttsTargetLang;
-  $('#setTtsGptWeights').value   = settings.ttsGptWeights;
+  $('#setTtsType').value          = settings.ttsType;
+  $('#setTtsUrl').value           = settings.ttsUrl;
+  $('#setTtsRefPath').value       = settings.ttsRefPath;
+  $('#setTtsRefText').value       = settings.ttsRefText;
+  $('#setTtsRefLang').value       = settings.ttsRefLang;
+  $('#setTtsTargetLang').value    = settings.ttsTargetLang;
+  $('#setTtsGptWeights').value    = settings.ttsGptWeights;
   $('#setTtsSovitsWeights').value = settings.ttsSovitsWeights;
-  $('#setMosiKey').value         = settings.mosiKey;
-  $('#setMosiVoiceId').value     = settings.mosiVoiceId;
+  $('#setMosiKey').value          = settings.mosiKey;
+  $('#setMosiVoiceId').value      = settings.mosiVoiceId;
+  $('#setMinimaxKey').value       = settings.minimaxKey;
+  $('#setMinimaxGroupId').value   = settings.minimaxGroupId;
+  $('#setMinimaxVoiceId').value   = settings.minimaxVoiceId;
+  $('#setMinimaxModel').value     = settings.minimaxModel;
+  $('#setMinimaxProxy').value     = settings.minimaxProxy;
   updateTtsTypeUI(); // 切换显示对应 TTS 类型的字段
   toast(`✅ 已激活音色预设「${p.name}」`);
 }
@@ -7486,16 +7496,21 @@ $('#btnSavePreset').onclick = async () => {
   if (!settings.ttsPresets) settings.ttsPresets = [];
   const p = {
     name,
-    ttsType:       $('#setTtsType').value,
-    ttsUrl:        $('#setTtsUrl').value.trim(),
-    ttsRefPath:    $('#setTtsRefPath').value.trim(),
-    ttsRefText:    $('#setTtsRefText').value.trim(),
-    ttsRefLang:    $('#setTtsRefLang').value,
-    ttsTargetLang: $('#setTtsTargetLang').value,
-    gptWeights:    $('#setTtsGptWeights').value.trim(),
-    sovitsWeights: $('#setTtsSovitsWeights').value.trim(),
-    mosiKey:       $('#setMosiKey').value.trim(),
-    mosiVoiceId:   $('#setMosiVoiceId').value.trim(),
+    ttsType:         $('#setTtsType').value,
+    ttsUrl:          $('#setTtsUrl').value.trim(),
+    ttsRefPath:      $('#setTtsRefPath').value.trim(),
+    ttsRefText:      $('#setTtsRefText').value.trim(),
+    ttsRefLang:      $('#setTtsRefLang').value,
+    ttsTargetLang:   $('#setTtsTargetLang').value,
+    gptWeights:      $('#setTtsGptWeights').value.trim(),
+    sovitsWeights:   $('#setTtsSovitsWeights').value.trim(),
+    mosiKey:         $('#setMosiKey').value.trim(),
+    mosiVoiceId:     $('#setMosiVoiceId').value.trim(),
+    minimaxKey:      $('#setMinimaxKey').value.trim(),
+    minimaxGroupId:  $('#setMinimaxGroupId').value.trim(),
+    minimaxVoiceId:  $('#setMinimaxVoiceId').value.trim(),
+    minimaxModel:    $('#setMinimaxModel').value.trim(),
+    minimaxProxy:    $('#setMinimaxProxy').value.trim(),
   };
   settings.ttsPresets.push(p);
   await saveSettings();
@@ -8296,7 +8311,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-1012';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-1131';
 
   await openDB();
   await migrateFromLocalStorage();
