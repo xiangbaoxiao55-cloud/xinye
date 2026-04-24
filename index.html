@@ -2226,8 +2226,16 @@ function openDB() {
         fms.createIndex('byFriend', 'friendId', { unique: false });
       }
     };
-    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onsuccess = (e) => {
+      db = e.target.result;
+      db.onversionchange = () => { db.close(); db = null; };
+      resolve(db);
+    };
     req.onerror = (e) => reject(e.target.error);
+    req.onblocked = () => {
+      console.warn('[DB] onblocked: 旧DB连接残留，刷新页面');
+      window.location.reload();
+    };
   });
 }
 
@@ -8694,7 +8702,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0006';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0024';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9752,12 +9760,15 @@ function _qnToast(msg) {
     renderFriendsList();
   }
 
-  // 等主脚本 openDB() 完成后再初始化（openDB 在 DOMContentLoaded 之前执行完）
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', friendsInit);
-  } else {
-    friendsInit();
+  // 等 db 就绪后再初始化（db 由主脚本 openDB() 设置，可能比本脚本晚）
+  function waitDbAndInit() {
+    if (typeof db !== 'undefined' && db !== null) {
+      friendsInit().catch(e => console.warn('[Friends] init失败', e));
+    } else {
+      setTimeout(waitDbAndInit, 50);
+    }
   }
+  waitDbAndInit();
 
   window._friendsRenderList = async function() { await loadFriends(); renderFriendsList(); };
 })();
