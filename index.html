@@ -6316,7 +6316,7 @@ async function sendMessage() {
           if (_a > 0) { toast('重试中…'); await new Promise(r => setTimeout(r, 4000)); }
           try {
             const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 90000);
+            const tid = setTimeout(() => ctrl.abort(), 300000);
             _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}`}, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
             if (_res.ok) {
@@ -8311,7 +8311,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-1131';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-1202';
 
   await openDB();
   await migrateFromLocalStorage();
