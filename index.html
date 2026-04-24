@@ -283,7 +283,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 /* 收藏面板卡片 */
 .bm-card-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 5px rgba(0,0,0,.1);background:var(--bm-avatar) center/cover no-repeat}
 .bm-card-body{font-size:13px;line-height:1.65;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow:hidden;max-height:5.7em;transition:max-height .25s ease}
-.bm-card-body.expanded{max-height:600px}
+.bm-card-body.expanded{max-height:none;overflow:visible}
 .bm-expand-btn{background:none;border:none;cursor:pointer;font-size:11px;color:var(--pink-deep);opacity:.8;padding:2px 0;margin-top:3px;display:none;transition:opacity .15s}
 .bm-expand-btn:hover{opacity:1}
 .bm-expand-btn.visible{display:inline-block}
@@ -3244,7 +3244,7 @@ function renderBookmarksPanel() {
           <span style="font-size:12px;font-weight:700;color:var(--pink-deep)">${escHtml(aiName)}</span>
           <button onclick="removeBookmark(${b.id})" title="取消收藏" style="background:none;border:none;cursor:pointer;padding:2px 4px;opacity:.4;color:var(--text-light);font-size:12px;line-height:1;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>
         </div>
-        <div class="bm-card-body" id="bmc-${b.id}">${escHtml(b.content||'')}</div>
+        <div class="bm-card-body" id="bmc-${b.id}"></div>
         <button class="bm-expand-btn" id="bmx-${b.id}" onclick="toggleBmExpand(${b.id})">展开 ▾</button>
         <div style="font-size:10px;color:var(--text-muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
           ${msgTime ? `<span>💬 ${msgTime}</span>` : ''}
@@ -3253,11 +3253,14 @@ function renderBookmarksPanel() {
       </div>
     </div>`;
   }).join('');
-  // 渲染后检查哪些需要显示展开按钮（内容超出 max-height）
+  // 渲染后用 linkifyEl 处理思考链 + Markdown，再检查是否需要展开按钮
   requestAnimationFrame(() => {
     bms.forEach(b => {
       const body = document.getElementById(`bmc-${b.id}`);
       const btn  = document.getElementById(`bmx-${b.id}`);
+      if (body) {
+        try { linkifyEl(body, b.content || ''); applyStickerTags(body); } catch(_) { body.textContent = b.content || ''; }
+      }
       if (body && btn && body.scrollHeight > body.clientHeight + 2) btn.classList.add('visible');
     });
   });
@@ -8293,7 +8296,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.23-2315';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-1012';
 
   await openDB();
   await migrateFromLocalStorage();
