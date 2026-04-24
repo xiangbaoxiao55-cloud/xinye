@@ -1553,6 +1553,10 @@ if('serviceWorker' in navigator){
         <label>我的名称</label>
         <input type="text" id="setUserName" placeholder="小浣熊">
       </div>
+      <div class="setting-group">
+        <label>在一起纪念日</label>
+        <input type="date" id="setTogetherSince" value="2026-02-13">
+      </div>
     </div>
     <div class="setting-group">
       <label>聊天背景（支持图片 / MP4 / WebM 视频）</label>
@@ -2106,7 +2110,7 @@ let settings = {
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
   imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1', imageSize: '1024x1024',
   contextCount: 20, systemPrompt: '', shortReply: false,
-  aiName: '炘也', userName: '涂涂',
+  aiName: '炘也', userName: '涂涂', togetherSince: '2026-02-13',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
   streamMode: false,
   ttsType: 'local',
@@ -6943,6 +6947,7 @@ async function openSettings() {
   $('#setSystemPrompt').value = settings.systemPrompt;
   $('#setAiName').value = settings.aiName;
   $('#setUserName').value = settings.userName;
+  $('#setTogetherSince').value = settings.togetherSince || '2026-02-13';
   $('#setBgOpacity').value = settings.bgOpacity;
   $('#bgOpacityVal').textContent = settings.bgOpacity;
   $('#setBgBlur').value = settings.bgBlur;
@@ -7446,6 +7451,7 @@ $('#btnSaveSettings').onclick = async () => {
   settings.systemPrompt = $('#setSystemPrompt').value;
   settings.aiName = $('#setAiName').value.trim() || '奶牛猫';
   settings.userName = $('#setUserName').value.trim() || '小浣熊';
+  settings.togetherSince = $('#setTogetherSince').value || '2026-02-13';
   settings.bgOpacity = parseFloat($('#setBgOpacity').value) || 0.3;
   settings.bgBlur = parseInt($('#setBgBlur').value) || 0;
   settings.bubbleOpacity = parseFloat($('#setBubbleOpacity').value) || 0.85;
@@ -8408,7 +8414,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-2101';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-2300';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -8626,7 +8632,7 @@ async function openDiaryGen(type) {
 function updateHeaderStatus() {
   // RP模式下不覆盖，由applyRpHeader管理
   if (window._rpActive) return;
-  const start = new Date('2026-02-13');
+  const start = new Date(settings.togetherSince || '2026-02-13');
   const today = new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   const days = Math.floor((today - start) / (1000*60*60*24)) + 1;
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
