@@ -6304,12 +6304,62 @@ async function sendMessage() {
       }
       return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o' };
     }
+    // 把 SSE 流静默读完，拼成标准非流式 JSON 格式返回（兼容不支持流式的 API fallback 到普通 JSON）
+    async function _bufferStream(res) {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', rawBuf = '', content = '', think = '';
+      let toolCalls = {}, usage = {}, model = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = dec.decode(value, { stream: true });
+          rawBuf += chunk; buf += chunk;
+          const lines = buf.split('\n'); buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const d = line.slice(6).trim();
+            if (d === '[DONE]') continue;
+            try {
+              const j = JSON.parse(d);
+              const delta = j.choices?.[0]?.delta;
+              if (delta?.content) content += delta.content;
+              if (delta?.reasoning_content) think += delta.reasoning_content;
+              if (delta?.thinking) think += delta.thinking;
+              if (delta?.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index ?? 0;
+                  if (!toolCalls[idx]) toolCalls[idx] = { id: '', type: 'function', function: { name: '', arguments: '' } };
+                  if (tc.id) toolCalls[idx].id = tc.id;
+                  if (tc.type) toolCalls[idx].type = tc.type;
+                  if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
+                  if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+                }
+              }
+              if (j.usage) usage = j.usage;
+              if (j.model) model = j.model;
+            } catch(_) {}
+          }
+        }
+      } catch(_) {}
+      // fallback：API 不支持流式，返回了普通 JSON
+      if (!content && !Object.keys(toolCalls).length && rawBuf.trim()) {
+        try { const j = JSON.parse(rawBuf.trim()); if (j.choices) return { ok: true, status: 200, json: async () => j }; } catch(_) {}
+      }
+      const tcs = Object.values(toolCalls).filter(t => t.id || t.function?.name);
+      const msg = { role: 'assistant', content: content || null };
+      if (think) msg.reasoning_content = think;
+      if (tcs.length) msg.tool_calls = tcs;
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: msg, finish_reason: tcs.length ? 'tool_calls' : 'stop' }], usage, model }) };
+    }
     async function _apiFetch(msgs, withTools, streamMode) {
       let _res;
       for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
         const cfg = _buildCfg(_allCfgs[pi]);
-        const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: streamMode };
-        if (streamMode) bodyObj.stream_options = { include_usage: true };
+        // 始终发 stream:true，让 Cloudflare 代理保持连接活跃；非流式调用方拿到的是攒好的假 Response
+        const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
+        bodyObj.stream_options = { include_usage: true };
         if (withTools && _toolDefs.length) { bodyObj.tools = _toolDefs; bodyObj.tool_choice = 'auto'; }
         const bodyStr = JSON.stringify(bodyObj);
         for (let _a = 0; _a < 2; _a++) {
@@ -6321,6 +6371,7 @@ async function sendMessage() {
             clearTimeout(tid);
             if (_res.ok) {
               if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
+              if (!streamMode) _res = await _bufferStream(_res);
               return _res;
             }
           } catch(fe) {
@@ -8311,7 +8362,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-1202';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-1225';
 
   await openDB();
   await migrateFromLocalStorage();
