@@ -1013,6 +1013,163 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 [data-theme="dark"] .msg-bubble th{background:rgba(255,255,255,.08)}
 [data-theme="dark"] .msg-bubble th,[data-theme="dark"] .msg-bubble td{border-color:rgba(255,255,255,.15)}
 
+/* ====================== 朋友们 ====================== */
+.friends-panel{
+  position:absolute;inset:0 0 56px 0;
+  overflow-y:auto;
+  display:none;
+  flex-direction:column;
+  background:var(--bg);
+  z-index:10;
+}
+.friends-panel.open{display:flex}
+.friends-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px 10px;
+  font-size:16px;font-weight:600;color:var(--text);
+}
+.friends-header-title{display:flex;align-items:center;gap:8px}
+.friends-add-btn{
+  width:34px;height:34px;border-radius:50%;background:var(--pink);color:#fff;
+  border:none;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.friends-list{flex:1;padding:8px 12px 16px;display:flex;flex-direction:column;gap:10px}
+.friend-card{
+  display:flex;align-items:center;gap:12px;
+  background:var(--bubble-ai);
+  border-radius:14px;padding:12px 14px;
+  cursor:pointer;position:relative;
+  border:1.5px solid transparent;
+  transition:border-color .15s;
+}
+.friend-card:active{opacity:.8}
+.friend-card-avatar{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;flex-shrink:0;
+}
+.friend-card-info{flex:1;min-width:0}
+.friend-card-name{font-size:15px;font-weight:600;color:var(--text)}
+.friend-card-model{font-size:12px;color:var(--text);opacity:.5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.friend-card-edit{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;border-radius:50%;border:none;background:transparent;
+  color:var(--text);opacity:.35;cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+}
+.friend-card-edit:active{opacity:.7}
+.friends-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;color:var(--text);opacity:.45;font-size:14px;padding-bottom:40px;
+}
+/* 好友聊天 overlay */
+.friend-chat-overlay{
+  position:fixed;inset:0;z-index:9500;
+  background:var(--bg);
+  display:none;flex-direction:column;
+}
+.friend-chat-overlay.open{display:flex}
+.friend-chat-header{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid rgba(128,128,128,.12);
+  flex-shrink:0;
+}
+.friend-chat-back{
+  width:32px;height:32px;border:none;background:transparent;
+  font-size:20px;cursor:pointer;color:var(--text);opacity:.7;
+  display:flex;align-items:center;justify-content:center;padding:0;
+}
+.friend-chat-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+}
+.friend-chat-title{font-size:16px;font-weight:600;color:var(--text);flex:1}
+.friend-chat-clear{
+  border:none;background:transparent;color:var(--text);opacity:.4;
+  font-size:12px;cursor:pointer;padding:4px 6px;
+}
+.friend-chat-area{
+  flex:1;overflow-y:auto;padding:14px 12px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.friend-chat-area::-webkit-scrollbar{width:4px}
+.friend-chat-area::-webkit-scrollbar-thumb{background:var(--pink);border-radius:2px}
+.friend-msg-row{display:flex;gap:8px;max-width:88%;align-items:flex-end}
+.friend-msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.friend-msg-row.ai{align-self:flex-start}
+.friend-msg-avatar{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;
+}
+.friend-msg-bubble{
+  padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.55;
+  max-width:100%;word-break:break-word;white-space:pre-wrap;
+}
+.friend-msg-row.user .friend-msg-bubble{
+  background:var(--pink);color:#fff;border-bottom-right-radius:4px;
+}
+.friend-msg-row.ai .friend-msg-bubble{
+  background:var(--bubble-ai);color:var(--text);border-bottom-left-radius:4px;
+}
+.friend-chat-input-area{
+  display:flex;gap:8px;padding:10px 12px 16px;
+  border-top:1px solid rgba(128,128,128,.1);flex-shrink:0;
+}
+.friend-chat-input{
+  flex:1;border:1.5px solid var(--pink);border-radius:20px;
+  padding:9px 14px;font-size:14px;font-family:inherit;
+  background:var(--bubble-ai);color:var(--text);resize:none;
+  outline:none;min-height:40px;max-height:120px;overflow-y:auto;
+}
+.friend-chat-send{
+  width:42px;height:42px;border-radius:50%;border:none;
+  background:var(--pink);color:#fff;font-size:18px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.friend-chat-send:disabled{opacity:.45}
+/* 好友弹窗 */
+.friend-modal-overlay{
+  position:fixed;inset:0;z-index:9600;
+  background:rgba(0,0,0,.45);
+  display:none;align-items:flex-end;justify-content:center;
+}
+.friend-modal-overlay.open{display:flex}
+.friend-modal{
+  background:var(--bg);border-radius:20px 20px 0 0;
+  width:100%;max-width:480px;padding:20px 18px 32px;
+  max-height:85vh;overflow-y:auto;
+}
+.friend-modal h3{margin:0 0 16px;font-size:17px;color:var(--text)}
+.friend-modal-row{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.friend-modal-row label{font-size:12px;color:var(--text);opacity:.6}
+.friend-modal-row input,.friend-modal-row textarea,.friend-modal-row select{
+  padding:9px 11px;border:1.5px solid rgba(128,128,128,.25);border-radius:10px;
+  background:var(--bubble-ai);color:var(--text);font-size:14px;font-family:inherit;
+  outline:none;width:100%;box-sizing:border-box;
+}
+.friend-modal-row input:focus,.friend-modal-row textarea:focus{border-color:var(--pink)}
+.friend-modal-emoji-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.friend-modal-emoji-btn{
+  width:36px;height:36px;border-radius:8px;border:2px solid transparent;
+  background:var(--bubble-ai);font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.friend-modal-emoji-btn.selected{border-color:var(--pink)}
+.friend-modal-actions{display:flex;gap:10px;margin-top:4px}
+.friend-modal-save{
+  flex:1;padding:11px;border-radius:10px;border:none;
+  background:var(--pink);color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+}
+.friend-modal-del{
+  padding:11px 16px;border-radius:10px;border:1.5px solid #ffcdd2;
+  background:transparent;color:#e57373;font-size:15px;cursor:pointer;
+}
+.friend-modal-cancel{
+  padding:11px 16px;border-radius:10px;border:1.5px solid rgba(128,128,128,.2);
+  background:transparent;color:var(--text);font-size:15px;cursor:pointer;
+}
+
 </style>
 <!-- Markdown渲染 + 安全过滤 + LaTeX数学公式 -->
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
@@ -1940,6 +2097,81 @@ if('serviceWorker' in navigator){
   <iframe id="readingFrame" src="" allow="same-origin"></iframe>
 </div>
 
+<!-- 朋友们面板 -->
+<div class="friends-panel" id="friendsPanel">
+  <div class="friends-header">
+    <div class="friends-header-title">
+      <span>朋友们</span>
+    </div>
+    <button class="friends-add-btn" onclick="openFriendModal()" title="添加朋友">+</button>
+  </div>
+  <div class="friends-list" id="friendsList"></div>
+</div>
+
+<!-- 好友聊天 overlay -->
+<div class="friend-chat-overlay" id="friendChatOverlay">
+  <div class="friend-chat-header">
+    <button class="friend-chat-back" onclick="closeFriendChat()">&#8592;</button>
+    <div class="friend-chat-avatar" id="friendChatAvatar"></div>
+    <div class="friend-chat-title" id="friendChatTitle"></div>
+    <button class="friend-chat-clear" onclick="clearFriendChat()">清空</button>
+  </div>
+  <div class="friend-chat-area" id="friendChatArea"></div>
+  <div class="friend-chat-input-area">
+    <textarea class="friend-chat-input" id="friendChatInput" placeholder="说点什么…" rows="1"></textarea>
+    <button class="friend-chat-send" id="friendChatSend" onclick="sendFriendMessage()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l14-8-5 8 5 8-14-8z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- 添加/编辑好友弹窗 -->
+<div class="friend-modal-overlay" id="friendModalOverlay" onclick="if(event.target===this)closeFriendModal()">
+  <div class="friend-modal">
+    <h3 id="friendModalTitle">添加朋友</h3>
+    <div class="friend-modal-row">
+      <label>叫什么名字</label>
+      <input type="text" id="fmName" placeholder="GPT-4o / DeepSeek / 小助手…">
+    </div>
+    <div class="friend-modal-row">
+      <label>选个头像</label>
+      <div class="friend-modal-emoji-row" id="fmEmojiRow">
+        <button class="friend-modal-emoji-btn selected" data-emoji="🤖" onclick="selectFriendEmoji(this)">🤖</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🦋" onclick="selectFriendEmoji(this)">🦋</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🐳" onclick="selectFriendEmoji(this)">🐳</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🐬" onclick="selectFriendEmoji(this)">🐬</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🦊" onclick="selectFriendEmoji(this)">🦊</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🐼" onclick="selectFriendEmoji(this)">🐼</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🌟" onclick="selectFriendEmoji(this)">🌟</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🌊" onclick="selectFriendEmoji(this)">🌊</button>
+        <button class="friend-modal-emoji-btn" data-emoji="💎" onclick="selectFriendEmoji(this)">💎</button>
+        <button class="friend-modal-emoji-btn" data-emoji="🔮" onclick="selectFriendEmoji(this)">🔮</button>
+      </div>
+    </div>
+    <div class="friend-modal-row">
+      <label>API Key</label>
+      <input type="password" id="fmApiKey" placeholder="sk-…">
+    </div>
+    <div class="friend-modal-row">
+      <label>Base URL</label>
+      <input type="url" id="fmBaseUrl" placeholder="https://api.openai.com">
+    </div>
+    <div class="friend-modal-row">
+      <label>模型名</label>
+      <input type="text" id="fmModel" placeholder="gpt-4o / deepseek-chat / …">
+    </div>
+    <div class="friend-modal-row">
+      <label>系统提示（留空 = 让他做自己）</label>
+      <textarea id="fmSysPrompt" rows="3" placeholder="留空让AI做它自己，或者填你想要的设定"></textarea>
+    </div>
+    <div class="friend-modal-actions">
+      <button class="friend-modal-save" onclick="saveFriend()">保存</button>
+      <button class="friend-modal-del" id="fmDelBtn" onclick="deleteFriend()" style="display:none">删除</button>
+      <button class="friend-modal-cancel" onclick="closeFriendModal()">取消</button>
+    </div>
+  </div>
+</div>
+
 <!-- 底部 Tab 栏 -->
 <nav class="bottom-tabs" id="bottomTabs">
   <button class="tab-btn active" id="tab-chat" onclick="switchTab('chat')">
@@ -1950,6 +2182,9 @@ if('serviceWorker' in navigator){
   </button>
   <button class="tab-btn" id="tab-reading" onclick="switchTab('reading')">
     <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V7a2 2 0 012-2h5v14H6a2 2 0 01-2-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M20 19V7a2 2 0 00-2-2h-5v14h5a2 2 0 002-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M11 5q1-2 2 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>共读
+  </button>
+  <button class="tab-btn" id="tab-friends" onclick="switchTab('friends')">
+    <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="9" r="2.5" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.3"/><path d="M2 19c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M17 13c2.2.5 4 2.3 4 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.6"/></svg></span>朋友
   </button>
 </nav>
 
@@ -8414,7 +8649,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-2300';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-2346';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -8496,14 +8731,18 @@ function switchTab(tab) {
   // 显示/隐藏
   document.getElementById('diaryOverlayFrame').classList.toggle('open', tab === 'diary');
   document.getElementById('readingOverlayFrame').classList.toggle('open', tab === 'reading');
+  const fp = document.getElementById('friendsPanel');
+  if (fp) fp.classList.toggle('open', tab === 'friends');
 
   // tab按钮高亮
-  ['chat','diary','reading'].forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  ['chat','diary','reading','friends'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.classList.toggle('active', t === tab);
   });
   // 聊天页用工具栏里的随手记按钮，日记页用diary.html自带的✏️，共读页不显示FAB（避免挡住翻章节按钮）
   const floatBtn = document.getElementById('quickNoteFloatBtn');
   if (floatBtn) floatBtn.style.display = 'none';
+  if (tab === 'friends' && typeof window._friendsRenderList === 'function') window._friendsRenderList();
 }
 
 // iframe 内部点返回/跳转聊天 → 切回聊天tab
@@ -9167,6 +9406,294 @@ function _qnToast(msg) {
   } else {
     rpInit();
   }
+})();
+</script>
+
+<!-- ====================== 朋友们 JS ====================== -->
+<script>
+(function() {
+  const LS_FRIENDS = 'xinye_friends';
+  let _friends = [];
+  let _editingFriendId = null;
+  let _currentFriend = null;
+  let _friendMessages = [];
+  let _friendSending = false;
+
+  function loadFriends() {
+    try { _friends = JSON.parse(localStorage.getItem(LS_FRIENDS) || '[]'); } catch(e) { _friends = []; }
+  }
+  function saveFriends() {
+    localStorage.setItem(LS_FRIENDS, JSON.stringify(_friends));
+  }
+  function loadFriendMessages(fid) {
+    try { return JSON.parse(localStorage.getItem('friend_chat_' + fid) || '[]'); } catch(e) { return []; }
+  }
+  function saveFriendMessages(fid, msgs) {
+    localStorage.setItem('friend_chat_' + fid, JSON.stringify(msgs.slice(-200)));
+  }
+
+  function renderFriendsList() {
+    const list = document.getElementById('friendsList');
+    if (!list) return;
+    if (_friends.length === 0) {
+      list.innerHTML = '<div class="friends-empty"><div style="font-size:36px">🤝</div><div>还没有AI朋友</div><div style="font-size:12px;opacity:.7">点右上角 + 添加</div></div>';
+      return;
+    }
+    list.innerHTML = _friends.map(f => `
+      <div class="friend-card" onclick="openFriendChat('${f.id}')">
+        <div class="friend-card-avatar" style="background:${f.bgColor||'rgba(128,128,128,.12)'}">${f.emoji||'🤖'}</div>
+        <div class="friend-card-info">
+          <div class="friend-card-name">${escHtml(f.name)}</div>
+          <div class="friend-card-model">${escHtml(f.model||'')}</div>
+        </div>
+        <button class="friend-card-edit" onclick="event.stopPropagation();openFriendModal('${f.id}')" title="编辑">✏️</button>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  window.openFriendModal = function(fid) {
+    _editingFriendId = fid || null;
+    const f = fid ? _friends.find(x => x.id === fid) : null;
+    document.getElementById('friendModalTitle').textContent = f ? '编辑朋友' : '添加朋友';
+    document.getElementById('fmName').value = f ? f.name : '';
+    document.getElementById('fmApiKey').value = f ? f.apiKey : '';
+    document.getElementById('fmBaseUrl').value = f ? f.baseUrl : '';
+    document.getElementById('fmModel').value = f ? f.model : '';
+    document.getElementById('fmSysPrompt').value = f ? (f.sysPrompt||'') : '';
+    document.getElementById('fmDelBtn').style.display = f ? '' : 'none';
+    // emoji
+    const selectedEmoji = f ? (f.emoji||'🤖') : '🤖';
+    document.querySelectorAll('.friend-modal-emoji-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.emoji === selectedEmoji);
+    });
+    document.getElementById('friendModalOverlay').classList.add('open');
+  };
+
+  window.closeFriendModal = function() {
+    document.getElementById('friendModalOverlay').classList.remove('open');
+    _editingFriendId = null;
+  };
+
+  window.selectFriendEmoji = function(btn) {
+    document.querySelectorAll('.friend-modal-emoji-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  };
+
+  window.saveFriend = function() {
+    const name = document.getElementById('fmName').value.trim();
+    if (!name) { alert('请填写名字'); return; }
+    const apiKey = document.getElementById('fmApiKey').value.trim();
+    const baseUrl = document.getElementById('fmBaseUrl').value.trim();
+    const model = document.getElementById('fmModel').value.trim();
+    const sysPrompt = document.getElementById('fmSysPrompt').value.trim();
+    const selectedBtn = document.querySelector('.friend-modal-emoji-btn.selected');
+    const emoji = selectedBtn ? selectedBtn.dataset.emoji : '🤖';
+    const bgColors = {'🤖':'rgba(16,163,127,.15)','🦋':'rgba(156,39,176,.12)','🐳':'rgba(30,136,229,.12)','🐬':'rgba(0,172,193,.12)','🦊':'rgba(230,81,0,.12)','🐼':'rgba(100,100,100,.1)','🌟':'rgba(251,192,45,.12)','🌊':'rgba(41,182,246,.12)','💎':'rgba(0,150,136,.12)','🔮':'rgba(94,53,177,.12)'};
+    const bgColor = bgColors[emoji] || 'rgba(128,128,128,.1)';
+    if (_editingFriendId) {
+      const idx = _friends.findIndex(x => x.id === _editingFriendId);
+      if (idx >= 0) _friends[idx] = { ..._friends[idx], name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor };
+    } else {
+      _friends.push({ id: 'f_'+Date.now(), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor, createdAt: Date.now() });
+    }
+    saveFriends();
+    renderFriendsList();
+    closeFriendModal();
+  };
+
+  window.deleteFriend = function() {
+    if (!_editingFriendId) return;
+    if (!confirm('确定删除这个朋友？聊天记录也会一起清掉。')) return;
+    localStorage.removeItem('friend_chat_' + _editingFriendId);
+    _friends = _friends.filter(x => x.id !== _editingFriendId);
+    saveFriends();
+    renderFriendsList();
+    closeFriendModal();
+  };
+
+  window.openFriendChat = function(fid) {
+    const f = _friends.find(x => x.id === fid);
+    if (!f) return;
+    _currentFriend = f;
+    _friendMessages = loadFriendMessages(fid);
+    document.getElementById('friendChatAvatar').textContent = f.emoji || '🤖';
+    document.getElementById('friendChatAvatar').style.background = f.bgColor || 'rgba(128,128,128,.12)';
+    document.getElementById('friendChatTitle').textContent = f.name;
+    document.getElementById('friendChatOverlay').classList.add('open');
+    renderFriendChatMessages();
+    setTimeout(() => {
+      const area = document.getElementById('friendChatArea');
+      if (area) area.scrollTop = area.scrollHeight;
+    }, 50);
+    document.getElementById('friendChatInput').focus();
+  };
+
+  window.closeFriendChat = function() {
+    document.getElementById('friendChatOverlay').classList.remove('open');
+    _currentFriend = null;
+    _friendMessages = [];
+  };
+
+  window.clearFriendChat = function() {
+    if (!_currentFriend) return;
+    if (!confirm('清空和TA的聊天记录？')) return;
+    _friendMessages = [];
+    saveFriendMessages(_currentFriend.id, []);
+    renderFriendChatMessages();
+  };
+
+  function renderFriendChatMessages() {
+    const area = document.getElementById('friendChatArea');
+    if (!area || !_currentFriend) return;
+    area.innerHTML = '';
+    if (_friendMessages.length === 0) {
+      area.innerHTML = '<div style="text-align:center;opacity:.4;font-size:13px;padding:40px 20px">和'+escHtml(_currentFriend.name)+'打个招呼吧</div>';
+      return;
+    }
+    _friendMessages.forEach(m => appendFriendMsgDOM(m, false));
+  }
+
+  function appendFriendMsgDOM(msg, scroll) {
+    const area = document.getElementById('friendChatArea');
+    if (!area || !_currentFriend) return null;
+    const isUser = msg.role === 'user';
+    const row = document.createElement('div');
+    row.className = 'friend-msg-row ' + (isUser ? 'user' : 'ai');
+    row.dataset.msgId = msg.id || '';
+    const avatarEl = document.createElement('div');
+    avatarEl.className = 'friend-msg-avatar';
+    if (isUser) {
+      avatarEl.textContent = '🐰';
+      avatarEl.style.background = 'rgba(255,182,193,.2)';
+    } else {
+      avatarEl.textContent = _currentFriend.emoji || '🤖';
+      avatarEl.style.background = _currentFriend.bgColor || 'rgba(128,128,128,.12)';
+    }
+    const bubble = document.createElement('div');
+    bubble.className = 'friend-msg-bubble';
+    bubble.textContent = msg.content;
+    row.appendChild(avatarEl);
+    row.appendChild(bubble);
+    area.appendChild(row);
+    if (scroll) area.scrollTop = area.scrollHeight;
+    return bubble;
+  }
+
+  window.sendFriendMessage = async function() {
+    if (_friendSending || !_currentFriend) return;
+    const input = document.getElementById('friendChatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    if (!_currentFriend.apiKey && !_currentFriend.baseUrl) {
+      alert('请先在编辑朋友页填写 API Key 和 Base URL'); return;
+    }
+    input.value = '';
+    input.style.height = 'auto';
+    const userMsg = { role: 'user', content: text, id: Date.now() };
+    _friendMessages.push(userMsg);
+    appendFriendMsgDOM(userMsg, true);
+    // 删除之前的空提示
+    const area = document.getElementById('friendChatArea');
+    const emptyHint = area.querySelector('div[style*="打个招呼"]');
+    if (emptyHint) emptyHint.remove();
+
+    _friendSending = true;
+    document.getElementById('friendChatSend').disabled = true;
+
+    // 构建API消息（带上下文20条）
+    const ctx = _friendMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+    const sysPrompt = _currentFriend.sysPrompt ? _currentFriend.sysPrompt.trim() : '';
+    const apiMsgs = sysPrompt ? [{ role: 'system', content: sysPrompt }, ...ctx] : ctx;
+
+    const rawBase = (_currentFriend.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const apiUrl = /\/v\d+$/.test(rawBase) ? rawBase + '/chat/completions' : rawBase + '/v1/chat/completions';
+    const model = _currentFriend.model || 'gpt-4o';
+
+    // 占位气泡
+    const placeholderMsg = { role: 'assistant', content: '…', id: Date.now() + 1 };
+    const bubble = appendFriendMsgDOM(placeholderMsg, true);
+
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 120000);
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _currentFriend.apiKey },
+        body: JSON.stringify({ model, messages: apiMsgs, temperature: 0.8, stream: true }),
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (!resp.ok) {
+        const errText = await resp.text().catch(()=>'');
+        throw new Error('HTTP ' + resp.status + ': ' + errText.slice(0,200));
+      }
+      // 流式读取
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let fullText = '';
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === 'data: [DONE]') continue;
+          if (!trimmed.startsWith('data: ')) continue;
+          try {
+            const chunk = JSON.parse(trimmed.slice(6));
+            const delta = chunk.choices?.[0]?.delta?.content || '';
+            if (delta) { fullText += delta; if (bubble) bubble.textContent = fullText; if (area) area.scrollTop = area.scrollHeight; }
+          } catch(e) {}
+        }
+      }
+      if (!fullText) fullText = '（无回复）';
+      if (bubble) bubble.textContent = fullText;
+      const aiMsg = { role: 'assistant', content: fullText, id: Date.now() + 2 };
+      _friendMessages.push(aiMsg);
+      saveFriendMessages(_currentFriend.id, _friendMessages);
+    } catch(e) {
+      const errMsg = e.name === 'AbortError' ? '请求超时' : (e.message || '请求失败');
+      if (bubble) { bubble.textContent = '❌ ' + errMsg; bubble.style.color = '#e57373'; }
+      _friendMessages.pop(); // 移除刚才的user消息不保存（失败了）
+    } finally {
+      _friendSending = false;
+      document.getElementById('friendChatSend').disabled = false;
+    }
+  };
+
+  // 自动扩展输入框
+  document.addEventListener('DOMContentLoaded', function() {
+    const inp = document.getElementById('friendChatInput');
+    if (inp) {
+      inp.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+      });
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFriendMessage(); }
+      });
+    }
+  });
+
+  // 初始化
+  function friendsInit() {
+    loadFriends();
+    renderFriendsList();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', friendsInit);
+  } else {
+    friendsInit();
+  }
+
+  window._friendsRenderList = renderFriendsList;
 })();
 </script>
 
