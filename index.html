@@ -5266,8 +5266,8 @@ async function generateImage(userDesc) {
         signal: ctrl.signal
       });
       // API不支持edits时报清楚的错（不降级，降级丢垫图没意义）
-      if (imgRes.status === 404) {
-        throw new Error('当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）');
+      if (imgRes.status === 404 || imgRes.status === 502 || imgRes.status >= 500) {
+        throw new Error(`当前画图API不支持垫图改图功能（/images/edits ${imgRes.status}）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI），或去掉垫图直接生成`);
       }
     } else {
       // 无垫图：走 /images/generations，JSON
@@ -8362,7 +8362,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.24-1225';
+  if (_verEl) _verEl.textContent = 'v2026.04.24-1455';
 
   await openDB();
   await migrateFromLocalStorage();
