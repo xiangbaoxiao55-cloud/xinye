@@ -96,7 +96,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 
 /* ====================== 主布局 (z-20) ====================== */
 .app{
-  display:flex;flex-direction:column;height:100vh;height:100svh;
+  display:flex;flex-direction:column;height:100vh;height:100svh;height:var(--vvh,100svh);
   max-width:860px;margin:0 auto;position:relative;z-index:20;
   transition:opacity .35s ease;
 }
@@ -7131,6 +7131,18 @@ updateSendBtn();
 const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent)
   || ('ontouchstart' in window && screen.width < 768);
 
+// 移动端键盘弹出时用 visualViewport 动态缩 .app 高度，防止 header 跑出屏幕
+if (window.visualViewport) {
+  const _updateVVH = () => {
+    const fov = document.getElementById('friendChatOverlay');
+    if (fov && fov.classList.contains('open')) return; // 朋友聊天自己处理
+    document.documentElement.style.setProperty('--vvh', window.visualViewport.height + 'px');
+  };
+  window.visualViewport.addEventListener('resize', _updateVVH);
+  window.visualViewport.addEventListener('scroll', _updateVVH);
+  _updateVVH();
+}
+
 userInput.addEventListener('keydown', e => {
   // IME 正在输入中（拼音选字等）→ 不拦截
   if (e.isComposing || e.keyCode === 229) return;
@@ -8748,7 +8760,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0924';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0928';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -8806,7 +8818,7 @@ async function checkPendingMessage() {
   }
   // 顶栏状态更新
   updateHeaderStatus();
-  userInput.focus();
+  if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
 })();
 
