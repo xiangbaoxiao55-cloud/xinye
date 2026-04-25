@@ -2123,6 +2123,7 @@ if('serviceWorker' in navigator){
     <button class="friend-chat-back" onclick="closeFriendChat()">&#8592;</button>
     <div class="friend-chat-avatar" id="friendChatAvatar"></div>
     <div class="friend-chat-title" id="friendChatTitle"></div>
+    <button class="friend-chat-clear" id="friendMemoryBtn" onclick="extractFriendMemory()" title="整理记忆">🧠</button>
     <button class="friend-chat-clear" onclick="clearFriendChat()">清空</button>
   </div>
   <div class="friend-chat-area" id="friendChatArea"></div>
@@ -8737,7 +8738,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0913';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0914';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9690,6 +9691,46 @@ function _qnToast(msg) {
     await idbDeleteFriendMsgs(_currentFriend.id);
     _friendMessages = [];
     renderFriendChatMessages();
+  };
+
+  window.extractFriendMemory = async function() {
+    if (!_currentFriend || _friendSending) return;
+    if (_friendMessages.length < 2) { toast('聊天记录太少，先多聊几句吧～'); return; }
+    const btn = document.getElementById('friendMemoryBtn');
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+    try {
+      const rawBase = (_currentFriend.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      const apiUrl = /\/v\d+$/.test(rawBase) ? rawBase + '/chat/completions' : rawBase + '/v1/chat/completions';
+      const model = _currentFriend.model || 'gpt-4o';
+      const recent = _friendMessages.slice(-60).map(m => `${m.role === 'user' ? '我' : _currentFriend.name}：${m.content}`).join('\n');
+      const existing = (_currentFriend.memory || '').trim();
+      const sysMsg = '你是一个记忆整理助手。从对话记录中提取关键信息：对方的性格/习惯/偏好、重要事件、达成的共识等。用简洁的备忘录格式输出，每条一行，以"·"开头。不要废话，不要重复已有记忆里的内容。';
+      const userMsg = (existing ? `已有记忆：\n${existing}\n\n` : '') + `最新对话：\n${recent}\n\n请补充/更新记忆：`;
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 60000);
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _currentFriend.apiKey },
+        body: JSON.stringify({ model, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: userMsg }], temperature: 0.3, stream: false }),
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      const newMemory = data.choices?.[0]?.message?.content?.trim() || '';
+      if (!newMemory) throw new Error('没有返回内容');
+      const merged = existing ? existing + '\n' + newMemory : newMemory;
+      const updated = { ..._currentFriend, memory: merged };
+      await dbPut('friends', null, updated);
+      _currentFriend = updated;
+      const idx = _friends.findIndex(x => x.id === updated.id);
+      if (idx >= 0) _friends[idx] = updated;
+      toast('记忆已整理 🧠');
+    } catch(e) {
+      toast('整理失败：' + (e.message || '未知错误'));
+    } finally {
+      if (btn) { btn.textContent = '🧠'; btn.disabled = false; }
+    }
   };
 
   function renderFriendChatMessages() {
