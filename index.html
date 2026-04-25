@@ -1142,11 +1142,6 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .friend-chat-send:disabled{opacity:.45}
-.friend-chat-newline{
-  width:34px;height:42px;border-radius:12px;border:1.5px solid var(--pink);
-  background:transparent;color:var(--pink);font-size:16px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.7;
-}
 /* 好友弹窗 */
 .friend-modal-overlay{
   position:fixed;inset:0;z-index:9600;
@@ -2139,7 +2134,6 @@ if('serviceWorker' in navigator){
   <div class="friend-chat-area" id="friendChatArea"></div>
   <div class="friend-chat-input-area">
     <textarea class="friend-chat-input" id="friendChatInput" placeholder="说点什么…" rows="1"></textarea>
-    <button class="friend-chat-newline" id="friendChatNewline" title="换行">↵</button>
     <button class="friend-chat-send" id="friendChatSend" onclick="sendFriendMessage()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l14-8-5 8 5 8-14-8z" fill="currentColor"/></svg>
     </button>
@@ -8760,7 +8754,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0928';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-1033';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9942,18 +9936,6 @@ function _qnToast(msg) {
         if (e.isComposing || e.keyCode === 229) return;
         if (isMobile) return; // 移动端 Enter 换行，靠按钮发送
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFriendMessage(); }
-      });
-    }
-    const nlBtn = document.getElementById('friendChatNewline');
-    if (nlBtn) {
-      nlBtn.addEventListener('click', function() {
-        const inp = document.getElementById('friendChatInput');
-        const s = inp.selectionStart, e = inp.selectionEnd;
-        inp.value = inp.value.slice(0,s) + '\n' + inp.value.slice(e);
-        inp.selectionStart = inp.selectionEnd = s + 1;
-        inp.style.height = 'auto';
-        inp.style.height = Math.min(inp.scrollHeight,120) + 'px';
-        inp.focus();
       });
     }
   });
