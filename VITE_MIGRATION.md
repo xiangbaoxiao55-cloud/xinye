@@ -127,11 +127,19 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 ### 阶段3：提取独立工具模块（低风险）
 
+#### 3-prep. 内联JS迁移为ES Module（✅ 已完成 2026-04-25）
+- [x] 创建 `src/main.js`，合并所有内联script块（7800+行）
+- [x] index.html 改为 `<script type="module" src="./src/main.js">`
+- [x] 在 main.js 末尾 `Object.assign(window, {...})` 暴露40个inline handler函数
+- [x] 修复 Friends IIFE 的 DOMContentLoaded（改为 readyState 判断）
+- [x] sw.js 新增 `/src/main.js` 预缓存
+- **验收**：`node --input-type=module --check < src/main.js` 语法通过，已push Vercel
+
 #### 3a. `utils.js`
 提取：Toast、复制fallback、通用工具函数
-- [ ] 找出所有工具函数
+- [ ] 找出所有工具函数（`toast`, `fallbackCopy`, `escHtml`, `fmtTime`, `fmtFull`, `nowStr`, `isDarkMode`）
 - [ ] 创建 `src/modules/utils.js`，加 export
-- [ ] 在用到的地方加 import
+- [ ] 在 main.js 中加 `import { ... } from './modules/utils.js'`
 - [ ] 测试：toast弹出、复制功能正常
 
 #### 3b. `db.js`
@@ -298,7 +306,8 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段0 准备工作          ██████████  ✅ 完成
 阶段1 Vite骨架          ██████████  ✅ 完成
 阶段2 CSS拆分           ██████████  ✅ 完成
-阶段3 独立工具模块       ░░░░░░░░░░  未开始
+阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
+阶段3 独立工具模块       ░░░░░░░░░░  待开始（下一步：3a utils.js）
 阶段4 核心模块           ░░░░░░░░░░  未开始
 阶段5 聊天模块           ░░░░░░░░░░  未开始
 阶段6 收尾模块           ░░░░░░░░░░  未开始
