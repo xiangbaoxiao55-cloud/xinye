@@ -8735,7 +8735,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0854';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0859';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9632,6 +9632,30 @@ function _qnToast(msg) {
     closeFriendModal();
   };
 
+  let _friendVVListener = null;
+  function _attachFriendVV() {
+    if (!window.visualViewport) return;
+    _friendVVListener = function() {
+      const vv = window.visualViewport;
+      const overlay = document.getElementById('friendChatOverlay');
+      if (!overlay) return;
+      overlay.style.top = vv.offsetTop + 'px';
+      overlay.style.height = vv.height + 'px';
+      overlay.style.bottom = 'auto';
+    };
+    window.visualViewport.addEventListener('resize', _friendVVListener);
+    window.visualViewport.addEventListener('scroll', _friendVVListener);
+    _friendVVListener();
+  }
+  function _detachFriendVV() {
+    if (!_friendVVListener || !window.visualViewport) return;
+    window.visualViewport.removeEventListener('resize', _friendVVListener);
+    window.visualViewport.removeEventListener('scroll', _friendVVListener);
+    _friendVVListener = null;
+    const overlay = document.getElementById('friendChatOverlay');
+    if (overlay) { overlay.style.top = ''; overlay.style.height = ''; overlay.style.bottom = ''; }
+  }
+
   window.openFriendChat = async function(fid) {
     const f = _friends.find(x => x.id === fid);
     if (!f) return;
@@ -9642,6 +9666,7 @@ function _qnToast(msg) {
     document.getElementById('friendChatAvatar').style.background = f.bgColor || 'rgba(128,128,128,.12)';
     document.getElementById('friendChatTitle').textContent = f.name;
     document.getElementById('friendChatOverlay').classList.add('open');
+    _attachFriendVV();
     renderFriendChatMessages();
     setTimeout(() => {
       const area = document.getElementById('friendChatArea');
@@ -9651,6 +9676,7 @@ function _qnToast(msg) {
   };
 
   window.closeFriendChat = function() {
+    _detachFriendVV();
     document.getElementById('friendChatOverlay').classList.remove('open');
     _currentFriend = null;
     _friendMessages = [];
