@@ -1,5 +1,7 @@
 import { toast, fallbackCopy, escHtml, isDarkMode, fmtTime, fmtFull, nowStr } from './modules/utils.js';
 import { db, openDB, dbPut, dbGet, lsBackup, lsRemoveBackup, dbGetAll, dbGetRecent, dbGetRecentFiltered, dbDelete, dbClear, dbGetAllKeys } from './modules/db.js';
+import { settings } from './modules/state.js';
+import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS } from './modules/tts.js';
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
@@ -35,42 +37,6 @@ const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns
 
 
 // ======================== 状态 ========================
-let settings = {
-  apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetNames: [], model: 'gpt-4o',
-  subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
-  embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
-  visionApiKey: '', visionBaseUrl: '', visionModel: '',
-  imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1', imageSize: '1024x1024',
-  contextCount: 20, systemPrompt: '', shortReply: false,
-  aiName: '炘也', userName: '涂涂', togetherSince: '2026-02-13',
-  bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
-  streamMode: false,
-  ttsType: 'local',
-  ttsUrl: 'http://127.0.0.1:9880',
-  ttsRefPath: '', ttsRefText: '',
-  ttsRefLang: 'zh', ttsTargetLang: 'zh',
-  ttsGptWeights: '', ttsSovitsWeights: '',
-  ttsPresets: [], ttsAutoPlay: false,
-  doubaoAppId: '', doubaoToken: '', doubaoVoice: '', doubaoCluster: 'volcano_tts',
-  doubaoProxy: '',
-  mosiKey: '', mosiVoiceId: '',
-  minimaxKey: '', minimaxGroupId: '', minimaxVoiceId: '', minimaxModel: '', minimaxProxy: '',
-  idleRemind: 0, waterRemind: 0, standRemind: 0, dreamEnabled: false, dreamSleepHours: 6,
-  memoryArchive: '',
-  memoryArchiveCoreMarkers: '',
-  memoryArchiveCore: '',
-  memoryArchiveAlways: '',
-  memoryArchiveExtended: [],
-  displayLimit: 0,
-  braveKey: '',
-  searchDays: 3,
-  searchCount: 5,
-  forumProxy: '',
-  solitudeServerUrl: '',
-  moodState: null,   // { mood, topics, note, ts } — 每次对话结束后自动更新
-  memoryBank: null,
-  bookmarks: [],    // [{id, msgId, content, time, savedAt}]
-};
 let messages = [];
 let stickers = [];
 
@@ -1254,10 +1220,6 @@ async function downloadFile(content, filename, mime) {
 }
 
 // 路径清洗：反斜杠→正斜杠，去首尾引号
-function cleanPath(p) {
-  return (p || '').replace(/\\/g, '/').replace(/^["']+|["']+$/g, '').trim();
-}
-
 // ======================== 自动存档 (localStorage) ========================
 let _autoSaveTimer = null;
 
@@ -1383,7 +1345,7 @@ async function migrateFromLocalStorage() {
       if (old[k] !== undefined && k !== 'messages') s[k] = old[k];
     }
     await dbPut('settings', 'main', s);
-    settings = s;
+    Object.assign(settings, s);
     if (old.aiAvatar)   await dbPut('images', 'aiAvatar', old.aiAvatar);
     if (old.userAvatar) await dbPut('images', 'userAvatar', old.userAvatar);
     if (Array.isArray(old.messages)) {
@@ -1399,7 +1361,7 @@ async function migrateFromLocalStorage() {
 // ======================== 数据读写 ========================
 async function loadAll() {
   const s = await dbGet('settings', 'main');
-  if (s) settings = { ...settings, ...s };
+  if (s) Object.assign(settings, s);
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
   const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','xinye_chat_stickers','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
@@ -2504,274 +2466,6 @@ ${dream}
   resetIdleTimer();
 }
 
-// ======================== TTS 语音播放 (GPT-SoVITS v2) ========================
-let currentAudio = null;
-let _ttsGenerating = new Map(); // 防重复生成锁: msgId → timestamp
-const _ttsQueue = [];           // 自动播放排队
-let _ttsQueueRunning = false;
-
-// 去掉思考链内容，只保留正文给TTS
-const _THINK_RE = /(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)\s*/gi;
-function stripThinking(t) {
-  return t.replace(_THINK_RE, '').trim();
-}
-function stripForTTS(t) {
-  return t
-    .replace(_THINK_RE, '') // 思考链
-    .replace(/\[sticker:[^\]]{1,20}\]/g, '')             // sticker标签
-    .replace(/（.+?发了一个「.+?」贴纸）/g, '')           // 贴纸消息
-    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')              // emoji高位
-    .replace(/[\u{2600}-\u{26FF}]/gu, '')                // 杂项符号emoji
-    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')                // 变体选择符
-    .replace(/[\u1400-\u167F]+/g, '')                    // 加拿大音节文字（ᓚᘏᗢ类）
-    .replace(/[（(][^\u4e00-\u9fa5a-zA-Z\n]{1,20}[）)]/g, '') // ASCII颜文字
-    // 全角/CJK标点规范化（模型用＜＞〈〉《》等各种角括号写停顿标记）
-    .replace(/[＜〈《]#([\d.]+)#[＞〉》]/g, '<#$1#>')
-    .replace(/[（(](laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|sighs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)[）)]/g, '($1)')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-const _TTS_TONE_RE = /[（(](laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|sighs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)[）)]/;
-function _hasTTSMarkers(t) {
-  return /[<＜〈《]#[\d.]+#[>＞〉》]/.test(t) || _TTS_TONE_RE.test(t);
-}
-
-function blobExt(blob) {
-  if (blob.type.includes('mpeg') || blob.type.includes('mp3')) return 'mp3';
-  if (blob.type.includes('ogg')) return 'ogg';
-  return 'wav';
-}
-
-// 通用超时包装：避免请求挂住导致锁永远不释放
-function fetchWithTimeout(url, opts, ms = 60000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
-}
-
-async function generateTTSBlob(text) {
-  // ---- MiniMax TTS ----
-  if (settings.ttsType === 'minimax') {
-    if (!settings.minimaxKey || !settings.minimaxGroupId) { toast('请先填写 MiniMax API Key 和 Group ID'); return null; }
-    const _mmBase = (settings.minimaxProxy || '').trim()
-      ? settings.minimaxProxy.trim().replace(/\/+$/, '')
-      : 'https://api.minimax.chat/v1/t2a_v2';
-    const endpoint = _mmBase.includes('GroupId') ? _mmBase : `${_mmBase}?GroupId=${settings.minimaxGroupId}`;
-    const res = await fetchWithTimeout(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.minimaxKey}` },
-      body: JSON.stringify({
-        model: settings.minimaxModel || 'speech-01-turbo',
-        text,
-        stream: false,
-        voice_setting: { voice_id: settings.minimaxVoiceId || 'female-shaonv', speed: 1.0, vol: 1.0, pitch: 0 },
-        audio_setting: { audio_sample_rate: 32000, bitrate: 128000, format: 'mp3' }
-      })
-    }, 60000);
-    if (!res.ok) throw new Error(`MiniMax TTS HTTP ${res.status}`);
-    const j = await res.json();
-    const hex = j.data?.audio;
-    if (!hex) throw new Error('MiniMax TTS 未返回音频，请检查 Key / Group ID / Voice ID');
-    const arr = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < arr.length; i++) arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    return new Blob([arr], { type: 'audio/mpeg' });
-  }
-  // ---- MOSI TTS ----
-  if (settings.ttsType === 'mosi') {
-    if (!settings.mosiKey || !settings.mosiVoiceId) { toast('请先填写 MOSI API Key 和 Voice ID'); return null; }
-    // emoji直接删（不变句号，避免大喘气停顿）；markdown符号直接删
-    const cleaned = text
-      .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
-      .replace(/[\u2600-\u27BF]/g, '')
-      .replace(/[*_~`#>|\\—–\-]{2,}/g, '，')  // 破折号、分隔线变短停顿
-      .replace(/[*_~`#>|\\]/g, '')
-      .replace(/\n/g, '，')
-      .replace(/[。，]{2,}/g, '，')  // 合并连续停顿
-      .replace(/\s+/g, ' ').trim();
-    // MOSI官方支持超长音频(1h)，不分段，直接发全文
-    // 不设expected_duration_sec，让模型自然控制语速；max_new_tokens拉满
-    const res = await fetchWithTimeout('https://studio.mosi.cn/api/v1/audio/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.mosiKey}` },
-      body: JSON.stringify({
-        model: 'moss-tts',
-        text: cleaned,
-        voice_id: settings.mosiVoiceId,
-        sampling_params: { max_new_tokens: 32768 }
-      })
-    }, 120000); // MOSI长文本给2分钟
-    // 兼容两种响应：JSON(含audio_data) 或 直接返回音频流
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const j = await res.json();
-      if (!j.audio_data) throw new Error('MOSI TTS 未返回音频，请检查 Key 和 Voice ID');
-      const bin = atob(j.audio_data); const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      return new Blob([arr], { type: 'audio/mpeg' });
-    } else {
-      const buf = await res.arrayBuffer();
-      if (!buf.byteLength) throw new Error('MOSI TTS 返回空音频');
-      return new Blob([buf], { type: ct || 'audio/mpeg' });
-    }
-  }
-  // ---- OmniVoice 本地 TTS ----
-  if (settings.ttsType === 'omnivoice') {
-    const base = (settings.omnivoiceUrl || 'https://xinye-omni-tts.cpolar.top').replace(/\/+$/, '');
-    const isXinye = (settings.aiName || '').includes('炘') || (settings.aiName || '').includes('心');
-    const role = isXinye ? 'xinye' : 'choubao';
-    const url = `${base}/tts?text=${encodeURIComponent(text)}&role=${role}`;
-    console.log('[TTS] OmniVoice', url);
-    const res = await fetchWithTimeout(url, {}, 300000);
-    if (!res.ok) {
-      const err = await res.text().catch(() => '');
-      throw new Error(`OmniVoice 错误 (${res.status}) ${err.slice(0, 100)}`);
-    }
-    return await res.blob();
-  }
-  // ---- 豆包云端 TTS ----
-  if (settings.ttsType === 'doubao') {
-    if (!settings.doubaoAppId || !settings.doubaoToken) { toast('请先填写豆包 TTS 的 AppID 和 Token'); return null; }
-    const endpoint = (settings.doubaoProxy || '').trim()
-      ? settings.doubaoProxy.trim().replace(/\/+$/, '')
-      : 'https://openspeech.bytedance.com/api/v1/tts';
-    const res = await fetchWithTimeout(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer;${settings.doubaoToken}`, 'Resource-Id': settings.doubaoCluster || 'volcano_tts' },
-      body: JSON.stringify({
-        app: { appid: settings.doubaoAppId, token: settings.doubaoToken, cluster: settings.doubaoCluster || 'volcano_tts' },
-        user: { uid: 'xinye_user' },
-        audio: { voice_type: settings.doubaoVoice || 'zh_female_cancan_mars_bigtts', encoding: 'mp3', speed_ratio: 1.0 },
-        request: { reqid: Date.now().toString(), text, text_type: 'plain', operation: 'query' }
-      })
-    });
-    const j = await res.json();
-    const b64 = typeof j.data === 'string' ? j.data : j.data?.audio;
-    if (!b64) throw new Error('豆包 TTS 未返回音频数据，请检查 AppID / Token / 音色');
-    const bin = atob(b64); const arr = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-    return new Blob([arr], { type: 'audio/mpeg' });
-  }
-  // ---- 本地 GPT-SoVITS ----
-  if (!settings.ttsUrl) { toast('请先在设置中配置 TTS API 地址'); return null; }
-  const refPath = cleanPath(settings.ttsRefPath);
-  const base = settings.ttsUrl.replace(/\/+$/, '');
-  // 如果配置了模型路径，先切换模型
-  if (settings.ttsGptWeights) {
-    try {
-      await fetch(`${base}/set_gpt_weights?weights_path=${encodeURIComponent(cleanPath(settings.ttsGptWeights))}`, { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' } });
-      console.log('[TTS] 已切换 GPT 模型:', settings.ttsGptWeights);
-    } catch(_){}
-  }
-  if (settings.ttsSovitsWeights) {
-    try {
-      await fetch(`${base}/set_sovits_weights?weights_path=${encodeURIComponent(cleanPath(settings.ttsSovitsWeights))}`, { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' } });
-      console.log('[TTS] 已切换 SoVITS 模型:', settings.ttsSovitsWeights);
-    } catch(_){}
-  }
-  const params = new URLSearchParams({
-    text,
-    text_lang: settings.ttsTargetLang || 'zh',
-    ref_audio_path: refPath,
-    prompt_text: settings.ttsRefText || '',
-    prompt_lang: settings.ttsRefLang || 'zh',
-  });
-  const url = `${base}/tts?${params.toString()}`;
-  console.log('[TTS] GET', url);
-  const res = await fetchWithTimeout(url, { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' } }, 300000); // 本地GSVI跑得慢，给5分钟
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try { const t = await res.text(); if (t) detail += ' ' + t.slice(0, 120); } catch(_){}
-    throw new Error(`TTS 错误 (${detail})`);
-  }
-  return await res.blob();
-}
-
-function markCached(msgId) {
-  document.querySelectorAll(`.btn-tts[data-id="${msgId}"],.btn-tts-dl[data-id="${msgId}"]`)
-    .forEach(b => b.classList.add('cached'));
-}
-
-function playAudioBlob(blob, btnEl) {
-  btnEl.classList.add('playing');
-  const audioUrl = URL.createObjectURL(blob);
-  currentAudio = new Audio(audioUrl);
-  currentAudio.onended = () => {
-    btnEl.classList.remove('playing');
-    currentAudio = null;
-    URL.revokeObjectURL(audioUrl);
-  };
-  currentAudio.onerror = () => {
-    btnEl.classList.remove('playing');
-    currentAudio = null;
-    URL.revokeObjectURL(audioUrl);
-    toast('音频播放失败');
-  };
-  currentAudio.play();
-  toast('正在播放语音…');
-}
-
-async function playTTS(text, btnEl, msgId) {
-  text = stripForTTS(text);
-  if (!text) return;
-  // ---- 浏览器内置 speechSynthesis ----
-  if (settings.ttsType === 'browser') {
-    document.querySelectorAll('.btn-tts.playing').forEach(b => b.classList.remove('playing'));
-    btnEl.classList.add('playing');
-    const doSpeak = () => {
-      const voices = window.speechSynthesis.getVoices();
-      // Online 语音需要连微软服务器，国内被墙，优先本地声音
-      const local = voices.filter(v => !v.name.includes('Online'));
-      const v = local.find(v => v.name.includes('云希') || v.name.includes('Yunxi'))
-             || local.find(v => v.name.includes('Kangkang') || v.name.includes('康康'))
-             || local.find(v => v.lang && (v.lang.startsWith('zh') || v.lang.includes('cmn')))
-             || voices.find(v => v.lang && v.lang.startsWith('zh'));
-      console.log('[TTS] 使用声音:', v ? v.name : '默认，全部声音：' + voices.map(v=>v.name).join(' | '));
-      const utter = new SpeechSynthesisUtterance(text);
-      if (v) { utter.voice = v; utter.rate = 0.92; }
-      utter.onend = () => btnEl.classList.remove('playing');
-      utter.onerror = (e) => { btnEl.classList.remove('playing'); console.warn('[TTS error]', e.error); };
-      window.speechSynthesis.speak(utter);
-    };
-    if (window.speechSynthesis.getVoices().length > 0) {
-      doSpeak();
-    } else {
-      window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
-    }
-    return;
-  }
-  // 正在播放 → 停止
-  if (currentAudio) {
-    currentAudio.pause(); currentAudio = null;
-    document.querySelectorAll('.btn-tts.playing').forEach(b => b.classList.remove('playing'));
-    return;
-  }
-  try {
-    // 防重复：同一条消息正在生成中则跳过（超2分钟自动释放）
-    const lockTime = _ttsGenerating.get(msgId);
-    if (lockTime && Date.now() - lockTime < 120000) { toast('语音生成中，请稍候~'); return; }
-    if (lockTime) _ttsGenerating.delete(msgId); // 超时的锁，释放掉
-    let blob = await dbGet('ttsCache', msgId);
-    if (!blob) {
-      toast('正在生成语音…');
-      _ttsGenerating.set(msgId, Date.now());
-      try {
-        blob = await generateTTSBlob(text);
-      } finally { _ttsGenerating.delete(msgId); }
-      if (!blob) return;
-      await dbPut('ttsCache', msgId, blob);
-      markCached(msgId);
-    }
-    playAudioBlob(blob, btnEl);
-  } catch(err) {
-    _ttsGenerating.delete(msgId); // 确保异常时释放锁
-    btnEl.classList.remove('playing');
-    currentAudio = null;
-    toast(`TTS 失败：${err.message}`);
-    console.error('[TTS Error]', err);
-  }
-}
-
-// TTS 自动播放排队：连续消息不打断，一条一条播
 function maybeTTS(text, msgId) {
   const sr = !!window._speakRequested;
   window._speakRequested = false;
@@ -2785,133 +2479,6 @@ function maybeTTS(text, msgId) {
   }
   if ((settings.ttsAutoPlay || shouldSpeak) && text) enqueueTTS(text, msgId, shouldSpeak);
 }
-function enqueueTTS(text, msgId, showBar = false) {
-  text = stripForTTS(text);
-  if (!text) return;
-  _ttsQueue.push({ text, msgId, showBar });
-  if (!_ttsQueueRunning) _drainTTSQueue();
-}
-async function _drainTTSQueue() {
-  _ttsQueueRunning = true;
-  while (_ttsQueue.length) {
-    const { text, msgId, showBar } = _ttsQueue.shift();
-    try {
-      let blob = await dbGet('ttsCache', msgId);
-      if (!blob) {
-        _ttsGenerating.set(msgId, Date.now());
-        try { blob = await generateTTSBlob(text); } finally { _ttsGenerating.delete(msgId); }
-        if (blob) { await dbPut('ttsCache', msgId, blob); markCached(msgId); }
-      }
-      const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
-      if (blob) await new Promise(resolve => {
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        currentAudio = audio;
-        if (barCtrl) barCtrl.setPlaying(true);
-        audio.addEventListener('timeupdate', () => {
-          if (barCtrl && audio.duration) barCtrl.setProgress(audio.currentTime / audio.duration);
-        });
-        audio.onended = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
-        audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
-        audio.play().catch(resolve);
-      });
-    } catch(e) { console.warn('[TTS Queue]', e); }
-  }
-  _ttsQueueRunning = false;
-}
-function showVoiceBar(msgId, blob) {
-  const btnEl = document.querySelector(`.btn-tts[data-id="${msgId}"]`);
-  if (!btnEl) return null;
-  const content = btnEl.closest('.msg-content');
-  if (!content || content.querySelector('.tts-voice-bar')) return null;
-  const bubble = content.querySelector('.msg-bubble');
-  const bar = document.createElement('div');
-  bar.className = 'tts-voice-bar';
-  bar.dataset.id = msgId;
-  bar.innerHTML = `<div class="tts-vbar-row"><button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span></div><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div>`;
-  const playBtn = bar.querySelector('.tts-vbar-play');
-  const fill = bar.querySelector('.tts-vbar-progress-fill');
-  const durEl = bar.querySelector('.tts-vbar-dur');
-  // 获取时长
-  const tmpAudio = new Audio(URL.createObjectURL(blob));
-  tmpAudio.addEventListener('loadedmetadata', () => {
-    const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
-    durEl.textContent = `${dur}″`;
-  });
-  // 控制器：供外部设置播放状态和进度
-  const ctrl = {
-    setPlaying(playing) {
-      bar.classList.toggle('playing', playing);
-      playBtn.textContent = playing ? '⏸' : '▶';
-      if (!playing) fill.style.width = '0%';
-    },
-    setProgress(ratio) {
-      fill.style.width = `${Math.min(100, ratio * 100).toFixed(1)}%`;
-    }
-  };
-  // 点击语音条：如果已结束就重播，正在播就暂停
-  bar.addEventListener('click', () => btnEl.click());
-  // 同步btnEl的playing类（手动点📢时）
-  const observer = new MutationObserver(() => {
-    const playing = btnEl.classList.contains('playing');
-    bar.classList.toggle('playing', playing);
-    playBtn.textContent = playing ? '⏸' : '▶';
-    if (!playing) fill.style.width = '0%';
-  });
-  observer.observe(btnEl, { attributes: true, attributeFilter: ['class'] });
-  // 折叠文字气泡
-  if (bubble) bubble.style.display = 'none';
-  const toggleBtn = document.createElement('span');
-  toggleBtn.className = 'tts-vbar-toggle';
-  toggleBtn.textContent = '展开文字';
-  toggleBtn.onclick = (e) => {
-    e.stopPropagation();
-    const hidden = bubble.style.display === 'none';
-    bubble.style.display = hidden ? '' : 'none';
-    toggleBtn.textContent = hidden ? '收起' : '展开文字';
-  };
-  content.insertBefore(bar, bubble);
-  content.insertBefore(toggleBtn, bubble);
-  return ctrl;
-}
-
-async function downloadTTS(text, msgId) {
-  try {
-    let blob = await dbGet('ttsCache', msgId);
-    if (!blob) {
-      toast('正在生成语音，请稍候…');
-      blob = await generateTTSBlob(text);
-      if (!blob) return;
-      await dbPut('ttsCache', msgId, blob);
-      markCached(msgId);
-    }
-    const ext = blobExt(blob);
-    const filename = `语音_${msgId}.${ext}`;
-    if (window.Capacitor?.Plugins?.Filesystem) {
-      try {
-        const perm = await window.Capacitor.Plugins.Filesystem.requestPermissions();
-        if (perm.publicStorage !== 'granted') { toast('需要存储权限'); return; }
-        const base64 = await new Promise(res => {
-          const r = new FileReader(); r.onload = e => res(e.target.result.split(',')[1]); r.readAsDataURL(blob);
-        });
-        await window.Capacitor.Plugins.Filesystem.writeFile({
-          path: 'Download/' + filename, data: base64, directory: 'EXTERNAL_STORAGE', recursive: true,
-        });
-        toast('语音已保存到 Download 文件夹 💙');
-      } catch(e) { toast(`保存失败：${e.message}`); }
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-    toast('语音已下载');
-  } catch(err) {
-    toast(`下载失败：${err.message}`);
-    console.error('[TTS DL]', err);
-  }
-}
-
 // ======================== 发送 & API ========================
 let isRequesting = false;
 
@@ -6304,7 +5871,7 @@ async function doImport(jsonText) {
 
   // 刷新内存状态 & 同步 localStorage
   const s = await dbGet('settings', 'main');
-  if (s) settings = { ...settings, ...s };
+  if (s) Object.assign(settings, s);
   messages = await dbGetAll('messages');
   messages.sort((a, b) => a.time - b.time);
   stickers = await dbGetAll('stickers');
@@ -6406,7 +5973,7 @@ async function checkPendingMessage() {
     if (local && local.messages && local.messages.length > 0) {
       console.log('[AutoLoad] IndexedDB 为空，从 localStorage 恢复…');
       if (local.settings) {
-        settings = { ...settings, ...local.settings };
+        Object.assign(settings, local.settings);
         await dbPut('settings', 'main', settings);
       }
       for (const m of local.messages) {
