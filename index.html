@@ -1629,9 +1629,9 @@ if('serviceWorker' in navigator){
       <div class="hint">勾选要测的预设，一键检测连通性，可用的直接切换</div>
     </div>
     <div class="setting-group">
-      <label>本地服务器地址</label>
+      <label>本地服务器地址 <span id="localServerDot"></span></label>
       <input type="text" id="setSolitudeServerUrl" placeholder="http://100.97.103.90:8787">
-      <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问，用于自动备份数据。</div>
+      <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问，用于自动备份数据。🟢 已连接 / ⚪ 未连接（自动检测）</div>
       <div class="hint" id="lastBackupHint" style="margin-top:4px"></div>
     </div>
     </div><!-- end tabpane-api -->
@@ -7795,6 +7795,7 @@ $('#btnSaveSettings').onclick = async () => {
   await applyUI(true); // 跳过重建消息列表，避免大量记录时卡顿
   setupReminders();
   resetIdleTimer();
+  checkLocalServer(); // URL 可能刚填入，重新探测
   closeSettings();
   btnSearch.classList.toggle('hidden', !settings.braveKey);
   toast('设置已保存');
@@ -8191,6 +8192,29 @@ function renderStickers() {
   stickers.forEach(s => createStickerDOM(s));
 }
 
+// ======================== 本地服务器连通检测 ========================
+let _localServerOnline = false;
+
+function updateLocalServerDot() {
+  const dot = document.getElementById('localServerDot');
+  if (!dot) return;
+  if (!settings.solitudeServerUrl) { dot.textContent = ''; return; }
+  dot.textContent = _localServerOnline ? ' 🟢' : ' ⚪';
+  dot.title = _localServerOnline ? 'Tailscale 已连接' : '未连接（离线将跳过同步）';
+}
+
+async function checkLocalServer() {
+  const url = (settings.solitudeServerUrl || '').trim();
+  if (!url) { _localServerOnline = false; updateLocalServerDot(); return; }
+  const wasOnline = _localServerOnline;
+  try {
+    const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(3000) });
+    _localServerOnline = r.ok;
+  } catch { _localServerOnline = false; }
+  updateLocalServerDot();
+  if (!wasOnline && _localServerOnline) autoBackupToServer();
+}
+
 async function autoSyncArchiveToLocal() {
   const content = settings.memoryArchive?.trim();
   if (!content) return;
@@ -8204,7 +8228,7 @@ async function autoSyncArchiveToLocal() {
     } catch(e) { console.warn('[Archive] AndroidDownload 失败：', e.message); }
   }
   // 备用：本地服务器（Tailscale）
-  if (!settings.solitudeServerUrl) return;
+  if (!settings.solitudeServerUrl || !_localServerOnline) return;
   try {
     await fetch(`${settings.solitudeServerUrl}/api/memory`, {
       method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -8219,7 +8243,7 @@ let _lastAutoBackupTime = 0;
 
 async function autoBackupToServer() {
   const serverUrl = (settings.solitudeServerUrl || '').trim();
-  if (!serverUrl) return;
+  if (!serverUrl || !_localServerOnline) return;
   // 节流：5分钟内不重复备份
   if (Date.now() - _lastAutoBackupTime < 5 * 60 * 1000) return;
   _lastAutoBackupTime = Date.now();
@@ -8759,7 +8783,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-1052';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-1102';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -8817,6 +8841,7 @@ async function checkPendingMessage() {
   }
   // 顶栏状态更新
   updateHeaderStatus();
+  if (settings.solitudeServerUrl) { checkLocalServer(); setInterval(checkLocalServer, 90_000); }
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
 })();
