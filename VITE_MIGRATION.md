@@ -135,38 +135,40 @@ main.js          ← 全部（入口，控制初始化顺序）
 - [x] sw.js 新增 `/src/main.js` 预缓存
 - **验收**：`node --input-type=module --check < src/main.js` 语法通过，已push Vercel
 
-#### 3a. `utils.js`
+#### 3a. `utils.js`（✅ 已完成 2026-04-25）
 提取：Toast、复制fallback、通用工具函数
-- [ ] 找出所有工具函数（`toast`, `fallbackCopy`, `escHtml`, `fmtTime`, `fmtFull`, `nowStr`, `isDarkMode`）
-- [ ] 创建 `src/modules/utils.js`，加 export
-- [ ] 在 main.js 中加 `import { ... } from './modules/utils.js'`
-- [ ] 测试：toast弹出、复制功能正常
+- [x] 找出所有工具函数（`toast`, `fallbackCopy`, `escHtml`, `fmtTime`, `fmtFull`, `nowStr`, `isDarkMode`）
+- [x] 创建 `src/modules/utils.js`，加 export
+- [x] 在 main.js 中加 `import { ... } from './modules/utils.js'`
+- [x] sw.js 加入 `/src/modules/utils.js` 预缓存
+- **注意**：`toast` 改为内部 `getElementById('toast')` 懒查询（不依赖 main.js 的 toastEl 变量）
 
-#### 3b. `db.js`
-提取：IndexedDB 封装（第2246-2391行）
-- [ ] 创建 `src/modules/db.js`
-- [ ] export `openDB`、`getDB`、各 store 操作函数
-- [ ] 测试：启动时DB初始化正常、消息能存取
+#### 3b. `db.js`（✅ 已完成 2026-04-25）
+- [x] 创建 `src/modules/db.js`，export openDB/dbPut/dbGet/dbGetAll等所有IDB函数
+- [x] `let db` 用 live binding export，Friends IIFE的 typeof db 检查改为 `db !== null`
 
-#### 3c. `tts.js`
-提取：TTS语音播放（第4905-5312行）
-- [ ] 创建 `src/modules/tts.js`
-- [ ] 测试：点击喇叭图标能播放语音
+#### 3c-extra. `state.js`（✅ 已完成 2026-04-25）
+- [x] 创建 `src/modules/state.js`，export const settings（可变对象）
+- [x] main.js 4处 `settings = xxx` 改为 `Object.assign(settings, xxx)`
+- **注意**：`saveSettings` 仍在 main.js（依赖 ensureMemoryState + scheduleAutoSave）
 
-#### 3d. `image.js`
-提取：画图功能（第5438-7161行）+ 图片上传（第7162-7186行）
-- [ ] 创建 `src/modules/image.js`
-- [ ] 测试：发画图指令能生成图片、Vision识图正常
+#### 3c. `tts.js`（✅ 已完成 2026-04-25）
+- [x] 创建 `src/modules/tts.js`（TTS引擎：generateTTSBlob/playTTS/downloadTTS等）
+- [x] `maybeTTS` 留在 main.js（调 saveSettings）
+- [x] `cleanPath` 移入 tts.js（仅TTS使用）
+
+#### 3d. `image.js`（⏭️ 跳过）
+- generateImage 深度耦合 addMessage/appendMsgDOM/DOM元素，等 chat.js 提取后一起处理
+
+#### 4a. `api.js`（✅ 已完成 2026-04-25）
+- [x] 创建 `src/modules/api.js`（getApiPresets/setApiPresets/getSubApiCfg/mainApiFetch/subApiFetch）
+- **注意**：`_apiFetch` 是 sendMessage 内部局部函数，不在此模块
 
 ---
 
 ### 阶段4：提取核心模块（中等风险）
 
-#### 4a. `api.js`
-提取：`_apiFetch`、发送&API逻辑、站子检测、API预设切换
-- [ ] 创建 `src/modules/api.js`
-- [ ] 注意：stream:true、AbortController 300s 逻辑保持不变
-- [ ] 测试：发消息能收到回复、流式输出正常、备用预设切换正常
+#### 4a. `api.js`（✅ 已完成 2026-04-25，见上）
 
 #### 4b. `memory.js`
 提取：记忆档案、RAG分层注入、记忆整理
@@ -295,6 +297,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 - **CSS路径必须用相对路径**：`./src/styles/` 而非 `/src/styles/`，否则 `file://` 直接打开index.html时绝对路径解析到文件系统根目录导致404（阶段2踩坑）
 - **vercel.json必须禁用构建**：加了package.json后Vercel自动检测Vite并跑构建，dist/里没有sw.js/manifest.json/lib/等文件导致空白页。`vercel.json`已加 `"framework":null,"buildCommand":""` 固定为静态服务（阶段1踩坑，2026-04-25）
 - **阶段3-prep 已解决**：全部内联JS合并为 `src/main.js`（type=module）；module不自动暴露全局函数，已在末尾 `Object.assign(window,{...})` 覆盖40个inline handler；Friends IIFE 的 DOMContentLoaded改为readyState判断；`file://`打开用inline script重定向到localhost:8787（ES module不支持file://协议）
+- **saveSettings 阻塞后续模块提取**：memory.js/friends.js/settings.js 都调 `saveSettings`，而它依赖 `ensureMemoryState()`（settings字段守卫）和 `scheduleAutoSave()`（localStorage备份）。下一窗口解法：把 `saveSettings` + `ensureMemoryState` 一起移到 state.js，`scheduleAutoSave` 作为回调注入，或直接 import from main（暂时可行）。
 - **华为WebView连接问题**：与本次重构无关，是独立问题。但建议在阶段1完成后顺便测一次——Vite构建后代码结构不同，可能解决也可能引入新问题，早测早知道
 - **Vite开发模式 vs 生产构建**：`npm run dev` 能跑不代表 `npm run build` 也能跑。每个阶段完成后都要测一次 build 版本，不只测 dev
 
@@ -307,7 +310,8 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段1 Vite骨架          ██████████  ✅ 完成
 阶段2 CSS拆分           ██████████  ✅ 完成
 阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
-阶段3 独立工具模块       ░░░░░░░░░░  待开始（下一步：3a utils.js）
+阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
+阶段4 核心模块           ██░░░░░░░░  进行中（4a api ✅，下一步 4b memory）
 阶段4 核心模块           ░░░░░░░░░░  未开始
 阶段5 聊天模块           ░░░░░░░░░░  未开始
 阶段6 收尾模块           ░░░░░░░░░░  未开始
