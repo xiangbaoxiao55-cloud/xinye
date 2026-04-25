@@ -170,15 +170,17 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 #### 4a. `api.js`（✅ 已完成 2026-04-25，见上）
 
-#### 4b. `memory.js`
-提取：记忆档案、RAG分层注入、记忆整理
-- [ ] 创建 `src/modules/memory.js`
-- [ ] 测试：发消息时记忆正确注入、整理记忆功能正常
+#### 4b. `memory.js`（✅ 已完成 2026-04-26）
+- [x] 创建 `src/modules/memory.js`（~700行）：stripThinkingTags/getEmbedding/RAG/digest/viewer/CRUD
+- [x] state.js 新增：messages[]、saveSettings、initSaveHook、ensureMemoryBank/State、normalizeMemoryEntry、createMemoryId
+- [x] utils.js 导出 $；main.js messages赋值全部改为in-place修改
+- **注意**：`generateDream` 留在 main.js（调 getMemoryContextBlocks from memory.js）；`describeImagesWithVision/testVisionApi` 留 main.js
 
-#### 4c. `friends.js`
-提取：朋友们功能
-- [ ] 创建 `src/modules/friends.js`
-- [ ] 测试：朋友列表、朋友聊天、复制按钮、记忆整理正常
+#### 4c. `friends.js`（✅ 已完成 2026-04-26）
+- [x] 创建 `src/modules/friends.js`（~300行）：Friends IIFE全部提取，getFriendsBackupData移入并export
+- [x] main.js 删除 IIFE 和 getFriendsBackupData，改为 import { getFriendsBackupData } from friends.js
+- [x] sw.js 加入 `/src/modules/friends.js` 预缓存
+- **注意**：isMobile 在 friends.js 内部重新定义（main.js 中的同名常量不导出）
 
 ---
 
@@ -297,7 +299,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 - **CSS路径必须用相对路径**：`./src/styles/` 而非 `/src/styles/`，否则 `file://` 直接打开index.html时绝对路径解析到文件系统根目录导致404（阶段2踩坑）
 - **vercel.json必须禁用构建**：加了package.json后Vercel自动检测Vite并跑构建，dist/里没有sw.js/manifest.json/lib/等文件导致空白页。`vercel.json`已加 `"framework":null,"buildCommand":""` 固定为静态服务（阶段1踩坑，2026-04-25）
 - **阶段3-prep 已解决**：全部内联JS合并为 `src/main.js`（type=module）；module不自动暴露全局函数，已在末尾 `Object.assign(window,{...})` 覆盖40个inline handler；Friends IIFE 的 DOMContentLoaded改为readyState判断；`file://`打开用inline script重定向到localhost:8787（ES module不支持file://协议）
-- **saveSettings 阻塞后续模块提取**：memory.js/friends.js/settings.js 都调 `saveSettings`，而它依赖 `ensureMemoryState()`（settings字段守卫）和 `scheduleAutoSave()`（localStorage备份）。下一窗口解法：把 `saveSettings` + `ensureMemoryState` 一起移到 state.js，`scheduleAutoSave` 作为回调注入，或直接 import from main（暂时可行）。
+- ~~**saveSettings 阻塞后续模块提取**~~：✅ 已解决（4b完成）——saveSettings/ensureMemoryState等移至 state.js，scheduleAutoSave 通过 initSaveHook 注入回调。
 - **华为WebView连接问题**：与本次重构无关，是独立问题。但建议在阶段1完成后顺便测一次——Vite构建后代码结构不同，可能解决也可能引入新问题，早测早知道
 - **Vite开发模式 vs 生产构建**：`npm run dev` 能跑不代表 `npm run build` 也能跑。每个阶段完成后都要测一次 build 版本，不只测 dev
 
@@ -311,8 +313,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段2 CSS拆分           ██████████  ✅ 完成
 阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
-阶段4 核心模块           ██░░░░░░░░  进行中（4a api ✅，下一步 4b memory）
-阶段4 核心模块           ░░░░░░░░░░  未开始
+阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
 阶段5 聊天模块           ░░░░░░░░░░  未开始
 阶段6 收尾模块           ░░░░░░░░░░  未开始
 阶段7 最终整合           ░░░░░░░░░░  未开始
