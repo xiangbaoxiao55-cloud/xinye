@@ -8735,7 +8735,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0859';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0908';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9819,7 +9819,11 @@ function _qnToast(msg) {
     const inp = document.getElementById('friendChatInput');
     if (inp) {
       inp.addEventListener('input', function() { this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
-      inp.addEventListener('keydown', function(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFriendMessage();} });
+      inp.addEventListener('keydown', function(e) {
+        if (e.isComposing || e.keyCode === 229) return;
+        if (isMobile) return; // 移动端 Enter 换行，靠按钮发送
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFriendMessage(); }
+      });
     }
     const nlBtn = document.getElementById('friendChatNewline');
     if (nlBtn) {
