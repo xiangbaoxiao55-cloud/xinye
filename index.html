@@ -1130,6 +1130,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .friend-chat-send:disabled{opacity:.45}
+.friend-chat-newline{
+  width:34px;height:42px;border-radius:12px;border:1.5px solid var(--pink);
+  background:transparent;color:var(--pink);font-size:16px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.7;
+}
 /* 好友弹窗 */
 .friend-modal-overlay{
   position:fixed;inset:0;z-index:9600;
@@ -2121,6 +2126,7 @@ if('serviceWorker' in navigator){
   <div class="friend-chat-area" id="friendChatArea"></div>
   <div class="friend-chat-input-area">
     <textarea class="friend-chat-input" id="friendChatInput" placeholder="说点什么…" rows="1"></textarea>
+    <button class="friend-chat-newline" id="friendChatNewline" title="换行">↵</button>
     <button class="friend-chat-send" id="friendChatSend" onclick="sendFriendMessage()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l14-8-5 8 5 8-14-8z" fill="currentColor"/></svg>
     </button>
@@ -2151,6 +2157,12 @@ if('serviceWorker' in navigator){
       </div>
     </div>
     <div class="friend-modal-row">
+      <label>从已有预设导入 API（可选）</label>
+      <select id="fmPresetSelect" onchange="applyFriendPreset(this)">
+        <option value="">— 手动填写 —</option>
+      </select>
+    </div>
+    <div class="friend-modal-row">
       <label>API Key</label>
       <input type="password" id="fmApiKey" placeholder="sk-…">
     </div>
@@ -2165,6 +2177,19 @@ if('serviceWorker' in navigator){
     <div class="friend-modal-row">
       <label>系统提示（留空 = 让他做自己）</label>
       <textarea id="fmSysPrompt" rows="3" placeholder="留空让AI做它自己，或者填你想要的设定"></textarea>
+    </div>
+    <div class="friend-modal-row">
+      <label>记忆（追加到系统提示后，记录关于TA的设定/了解到的）</label>
+      <textarea id="fmMemory" rows="3" placeholder="TA喜欢…；上次聊到…；TA的习惯是…"></textarea>
+    </div>
+    <div class="friend-modal-row">
+      <label>发给 AI 的历史条数</label>
+      <select id="fmHistoryCount">
+        <option value="10">10 条</option>
+        <option value="20" selected>20 条（默认）</option>
+        <option value="40">40 条</option>
+        <option value="80">80 条</option>
+      </select>
     </div>
     <div class="friend-modal-actions">
       <button class="friend-modal-save" onclick="saveFriend()">保存</button>
@@ -8710,7 +8735,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0840';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0854';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9547,6 +9572,16 @@ function _qnToast(msg) {
     document.getElementById('fmBaseUrl').value = f ? f.baseUrl : '';
     document.getElementById('fmModel').value = f ? f.model : '';
     document.getElementById('fmSysPrompt').value = f ? (f.sysPrompt||'') : '';
+    document.getElementById('fmMemory').value = f ? (f.memory||'') : '';
+    document.getElementById('fmHistoryCount').value = f ? (f.historyCount||20) : 20;
+    const psel = document.getElementById('fmPresetSelect');
+    psel.innerHTML = '<option value="">— 手动填写 —</option>';
+    getApiPresets().forEach((p, i) => {
+      const opt = document.createElement('option');
+      opt.value = i; opt.textContent = p.name || p.model || ('预设'+(i+1));
+      psel.appendChild(opt);
+    });
+    psel.value = '';
     document.getElementById('fmDelBtn').style.display = f ? '' : 'none';
     const selectedEmoji = f ? (f.emoji||'🤖') : '🤖';
     document.querySelectorAll('.friend-modal-emoji-btn').forEach(btn => {
@@ -9572,13 +9607,15 @@ function _qnToast(msg) {
     const baseUrl = document.getElementById('fmBaseUrl').value.trim();
     const model = document.getElementById('fmModel').value.trim();
     const sysPrompt = document.getElementById('fmSysPrompt').value.trim();
+    const memory = document.getElementById('fmMemory').value.trim();
+    const historyCount = parseInt(document.getElementById('fmHistoryCount').value) || 20;
     const selectedBtn = document.querySelector('.friend-modal-emoji-btn.selected');
     const emoji = selectedBtn ? selectedBtn.dataset.emoji : '🤖';
     const bgColors = {'🤖':'rgba(16,163,127,.15)','🦋':'rgba(156,39,176,.12)','🐳':'rgba(30,136,229,.12)','🐬':'rgba(0,172,193,.12)','🦊':'rgba(230,81,0,.12)','🐼':'rgba(100,100,100,.1)','🌟':'rgba(251,192,45,.12)','🌊':'rgba(41,182,246,.12)','💎':'rgba(0,150,136,.12)','🔮':'rgba(94,53,177,.12)'};
     const bgColor = bgColors[emoji] || 'rgba(128,128,128,.1)';
     const fObj = _editingFriendId
-      ? { ...(_friends.find(x=>x.id===_editingFriendId)||{}), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor }
-      : { id: 'f_'+Date.now(), name, apiKey, baseUrl, model, sysPrompt, emoji, bgColor, createdAt: Date.now() };
+      ? { ...(_friends.find(x=>x.id===_editingFriendId)||{}), name, apiKey, baseUrl, model, sysPrompt, memory, historyCount, emoji, bgColor }
+      : { id: 'f_'+Date.now(), name, apiKey, baseUrl, model, sysPrompt, memory, historyCount, emoji, bgColor, createdAt: Date.now() };
     await dbPut('friends', null, fObj);
     await loadFriends();
     renderFriendsList();
@@ -9678,9 +9715,15 @@ function _qnToast(msg) {
     _friendSending = true;
     document.getElementById('friendChatSend').disabled = true;
 
-    const ctx = _friendMessages.slice(-20).map(m => ({ role: m.role, content: m.content }));
-    const sysPrompt = _currentFriend.sysPrompt ? _currentFriend.sysPrompt.trim() : '';
-    const apiMsgs = sysPrompt ? [{ role: 'system', content: sysPrompt }, ...ctx] : ctx;
+    const historyCount = _currentFriend.historyCount || 20;
+    const ctx = _friendMessages.slice(-historyCount).map(m => ({ role: m.role, content: m.content }));
+    const sysPrompt = (_currentFriend.sysPrompt || '').trim();
+    const memory = (_currentFriend.memory || '').trim();
+    const sysParts = [];
+    if (sysPrompt) sysParts.push(sysPrompt);
+    if (memory) sysParts.push('【记忆】\n' + memory);
+    const fullSys = sysParts.join('\n\n');
+    const apiMsgs = fullSys ? [{ role: 'system', content: fullSys }, ...ctx] : ctx;
     const rawBase = (_currentFriend.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const apiUrl = /\/v\d+$/.test(rawBase) ? rawBase + '/chat/completions' : rawBase + '/v1/chat/completions';
     const model = _currentFriend.model || 'gpt-4o';
@@ -9736,11 +9779,33 @@ function _qnToast(msg) {
     }
   };
 
+  window.applyFriendPreset = function(sel) {
+    const idx = parseInt(sel.value);
+    if (isNaN(idx)) return;
+    const p = getApiPresets()[idx];
+    if (!p) return;
+    document.getElementById('fmApiKey').value = p.apiKey || '';
+    document.getElementById('fmBaseUrl').value = p.baseUrl || '';
+    document.getElementById('fmModel').value = p.model || '';
+  };
+
   document.addEventListener('DOMContentLoaded', function() {
     const inp = document.getElementById('friendChatInput');
     if (inp) {
       inp.addEventListener('input', function() { this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
       inp.addEventListener('keydown', function(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFriendMessage();} });
+    }
+    const nlBtn = document.getElementById('friendChatNewline');
+    if (nlBtn) {
+      nlBtn.addEventListener('click', function() {
+        const inp = document.getElementById('friendChatInput');
+        const s = inp.selectionStart, e = inp.selectionEnd;
+        inp.value = inp.value.slice(0,s) + '\n' + inp.value.slice(e);
+        inp.selectionStart = inp.selectionEnd = s + 1;
+        inp.style.height = 'auto';
+        inp.style.height = Math.min(inp.scrollHeight,120) + 'px';
+        inp.focus();
+      });
     }
   });
 
