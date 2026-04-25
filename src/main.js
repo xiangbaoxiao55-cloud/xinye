@@ -1,4 +1,5 @@
 import { toast, fallbackCopy, escHtml, isDarkMode, fmtTime, fmtFull, nowStr } from './modules/utils.js';
+import { db, openDB, dbPut, dbGet, lsBackup, lsRemoveBackup, dbGetAll, dbGetRecent, dbGetRecentFiltered, dbDelete, dbClear, dbGetAllKeys } from './modules/db.js';
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
@@ -32,151 +33,6 @@ if('serviceWorker' in navigator){
 const DEFAULT_AI_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#ffe0b2" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦊</text></svg>')}`;
 const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#fce4ec" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦝</text></svg>')}`;
 
-// ======================== IndexedDB 封装 ========================
-const DB_NAME = 'XinyeChatDB';
-const DB_VER = 4;
-let db = null;
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = (e) => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings');
-      if (!d.objectStoreNames.contains('messages')) d.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
-      if (!d.objectStoreNames.contains('images'))   d.createObjectStore('images');
-      if (!d.objectStoreNames.contains('stickers'))  d.createObjectStore('stickers', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('ttsCache'))    d.createObjectStore('ttsCache');
-      if (!d.objectStoreNames.contains('rpMessages'))  d.createObjectStore('rpMessages', { keyPath: 'id', autoIncrement: true });
-      if (!d.objectStoreNames.contains('friends'))     d.createObjectStore('friends', { keyPath: 'id' });
-      if (!d.objectStoreNames.contains('friendMessages')) {
-        const fms = d.createObjectStore('friendMessages', { keyPath: 'id', autoIncrement: true });
-        fms.createIndex('byFriend', 'friendId', { unique: false });
-      }
-    };
-    req.onsuccess = (e) => {
-      db = e.target.result;
-      db.onversionchange = () => { db.close(); db = null; };
-      resolve(db);
-    };
-    req.onerror = (e) => reject(e.target.error);
-    req.onblocked = () => {
-      console.warn('[DB] onblocked: 旧DB连接残留，刷新页面');
-      window.location.reload();
-    };
-  });
-}
-
-function dbPut(store, key, value) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    if (key !== undefined && key !== null) tx.objectStore(store).put(value, key);
-    else tx.objectStore(store).put(value);
-    tx.oncomplete = () => resolve();
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
-
-function dbGet(store, key) {
-  if (!db) return Promise.resolve(undefined);
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-// 把 localStorage 某个 key 的值备份到 IDB settings 里（防华为清缓存丢数据）
-function lsBackup(key, value) {
-  if (!db) return;
-  dbPut('settings', 'ls_' + key, value).catch(() => {});
-}
-function lsRemoveBackup(key) {
-  if (!db) return;
-  try { const tx = db.transaction('settings', 'readwrite'); tx.objectStore('settings').delete('ls_' + key); } catch(_) {}
-}
-
-function dbGetAll(store) {
-  if (!db) return Promise.resolve([]);
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-// 从尾部读最近 count 条（按 key 逆序游标，避免加载全部）
-function dbGetRecent(store, count) {
-  if (!db) return Promise.resolve([]);
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const results = [];
-    const req = tx.objectStore(store).openCursor(null, 'prev');
-    req.onsuccess = e => {
-      const cursor = e.target.result;
-      if (cursor && results.length < count) {
-        results.unshift(cursor.value);
-        cursor.continue();
-      } else {
-        resolve(results);
-      }
-    };
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-// 从尾部读最近 count 条，只返回满足 filterFn 的记录（遍历全部直到凑够 count 条）
-function dbGetRecentFiltered(store, count, filterFn) {
-  if (!db) return Promise.resolve([]);
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const results = [];
-    const req = tx.objectStore(store).openCursor(null, 'prev');
-    req.onsuccess = e => {
-      const cursor = e.target.result;
-      if (cursor) {
-        if (filterFn(cursor.value)) {
-          results.unshift(cursor.value);
-          if (results.length >= count) { resolve(results); return; }
-        }
-        cursor.continue();
-      } else {
-        resolve(results);
-      }
-    };
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
-
-function dbDelete(store, key) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
-
-function dbClear(store) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = (e) => reject(e.target.error);
-  });
-}
-
-function dbGetAllKeys(store) {
-  if (!db) return Promise.resolve([]);
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAllKeys();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
 
 // ======================== 状态 ========================
 let settings = {
@@ -7768,7 +7624,7 @@ function _qnToast(msg) {
 
   // 等 db 就绪后再初始化（db 由主脚本 openDB() 设置，可能比本脚本晚）
   function waitDbAndInit() {
-    if (typeof db !== 'undefined' && db !== null) {
+    if (db !== null) {
       friendsInit().catch(e => console.warn('[Friends] init失败', e));
     } else {
       setTimeout(waitDbAndInit, 50);
