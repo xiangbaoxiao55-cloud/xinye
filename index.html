@@ -1121,6 +1121,11 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
 .friend-msg-row.user .friend-msg-meta{justify-content:flex-end}
 .friend-msg-row.ai .friend-msg-meta{justify-content:flex-start}
 .friend-msg-time{font-size:11px;color:var(--text);opacity:.4;white-space:nowrap}
+.friend-msg-copy{
+  border:none;background:none;cursor:pointer;padding:0 1px;line-height:1;
+  color:var(--text);opacity:.28;transition:all .2s;flex-shrink:0;
+}
+.friend-msg-copy:active{opacity:1;transform:scale(1.2)}
 .friend-msg-del{
   border:none;background:transparent;color:var(--text);opacity:.28;
   font-size:15px;cursor:pointer;padding:0 1px;line-height:1;flex-shrink:0;
@@ -8754,7 +8759,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-1033';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-1052';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -9774,6 +9779,19 @@ function _qnToast(msg) {
     row.dataset.msgId = msg.id;
     let timeEl = meta.querySelector('.friend-msg-time');
     if (timeEl) timeEl.textContent = formatFriendTime(msg.ts);
+    if (!meta.querySelector('.friend-msg-copy')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'friend-msg-copy';
+      copyBtn.title = '复制';
+      copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      copyBtn.onclick = () => {
+        const bubble = row.querySelector('.friend-msg-bubble');
+        const text = bubble ? bubble.textContent : '';
+        navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => fallbackCopy(text));
+      };
+      const delBtn2 = meta.querySelector('.friend-msg-del');
+      delBtn2 ? meta.insertBefore(copyBtn, delBtn2) : meta.appendChild(copyBtn);
+    }
     if (!meta.querySelector('.friend-msg-del')) {
       const delBtn = document.createElement('button');
       delBtn.className = 'friend-msg-del'; delBtn.textContent = '×';
@@ -9818,6 +9836,15 @@ function _qnToast(msg) {
     timeEl.textContent = formatFriendTime(msg.ts);
     meta.appendChild(timeEl);
     if (msg.id) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'friend-msg-copy';
+      copyBtn.title = '复制';
+      copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+      copyBtn.onclick = () => {
+        const text = bubble.textContent;
+        navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => fallbackCopy(text));
+      };
+      meta.appendChild(copyBtn);
       const delBtn = document.createElement('button');
       delBtn.className = 'friend-msg-del'; delBtn.textContent = '×';
       delBtn.onclick = () => deleteFriendMsg(msg.id, row);
