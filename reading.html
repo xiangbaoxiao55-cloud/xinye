@@ -535,8 +535,13 @@ function openDB() {
       if (!d.objectStoreNames.contains('chapters'))    d.createObjectStore('chapters', { keyPath: 'bookId' });
       if (!d.objectStoreNames.contains('annotations')) d.createObjectStore('annotations', { keyPath: 'bookId' });
     };
-    req.onsuccess = e => { db = e.target.result; res(); };
+    req.onsuccess = e => {
+      db = e.target.result;
+      db.onversionchange = () => { db.close(); db = null; };
+      res();
+    };
     req.onerror = rej;
+    req.onblocked = () => { console.warn('[ReadingDB] blocked'); };
   });
 }
 const dbOp = (store, mode, fn) => new Promise((res, rej) => {
@@ -557,16 +562,23 @@ let menuBookId = null;
 
 // ==================== INIT ====================
 async function init() {
-  await openDB();
-  books = await dbGetAll('books');
-  renderShelf();
-  applyReadingPrefs();
+  try {
+    await openDB();
+    books = await dbGetAll('books') || [];
+    renderShelf();
+    applyReadingPrefs();
+  } catch (e) {
+    console.error('[共读] init失败:', e);
+    const list = document.getElementById('bookList');
+    if (list) list.innerHTML = `<div class="empty-shelf"><div style="font-size:36px">⚠️</div><div style="color:#f06292">加载失败<br><small style="color:#aaa">${e.message||e}</small><br><br><button onclick="init()" style="background:var(--pink);color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:14px">重试</button></div></div>`;
+  }
 }
 
 // ==================== SHELF ====================
 function renderShelf() {
   const list = document.getElementById('bookList');
-  if (!books.length) {
+  if (!list) return;
+  if (!books || !books.length) {
     list.innerHTML = '<div class="empty-shelf"><div style="font-size:52px">📖</div><div>还没有书<br>点右上角添加</div></div>';
     return;
   }
