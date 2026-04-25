@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>炘也的小窝</title>
-<link rel="stylesheet" href="/src/styles/variables.css">
-<link rel="stylesheet" href="/src/styles/layout.css">
-<link rel="stylesheet" href="/src/styles/stickers.css">
-<link rel="stylesheet" href="/src/styles/bubbles.css">
-<link rel="stylesheet" href="/src/styles/panels.css">
-<link rel="stylesheet" href="/src/styles/components.css">
-<link rel="stylesheet" href="/src/styles/themes.css">
-<link rel="stylesheet" href="/src/styles/markdown.css">
-<link rel="stylesheet" href="/src/styles/friends.css">
+<link rel="stylesheet" href="./src/styles/variables.css">
+<link rel="stylesheet" href="./src/styles/layout.css">
+<link rel="stylesheet" href="./src/styles/stickers.css">
+<link rel="stylesheet" href="./src/styles/bubbles.css">
+<link rel="stylesheet" href="./src/styles/panels.css">
+<link rel="stylesheet" href="./src/styles/components.css">
+<link rel="stylesheet" href="./src/styles/themes.css">
+<link rel="stylesheet" href="./src/styles/markdown.css">
+<link rel="stylesheet" href="./src/styles/friends.css">
 <!-- Markdown渲染 + 安全过滤 + LaTeX数学公式 -->
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
@@ -7615,7 +7615,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-1825';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-1830';
 
   await openDB();
   await migrateFromLocalStorage();
