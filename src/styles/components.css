@@ -1,0 +1,222 @@
+/* ====================== 空态 ====================== */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;color:var(--text-light);
+  text-align:center;padding:40px;
+}
+.empty-state .emoji{font-size:56px}
+.empty-state p{font-size:15px;line-height:1.6}
+
+/* ====================== Toast ====================== */
+.toast{
+  position:fixed;top:20px;left:50%;
+  transform:translateX(-50%) translateY(-60px);
+  background:rgba(93,64,55,.92);color:#fff;
+  padding:10px 22px;border-radius:20px;font-size:14px;
+  z-index:200;opacity:0;transition:all .3s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---- 图片上传预览 ---- */
+/* Grid 伪元素法：textarea 高度自动跟随内容，兼容所有移动端 */
+.input-wrapper{display:flex;flex-direction:column;flex:1;gap:0;min-width:0}
+.input-wrapper .ta-grow{display:grid;flex:1;min-width:0}
+.input-wrapper .ta-grow::after{
+  content:attr(data-value) ' ';
+  white-space:pre-wrap;word-break:break-word;
+  visibility:hidden;pointer-events:none;
+  grid-area:1/1;
+  padding:12px 14px;font-size:15px;font-family:inherit;line-height:1.5;
+  min-height:44px;max-height:140px;box-sizing:border-box;
+}
+.input-wrapper .ta-grow textarea{
+  grid-area:1/1;resize:none;overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.img-preview{
+  display:none;padding:8px;margin-bottom:6px;
+  background:rgba(255,255,255,.45);border-radius:var(--radius-sm);
+  border:0.5px solid rgba(255,255,255,.5);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:relative;align-self:flex-start;
+}
+.img-preview.show{display:flex;flex-wrap:wrap;gap:6px;max-width:100%}
+.img-preview .img-thumb-wrap{position:relative;display:inline-block}
+.img-preview .img-thumb{max-width:90px;max-height:70px;border-radius:8px;display:block}
+.img-preview .img-remove{
+  position:absolute;top:2px;right:2px;
+  width:20px;height:20px;border-radius:50%;
+  background:#e57373;color:#fff;border:1.5px solid #fff;
+  font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.btn-img{
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
+  background:rgba(255,255,255,.55);color:var(--text-light);
+  font-size:15px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid rgba(255,255,255,.6);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-img:hover{background:var(--pink-light);color:var(--pink-deep)}
+/* ---- 亲嘴按钮 ---- */
+.btn-kiss{
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
+  background:rgba(252,228,236,.8);color:#e91e63;
+  font-size:17px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid var(--pink);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-kiss:hover{background:var(--pink);transform:scale(1.1)}
+.btn-kiss:active{transform:scale(.88)}
+/* ---- RP模式按钮 ---- */
+.btn-rp{
+  width:30px;height:30px;padding:0;border:none;border-radius:10px;
+  background:rgba(255,255,255,.55);color:var(--text-light);
+  font-size:15px;cursor:pointer;flex-shrink:0;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;
+  border:0.5px solid rgba(255,255,255,.6);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.btn-rp:hover{background:var(--pink-light);color:#9c27b0}
+.btn-rp.active{
+  background:linear-gradient(135deg,#f3e5f5,#e1bee7);
+  color:#9c27b0;border-color:#ce93d8;
+  box-shadow:0 0 8px rgba(156,39,176,.3);
+}
+[data-theme="dark"] .btn-rp{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
+[data-theme="dark"] .btn-rp.active{background:rgba(80,40,100,.8);color:#ce93d8;border-color:#9c27b0}
+/* ---- RP面板 ---- */
+.rp-panel{
+  display:none;flex-direction:column;gap:10px;
+  padding:12px 16px 10px;
+  background:rgba(243,229,245,.85);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  border-top:1.5px solid rgba(206,147,216,.5);
+  border-bottom:0.5px solid rgba(206,147,216,.3);
+  animation:slideUpRp .22s ease;
+}
+.rp-panel.show{display:flex}
+@keyframes slideUpRp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.rp-panel-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rp-panel-title{font-size:13px;font-weight:700;color:#7b1fa2;display:flex;align-items:center;gap:5px}
+.rp-panel-title .rp-active-dot{
+  width:7px;height:7px;border-radius:50%;background:#9c27b0;
+  display:none;animation:rpDotPulse 1.8s infinite;
+}
+.rp-panel-title .rp-active-dot.on{display:inline-block}
+@keyframes rpDotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(0.7)}}
+.rp-toggle-btn{
+  padding:4px 14px;border:none;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:all .18s;
+}
+.rp-toggle-btn.off{background:#e1bee7;color:#7b1fa2}
+.rp-toggle-btn.on{background:linear-gradient(135deg,#9c27b0,#7b1fa2);color:#fff;box-shadow:0 2px 8px rgba(123,31,162,.3)}
+.rp-panel textarea{
+  width:100%;border:1.5px solid #ce93d8;border-radius:12px;
+  padding:10px 12px;font-size:13px;font-family:inherit;
+  background:rgba(255,255,255,.7);color:var(--text);outline:none;
+  resize:none;min-height:80px;max-height:160px;line-height:1.6;
+  transition:border-color .2s;
+}
+.rp-panel textarea:focus{border-color:#9c27b0}
+.rp-panel-presets{display:flex;gap:6px;align-items:center}
+.rp-panel-presets select{
+  flex:1;padding:6px 8px;border:1.5px solid #ce93d8;border-radius:10px;
+  font-size:12px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none;
+}
+.rp-preset-btn{
+  padding:5px 10px;border:none;border-radius:10px;font-size:12px;font-family:inherit;cursor:pointer;
+  font-weight:600;transition:all .18s;white-space:nowrap;
+}
+.rp-preset-save{background:#ce93d8;color:#fff}
+.rp-preset-save:hover{background:#9c27b0}
+.rp-preset-del{background:#ffebee;color:#e57373;border:1px solid #ffcdd2}
+.rp-preset-del:hover{background:#ffcdd2}
+.rp-panel-hint{font-size:11px;color:#9e6aae;line-height:1.5}
+[data-theme="dark"] .rp-panel{background:rgba(40,20,60,.85);border-top-color:rgba(156,39,176,.4);border-bottom-color:rgba(156,39,176,.2)}
+[data-theme="dark"] .rp-panel textarea{background:rgba(50,30,70,.7);color:var(--text);border-color:#7b1fa2}
+[data-theme="dark"] .rp-panel-presets select{background:rgba(50,30,70,.7);color:var(--text);border-color:#7b1fa2}
+[data-theme="dark"] .rp-panel input[type="text"],
+[data-theme="dark"] .rp-panel input:not([type]){
+  background:rgba(50,30,70,.7) !important;color:var(--text) !important;border-color:#7b1fa2 !important;
+}
+/* ---- RP激活时header状态提示 ---- */
+.rp-status-badge{
+  display:none;padding:2px 8px;border-radius:10px;font-size:11px;
+  background:linear-gradient(135deg,#f3e5f5,#e1bee7);color:#7b1fa2;
+  border:1px solid #ce93d8;font-weight:600;vertical-align:middle;margin-left:6px;
+}
+.rp-status-badge.show{display:inline-block}
+/* ---- 亲嘴粒子飘动动画（双层：X摆动 + Y上升渐隐） ---- */
+.kiss-wrap{position:fixed;pointer-events:none;z-index:9999;animation:kissFloatX var(--dur,1.6s) ease-in-out var(--delay,0s) both}
+.kiss-inner{animation:kissFloatY var(--dur,1.6s) ease-out var(--delay,0s) both}
+@keyframes kissFloatX{
+  0%{transform:translateX(0)}
+  40%{transform:translateX(calc(var(--drift,20px)*.6))}
+  70%{transform:translateX(calc(var(--drift,20px)*.3))}
+  100%{transform:translateX(var(--drift,20px))}
+}
+@keyframes kissFloatY{
+  0%{opacity:1;transform:translateY(0) scale(1) rotate(0deg)}
+  30%{opacity:.9}
+  75%{opacity:.25;transform:translateY(-150px) scale(.75) rotate(var(--rot,15deg))}
+  100%{opacity:0;transform:translateY(-200px) scale(.3) rotate(var(--rot,15deg))}
+}
+.msg-bubble img.bubble-img{
+  max-width:240px;max-height:180px;border-radius:10px;
+  margin-top:6px;display:block;cursor:pointer;
+}
+.gen-img{
+  max-width:min(260px,100%);max-height:260px;width:auto;height:auto;
+  border-radius:12px;display:block;cursor:pointer;margin-top:6px;
+}
+#imgLightbox{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:9999;align-items:center;justify-content:center;
+}
+#imgLightbox.show{display:flex}
+#imgLightbox img{
+  max-width:95vw;max-height:90vh;object-fit:contain;
+  border-radius:10px;box-shadow:0 4px 40px rgba(0,0,0,.5);
+}
+.btn-gen-img-dl{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:5px 14px;border:1.5px solid var(--pink);border-radius:20px;background:rgba(255,255,255,.6);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit}
+.btn-gen-img-dl:hover{background:var(--pink-light)}
+[data-theme="dark"] .btn-gen-img-dl{background:rgba(255,255,255,.08);border-color:var(--pink)}
+
+/* ---- Token 日志按钮 & 面板 ---- */
+.btn-token-log {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--text-light);
+  padding: 2px 5px; border-radius: 6px;
+  opacity: 0.45; transition: opacity .2s;
+  vertical-align: middle; font-family: monospace;
+}
+.btn-token-log:hover { opacity: 1; background: rgba(0,0,0,.06); }
+.token-log-panel {
+  display: none; margin-top: 6px;
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(8px);
+  border: 0.5px solid rgba(200,180,180,.35);
+  border-radius: 10px; padding: 10px 12px;
+  font-size: 11px; color: var(--text-light);
+  line-height: 1.8;
+}
+.token-log-panel.open { display: block; }
+.token-log-panel pre {
+  white-space: pre-wrap; word-break: break-all;
+  font-family: monospace; font-size: 10px;
+  background: rgba(0,0,0,.04); border-radius: 6px;
+  padding: 6px 8px; margin-top: 4px;
+  max-height: 240px; overflow-y: auto;
+}
+.token-log-section { margin-bottom: 8px; }
+.token-log-section b { color: var(--text); }
+.token-log-close {
+  display: block; width: 100%; margin-top: 8px;
+  background: rgba(0,0,0,.05); border: none; border-radius: 8px;
+  padding: 5px 0; font-size: 11px; color: var(--text-light);
+  cursor: pointer; text-align: center;
+}
+.token-log-close:hover { background: rgba(0,0,0,.1); }

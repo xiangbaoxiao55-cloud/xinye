@@ -1,0 +1,168 @@
+/* ---- 消息行 ---- */
+.msg-row{
+  display:flex;align-items:flex-start;gap:12px;
+  max-width:82%;animation:msgIn .3s ease;
+}
+.msg-row.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-row.ai{align-self:flex-start}
+@keyframes msgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.msg-avatar{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+  flex-shrink:0;
+  box-shadow:0 2px 10px var(--shadow);
+  align-self:flex-start;
+  margin-top:2px;
+}
+.msg-content{position:relative;min-width:0;display:flex;flex-direction:column}
+.msg-bubble{
+  padding:12px 16px;border-radius:var(--radius);
+  font-size:15px;line-height:1.65;
+  word-break:break-word;white-space:pre-wrap;
+  box-shadow:0 2px 12px var(--shadow);position:relative;
+  backdrop-filter:blur(12px) saturate(1.3);
+  -webkit-backdrop-filter:blur(12px) saturate(1.3);
+  border:0.5px solid rgba(255,255,255,.5);
+}
+.msg-row.ai .msg-bubble{
+  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  border-top-left-radius:4px;
+}
+.msg-row.user .msg-bubble{
+  background:rgba(252,228,236,var(--bubble-opacity,0.85));
+  border-top-right-radius:4px;
+}
+.thinking-block{margin:0 0 8px 0;border-radius:8px;background:rgba(147,130,160,.12);border:1px solid rgba(147,130,160,.25);overflow:hidden;font-size:13px}
+.thinking-header{display:flex;align-items:center;gap:6px;padding:7px 12px;cursor:pointer;color:#9382a0;user-select:none;-webkit-user-select:none}
+.thinking-header::before{content:'▶';font-size:9px;transition:transform .2s}
+.thinking-block.open .thinking-header::before{transform:rotate(90deg)}
+.thinking-body{display:none;padding:0 12px 10px;color:#8a7a94;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto}
+.thinking-block.open .thinking-body{display:block}
+[data-theme="dark"] .thinking-block{background:rgba(80,60,100,.15);border-color:rgba(120,100,140,.3)}
+[data-theme="dark"] .thinking-header{color:#b09ec0}
+[data-theme="dark"] .thinking-body{color:#a090b0}
+.msg-time{
+  font-size:11px;color:var(--text);margin-top:4px;padding:3px 9px;
+  display:flex;align-items:center;gap:5px;width:fit-content;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:12px;border:0.5px solid rgba(255,255,255,.65);
+  box-shadow:0 1px 5px rgba(0,0,0,.12);
+}
+.msg-row.user .msg-time{align-self:flex-end}
+
+.msg-edit-btn,.msg-del-btn{
+  position:absolute;top:4px;
+  width:28px;height:28px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.85);color:var(--text-light);
+  font-size:13px;cursor:pointer;opacity:0;pointer-events:none;
+  transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 6px rgba(0,0,0,.15);
+}
+.msg-edit-btn{right:4px}
+.msg-del-btn{right:36px}
+.msg-row.user .msg-edit-btn{right:auto;left:4px}
+.msg-row.user .msg-del-btn{right:auto;left:36px}
+.msg-content.btns-show .msg-edit-btn,
+.msg-content.btns-show .msg-del-btn{opacity:1;pointer-events:auto}
+.msg-edit-btn:active{background:var(--pink);color:#fff}
+.msg-del-btn:active{background:#e05555;color:#fff}
+/* 复制按钮 */
+.btn-copy{
+  border:none;background:none;cursor:pointer;
+  font-size:12px;padding:0 1px;line-height:1;
+  color:var(--text-light);opacity:.8;transition:all .2s;
+}
+.btn-copy:active{opacity:1;transform:scale(1.2)}
+
+/* ---- TTS 语音按钮 ---- */
+.btn-tts{
+  border:none;background:none;cursor:pointer;
+  font-size:14px;padding:0 1px;line-height:1;
+  color:var(--text-light);opacity:.8;transition:all .2s;
+}
+.btn-tts:hover{opacity:1;transform:scale(1.2)}
+.btn-tts.playing{opacity:1;animation:ttsPlay .8s ease-in-out infinite}
+.btn-tts.cached{opacity:.9;filter:drop-shadow(0 0 3px rgba(76,175,80,.7))}
+@keyframes ttsPlay{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+/* 语音下载按钮 */
+.btn-tts-dl{
+  border:none;background:none;cursor:pointer;
+  font-size:12px;padding:0 1px;line-height:1;
+  color:var(--text-light);opacity:.8;transition:all .2s;
+}
+.btn-tts-dl:hover{opacity:1;transform:scale(1.15)}
+.btn-tts-dl.cached{opacity:.9;color:#4caf50}
+/* 炘也主动语音条（speak工具触发） */
+.tts-voice-bar{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:20px;padding:8px 14px;margin-bottom:5px;
+  cursor:pointer;max-width:180px;user-select:none;
+  transition:opacity .2s;
+}
+.tts-voice-bar:active{opacity:.7}
+.tts-vbar-play{
+  background:none;border:none;cursor:pointer;
+  color:var(--text);font-size:13px;padding:0;line-height:1;flex-shrink:0;
+}
+.tts-vbar-waves{display:flex;align-items:center;gap:2.5px;height:18px;flex:1}
+.tts-vbar-waves span{
+  width:3px;background:var(--pink,#e88);border-radius:2px;
+  transition:height .1s;
+}
+.tts-vbar-waves span:nth-child(1){height:6px}
+.tts-vbar-waves span:nth-child(2){height:12px}
+.tts-vbar-waves span:nth-child(3){height:16px}
+.tts-vbar-waves span:nth-child(4){height:10px}
+.tts-vbar-waves span:nth-child(5){height:6px}
+.tts-voice-bar.playing .tts-vbar-waves span{animation:ttsWaveBar .7s ease-in-out infinite}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(2){animation-delay:.1s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(3){animation-delay:.2s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(4){animation-delay:.15s}
+.tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
+@keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
+.tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
+.tts-voice-bar{flex-direction:column;align-items:stretch;gap:5px}
+.tts-vbar-row{display:flex;align-items:center;gap:8px}
+.tts-vbar-progress{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
+.tts-vbar-progress-fill{height:100%;width:0%;background:var(--pink,#e88);border-radius:2px;transition:width .25s linear}
+.tts-vbar-toggle{font-size:11px;color:var(--text-light);cursor:pointer;padding:2px 4px;opacity:.7;display:block;margin-bottom:3px}
+.tts-vbar-toggle:hover{opacity:1}
+
+/* 收藏面板卡片 */
+.bm-card-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 5px rgba(0,0,0,.1);background:var(--bm-avatar) center/cover no-repeat}
+.bm-card-body{font-size:13px;line-height:1.65;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow:hidden;max-height:5.7em;transition:max-height .25s ease}
+.bm-card-body.expanded{max-height:none;overflow:visible}
+.bm-expand-btn{background:none;border:none;cursor:pointer;font-size:11px;color:var(--pink-deep);opacity:.8;padding:2px 0;margin-top:3px;display:none;transition:opacity .15s}
+.bm-expand-btn:hover{opacity:1}
+.bm-expand-btn.visible{display:inline-block}
+
+/* 收藏按钮 */
+.btn-bookmark{
+  border:none;background:none;cursor:pointer;
+  padding:0 2px;line-height:1;
+  color:var(--pink-deep);opacity:.7;transition:all .2s;flex-shrink:0;
+}
+.btn-bookmark:hover{opacity:1;transform:scale(1.2)}
+.btn-bookmark.active{opacity:1;filter:drop-shadow(0 0 3px rgba(201,122,158,.6))}
+
+/* 正在输入 */
+.typing-indicator{display:none;align-self:flex-start;padding:0 16px}
+.typing-indicator.show{display:flex;align-items:center;gap:12px}
+.typing-dots{
+  display:flex;gap:4px;padding:14px 18px;
+  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  border-radius:var(--radius);border-top-left-radius:4px;
+  border:0.5px solid rgba(255,255,255,.5);
+  box-shadow:0 2px 8px var(--shadow);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.typing-dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--pink-deep);animation:bounce 1.4s infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}

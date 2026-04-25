@@ -103,14 +103,16 @@ main.js          ← 全部（入口，控制初始化顺序）
 ### 阶段2：拆分 CSS
 从 index.html 的 `<style>` 块（第7-1192行）按注释分区提取。
 
-- [ ] 提取 `variables.css`（:root CSS变量，约30行）
-- [ ] 提取 `layout.css`（主布局、背景层、贴纸层，约350行）
-- [ ] 提取 `bubbles.css`（聊天气泡相关，约200行）
-- [ ] 提取 `panels.css`（设置面板、模态框，约200行）
-- [ ] 提取 `themes.css`（暗夜模式 `[data-theme="dark"]`，约175行）
-- [ ] 提取 `stickers.css`（贴纸样式，约100行）
-- [ ] 提取 `friends.css`（朋友们UI，约175行）
-- [ ] 提取 `components.css`（剩余杂项）
+- [x] 提取 `variables.css`（:root CSS变量）
+- [x] 提取 `layout.css`（背景层、主布局、header、聊天区结构、输入区、装修按钮、响应式、iframe-overlay）
+- [x] 提取 `bubbles.css`（消息气泡、thinking块、TTS、收藏、typing indicator）
+- [x] 提取 `panels.css`（设置面板、Tab、模态框、各类按钮）
+- [x] 提取 `themes.css`（暗夜模式、日记弹窗、底部Tab栏、随手记Modal）
+- [x] 提取 `stickers.css`（贴纸层 + 贴纸系统面板）
+- [x] 提取 `friends.css`（朋友们UI完整）
+- [x] 提取 `components.css`（空态、Toast、图片上传、亲嘴/RP按钮、Token日志）
+- [x] 提取 `markdown.css`（Markdown渲染样式）
+- [x] index.html `<style>` 块删除，改为 9 个 `<link>` 标签
 
 **验收标准**：
 - 页面视觉完全无变化
@@ -292,7 +294,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 ```
 阶段0 准备工作          ██████████  ✅ 完成
 阶段1 Vite骨架          ██████████  ✅ 完成
-阶段2 CSS拆分           ░░░░░░░░░░  未开始
+阶段2 CSS拆分           ██████████  ✅ 完成
 阶段3 独立工具模块       ░░░░░░░░░░  未开始
 阶段4 核心模块           ░░░░░░░░░░  未开始
 阶段5 聊天模块           ░░░░░░░░░░  未开始

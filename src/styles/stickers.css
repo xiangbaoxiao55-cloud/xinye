@@ -1,0 +1,82 @@
+/* ====================== 贴纸层 (z-10) ====================== */
+#stickerLayer{
+  position:fixed;inset:0;z-index:10;pointer-events:none;
+}
+.sticker{
+  position:absolute;cursor:grab;pointer-events:auto;
+  user-select:none;touch-action:none;z-index:10;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.15));
+  transition:filter .2s;
+}
+.sticker:hover{filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+.sticker::before{
+  content:'';position:absolute;
+  top:-34px;left:-6px;right:-6px;height:40px;
+}
+.sticker img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+.sticker .sticker-del{
+  position:absolute;top:-10px;right:-10px;
+  width:22px;height:22px;border-radius:50%;
+  background:#e57373;color:#fff;border:2px solid #fff;
+  font-size:12px;cursor:pointer;
+  display:none;align-items:center;justify-content:center;
+  line-height:1;z-index:1;
+}
+.sticker:hover .sticker-del{display:flex}
+.sticker .sticker-resize{
+  position:absolute;bottom:-6px;right:-6px;
+  width:16px;height:16px;
+  background:var(--pink-deep);border-radius:50%;
+  cursor:nwse-resize;border:2px solid #fff;
+  display:none;z-index:1;
+}
+.sticker:hover .sticker-resize{display:block}
+.sticker .sticker-rotate{
+  position:absolute;top:-28px;left:50%;
+  transform:translateX(-50%);
+  width:22px;height:22px;border-radius:50%;
+  background:#7e57c2;border:2px solid #fff;
+  cursor:grab;display:none;z-index:1;
+  color:#fff;font-size:12px;
+  line-height:18px;text-align:center;
+}
+.sticker:hover .sticker-rotate{display:block}
+.sticker .sticker-rotate-line{
+  position:absolute;top:-14px;left:50%;
+  width:2px;height:14px;background:#7e57c2;
+  transform:translateX(-50%);
+  display:none;pointer-events:none;
+}
+.sticker:hover .sticker-rotate-line{display:block}
+
+/* ========== 贴纸系统 ========== */
+/* 贴纸 pill（无图时） */
+.sticker-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(233,30,99,.1);color:var(--pink-deep);border:1.5px solid rgba(233,30,99,.18);border-radius:20px;padding:5px 12px;font-size:14px;font-weight:600;vertical-align:middle}
+/* 贴纸图片 */
+.sticker-img{max-width:130px;max-height:130px;border-radius:12px;display:block}
+/* AI 回复里内联贴纸 */
+.sticker-inline{display:inline-block;vertical-align:middle;margin:0 2px}
+.sticker-inline .sticker-img{max-width:100px;max-height:100px;display:inline-block}
+/* 用户发贴纸的气泡：去掉背景 */
+.msg-bubble.bubble-sticker{background:none!important;box-shadow:none!important;padding:4px 0!important;border:none!important}
+/* 贴纸选择面板 */
+#stickerPanel{position:fixed;inset:0;z-index:8700;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .2s}
+#stickerPanel.show{opacity:1;pointer-events:auto}
+#stickerSheet{width:100%;max-width:600px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);max-height:55vh;overflow-y:auto}
+#stickerPanel.show #stickerSheet{transform:translateY(0)}
+.sp-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 12px}
+.sticker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sticker-pick-btn{display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:var(--bg);border-radius:14px;padding:10px 4px;cursor:pointer;font-size:11px;color:var(--text-mid);font-family:inherit;transition:background .15s}
+.sticker-pick-btn:active{background:var(--pink-light)}
+.sticker-pick-img{width:48px;height:48px;object-fit:contain;border-radius:8px}
+.sticker-pick-placeholder{width:48px;height:48px;border-radius:8px;background:rgba(233,30,99,.08);display:flex;align-items:center;justify-content:center;font-size:28px}
+/* 贴纸设置列表 */
+.sticker-mgr-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.sticker-mgr-preview{width:36px;height:36px;border-radius:8px;object-fit:contain;background:rgba(233,30,99,.06);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sticker-mgr-name{flex:1;font-size:14px;color:var(--text)}
+.sticker-mgr-del{background:none;border:none;cursor:pointer;font-size:16px;opacity:.4;padding:4px}
+.sticker-mgr-del:active{opacity:1;color:#e57373}
+.sticker-mgr-upload{font-size:11px;color:var(--pink-deep);cursor:pointer;text-decoration:underline;white-space:nowrap}
+[data-theme="dark"] #stickerSheet{background:#1e1228}
+[data-theme="dark"] .sticker-pick-btn{background:#261820}
+[data-theme="dark"] .sticker-pick-btn:active{background:#3a1525}

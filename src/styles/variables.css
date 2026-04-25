@@ -1,0 +1,15 @@
+/* ====================== 全局 & CSS变量 ====================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pink-light:#fce4ec;--pink:#f8bbd0;--pink-deep:#f48fb1;
+  --apricot:#ffe0b2;--apricot-deep:#ffcc80;
+  --warm-bg:#fff8f0;--warm-bg2:#fff0e6;
+  --ai-bubble:#faf5f0;--ai-bubble-border:#f0e6da;
+  --user-bubble:#fce4ec;--user-bubble-border:#f8bbd0;
+  --text:#5d4037;--text-light:#8d6e63;
+  --shadow:rgba(188,143,143,.15);--radius:18px;--radius-sm:12px;
+  --bg:#fff9fb;--bubble-ai:#faf5f0;--border:#e8d0d8;
+}
+html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;color:var(--text);overflow:hidden}
+html{background:var(--warm-bg)}
+body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,var(--apricot) 100%)}
