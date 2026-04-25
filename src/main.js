@@ -2,6 +2,7 @@ import { toast, fallbackCopy, escHtml, isDarkMode, fmtTime, fmtFull, nowStr } fr
 import { db, openDB, dbPut, dbGet, lsBackup, lsRemoveBackup, dbGetAll, dbGetRecent, dbGetRecentFiltered, dbDelete, dbClear, dbGetAllKeys } from './modules/db.js';
 import { settings } from './modules/state.js';
 import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS } from './modules/tts.js';
+import { getApiPresets, setApiPresets, getSubApiCfg, mainApiFetch, subApiFetch } from './modules/api.js';
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
@@ -4696,14 +4697,6 @@ $('#btnDelImagePreset').onclick = () => {
 };
 
 // ======================== API 预设 ========================
-function getApiPresets() {
-  try { return JSON.parse(localStorage.getItem('xinye_api_presets') || '[]'); } catch(e) { return []; }
-}
-function setApiPresets(arr) {
-  const _v = JSON.stringify(arr);
-  localStorage.setItem('xinye_api_presets', _v);
-  lsBackup('xinye_api_presets', _v);
-}
 function renderApiPresets() {
   const presets = getApiPresets();
   ['presetSelect', 'subPresetSelect'].forEach(id => {
@@ -4758,83 +4751,6 @@ function renderApiPresets() {
   });
 }
 // 主API fetch（整理档案等需要Opus质量的后台任务，带备用预设自动切换）
-async function mainApiFetch(bodyWithoutModel) {
-  const _fbPresets = (settings.fallbackPresetNames || [])
-    .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
-  const _allCfgs = [null, ..._fbPresets];
-  function _buildCfg(preset) {
-    if (preset) {
-      const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
-    }
-    const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model };
-  }
-  let _res;
-  for (let pi = 0; pi < _allCfgs.length; pi++) {
-    const cfg = _buildCfg(_allCfgs[pi]);
-    const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
-    for (let _a = 0; _a < 2; _a++) {
-      if (_a > 0) await new Promise(r => setTimeout(r, 4000));
-      try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 120000);
-        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
-        clearTimeout(tid);
-        if (_res.ok) {
-          if (pi > 0) toast(`🔄 主API已切换到备用${pi}「${_fbPresets[pi-1].name}」`);
-          return _res;
-        }
-      } catch(e) { _res = null; }
-    }
-    if (pi + 1 < _allCfgs.length) toast(`主API无响应，尝试备用${pi+1}「${_fbPresets[pi].name}」…`);
-  }
-  return _res;
-}
-
-// 获取副API实际配置（空则fallback到主API）
-function getSubApiCfg() {
-  return {
-    apiKey:  settings.subApiKey  || settings.apiKey,
-    baseUrl: settings.subBaseUrl || settings.baseUrl,
-    model:   settings.subModel   || settings.model,
-  };
-}
-// 副API fetch（带备用预设自动切换）
-async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
-  const sub = getSubApiCfg();
-  const _subFbPresets = (settings.subFallbackPresetNames || [])
-    .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
-  const _subAllCfgs = [null, ..._subFbPresets];
-  function _buildSubCfg(preset) {
-    if (preset) {
-      const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || sub.apiKey, model: preset.model || sub.model || defaultModel };
-    }
-    const raw = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: sub.apiKey, model: sub.model || defaultModel };
-  }
-  let _res;
-  for (let pi = 0; pi < _subAllCfgs.length; pi++) {
-    const cfg = _buildSubCfg(_subAllCfgs[pi]);
-    const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
-    for (let _a = 0; _a < 2; _a++) {
-      if (_a > 0) await new Promise(r => setTimeout(r, 4000));
-      try {
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 60000);
-        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
-        clearTimeout(tid);
-        if (_res.ok) {
-          if (pi > 0) toast(`🔄 副API已切换到备用${pi}「${_subFbPresets[pi-1].name}」`);
-          return _res;
-        }
-      } catch(e) { _res = null; }
-    }
-    if (pi + 1 < _subAllCfgs.length) toast(`副API无响应，尝试备用${pi+1}「${_subFbPresets[pi].name}」…`);
-  }
-  return _res;
-}
 $('#btnLoadPreset').onclick = () => {
   const i = parseInt($('#presetSelect').value);
   if (isNaN(i)) { toast('请先选择一个预设'); return; }
