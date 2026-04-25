@@ -1,4 +1,6 @@
 xinye_aizhuochong/node_modules/
+node_modules/
+dist/
 CLAUDE.md
 .claude/
 chat-app/
