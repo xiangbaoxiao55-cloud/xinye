@@ -4308,6 +4308,7 @@ document.addEventListener('visibilitychange', async () => {
     autoBackupToServer();
   } else {
     cancelBackgroundNotifications();
+    if (settings.solitudeServerUrl) checkLocalServer();
     const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
     if (bgTime) {
       localStorage.removeItem('fox_bg_time');
@@ -8205,14 +8206,22 @@ function updateLocalServerDot() {
 
 async function checkLocalServer() {
   const url = (settings.solitudeServerUrl || '').trim();
-  if (!url) { _localServerOnline = false; updateLocalServerDot(); return; }
+  if (!url) { _localServerOnline = false; updateLocalServerDot(); notifySwLocalServer(null); return; }
   const wasOnline = _localServerOnline;
   try {
     const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(3000) });
     _localServerOnline = r.ok;
   } catch { _localServerOnline = false; }
   updateLocalServerDot();
+  notifySwLocalServer(_localServerOnline ? url : null);
   if (!wasOnline && _localServerOnline) autoBackupToServer();
+}
+
+function notifySwLocalServer(url) {
+  try {
+    if (navigator.serviceWorker?.controller)
+      navigator.serviceWorker.controller.postMessage({ type: 'SET_LOCAL_SERVER', url: url || null });
+  } catch {}
 }
 
 async function autoSyncArchiveToLocal() {
@@ -8783,7 +8792,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-1102';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-1126';
 
   await openDB();
   await migrateFromLocalStorage();
