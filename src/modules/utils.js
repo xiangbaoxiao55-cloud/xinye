@@ -1,3 +1,5 @@
+export const $ = s => document.querySelector(s);
+
 let toastT = null;
 export function toast(msg) {
   const toastEl = document.getElementById('toast');
