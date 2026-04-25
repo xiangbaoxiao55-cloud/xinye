@@ -18,6 +18,7 @@
   --bg:#fff9fb;--bubble-ai:#faf5f0;--border:#e8d0d8;
 }
 html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;color:var(--text);overflow:hidden}
+html{background:var(--warm-bg)}
 body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,var(--apricot) 100%)}
 
 /* ====================== 背景层 (z-0) ====================== */
@@ -722,6 +723,7 @@ body{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,v
   --shadow:rgba(0,0,0,.55);
   --bg:#1a0a14;--bubble-ai:#241c2e;--border:#3a2e48;
 }
+[data-theme="dark"] html{background:#16121e}
 [data-theme="dark"] body{background:linear-gradient(135deg,#16121e 0%,#2a1a2e 50%,#1c1420 100%)}
 [data-theme="dark"] .header{background:rgba(22,14,30,.8);border-bottom-color:rgba(255,255,255,.1)}
 [data-theme="dark"] .input-area{background:rgba(22,14,30,.7);border-top-color:rgba(255,255,255,.1)}
@@ -8735,7 +8737,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.25-0908';
+  if (_verEl) _verEl.textContent = 'v2026.04.25-0913';
 
   await openDB();
   await migrateFromLocalStorage();
