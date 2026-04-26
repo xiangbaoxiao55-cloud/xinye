@@ -51,3 +51,11 @@ export function nowStr() {
   const weekDays = ['周日','周一','周二','周三','周四','周五','周六'];
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(h)}:${p(d.getMinutes())}（${period}${h <= 12 ? h : h - 12}点${d.getMinutes() > 0 ? d.getMinutes()+'分' : ''}，${weekDays[d.getDay()]}）`;
 }
+
+export function readFileAsBase64(file) {
+  return new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.readAsDataURL(file);
+  });
+}

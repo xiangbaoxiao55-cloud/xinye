@@ -1,4 +1,5 @@
-﻿import { toast, fallbackCopy, escHtml, isDarkMode, fmtTime, fmtFull, nowStr } from './modules/utils.js';
+﻿import { toast, fallbackCopy, escHtml, isDarkMode, fmtTime, fmtFull, nowStr, readFileAsBase64 } from './modules/utils.js';
+import { toggleDeco, applyTheme, initTheme, applyBgImage, applyBgVideo, applyBg, initBgHandlers } from './modules/ui.js';
 import { db, openDB, dbPut, dbGet, lsBackup, lsRemoveBackup, dbGetAll, dbGetRecent, dbGetRecentFiltered, dbDelete, dbClear, dbGetAllKeys } from './modules/db.js';
 import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, initSaveHook, messages } from './modules/state.js';
 import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS } from './modules/tts.js';
@@ -58,7 +59,6 @@ let stickers = [];
 
 // ======================== DOM ========================
 const $ = s => document.querySelector(s);
-const appEl       = $('#app');
 const chatArea    = $('#chatArea');
 const emptyState  = $('#emptyState');
 const userInput   = $('#userInput');
@@ -69,18 +69,9 @@ const overlay     = $('#overlay');
 const editOverlay = $('#editModalOverlay');
 const exportOverlay = $('#exportModalOverlay');
 const editTA      = $('#editTextarea');
-const bgLayer     = $('#bgLayer');
-const bgMask      = $('#bgMask');
 const stickerLayer= $('#stickerLayer');
 
 
-function readFileAsBase64(file) {
-  return new Promise((resolve) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.readAsDataURL(file);
-  });
-}
 
 function compressImageToBase64(file, maxSize = 1500, quality = 0.82) {
   return new Promise((resolve) => {
@@ -195,48 +186,9 @@ function loadFromLocal() {
   }
 }
 
-// ======================== 装修模式 ========================
-let decoMode = false;
-
-function toggleDeco() {
-  decoMode = !decoMode;
-  appEl.classList.toggle('deco-mode', decoMode);
-  $('#btnDecoFloat').classList.toggle('show', decoMode);
-  $('#btnDeco').classList.toggle('active-deco', decoMode);
-  toast(decoMode ? '装修模式 ON — 拖动贴纸吧' : '装修模式 OFF — 回到聊天');
-}
-$('#btnDeco').onclick = toggleDeco;
-$('#btnDecoFloat').onclick = toggleDeco;
-
-
-// ======================== 暗夜模式 ========================
-const btnDark = $('#btnDark');
-function applyTheme(dark) {
-  document.documentElement.dataset.theme = dark ? 'dark' : '';
-  btnDark.innerHTML = dark
-    ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
-    : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg>`;
-  btnDark.title = dark ? '日间模式' : '暗夜模式';
-  // 手动切换时保存偏好（'1'=暗夜 '0'=日间 null=跟随系统）
-  if (dark !== null) localStorage.setItem('fox_dark', dark ? '1' : '0');
-}
-btnDark.onclick = () => {
-  const isDark = document.documentElement.dataset.theme === 'dark';
-  applyTheme(!isDark);
-};
-// 初始化：有手动偏好用偏好，没有则跟随系统
-{
-  const saved = localStorage.getItem('fox_dark');
-  if (saved !== null) {
-    applyTheme(saved === '1');
-  } else {
-    applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
-  }
-  // 系统主题变化时，仅在没有手动偏好的情况下跟随
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    if (localStorage.getItem('fox_dark') === null) applyTheme(e.matches);
-  });
-}
+// 暗夜/装修模式初始化（函数在 ui.js）
+initTheme();
+initBgHandlers();
 
 // 暗夜模式切换时重新渲染动态面板
 const _themeObs = new MutationObserver(() => {
@@ -1730,84 +1682,6 @@ $('#fileInputUserAvatar').onchange = async function() {
   toast('我的头像已更新');
   this.value = '';
 };
-
-// ======================== 背景上传（图片 + 视频） ========================
-let bgVideoUrl = null;
-
-$('#btnUploadBg').onclick = () => $('#fileInputBg').click();
-$('#fileInputBg').onchange = async function() {
-  if (!this.files[0]) return;
-  const file = this.files[0];
-  const isVideo = file.type.startsWith('video/');
-
-  if (isVideo) {
-    const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-    await dbPut('images', 'bgVideo', blob);
-    await dbDelete('images', 'bgImage');
-    await dbPut('images', 'bgType', 'video');
-    applyBgVideo(blob);
-    toast('视频背景已设置');
-  } else {
-    const b64 = await readFileAsBase64(file);
-    await dbPut('images', 'bgImage', b64);
-    await dbDelete('images', 'bgVideo');
-    await dbPut('images', 'bgType', 'image');
-    applyBgImage(b64);
-    toast('背景图已更新');
-  }
-  this.value = '';
-};
-
-$('#btnClearBg').onclick = async () => {
-  await dbDelete('images', 'bgImage');
-  await dbDelete('images', 'bgVideo');
-  await dbDelete('images', 'bgType');
-  if (bgVideoUrl) { URL.revokeObjectURL(bgVideoUrl); bgVideoUrl = null; }
-  bgLayer.innerHTML = '';
-  bgLayer.style.backgroundImage = '';
-  bgLayer.classList.remove('active');
-  bgMask.classList.remove('active');
-  toast('背景已清除');
-};
-
-function applyBgImage(b64) {
-  if (bgVideoUrl) { URL.revokeObjectURL(bgVideoUrl); bgVideoUrl = null; }
-  bgLayer.innerHTML = '';
-  bgLayer.style.backgroundImage = `url(${b64})`;
-  bgLayer.style.opacity = settings.bgOpacity;
-  bgLayer.style.filter = `blur(${settings.bgBlur}px)`;
-  bgLayer.classList.add('active');
-  bgMask.classList.remove('active');
-}
-
-function applyBgVideo(blob) {
-  if (bgVideoUrl) URL.revokeObjectURL(bgVideoUrl);
-  bgVideoUrl = URL.createObjectURL(blob);
-  bgLayer.style.backgroundImage = '';
-  bgLayer.innerHTML = '';
-  const v = document.createElement('video');
-  v.src = bgVideoUrl;
-  v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
-  bgLayer.appendChild(v);
-  bgLayer.style.opacity = settings.bgOpacity;
-  bgLayer.style.filter = `blur(${settings.bgBlur}px)`;
-  bgLayer.classList.add('active');
-  bgMask.classList.add('active');
-}
-
-async function applyBg() {
-  const bgType = await dbGet('images', 'bgType');
-  if (bgType === 'video') {
-    const blob = await dbGet('images', 'bgVideo');
-    if (blob) { applyBgVideo(blob); return; }
-  }
-  const b64 = await dbGet('images', 'bgImage');
-  if (b64) { applyBgImage(b64); return; }
-  bgLayer.innerHTML = '';
-  bgLayer.style.backgroundImage = '';
-  bgLayer.classList.remove('active');
-  bgMask.classList.remove('active');
-}
 
 // ======================== 智能清空 ========================
 $('#btnClear').onclick = async () => {

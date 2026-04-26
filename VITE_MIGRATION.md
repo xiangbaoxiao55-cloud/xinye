@@ -211,7 +211,11 @@ main.js          ← 全部（入口，控制初始化顺序）
 - [ ] `backup.js` — 备份/导出/导入
 - [ ] `stickers.js` — 贴纸系统
 - [ ] `notifications.js` — 主动讲话、定时提醒
-- [ ] `ui.js` — 暗夜模式、装修模式、背景上传
+- [x] `ui.js` — 暗夜模式、装修模式、背景上传（✅ 完成 2026-04-26）
+  - toggleDeco/applyTheme/initTheme/applyBgImage/applyBgVideo/applyBg/initBgHandlers
+  - readFileAsBase64 移入 utils.js（共用）
+  - MutationObserver 留在 main.js（renderTtsPresets 未提取）
+  - $('#btnDecoS').onclick 留在 main.js（调 closeSettings）
 - [ ] `diary.js` — 写日记、Tab切换
 
 ---
@@ -320,7 +324,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
 阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
-阶段6 收尾模块           ░░░░░░░░░░  未开始
+阶段6 收尾模块           ██░░░░░░░░  进行中（ui.js ✅，其余待做）
 阶段7 最终整合           ░░░░░░░░░░  未开始
 ```
 
