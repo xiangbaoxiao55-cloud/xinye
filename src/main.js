@@ -8,10 +8,10 @@ import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getIm
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity } from './modules/memory.js';
 import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmarksPanel, toggleBmExpand, removeBookmark, getAiAvatar, getUserAvatar, activeStore, addMessage, updateMessage, renderMessages, appendMsgDOM, scrollBottom, deleteMessage, renderMdHtml, linkifyEl, saveTokenLog, renderTokenLog, sendMessage } from './modules/chat.js';
 import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, renderStickerMgr, initStickers } from './modules/stickers.js';
-import { switchTab, openDiaryGen, initDiary } from './modules/diary.js';
+import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave } from './modules/diary.js';
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
-import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings } from './modules/settings.js';
-import { triggerDrawImage } from './modules/image.js';
+import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi } from './modules/settings.js';
+import { triggerDrawImage, initImageUpload } from './modules/image.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -73,28 +73,6 @@ const exportOverlay = $('#exportModalOverlay');
 const editTA      = $('#editTextarea');
 
 
-
-function compressImageToBase64(file, maxSize = 1500, quality = 0.82) {
-  return new Promise((resolve) => {
-    const r = new FileReader();
-    r.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxSize || height > maxSize) {
-          if (width > height) { height = Math.round(height * maxSize / width); width = maxSize; }
-          else { width = Math.round(width * maxSize / height); height = maxSize; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = e.target.result;
-    };
-    r.readAsDataURL(file);
-  });
-}
 
 // 路径清洗：反斜杠→正斜杠，去首尾引号
 // ======================== 自动存档 (localStorage) ========================
@@ -165,86 +143,6 @@ async function loadAll() {
   const _msgStore = _initRpActive ? 'rpMessages' : 'messages';
   { const _m = await dbGetRecent(_msgStore, loadCount); messages.length = 0; messages.push(..._m); }
   setDecoStickers(await dbGetAll('stickers'));
-}
-
-async function fetchModelList(urlInputId, keyInputId, modelInputId, selectId) {
-  const rawUrl = $('#' + urlInputId).value.trim() || ($('#setBaseUrl') ? $('#setBaseUrl').value.trim() : '') || 'https://api.openai.com';
-  const baseUrl = rawUrl.replace(/\/+$/, '');
-  const apiKey = $('#' + keyInputId).value.trim() || ($('#setApiKey') ? $('#setApiKey').value.trim() : '');
-  const sel = $('#' + selectId);
-  if (!baseUrl && !apiKey) { toast('请先填写 Base URL 和 API Key'); return; }
-  const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
-  sel.innerHTML = '<option value="">⏳ 获取中…</option>';
-  sel.style.display = 'block';
-  try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
-    if (!models.length) { sel.innerHTML = '<option value="">（无可用模型）</option>'; return; }
-    sel.innerHTML = '<option value="">— 选择模型 —</option>' + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
-  } catch(e) {
-    sel.innerHTML = `<option value="">❌ 获取失败：${escHtml(e.message)}</option>`;
-  }
-}
-
-async function testVisionApi() {
-  const btn = $('#btnTestVision');
-  const result = $('#visionTestResult');
-  settings.visionApiKey = $('#setVisionApiKey').value.trim();
-  settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
-  settings.visionModel = $('#setVisionModel').value.trim();
-  if (!settings.visionApiKey) {
-    result.style.display = 'block'; result.style.color = '#e57373';
-    result.textContent = '❌ 请先填写识图 API Key。'; return;
-  }
-  btn.disabled = true; btn.textContent = '测试中…';
-  result.style.display = 'block'; result.style.color = 'var(--text-light)';
-  result.textContent = '正在连接…';
-  const _c = document.createElement('canvas'); _c.width = 100; _c.height = 100;
-  const _ctx = _c.getContext('2d');
-  _ctx.fillStyle = '#ffffff'; _ctx.fillRect(0, 0, 100, 100);
-  _ctx.fillStyle = '#e91e63'; _ctx.font = 'bold 20px sans-serif';
-  _ctx.fillText('TEST', 25, 55);
-  const testImg = _c.toDataURL('image/jpeg', 0.9);
-  const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
-  const model = settings.visionModel || 'zai-org/GLM-4.6V';
-  const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.visionApiKey}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: [
-          { type: 'image_url', image_url: { url: testImg } },
-          { type: 'text', text: '这张图片是什么颜色？一句话回答。' }
-        ]}],
-        max_tokens: 200,
-        stream: false
-      })
-    });
-    const data = await res.json();
-    btn.disabled = false; btn.textContent = '测试识图连接';
-    if (!res.ok) {
-      result.style.color = '#e57373';
-      result.textContent = `❌ HTTP ${res.status}：${data?.error?.message || JSON.stringify(data)}`;
-    } else {
-      const desc = data?.choices?.[0]?.message?.content?.trim();
-      if (desc) {
-        result.style.color = '#4caf50';
-        result.textContent = `✅ 成功！模型：${model}，返回：${desc}`;
-        saveSettings();
-      } else {
-        result.style.color = '#e57373';
-        result.textContent = `❌ 请求成功但无内容返回：${JSON.stringify(data)}`;
-      }
-    }
-  } catch (e) {
-    btn.disabled = false; btn.textContent = '测试识图连接';
-    result.style.color = '#e57373';
-    result.textContent = `❌ 网络错误：${e.message}`;
-  }
 }
 
 // 网页环境：关闭或刷新页面时也保存时间戳（补 visibilitychange 覆盖不到关浏览器的情况）
@@ -431,29 +329,7 @@ function autoResize() {
 ['input','compositionend','keyup','paste','cut'].forEach(e => userInput.addEventListener(e, autoResize));
 
 // ======================== 图片上传（Vision，多图） ========================
-window.pendingImages = [];
-
-function renderImgPreviews() {
-  const preview = $('#imgPreview');
-  preview.innerHTML = '';
-  if (!window.pendingImages.length) { preview.classList.remove('show'); return; }
-  window.pendingImages.forEach((src, i) => {
-    const wrap = document.createElement('div'); wrap.className = 'img-thumb-wrap';
-    const img = document.createElement('img'); img.src = src; img.className = 'img-thumb';
-    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.textContent = '✕';
-    btn.onclick = () => { window.pendingImages.splice(i, 1); renderImgPreviews(); };
-    wrap.appendChild(img); wrap.appendChild(btn); preview.appendChild(wrap);
-  });
-  preview.classList.add('show');
-}
-
-$('#btnImg').onclick = () => $('#fileInputChatImg').click();
-$('#fileInputChatImg').onchange = async function() {
-  if (!this.files.length) return;
-  for (const file of this.files) { window.pendingImages.push(await compressImageToBase64(file)); }
-  renderImgPreviews();
-  this.value = '';
-};
+initImageUpload();
 
 
 // ======================== 炘也主动消息 ========================
@@ -582,56 +458,6 @@ if (window.Capacitor?.Plugins?.LocalNotifications) {
 
 document.addEventListener('deviceready', initFCM, { once: true });
 if (document.readyState === 'complete') initFCM();
-
-// ===== 全局随手记 =====
-function quickNoteOpen() {
-  const now = new Date();
-  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  document.getElementById('quickNoteMeta').textContent = dateStr + '  ' + hm;
-  document.getElementById('quickNoteTA').value = '';
-  document.getElementById('quickNoteModal').classList.add('show');
-  setTimeout(() => document.getElementById('quickNoteTA').focus(), 280);
-}
-function quickNoteClose() {
-  document.getElementById('quickNoteModal').classList.remove('show');
-}
-function quickNoteSave() {
-  const text = document.getElementById('quickNoteTA').value.trim();
-  if (!text) { document.getElementById('quickNoteTA').focus(); return; }
-  const now = new Date();
-  const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  // 存入 localStorage（兼容日记现有格式）
-  let entry = {};
-  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
-  if (!Array.isArray(entry.snippets)) entry.snippets = [];
-  entry.snippets.push({ time: hm, text: text, ts: now.getTime() });
-  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
-  quickNoteClose();
-  // 刷新日记 iframe（如果已加载）
-  try {
-    const frame = document.getElementById('diaryFrame');
-    if (frame && frame.contentWindow && typeof frame.contentWindow.renderBoth === 'function') {
-      frame.contentWindow.renderBoth();
-    }
-  } catch(e) {}
-  // toast 提示
-  _qnToast('已记录 ✓  ' + hm);
-}
-function _qnToast(msg) {
-  let el = document.getElementById('_qnToastEl');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = '_qnToastEl';
-    el.style.cssText = 'position:fixed;bottom:calc(72px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:rgba(50,20,30,.88);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:8800;transition:opacity .3s;pointer-events:none;white-space:nowrap';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.style.opacity = '1';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
-}
 
 initRp();
 

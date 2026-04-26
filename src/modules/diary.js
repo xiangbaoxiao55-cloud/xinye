@@ -157,3 +157,52 @@ export function initDiary() {
 
   window.openDiaryGen = openDiaryGen;
 }
+
+export function quickNoteOpen() {
+  const now = new Date();
+  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  document.getElementById('quickNoteMeta').textContent = dateStr + '  ' + hm;
+  document.getElementById('quickNoteTA').value = '';
+  document.getElementById('quickNoteModal').classList.add('show');
+  setTimeout(() => document.getElementById('quickNoteTA').focus(), 280);
+}
+
+export function quickNoteClose() {
+  document.getElementById('quickNoteModal').classList.remove('show');
+}
+
+export function quickNoteSave() {
+  const text = document.getElementById('quickNoteTA').value.trim();
+  if (!text) { document.getElementById('quickNoteTA').focus(); return; }
+  const now = new Date();
+  const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  let entry = {};
+  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
+  if (!Array.isArray(entry.snippets)) entry.snippets = [];
+  entry.snippets.push({ time: hm, text: text, ts: now.getTime() });
+  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
+  quickNoteClose();
+  try {
+    const frame = document.getElementById('diaryFrame');
+    if (frame && frame.contentWindow && typeof frame.contentWindow.renderBoth === 'function') {
+      frame.contentWindow.renderBoth();
+    }
+  } catch(e) {}
+  _qnToast('已记录 ✓  ' + hm);
+}
+
+function _qnToast(msg) {
+  let el = document.getElementById('_qnToastEl');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_qnToastEl';
+    el.style.cssText = 'position:fixed;bottom:calc(72px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:rgba(50,20,30,.88);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:8800;transition:opacity .3s;pointer-events:none;white-space:nowrap';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
+}

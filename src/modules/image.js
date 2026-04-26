@@ -208,3 +208,50 @@ export async function generateImage(userDesc) {
     if (btnSend && userInput) btnSend.disabled = userInput.value.trim() === '';
   }
 }
+
+function compressImageToBase64(file, maxSize = 1500, quality = 0.82) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) { height = Math.round(height * maxSize / width); width = maxSize; }
+          else { width = Math.round(width * maxSize / height); height = maxSize; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function renderImgPreviews() {
+  const preview = document.getElementById('imgPreview');
+  preview.innerHTML = '';
+  if (!window.pendingImages.length) { preview.classList.remove('show'); return; }
+  window.pendingImages.forEach((src, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'img-thumb-wrap';
+    const img = document.createElement('img'); img.src = src; img.className = 'img-thumb';
+    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.textContent = '✕';
+    btn.onclick = () => { window.pendingImages.splice(i, 1); renderImgPreviews(); };
+    wrap.appendChild(img); wrap.appendChild(btn); preview.appendChild(wrap);
+  });
+  preview.classList.add('show');
+}
+
+export function initImageUpload() {
+  window.pendingImages = [];
+  document.getElementById('btnImg').onclick = () => document.getElementById('fileInputChatImg').click();
+  document.getElementById('fileInputChatImg').onchange = async function() {
+    if (!this.files.length) return;
+    for (const file of this.files) { window.pendingImages.push(await compressImageToBase64(file)); }
+    renderImgPreviews();
+    this.value = '';
+  };
+}
