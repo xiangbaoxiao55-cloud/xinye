@@ -441,9 +441,9 @@ window.applyFriendPreset = function(sel) {
   document.getElementById('fmModel').value = p.model || '';
 };
 
-// ---- Backup helper (accessed via window from main.js) ----
+// ---- Backup helper ----
 
-window.getFriendsBackupData = async function getFriendsBackupData() {
+export async function getFriendsBackupData() {
   try {
     const friends = await dbGetAll('friends');
     const chats = {};

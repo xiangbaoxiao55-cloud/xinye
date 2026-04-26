@@ -11,6 +11,23 @@ export function setApiPresets(arr) {
   lsBackup('xinye_api_presets', _v);
 }
 
+export function getVisionPresets() {
+  try { return JSON.parse(localStorage.getItem('xinye_vision_presets') || '[]'); } catch(e) { return []; }
+}
+export function setVisionPresets(arr) {
+  const _v = JSON.stringify(arr);
+  localStorage.setItem('xinye_vision_presets', _v);
+  lsBackup('xinye_vision_presets', _v);
+}
+export function getImagePresets() {
+  try { return JSON.parse(localStorage.getItem('xinye_image_presets') || '[]'); } catch(e) { return []; }
+}
+export function setImagePresets(arr) {
+  const _v = JSON.stringify(arr);
+  localStorage.setItem('xinye_image_presets', _v);
+  lsBackup('xinye_image_presets', _v);
+}
+
 export function getSubApiCfg() {
   return {
     apiKey:  settings.subApiKey  || settings.apiKey,
