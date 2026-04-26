@@ -4,6 +4,22 @@ import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeM
 import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS } from './modules/tts.js';
 import { getApiPresets, setApiPresets, getSubApiCfg, mainApiFetch, subApiFetch } from './modules/api.js';
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity } from './modules/memory.js';
+// ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
+Object.assign(window, {
+  switchTab, openBookmarksPanel,
+  openMemoryViewer, renderMemoryViewer, renderMemoryBankPreview,
+  setMemViewerFilter, resetMemoryCursor, skipMemoryCursorToEnd,
+  rebuildArchiveIndex, manualExtractBatch,
+  toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit,
+  quickNoteOpen, quickNoteClose, quickNoteSave,
+  openStickerPanel, closeStickerPanel, sendStickerMsg,
+  uploadStickerImg, clearStickerImg, deleteStickerItem,
+  removeBookmark, toggleBmExpand,
+  fetchModelList, testEmbeddingApi, testVisionApi,
+  updateTtsTypeUI, triggerDrawImage, sendKiss,
+  checkerActivate,
+});
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -5177,21 +5193,3 @@ function _qnToast(msg) {
 })();
 
 // Friends IIFE 已提取到 src/modules/friends.js
-
-
-// Module-scope functions referenced by inline HTML event handlers or dynamically generated onclick
-// (type="module" does not auto-expose to window)
-Object.assign(window, {
-  switchTab, openBookmarksPanel,
-  openMemoryViewer, renderMemoryViewer, renderMemoryBankPreview,
-  setMemViewerFilter, resetMemoryCursor, skipMemoryCursorToEnd,
-  rebuildArchiveIndex, manualExtractBatch,
-  toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit,
-  quickNoteOpen, quickNoteClose, quickNoteSave,
-  openStickerPanel, closeStickerPanel, sendStickerMsg,
-  uploadStickerImg, clearStickerImg, deleteStickerItem,
-  removeBookmark, toggleBmExpand,
-  fetchModelList, testEmbeddingApi, testVisionApi,
-  updateTtsTypeUI, triggerDrawImage, sendKiss,
-  checkerActivate,
-});
