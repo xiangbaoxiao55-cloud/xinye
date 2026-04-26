@@ -297,8 +297,9 @@ main.js          ← 全部（入口，控制初始化顺序）
 - **初始化顺序**：DB必须在chat之前初始化完成，需要用 async/await 控制
 - **SW缓存**：pre-commit hook 会自动更新 CACHE_NAME，但缓存文件列表需要手动加入新的 js/css 路径（阶段2踩坑：CSS文件没加进STATIC_ASSETS，手机SW更新后CSS 404）
 - **CSS路径必须用相对路径**：`./src/styles/` 而非 `/src/styles/`，否则 `file://` 直接打开index.html时绝对路径解析到文件系统根目录导致404（阶段2踩坑）
-- **vercel.json必须禁用构建**：加了package.json后Vercel自动检测Vite并跑构建，dist/里没有sw.js/manifest.json/lib/等文件导致空白页。`vercel.json`已加 `"framework":null,"buildCommand":""` 固定为静态服务（阶段1踩坑，2026-04-25）
-- **阶段3-prep 已解决**：全部内联JS合并为 `src/main.js`（type=module）；module不自动暴露全局函数，已在末尾 `Object.assign(window,{...})` 覆盖40个inline handler；Friends IIFE 的 DOMContentLoaded改为readyState判断；`file://`打开用inline script重定向到localhost:8787（ES module不支持file://协议）
+- **vercel.json必须禁用构建**：加了package.json后Vercel自动检测Vite并跑构建，dist/里没有sw.js/manifest.json/lib/等文件导致空白页。`vercel.json`已加 `"framework":null,"buildCommand":"echo ok","installCommand":"echo ok"` 固定为静态服务（空字符串`""`不够，Vercel仍可能自动检测覆盖，2026-04-26踩坑）
+- **阶段3-prep 已解决**：全部内联JS合并为 `src/main.js`（type=module）；module不自动暴露全局函数，`Object.assign(window,{...})` 已移到**import语句之后第一行**（不在末尾！），确保后续任何运行时错误都不影响tab handler注册（2026-04-26修复）；Friends IIFE 的 DOMContentLoaded改为readyState判断；`file://`打开用inline script重定向到localhost:8787（ES module不支持file://协议）
+- **4c提取陷阱**：删Friends IIFE时意外把 `testVisionApi` 函数（识图API测试）一起删掉了，Object.assign里引用了它导致ReferenceError → 页面卡在「正在加载」。提取IIFE时注意检查有没有夹带其他函数（2026-04-26）
 - ~~**saveSettings 阻塞后续模块提取**~~：✅ 已解决（4b完成）——saveSettings/ensureMemoryState等移至 state.js，scheduleAutoSave 通过 initSaveHook 注入回调。
 - **华为WebView连接问题**：与本次重构无关，是独立问题。但建议在阶段1完成后顺便测一次——Vite构建后代码结构不同，可能解决也可能引入新问题，早测早知道
 - **Vite开发模式 vs 生产构建**：`npm run dev` 能跑不代表 `npm run build` 也能跑。每个阶段完成后都要测一次 build 版本，不只测 dev
