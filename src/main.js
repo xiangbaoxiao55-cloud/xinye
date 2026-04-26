@@ -6,6 +6,8 @@ import { getApiPresets, setApiPresets, getSubApiCfg, mainApiFetch, subApiFetch }
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity } from './modules/memory.js';
 import { getFriendsBackupData } from './modules/friends.js';
 
+console.log('[DEBUG] main.js 模块开始执行');
+
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -4474,6 +4476,7 @@ let _diaryLoaded = false, _readingLoaded = false;
 let _currentTab = 'chat';
 
 function switchTab(tab) {
+  console.log('[DEBUG] switchTab called:', tab, 'current:', _currentTab);
   if (_currentTab === tab) return;
   _currentTab = tab;
 
@@ -5163,6 +5166,7 @@ function _qnToast(msg) {
 
 // Module-scope functions referenced by inline HTML event handlers or dynamically generated onclick
 // (type="module" does not auto-expose to window)
+console.log('[DEBUG] Object.assign 执行, switchTab类型:', typeof switchTab);
 Object.assign(window, {
   switchTab, openBookmarksPanel,
   openMemoryViewer, renderMemoryViewer, renderMemoryBankPreview,

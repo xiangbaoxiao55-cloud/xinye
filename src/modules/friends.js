@@ -2,6 +2,8 @@ import { db, dbGetAll, dbPut, dbDelete } from './db.js';
 import { toast, fallbackCopy, escHtml } from './utils.js';
 import { getApiPresets } from './api.js';
 
+console.log('[DEBUG] friends.js 模块开始执行');
+
 const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent)
   || ('ontouchstart' in window && screen.width < 768);
 
