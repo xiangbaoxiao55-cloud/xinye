@@ -186,18 +186,22 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 ### 阶段5：提取核心聊天模块（最高风险，留到最后）
 
-#### 5a. `chat.js`
+#### 5a. `chat.js`（✅ 已完成 2026-04-26）
 提取：消息渲染、发送接收、历史记录、滚动加载
-- [ ] 创建 `src/modules/chat.js`
-- [ ] 测试（重要）：
-  - 发消息、接收回复
-  - 流式输出（逐字显示）
-  - 历史记录加载
-  - 编辑消息
-  - 消息复制
-  - Markdown渲染（含LaTeX、代码块）
-  - thinking块折叠
-  - 收藏消息
+- [x] 创建 `src/modules/chat.js`（1627行）
+- [x] main.js 移除重复代码(-1500行)，改为 import
+- [x] window.isRequesting/pendingImages/_forceSearch 改为 window 属性
+- [x] window 暴露：maybeTTS/getStickerHint/autoResize/resetIdleTimer/updateSendBtn/scheduleAutoSave/applyStickerTags/updateHeaderStatus/sendMessage
+- [x] sw.js 新增 /src/modules/chat.js 预缓存
+- [x] 测试通过（2026-04-26）：
+  - 发消息、接收回复 ✅
+  - 流式输出 ✅
+  - 历史记录加载 ✅
+  - 编辑消息 ✅
+  - 消息复制 ✅
+  - Markdown渲染 ✅
+  - thinking块折叠 ✅
+  - 收藏消息 ✅
 
 ---
 
@@ -315,7 +319,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
 阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
-阶段5 聊天模块           ░░░░░░░░░░  未开始
+阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
 阶段6 收尾模块           ░░░░░░░░░░  未开始
 阶段7 最终整合           ░░░░░░░░░░  未开始
 ```
