@@ -2,8 +2,6 @@ import { db, dbGetAll, dbPut, dbDelete } from './db.js';
 import { toast, fallbackCopy, escHtml } from './utils.js';
 import { getApiPresets } from './api.js';
 
-console.log('[DEBUG] friends.js 模块开始执行');
-
 const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent)
   || ('ontouchstart' in window && screen.width < 768);
 
@@ -443,9 +441,9 @@ window.applyFriendPreset = function(sel) {
   document.getElementById('fmModel').value = p.model || '';
 };
 
-// ---- Export for backup ----
+// ---- Backup helper (accessed via window from main.js) ----
 
-export async function getFriendsBackupData() {
+window.getFriendsBackupData = async function getFriendsBackupData() {
   try {
     const friends = await dbGetAll('friends');
     const chats = {};
