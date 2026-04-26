@@ -342,9 +342,9 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
 阶段3 独立工具模块       ██████████  ✅ 完成（3a utils ✅ 3b db ✅ 3c state+tts ✅，image已在阶段6完成）
 阶段4 核心模块           ██████████  ✅ 完成（4a api ✅，4b memory ✅，4c friends ✅）
-阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
+阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js）
 阶段6 收尾模块           ██████████  ✅ 完成（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅ settings.js ✅ backup.js ✅ image.js ✅ rp.js ✅）
-阶段7 最终整合           ░░░░░░░░░░  未开始
+阶段7 最终整合           ████████░░  进行中（小清理完成，回归测试进行中）
 ```
 
 ---
@@ -353,22 +353,46 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 ---
 
-## 给下一窗的交接（2026-04-26）
+## 给下一窗的交接（2026-04-27）
 
-**当前进度**：阶段6全部完成，main.js 现在 637 行。
+**当前进度**：阶段7 进行中。main.js 现在 **492 行**（从 637 行再减）。
 
-所有模块已提取完毕：
-```
-src/modules/utils.js / db.js / state.js / api.js / memory.js / tts.js
-chat.js / friends.js / stickers.js / diary.js / notifications.js / ui.js
-settings.js / backup.js / image.js / rp.js
-```
+### 已完成的工作
 
-**下一步：阶段7 最终整合**
+**main.js 小清理**（2026-04-27）：
+- `fetchModelList` + `testVisionApi` → settings.js
+- `compressImageToBase64` + `renderImgPreviews` + 上传事件 → image.js（`initImageUpload()`）
+- `quickNoteOpen/Close/Save` + `_qnToast` → diary.js
 
-1. **全功能回归测试**（见下方测试清单）
-   - 重点测：画图（image.js 新提取）、RP模式（rp.js 新提取）、备份/导入
-   - 其余功能已在各阶段测过，抽测即可
-2. **main.js 瘦身检查**：637行里还有 compressImageToBase64（75-95行）、渲染图片上传UI（renderImgPreviews 等，~20行）、sendKiss（~35行）、quickNote 函数（~50行）、initFCM（~35行）——这些体量小，可以留在 main.js，也可以再拆一轮（非必须）
-3. **state.js 整理**（可选）：确认所有共享状态都从 state.js 走，没有散落在各模块的私有声明
-4. **sw.js 验证**：STATIC_ASSETS 已包含全部16个模块文件，确认手机 SW 更新后不 404
+**回归测试 + bug修复**（2026-04-27）：
+- db.js：补 `dbGetBefore(store, beforeId, count)` 函数
+- chat.js：加 scroll listener（滚动到顶加载更早50条），修收藏头像（改为 rAF 直接 `el.style.backgroundImage`）
+- main.js：补回 `describeImagesWithVision`（迁移时丢失，导致识图立即报错）
+- index.html：修 `modelListMain/Sub` 的 `onchange`（`$` 未定义 → `document.getElementById`）
+
+### 回归测试当前状态
+
+✅ 已通过（涂涂在手机测过）：
+发消息/流式回复、编辑/删除/复制消息、图片上传UI、RP模式、TTS、随手记、记忆系统、朋友们、API设置/预设、暗夜模式/背景、一键备份/导出、导入、移动端键盘
+
+⏳ 待复测（本窗已修，等 Vercel 部署后验证）：
+- 滚动到顶加载更多历史（已修 db.js + chat.js）
+- 收藏面板头像不再空白（已修 chat.js）
+- 发图片给炘也→识图模型被调用（已修 describeImagesWithVision）
+- 获取模型列表→选中填入输入框（已修 index.html onchange）
+
+❓ 待查（非代码bug，是API网络问题）：
+- 文生图/图生图：挂起无报错——在CMD里用同一API可以跑，浏览器可能是CORS问题。6分钟超时后应出现"画图超时了"toast；如果超时后也没toast才是代码bug
+- PWA/SW：涂涂还没测
+
+### 下一步
+
+1. 让涂涂复测上面4项「待复测」
+2. 文生图问题：等6分钟看有没有toast；如果图API是不支持CORS的直连服务，需要换proxy或在设置里配支持CORS的中转
+3. 全部通过后 → **阶段7完成**，可以开始 XINYE_ALONE_V2.md 新功能
+
+### 已知坑（本窗发现）
+
+- `window.describeImagesWithVision` 是 chat.js 通过 `window.xxx` 调用、main.js 提供的桥接函数。如果未来再动 main.js 结构，注意别把它漏掉
+- index.html 里还有其他 `$('#...')` 的 inline handler 吗？本窗只修了 modelListMain/Sub，如果还有其他地方用 `$` 的 inline handler 遇到再修
+- 画图超时是360秒（6分钟），不是网络断了——用户等不住会以为没反应
