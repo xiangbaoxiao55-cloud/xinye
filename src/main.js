@@ -415,7 +415,64 @@ async function fetchModelList(urlInputId, keyInputId, modelInputId, selectId) {
   }
 }
 
-
+async function testVisionApi() {
+  const btn = $('#btnTestVision');
+  const result = $('#visionTestResult');
+  settings.visionApiKey = $('#setVisionApiKey').value.trim();
+  settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
+  settings.visionModel = $('#setVisionModel').value.trim();
+  if (!settings.visionApiKey) {
+    result.style.display = 'block'; result.style.color = '#e57373';
+    result.textContent = '❌ 请先填写识图 API Key。'; return;
+  }
+  btn.disabled = true; btn.textContent = '测试中…';
+  result.style.display = 'block'; result.style.color = 'var(--text-light)';
+  result.textContent = '正在连接…';
+  const _c = document.createElement('canvas'); _c.width = 100; _c.height = 100;
+  const _ctx = _c.getContext('2d');
+  _ctx.fillStyle = '#ffffff'; _ctx.fillRect(0, 0, 100, 100);
+  _ctx.fillStyle = '#e91e63'; _ctx.font = 'bold 20px sans-serif';
+  _ctx.fillText('TEST', 25, 55);
+  const testImg = _c.toDataURL('image/jpeg', 0.9);
+  const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
+  const model = settings.visionModel || 'zai-org/GLM-4.6V';
+  const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.visionApiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: testImg } },
+          { type: 'text', text: '这张图片是什么颜色？一句话回答。' }
+        ]}],
+        max_tokens: 200,
+        stream: false
+      })
+    });
+    const data = await res.json();
+    btn.disabled = false; btn.textContent = '测试识图连接';
+    if (!res.ok) {
+      result.style.color = '#e57373';
+      result.textContent = `❌ HTTP ${res.status}：${data?.error?.message || JSON.stringify(data)}`;
+    } else {
+      const desc = data?.choices?.[0]?.message?.content?.trim();
+      if (desc) {
+        result.style.color = '#4caf50';
+        result.textContent = `✅ 成功！模型：${model}，返回：${desc}`;
+        saveSettings();
+      } else {
+        result.style.color = '#e57373';
+        result.textContent = `❌ 请求成功但无内容返回：${JSON.stringify(data)}`;
+      }
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '测试识图连接';
+    result.style.color = '#e57373';
+    result.textContent = `❌ 网络错误：${e.message}`;
+  }
+}
 
 // 当前活动消息store（RP模式用rpMessages，正常用messages）
 function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
