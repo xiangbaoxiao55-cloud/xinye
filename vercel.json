@@ -1,6 +1,7 @@
 {
   "framework": null,
-  "buildCommand": "",
+  "buildCommand": "echo ok",
+  "installCommand": "echo ok",
   "outputDirectory": ".",
   "headers": [
     {
