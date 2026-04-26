@@ -212,7 +212,15 @@ main.js          ← 全部（入口，控制初始化顺序）
   - renderTtsPresets/activateTtsPreset/deleteTtsPreset/updateTtsTypeUI/checkerActivate/站子检测
   - applyUI/updateHeaderStatus/checkLocalServer/notifySwLocalServer/isLocalServerOnline
   - 全部设置面板按钮事件绑定 → initSettings()；_localServerOnline → isLocalServerOnline() getter
-- [ ] `backup.js` — 备份/导出/导入
+- [x] `image.js` — 画图API（✅ 完成 2026-04-26）
+  - generateImage/triggerDrawImage/autoSaveGenImage/base64ToFile/compositeRefImages
+  - DOM元素在调用时懒查询（getElementById），window.autoResize/pendingImages/isRequesting保持全局
+- [x] `rp.js` — RP模式（✅ 完成 2026-04-26）
+  - IIFE → initRp()；switchRpMode 移入 rp.js；所有 window.xxx handler 保留
+  - main.js 调 initRp() 在顶层（不依赖 IDB，用 localStorage）
+- [x] `backup.js` — 备份/导出/导入（✅ 完成 2026-04-26）
+  - saveToLocal/loadFromLocal/autoBackupToServer/backupToPhone/exportData/doImport/doImportPresetsOnly/doMergeImport
+  - settings.js 已接入：import + initBackupDeps + 所有按钮绑定
 - [x] `stickers.js` — 贴纸系统（✅ 完成 2026-04-26）
   - getDecoStickers/setDecoStickers/renderStickers；聊天贴纸：getChatStickers/saveChatStickers/openStickerPanel/renderStickerMgr 等
   - initStickers 暴露所有 window.xxx handler（供 HTML onclick 和 chat.js 调用）
@@ -335,7 +343,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
 阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
-阶段6 收尾模块           ████████░░  进行中（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅ settings.js ✅，剩余：backup.js）
+阶段6 收尾模块           ██████████  ✅ 完成（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅ settings.js ✅ backup.js ✅ image.js ✅ rp.js ✅）
 阶段7 最终整合           ░░░░░░░░░░  未开始
 ```
 
