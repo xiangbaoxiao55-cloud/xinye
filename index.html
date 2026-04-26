@@ -244,7 +244,7 @@
         <input type="text" id="setModel" placeholder="gpt-4o" style="flex:1">
         <button type="button" onclick="fetchModelList('setBaseUrl','setApiKey','setModel','modelListMain')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
       </div>
-      <select id="modelListMain" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){$('#setModel').value=this.value;this.style.display='none'}"></select>
+      <select id="modelListMain" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){document.getElementById('setModel').value=this.value;this.style.display='none'}"></select>
     </div>
     <div class="setting-group">
       <label>备用 API 预设（主 API 挂了依次切换）</label>
@@ -278,7 +278,7 @@
         <input type="text" id="setSubModel" placeholder="留空则用主模型" style="flex:1">
         <button type="button" onclick="fetchModelList('setSubBaseUrl','setSubApiKey','setSubModel','modelListSub')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
       </div>
-      <select id="modelListSub" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){$('#setSubModel').value=this.value;this.style.display='none'}"></select>
+      <select id="modelListSub" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){document.getElementById('setSubModel').value=this.value;this.style.display='none'}"></select>
     </div>
     <div class="setting-group">
       <label>备用 API 预设（副 API 挂了依次切换）</label>

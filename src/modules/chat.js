@@ -1,5 +1,5 @@
 import { toast, fallbackCopy, escHtml, fmtTime, nowStr, $ } from './utils.js';
-import { db, dbPut, dbGet, dbDelete, dbGetAllKeys } from './db.js';
+import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
@@ -64,7 +64,6 @@ export function renderBookmarksPanel() {
   }
   const aiName = settings.aiName || '炘也';
   const avatarSrc = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
-  listEl.style.setProperty('--bm-avatar', `url("${avatarSrc}")`);
   listEl.innerHTML = bms.map(b => {
     const saved = new Date(b.savedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
     const msgTime = b.time ? fmtTime(b.time) : '';
@@ -85,6 +84,7 @@ export function renderBookmarksPanel() {
     </div>`;
   }).join('');
   requestAnimationFrame(() => {
+    listEl.querySelectorAll('.bm-card-avatar').forEach(el => { el.style.backgroundImage = `url("${avatarSrc}")`; });
     bms.forEach(b => {
       const body = document.getElementById(`bmc-${b.id}`);
       const btn  = document.getElementById(`bmx-${b.id}`);
@@ -255,6 +255,23 @@ export async function deleteMessage(id) {
   chatArea.querySelector(`.msg-del-btn[data-id="${id}"]`)?.closest('.msg-row')?.remove();
   window.scheduleAutoSave?.();
 }
+
+// ======================== 滚动到顶加载更早消息 ========================
+let _loadingOlder = false;
+chatArea.addEventListener('scroll', async () => {
+  if (chatArea.scrollTop > 60 || _loadingOlder || !messages.length) return;
+  const minId = messages[0]?.id;
+  if (!minId) return;
+  _loadingOlder = true;
+  const older = await dbGetBefore(activeStore(), minId, 50);
+  if (older.length) {
+    messages.unshift(...older);
+    const savedHeight = chatArea.scrollHeight;
+    await renderMessages();
+    chatArea.scrollTop = chatArea.scrollHeight - savedHeight;
+  }
+  _loadingOlder = false;
+});
 
 chatArea.addEventListener('click', e => {
   if (e.target.matches('.gen-img, .bubble-img')) {

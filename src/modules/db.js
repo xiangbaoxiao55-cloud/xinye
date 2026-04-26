@@ -131,6 +131,22 @@ export function dbClear(store) {
   });
 }
 
+export function dbGetBefore(store, beforeId, count) {
+  if (!db) return Promise.resolve([]);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const results = [];
+    const range = IDBKeyRange.upperBound(beforeId, true);
+    const req = tx.objectStore(store).openCursor(range, 'prev');
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor && results.length < count) { results.unshift(cursor.value); cursor.continue(); }
+      else resolve(results);
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
 export function dbGetAllKeys(store) {
   if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {

@@ -22,7 +22,7 @@ Object.assign(window, {
   toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit,
   quickNoteOpen, quickNoteClose, quickNoteSave,
   removeBookmark, toggleBmExpand,
-  fetchModelList, testEmbeddingApi, testVisionApi,
+  fetchModelList, testEmbeddingApi, testVisionApi, describeImagesWithVision,
   updateTtsTypeUI, triggerDrawImage, sendKiss,
   checkerActivate,
   maybeTTS, autoResize, resetIdleTimer, updateSendBtn,
@@ -242,6 +242,34 @@ function maybeTTS(text, msgId) {
 }
 // ======================== 发送 & API ========================
 window.isRequesting = false;
+
+// ======================== 识图描述（Vision → imageDescs） ========================
+async function describeImagesWithVision(imgs) {
+  const key = settings.visionApiKey;
+  const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
+  const model = settings.visionModel || 'zai-org/GLM-4.6V';
+  const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+  return Promise.all(imgs.map(async imgUrl => {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: imgUrl } },
+            { type: 'text', text: '请详细描述这张图片的内容，包括人物、物体、场景、颜色、动作等关键信息。用中文回答，不超过200字。' }
+          ]}],
+          max_tokens: 300,
+          stream: false
+        })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content?.trim() || null;
+    } catch { return null; }
+  }));
+}
 
 // ---- 亲嘴功能 ----
 function sendKiss() {
