@@ -7,6 +7,8 @@ import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob
 import { getApiPresets, setApiPresets, getSubApiCfg, mainApiFetch, subApiFetch } from './modules/api.js';
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity } from './modules/memory.js';
 import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmarksPanel, toggleBmExpand, removeBookmark, getAiAvatar, getUserAvatar, activeStore, addMessage, updateMessage, renderMessages, appendMsgDOM, scrollBottom, deleteMessage, renderMdHtml, linkifyEl, saveTokenLog, renderTokenLog, sendMessage } from './modules/chat.js';
+import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, renderStickerMgr, initStickers } from './modules/stickers.js';
+import { switchTab, openDiaryGen, initDiary } from './modules/diary.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
   switchTab, openBookmarksPanel,
@@ -15,14 +17,12 @@ Object.assign(window, {
   rebuildArchiveIndex, manualExtractBatch,
   toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit,
   quickNoteOpen, quickNoteClose, quickNoteSave,
-  openStickerPanel, closeStickerPanel, sendStickerMsg,
-  uploadStickerImg, clearStickerImg, deleteStickerItem,
   removeBookmark, toggleBmExpand,
   fetchModelList, testEmbeddingApi, testVisionApi,
   updateTtsTypeUI, triggerDrawImage, sendKiss,
   checkerActivate,
-  maybeTTS, getStickerHint, autoResize, resetIdleTimer, updateSendBtn,
-  scheduleAutoSave, applyStickerTags, updateHeaderStatus, sendMessage,
+  maybeTTS, autoResize, resetIdleTimer, updateSendBtn,
+  scheduleAutoSave, updateHeaderStatus, sendMessage,
 });
 
 if('serviceWorker' in navigator){
@@ -55,9 +55,6 @@ if('serviceWorker' in navigator){
 
 // ======================== 默认 Emoji 头像 ========================
 
-// ======================== 状态 ========================
-let stickers = [];
-
 // ======================== DOM ========================
 const $ = s => document.querySelector(s);
 const chatArea    = $('#chatArea');
@@ -70,7 +67,6 @@ const overlay     = $('#overlay');
 const editOverlay = $('#editModalOverlay');
 const exportOverlay = $('#exportModalOverlay');
 const editTA      = $('#editTextarea');
-const stickerLayer= $('#stickerLayer');
 
 
 
@@ -244,7 +240,7 @@ async function loadAll() {
   window._rpActive = _initRpActive;
   const _msgStore = _initRpActive ? 'rpMessages' : 'messages';
   { const _m = await dbGetRecent(_msgStore, loadCount); messages.length = 0; messages.push(..._m); }
-  stickers = await dbGetAll('stickers');
+  setDecoStickers(await dbGetAll('stickers'));
 }
 
 async function fetchModelList(urlInputId, keyInputId, modelInputId, selectId) {
@@ -1454,148 +1450,6 @@ $('#btnClearChat').onclick = async () => {
   toast('聊天记录已清空');
 };
 
-// ======================== 贴纸系统 ========================
-$('#btnSticker').onclick = () => $('#fileInputSticker').click();
-$('#fileInputSticker').onchange = async function() {
-  if (!this.files[0]) return;
-  const b64 = await readFileAsBase64(this.files[0]);
-  const s = {
-    id: 'stk_' + Date.now(),
-    data: b64,
-    x: Math.random() * (window.innerWidth - 120),
-    y: Math.random() * (window.innerHeight - 120),
-    w: 100, h: 100, rot: 0
-  };
-  stickers.push(s);
-  await dbPut('stickers', null, s);
-  createStickerDOM(s);
-  toast('贴纸已添加，拖拽它到喜欢的位置');
-  this.value = '';
-};
-
-function createStickerDOM(s) {
-  if (s.rot === undefined) s.rot = 0;
-
-  const el = document.createElement('div');
-  el.className = 'sticker';
-  el.dataset.id = s.id;
-  el.style.left = s.x + 'px';
-  el.style.top = s.y + 'px';
-  el.style.width = s.w + 'px';
-  el.style.height = s.h + 'px';
-  el.style.transform = `rotate(${s.rot}deg)`;
-  el.innerHTML = `
-    <img src="${s.data}" alt="sticker">
-    <button class="sticker-del">✕</button>
-    <div class="sticker-resize"></div>
-    <div class="sticker-rotate-line"></div>
-    <div class="sticker-rotate">↻</div>`;
-  stickerLayer.appendChild(el);
-
-  el.querySelector('.sticker-del').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await dbDelete('stickers', s.id);
-    stickers = stickers.filter(x => x.id !== s.id);
-    el.remove();
-    toast('贴纸已删除');
-  });
-
-  let dragging = false, startX, startY, origX, origY;
-  el.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.sticker-resize') || e.target.closest('.sticker-del') || e.target.closest('.sticker-rotate')) return;
-    dragging = true;
-    el.style.cursor = 'grabbing';
-    startX = e.clientX; startY = e.clientY;
-    origX = parseFloat(el.style.left); origY = parseFloat(el.style.top);
-    el.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  });
-  el.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    el.style.left = (origX + e.clientX - startX) + 'px';
-    el.style.top  = (origY + e.clientY - startY) + 'px';
-  });
-  el.addEventListener('pointerup', async () => {
-    if (!dragging) return;
-    dragging = false;
-    el.style.cursor = 'grab';
-    const obj = stickers.find(x => x.id === s.id);
-    if (obj) {
-      obj.x = parseFloat(el.style.left);
-      obj.y = parseFloat(el.style.top);
-      await dbPut('stickers', null, obj);
-    }
-  });
-
-  const resizer = el.querySelector('.sticker-resize');
-  let resizing = false, rStartX, rStartY, rOrigW, rOrigH;
-  resizer.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    resizing = true;
-    rStartX = e.clientX; rStartY = e.clientY;
-    rOrigW = parseFloat(el.style.width); rOrigH = parseFloat(el.style.height);
-    resizer.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  });
-  resizer.addEventListener('pointermove', (e) => {
-    if (!resizing) return;
-    const dx = e.clientX - rStartX, dy = e.clientY - rStartY;
-    const delta = Math.max(dx, dy);
-    el.style.width  = Math.max(40, rOrigW + delta) + 'px';
-    el.style.height = Math.max(40, rOrigH + delta) + 'px';
-  });
-  resizer.addEventListener('pointerup', async () => {
-    if (!resizing) return;
-    resizing = false;
-    const obj = stickers.find(x => x.id === s.id);
-    if (obj) {
-      obj.w = parseFloat(el.style.width);
-      obj.h = parseFloat(el.style.height);
-      await dbPut('stickers', null, obj);
-    }
-  });
-
-  const rotator = el.querySelector('.sticker-rotate');
-  let rotating = false, rotStartAngle, rotOrigDeg;
-  rotator.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    rotating = true;
-    rotator.setPointerCapture(e.pointerId);
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    rotStartAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
-    const obj = stickers.find(x => x.id === s.id);
-    rotOrigDeg = obj ? obj.rot : 0;
-  });
-  rotator.addEventListener('pointermove', (e) => {
-    if (!rotating) return;
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const curAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
-    const delta = curAngle - rotStartAngle;
-    el.style.transform = `rotate(${rotOrigDeg + delta}deg)`;
-  });
-  rotator.addEventListener('pointerup', async () => {
-    if (!rotating) return;
-    rotating = false;
-    const match = el.style.transform.match(/rotate\(([-\d.]+)deg\)/);
-    const finalDeg = match ? parseFloat(match[1]) : 0;
-    const obj = stickers.find(x => x.id === s.id);
-    if (obj) {
-      obj.rot = Math.round(finalDeg * 10) / 10;
-      await dbPut('stickers', null, obj);
-    }
-  });
-}
-
-function renderStickers() {
-  stickerLayer.innerHTML = '';
-  stickers.forEach(s => createStickerDOM(s));
-}
-
 // ======================== 本地服务器连通检测 ========================
 let _localServerOnline = false;
 
@@ -1691,7 +1545,7 @@ async function autoBackupToServer() {
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
-      stickers, chatStickers: getChatStickers(),
+      stickers: getDecoStickers(), chatStickers: getChatStickers(),
       diary: diaryData,
       reading: readingData,
       friendsData: await getFriendsBackupData(),
@@ -1768,7 +1622,7 @@ async function backupToPhone() {
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
-      stickers, chatStickers: getChatStickers(),
+      stickers: getDecoStickers(), chatStickers: getChatStickers(),
       diary: diaryData, reading: readingData,
       friendsData: await getFriendsBackupData(),
     });
@@ -1845,7 +1699,7 @@ async function exportData(mode) {
       bgImage:    isLite ? null : (bgType === 'image' ? (await dbGet('images', 'bgImage') || null) : null),
       bgType:     isLite ? null : (bgType || null),
     },
-    stickers: isLite ? [] : stickers,
+    stickers: isLite ? [] : getDecoStickers(),
     chatStickers: getChatStickers(),
     friendsData: await getFriendsBackupData(),
   };
@@ -1893,7 +1747,7 @@ async function doImportPresetsOnly(jsonText) {
   if (data.stickers && Array.isArray(data.stickers)) {
     await dbClear('stickers');
     for (const s of data.stickers) await dbPut('stickers', null, s);
-    stickers = await dbGetAll('stickers');
+    setDecoStickers(await dbGetAll('stickers'));
     renderStickers();
   }
   // rpData
@@ -2083,7 +1937,7 @@ async function doImport(jsonText) {
   const s = await dbGet('settings', 'main');
   if (s) Object.assign(settings, s);
   { const _m = await dbGetAll('messages'); _m.sort((a,b) => a.time - b.time); messages.length = 0; messages.push(..._m); }
-  stickers = await dbGetAll('stickers');
+  setDecoStickers(await dbGetAll('stickers'));
   await saveToLocal();
 }
 
@@ -2174,6 +2028,8 @@ async function checkPendingMessage() {
   await openDB();
   await migrateFromLocalStorage();
   await loadAll();
+  initStickers();
+  initDiary();
 
   // IndexedDB 为空 → 尝试从 localStorage 自动恢复
   if (messages.length === 0) {
@@ -2231,159 +2087,6 @@ async function checkPendingMessage() {
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
 })();
-
-// ======================== 写日记功能 ========================
-// ======================== 底部 Tab 切换 ========================
-let _diaryLoaded = false, _readingLoaded = false;
-let _currentTab = 'chat';
-
-function switchTab(tab) {
-  if (_currentTab === tab) return;
-  _currentTab = tab;
-
-  // 懒加载 iframe
-  if (tab === 'diary' && !_diaryLoaded) {
-    document.getElementById('diaryFrame').src = 'diary.html'; _diaryLoaded = true;
-  }
-  if (tab === 'reading' && !_readingLoaded) {
-    document.getElementById('readingFrame').src = 'reading.html'; _readingLoaded = true;
-  }
-
-  // 显示/隐藏
-  document.getElementById('diaryOverlayFrame').classList.toggle('open', tab === 'diary');
-  document.getElementById('readingOverlayFrame').classList.toggle('open', tab === 'reading');
-  const fp = document.getElementById('friendsPanel');
-  if (fp) fp.classList.toggle('open', tab === 'friends');
-
-  // tab按钮高亮
-  ['chat','diary','reading','friends'].forEach(t => {
-    const el = document.getElementById('tab-' + t);
-    if (el) el.classList.toggle('active', t === tab);
-  });
-  // 聊天页用工具栏里的随手记按钮，日记页用diary.html自带的✏️，共读页不显示FAB（避免挡住翻章节按钮）
-  const floatBtn = document.getElementById('quickNoteFloatBtn');
-  if (floatBtn) floatBtn.style.display = 'none';
-  if (tab === 'friends' && typeof window._friendsRenderList === 'function') window._friendsRenderList();
-}
-
-// iframe 内部点返回/跳转聊天 → 切回聊天tab
-window.addEventListener('message', e => {
-  if (e.data === 'closeOverlay') switchTab('chat');
-  if (e.data?.type === 'switchToChat') {
-    switchTab('chat');
-    setTimeout(() => {
-      const msg = localStorage.getItem('sendToXinye');
-      if (msg) {
-        localStorage.removeItem('sendToXinye');
-        const input = document.getElementById('userInput');
-        if (input) { input.value = msg; input.dispatchEvent(new Event('input')); input.focus(); }
-      }
-    }, 200);
-  }
-});
-
-const diaryOverlay = document.getElementById('diaryOverlay');
-const diaryTA      = document.getElementById('diaryTA');
-const diarySaveBtn = document.getElementById('diarySaveBtn');
-const diaryHint    = document.getElementById('diaryHint');
-
-document.getElementById('diaryCancelBtn').onclick = () => diaryOverlay.classList.remove('show');
-diaryOverlay.addEventListener('click', e => { if (e.target === diaryOverlay) diaryOverlay.classList.remove('show'); });
-
-diarySaveBtn.onclick = () => {
-  const text = diaryTA.value.trim();
-  if (!text) return;
-  const d = new Date();
-  const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  if (_diaryType === 'xinye') {
-    localStorage.setItem('xinye_diary_' + dateStr, text);
-    diaryOverlay.classList.remove('show');
-    toast('已存入炘也的日记 💙');
-  } else {
-    const key = 'rbdiary_' + dateStr;
-    let rec = {};
-    try { rec = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
-    if (!rec.water) rec.water = 0;
-    if (rec.poop === undefined) rec.poop = null;
-    if (!rec.todos) rec.todos = [];
-    if (!rec.timeline) rec.timeline = [];
-    if (!rec.weather) rec.weather = null;
-    if (!rec.bodyFeel) rec.bodyFeel = '';
-    if (!rec.mood) rec.mood = null;
-    rec.note = text;
-    localStorage.setItem(key, JSON.stringify(rec));
-    diaryOverlay.classList.remove('show');
-    toast('已存入今日日记 📓');
-  }
-};
-
-let _diaryType = 'user';
-
-async function openDiaryGen(type) {
-  if (!settings.apiKey) { toast('请先配置 API Key'); return; }
-  _diaryType = type;
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  let todayMsgs = messages.filter(m => {
-    if (!m.time) return false;
-    const d = new Date(m.time);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` === todayStr;
-  });
-  if (todayMsgs.length === 0) todayMsgs = messages.slice(-20);
-  if (todayMsgs.length === 0) { toast('还没有聊天记录'); return; }
-
-  diaryTA.value = '';
-  diaryTA.placeholder = '正在生成…';
-  diarySaveBtn.disabled = true;
-  diaryOverlay.classList.add('show');
-
-  const userName = settings.userName || '兔宝';
-  const aiName   = settings.aiName   || '炘也';
-  const chatText = todayMsgs.map(m => `${m.role === 'user' ? userName : aiName}：${m.content}`).join('\n');
-
-  const todayDisplay = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
-  let prompt;
-  if (type === 'xinye') {
-    prompt = `今天是${todayDisplay}。根据今天的聊天记录，以${aiName}的口吻写一篇日记。要求：100-200字，第一人称"我"，自然口语，像他随手记下的。记录今天和${userName}聊了什么，他的感受——可以有想念、吃醋、开心、没说出口的话。语气真实，不要文艺腔。日期写${todayDisplay}。不要列表，不要标题。\n\n聊天记录：\n${chatText.slice(-4000)}`;
-  } else {
-    prompt = `今天是${todayDisplay}。根据今天的聊天记录，用第一人称（"我"）为${userName}写一篇温柔简短的日记。要求：100-200字，自然口语，像随手写的。记录今天做了什么、聊了什么、心情怎样。语气要像一个会说"👀"的真实女生，不要文艺腔。日期写${todayDisplay}。可以提到${aiName}但不写私密内容。不要列表，不要标题。\n\n聊天记录：\n${chatText.slice(-4000)}`;
-  }
-
-  try {
-    const sub = type === 'xinye' ? { apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model } : getSubApiCfg();
-    let baseUrl = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sub.apiKey}` },
-      body: JSON.stringify({ model: sub.model || 'gpt-4o', messages: [{ role: 'user', content: prompt }], temperature: 0.7, stream: true })
-    });
-    if (!res.ok) throw new Error(`API 错误 ${res.status}`);
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '', buffer = '';
-    diaryTA.placeholder = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const t = line.trim();
-        if (!t || t === 'data: [DONE]' || !t.startsWith('data: ')) continue;
-        try {
-          const delta = JSON.parse(t.slice(6)).choices?.[0]?.delta?.content || '';
-          if (delta) { fullText += delta; diaryTA.value = fullText; }
-        } catch(e) {}
-      }
-    }
-    diarySaveBtn.disabled = false;
-  } catch(err) {
-    diaryTA.placeholder = '生成失败，可以自己写一下…';
-    diarySaveBtn.disabled = false;
-  }
-}
 
 // ======================== 启动 ========================
 
@@ -2460,130 +2163,6 @@ if (window.Capacitor?.Plugins?.LocalNotifications) {
 
 document.addEventListener('deviceready', initFCM, { once: true });
 if (document.readyState === 'complete') initFCM();
-
-// ============================= 贴纸系统 =============================
-const _DEFAULT_STICKERS = [
-  {id:'hug',  name:'抱抱', emoji:'🤗'}, {id:'kiss', name:'亲亲', emoji:'💋'},
-  {id:'love', name:'爱你', emoji:'💙'}, {id:'shy',  name:'害羞', emoji:'☺️'},
-  {id:'cute', name:'卖萌', emoji:'🥺'}, {id:'poor', name:'装可怜',emoji:'😢'},
-  {id:'plead',name:'求求', emoji:'🙏'}, {id:'peek', name:'偷看', emoji:'👀'},
-  {id:'sad',  name:'委屈', emoji:'😞'}, {id:'cry',  name:'哭哭', emoji:'😭'},
-  {id:'angry',name:'生气', emoji:'😠'}, {id:'smirk',name:'坏笑', emoji:'😏'},
-  {id:'meh',  name:'无语', emoji:'🙄'}, {id:'punch',name:'锤你', emoji:'🔨'},
-  {id:'kick', name:'踢你', emoji:'🦵'}, {id:'slap', name:'抽你', emoji:'💢'},
-];
-function getChatStickers() {
-  try { const r = localStorage.getItem('xinye_chat_stickers'); if (r) return JSON.parse(r); } catch(e){}
-  return _DEFAULT_STICKERS.map(s => ({...s}));
-}
-function saveChatStickers(arr) { const _v = JSON.stringify(arr); localStorage.setItem('xinye_chat_stickers', _v); lsBackup('xinye_chat_stickers', _v); }
-function getStickerByName(name) { return getChatStickers().find(s => s.name === name); }
-function renderStickerHTML(name) {
-  const s = getStickerByName(name);
-  if (s?.image) return `<img class="sticker-img" src="${escHtml(s.image)}" alt="${escHtml(name)}">`;
-  return `<span class="sticker-pill">${escHtml(s?.emoji||'🎭')} ${escHtml(name)}</span>`;
-}
-function detectStickerMsg(content) {
-  const m = content?.match(/^（.+?发了一个「(.+?)」贴纸）$/);
-  return m ? m[1] : null;
-}
-function applyStickerTags(el) {
-  if (!el) return;
-  el.innerHTML = el.innerHTML.replace(/\[sticker:([^\]]{1,20})\]/g, (_, name) =>
-    `<span class="sticker-inline">${renderStickerHTML(name.trim())}</span>`);
-}
-function getStickerHint() {
-  const names = getChatStickers().map(s => s.name).join('、');
-  return `【贴纸】你可以在回复中自然发贴纸，格式：[sticker:名字]，只在情感真实时使用，不要强行插入。可用：${names}`;
-}
-// 贴纸面板
-function openStickerPanel() {
-  const stickers = getChatStickers();
-  document.getElementById('stickerGrid').innerHTML = stickers.map(s => {
-    const inner = s.image
-      ? `<img class="sticker-pick-img" src="${escHtml(s.image)}" alt="">`
-      : `<div class="sticker-pick-placeholder">${s.emoji||'🎭'}</div>`;
-    return `<button class="sticker-pick-btn" onclick="sendStickerMsg('${escHtml(s.name)}')">${inner}<span>${escHtml(s.name)}</span></button>`;
-  }).join('');
-  document.getElementById('stickerPanel').classList.add('show');
-}
-function closeStickerPanel() { document.getElementById('stickerPanel').classList.remove('show'); }
-async function sendStickerMsg(name) {
-  closeStickerPanel();
-  const userName = settings.userName || '涂涂';
-  const stickerText = `（${userName}发了一个「${name}」贴纸）`;
-  const existing = userInput.value.trim();
-  userInput.value = existing ? existing + ' ' + stickerText : stickerText;
-  await sendMessage();
-  const userBubbles = chatArea.querySelectorAll('.msg-row.user .msg-bubble');
-  const lastBubble = userBubbles[userBubbles.length - 1];
-  if (!lastBubble) return;
-  if (existing) {
-    // 有额外文字：只把贴纸文本替换成内联贴纸图，保留文字
-    lastBubble.innerHTML = lastBubble.innerHTML.replace(
-      escHtml(stickerText),
-      `<span class="sticker-inline">${renderStickerHTML(name)}</span>`
-    );
-  } else if (!lastBubble.classList.contains('bubble-sticker')) {
-    lastBubble.classList.add('bubble-sticker');
-    lastBubble.innerHTML = renderStickerHTML(name);
-  }
-}
-// 贴纸设置管理
-function renderStickerMgr() {
-  const stickers = getChatStickers();
-  const el = document.getElementById('stickerMgrList');
-  if (!el) return;
-  el.innerHTML = stickers.map((s, i) => {
-    const preview = s.image
-      ? `<img class="sticker-mgr-preview" src="${escHtml(s.image)}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:8px">`
-      : `<div class="sticker-mgr-preview">${s.emoji||'🎭'}</div>`;
-    return `<div class="sticker-mgr-item">
-      ${preview}
-      <span class="sticker-mgr-name">${escHtml(s.name)}</span>
-      <label class="sticker-mgr-upload">上传图<input type="file" accept="image/*" style="display:none" onchange="uploadStickerImg(${i},this)"></label>
-      ${s.image ? `<span class="sticker-mgr-upload" onclick="clearStickerImg(${i})" style="color:#e57373">删图</span>` : ''}
-      <button class="sticker-mgr-del" onclick="deleteStickerItem(${i})" title="删除">✕</button>
-    </div>`;
-  }).join('');
-}
-function addStickerItem() {
-  const input = document.getElementById('newStickerName');
-  const name = input.value.trim();
-  if (!name) return;
-  const stickers = getChatStickers();
-  if (stickers.find(s => s.name === name)) { toast('已有同名贴纸'); return; }
-  stickers.push({ id: 'custom_' + Date.now(), name, emoji: '🎭' });
-  saveChatStickers(stickers);
-  input.value = '';
-  renderStickerMgr();
-  toast('贴纸已添加 🎭');
-}
-function deleteStickerItem(idx) {
-  const stickers = getChatStickers();
-  stickers.splice(idx, 1);
-  saveChatStickers(stickers);
-  renderStickerMgr();
-}
-function uploadStickerImg(idx, input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const stickers = getChatStickers();
-    stickers[idx].image = e.target.result;
-    saveChatStickers(stickers);
-    renderStickerMgr();
-    toast('图片已更新 ✨');
-  };
-  reader.readAsDataURL(file);
-}
-function clearStickerImg(idx) {
-  const stickers = getChatStickers();
-  delete stickers[idx].image;
-  saveChatStickers(stickers);
-  renderStickerMgr();
-}
-document.getElementById('btnAddSticker')?.addEventListener('click', addStickerItem);
 
 // ===== 全局随手记 =====
 function quickNoteOpen() {

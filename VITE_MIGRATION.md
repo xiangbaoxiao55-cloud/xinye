@@ -209,7 +209,9 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 - [ ] `settings.js` — 设置面板、各种预设
 - [ ] `backup.js` — 备份/导出/导入
-- [ ] `stickers.js` — 贴纸系统
+- [x] `stickers.js` — 贴纸系统（✅ 完成 2026-04-26）
+  - getDecoStickers/setDecoStickers/renderStickers；聊天贴纸：getChatStickers/saveChatStickers/openStickerPanel/renderStickerMgr 等
+  - initStickers 暴露所有 window.xxx handler（供 HTML onclick 和 chat.js 调用）
 - [x] `notifications.js` — 主动讲话、定时提醒（✅ 完成 2026-04-26）
   - resetIdleTimer/setupReminders/isQuietHours/scheduleBackgroundNotifications/cancelBackgroundNotifications/generateDream/proactiveMsg
   - beforeunload/visibilitychange/appStateChange 事件监听留在 main.js（跨模块调 autoBackupToServer/checkLocalServer）
@@ -219,7 +221,9 @@ main.js          ← 全部（入口，控制初始化顺序）
   - readFileAsBase64 移入 utils.js（共用）
   - MutationObserver 留在 main.js（renderTtsPresets 未提取）
   - $('#btnDecoS').onclick 留在 main.js（调 closeSettings）
-- [ ] `diary.js` — 写日记、Tab切换
+- [x] `diary.js` — 写日记、Tab切换（✅ 完成 2026-04-26）
+  - switchTab/openDiaryGen/initDiary；window.addEventListener message 移入 initDiary
+  - openDiaryGen 已迁移但暂无 HTML 触发点（备用）
 
 ---
 
@@ -327,7 +331,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
 阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
-阶段6 收尾模块           ████░░░░░░  进行中（ui.js ✅ notifications.js ✅，其余待做）
+阶段6 收尾模块           ██████░░░░  进行中（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅，剩余：settings.js / backup.js）
 阶段7 最终整合           ░░░░░░░░░░  未开始
 ```
 
