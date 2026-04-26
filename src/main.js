@@ -4498,13 +4498,9 @@ async function checkPendingMessage() {
   const _verEl = document.getElementById('appVersion');
   if (_verEl) _verEl.textContent = 'v2026.04.26-friends';
 
-  console.log('[INIT] openDB...');
   await openDB();
-  console.log('[INIT] migrateFromLocalStorage...');
   await migrateFromLocalStorage();
-  console.log('[INIT] loadAll...');
   await loadAll();
-  console.log('[INIT] loadAll done');
 
   // IndexedDB 为空 → 尝试从 localStorage 自动恢复
   if (messages.length === 0) {
@@ -4529,10 +4525,8 @@ async function checkPendingMessage() {
     }
   }
 
-  console.log('[INIT] applyUI...');
   await applyUI(false); // 始终渲染消息（数据已在 loadAll 后就绪）
   if (typeof window.syncRpHeader === 'function') window.syncRpHeader(); // RP顶栏覆盖updateHeaderStatus
-  console.log('[INIT] hiding splash');
   const _splash = document.getElementById('splashLoading');
   if (_splash) _splash.style.display = 'none';
   await checkPendingMessage();
