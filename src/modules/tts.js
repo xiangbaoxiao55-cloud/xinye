@@ -37,7 +37,7 @@ function blobExt(blob) {
   return 'wav';
 }
 
-function fetchWithTimeout(url, opts, ms = 60000) {
+export function fetchWithTimeout(url, opts, ms = 60000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer));
