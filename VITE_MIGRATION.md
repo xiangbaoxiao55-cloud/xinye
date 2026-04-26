@@ -340,8 +340,8 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段1 Vite骨架          ██████████  ✅ 完成
 阶段2 CSS拆分           ██████████  ✅ 完成
 阶段3-prep JS→module    ██████████  ✅ 完成（src/main.js，window暴露，SW更新）
-阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
-阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
+阶段3 独立工具模块       ██████████  ✅ 完成（3a utils ✅ 3b db ✅ 3c state+tts ✅，image已在阶段6完成）
+阶段4 核心模块           ██████████  ✅ 完成（4a api ✅，4b memory ✅，4c friends ✅）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
 阶段6 收尾模块           ██████████  ✅ 完成（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅ settings.js ✅ backup.js ✅ image.js ✅ rp.js ✅）
 阶段7 最终整合           ░░░░░░░░░░  未开始
@@ -350,3 +350,25 @@ main.js          ← 全部（入口，控制初始化顺序）
 ---
 
 *每次新窗口开始工作前，先读这个文件确认当前进度，再继续下一步。*
+
+---
+
+## 给下一窗的交接（2026-04-26）
+
+**当前进度**：阶段6全部完成，main.js 现在 637 行。
+
+所有模块已提取完毕：
+```
+src/modules/utils.js / db.js / state.js / api.js / memory.js / tts.js
+chat.js / friends.js / stickers.js / diary.js / notifications.js / ui.js
+settings.js / backup.js / image.js / rp.js
+```
+
+**下一步：阶段7 最终整合**
+
+1. **全功能回归测试**（见下方测试清单）
+   - 重点测：画图（image.js 新提取）、RP模式（rp.js 新提取）、备份/导入
+   - 其余功能已在各阶段测过，抽测即可
+2. **main.js 瘦身检查**：637行里还有 compressImageToBase64（75-95行）、渲染图片上传UI（renderImgPreviews 等，~20行）、sendKiss（~35行）、quickNote 函数（~50行）、initFCM（~35行）——这些体量小，可以留在 main.js，也可以再拆一轮（非必须）
+3. **state.js 整理**（可选）：确认所有共享状态都从 state.js 走，没有散落在各模块的私有声明
+4. **sw.js 验证**：STATIC_ASSETS 已包含全部16个模块文件，确认手机 SW 更新后不 404
