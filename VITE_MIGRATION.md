@@ -210,7 +210,10 @@ main.js          ← 全部（入口，控制初始化顺序）
 - [ ] `settings.js` — 设置面板、各种预设
 - [ ] `backup.js` — 备份/导出/导入
 - [ ] `stickers.js` — 贴纸系统
-- [ ] `notifications.js` — 主动讲话、定时提醒
+- [x] `notifications.js` — 主动讲话、定时提醒（✅ 完成 2026-04-26）
+  - resetIdleTimer/setupReminders/isQuietHours/scheduleBackgroundNotifications/cancelBackgroundNotifications/generateDream/proactiveMsg
+  - beforeunload/visibilitychange/appStateChange 事件监听留在 main.js（跨模块调 autoBackupToServer/checkLocalServer）
+  - proactiveMsg 调 window.maybeTTS（maybeTTS 仍在 main.js）
 - [x] `ui.js` — 暗夜模式、装修模式、背景上传（✅ 完成 2026-04-26）
   - toggleDeco/applyTheme/initTheme/applyBgImage/applyBgVideo/applyBg/initBgHandlers
   - readFileAsBase64 移入 utils.js（共用）
@@ -324,7 +327,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段3 独立工具模块       ████████░░  进行中（3a utils ✅ 3b db ✅ 3c state+tts ✅，3d image跳过-太耦合）
 阶段4 核心模块           ███████░░░  进行中（4a api ✅，4b memory ✅，4c friends ✅，下一步 5a chat）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js，待回归测试）
-阶段6 收尾模块           ██░░░░░░░░  进行中（ui.js ✅，其余待做）
+阶段6 收尾模块           ████░░░░░░  进行中（ui.js ✅ notifications.js ✅，其余待做）
 阶段7 最终整合           ░░░░░░░░░░  未开始
 ```
 
