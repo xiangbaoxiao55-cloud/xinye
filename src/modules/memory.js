@@ -13,6 +13,7 @@ export function initMemoryDeps({ isLocalOnline }) {
 // ── constants ─────────────────────────────────────────────────────────────────
 export const MEMORY_PINNED_LIMIT = 8;
 export const MEMORY_RAG_INJECT   = 8;
+export const MEMORY_RAG_RECENT   = 8;
 
 // 标签定义：[标签名, 匹配正则]，同时用于打标和检索加分
 const MEMORY_TAG_DEFS = [
@@ -293,22 +294,30 @@ export async function getMemoryContextBlocks() {
   console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，有向量${withVecTotal}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
 
   if (pool.length) {
+    // 近期记忆：窗口外时间最新的 N 条（按 createdAt 倒排）
+    const recentItems = [...pool].sort((a, b) => (b.createdAt||0) - (a.createdAt||0)).slice(0, MEMORY_RAG_RECENT);
+    const recentIds = new Set(recentItems.map(i => i.id));
+
+    // 语义召回：从剩余 pool 中匹配（避免与近期重复）
     const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
     console.log(`[Memory RAG] 检索方式：${method}，query前50字：「${query.slice(0,50)}」`);
-    const relevant = await getRelevantMemoriesAsync(queryVec, query, pool, MEMORY_RAG_INJECT);
-    console.log(`[Memory RAG] 召回${relevant.length}/${pool.length}条：`);
-    relevant.forEach((m, i) => console.log(`  #${i+1} [${m.kind}] w=${m.weight||1} access=${m.accessCount||0} 情绪=${m.emotion||'无'} | ${m.content}`));
+    const semanticPool = pool.filter(i => !recentIds.has(i.id));
+    const relevant = await getRelevantMemoriesAsync(queryVec, query, semanticPool, MEMORY_RAG_INJECT);
+    console.log(`[Memory RAG] 近期${recentItems.length}条 + 语义召回${relevant.length}/${semanticPool.length}条`);
+    relevant.forEach((m, i) => console.log(`  #${i+1} [${m.kind}] w=${m.weight||1} | ${m.content}`));
+
     const ragStatusEl = document.getElementById('memoryRagStatus');
     if (ragStatusEl) {
       const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
       const withVec = bank.archived.filter(i => i.embedding).length;
-      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条，有向量${withVec}条) → 召回${relevant.length}条`;
+      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条，有向量${withVec}条) → 近期${recentItems.length}条 + 语义${relevant.length}条`;
       ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
     }
 
-    if (relevant.length) {
+    const allRecalled = [...recentItems, ...relevant];
+    if (allRecalled.length) {
       const now = Date.now();
-      relevant.forEach(mem => {
+      allRecalled.forEach(mem => {
         for (const list of [bank.archived, bank.pinned]) {
           const found = list.find(i => i.id === mem.id);
           if (found) {
@@ -321,6 +330,11 @@ export async function getMemoryContextBlocks() {
           }
         }
       });
+    }
+    if (recentItems.length) {
+      blocks.push(`【近期记忆（上下文窗口外最新）】\n${recentItems.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+    }
+    if (relevant.length) {
       blocks.push(`【记忆碎片（与当前话题相关）】\n${relevant.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
     }
   }
