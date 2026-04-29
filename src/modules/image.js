@@ -4,7 +4,7 @@ import { dbPut } from './db.js';
 import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
 
-async function autoSaveGenImage(dataUrl, msgId) {
+export async function autoSaveGenImage(dataUrl, msgId) {
   const filename = `炘也画的图_${msgId}.png`;
   try {
     let b64, blob;

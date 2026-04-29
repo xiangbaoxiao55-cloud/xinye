@@ -11,7 +11,7 @@ import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, save
 import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave } from './modules/diary.js';
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
 import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi } from './modules/settings.js';
-import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile } from './modules/image.js';
+import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage } from './modules/image.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -23,7 +23,7 @@ Object.assign(window, {
   quickNoteOpen, quickNoteClose, quickNoteSave,
   removeBookmark, toggleBmExpand,
   fetchModelList, testEmbeddingApi, testVisionApi, describeImagesWithVision,
-  updateTtsTypeUI, triggerDrawImage, sendKiss, compositeRefImages, base64ToFile,
+  updateTtsTypeUI, triggerDrawImage, sendKiss, compositeRefImages, base64ToFile, autoSaveGenImage,
   checkerActivate,
   maybeTTS, autoResize, resetIdleTimer, updateSendBtn,
   scheduleAutoSave, updateHeaderStatus, sendMessage,
