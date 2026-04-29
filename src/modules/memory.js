@@ -304,7 +304,10 @@ export async function getMemoryContextBlocks() {
     const semanticPool = pool.filter(i => !recentIds.has(i.id));
     const relevant = await getRelevantMemoriesAsync(queryVec, query, semanticPool, MEMORY_RAG_INJECT);
     console.log(`[Memory RAG] 近期${recentItems.length}条 + 语义召回${relevant.length}/${semanticPool.length}条`);
-    relevant.forEach((m, i) => console.log(`  #${i+1} [${m.kind}] w=${m.weight||1} | ${m.content}`));
+    console.log('[Memory RAG] 近期记忆：');
+    recentItems.forEach((m, i) => console.log(`  近${i+1} [${m.kind}] w=${m.weight||1} | ${m.content}`));
+    console.log('[Memory RAG] 语义召回：');
+    relevant.forEach((m, i) => console.log(`  语${i+1} [${m.kind}] w=${m.weight||1} | ${m.content}`));
 
     const ragStatusEl = document.getElementById('memoryRagStatus');
     if (ragStatusEl) {
