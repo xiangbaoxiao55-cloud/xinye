@@ -151,6 +151,7 @@ export async function renderMessages() {
   chatArea.querySelectorAll('.msg-row').forEach(el => el.remove());
   emptyState.style.display = messages.length === 0 ? 'flex' : 'none';
   const aiAv = await (typeof window.getEffectiveAiAvatar === 'function' ? window.getEffectiveAiAvatar() : getAiAvatar());
+  window._xinyeAvatarSrc = aiAv;
   const usAv = await (typeof window.getEffectiveUserAvatar === 'function' ? window.getEffectiveUserAvatar() : getUserAvatar());
   const limit = settings.displayLimit || 0;
   const displayMsgs = limit > 0 ? messages.slice(-limit) : messages;
@@ -245,6 +246,7 @@ export async function appendMsgDOM(msg) {
 }
 
 export function scrollBottom() {
+  if (_loadingOlder) return;
   requestAnimationFrame(() => chatArea.scrollTop = chatArea.scrollHeight);
 }
 

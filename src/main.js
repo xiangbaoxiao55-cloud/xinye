@@ -249,7 +249,8 @@ async function describeImagesWithVision(imgs) {
   const base = (settings.visionBaseUrl || 'https://api.siliconflow.cn/v1').replace(/\/+$/, '');
   const model = settings.visionModel || 'zai-org/GLM-4.6V';
   const url = /\/v\d+$/.test(base) ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
-  return Promise.all(imgs.map(async imgUrl => {
+  console.log('[识图] 开始', { model, url, imgs: imgs.map(s => s.slice(0,40)) });
+  return Promise.all(imgs.map(async (imgUrl, i) => {
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -264,10 +265,12 @@ async function describeImagesWithVision(imgs) {
           stream: false
         })
       });
-      if (!res.ok) return null;
+      if (!res.ok) { const t = await res.text(); console.warn(`[识图] 图${i+1} HTTP ${res.status}`, t.slice(0,200)); return null; }
       const data = await res.json();
-      return data?.choices?.[0]?.message?.content?.trim() || null;
-    } catch { return null; }
+      const desc = data?.choices?.[0]?.message?.content?.trim() || null;
+      console.log(`[识图] 图${i+1} 结果:`, desc ? desc.slice(0,80) : '(空)');
+      return desc;
+    } catch(e) { console.error(`[识图] 图${i+1} 异常`, e); return null; }
   }));
 }
 
