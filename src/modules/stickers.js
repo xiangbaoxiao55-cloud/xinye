@@ -186,8 +186,9 @@ export async function loadChatStickers() {
 }
 
 export function saveChatStickers(arr) {
-  _chatStickers.length = 0; _chatStickers.push(...arr);
-  dbPut('settings', 'chat_stickers', JSON.stringify(arr)).catch(() => {});
+  const snapshot = [...arr];
+  _chatStickers.length = 0; _chatStickers.push(...snapshot);
+  dbPut('settings', 'chat_stickers', JSON.stringify(snapshot)).catch(() => {});
 }
 function getStickerByName(name) { return getChatStickers().find(s => s.name === name); }
 export function renderStickerHTML(name) {
