@@ -1,12 +1,13 @@
 import { lsBackup, lsRemoveBackup, dbGetRecent } from './db.js';
 import { toast } from './utils.js';
 import { settings, messages } from './state.js';
-import { getAiAvatar, getUserAvatar, renderMessages } from './chat.js';
+import { getAiAvatar, getUserAvatar, renderMessages, resetOlderState } from './chat.js';
 
 async function switchRpMode(active) {
   const loadCount = Math.max(settings ? (settings.displayLimit || 0) : 0, 2000);
   const storeName = active ? 'rpMessages' : 'messages';
   { const _m = await dbGetRecent(storeName, loadCount); messages.length = 0; messages.push(..._m); }
+  resetOlderState();
   await renderMessages();
   if (typeof window.updateHeaderStatus === 'function') window.updateHeaderStatus();
 }

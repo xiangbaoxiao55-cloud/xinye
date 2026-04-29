@@ -259,22 +259,29 @@ export async function deleteMessage(id) {
 
 // ======================== 滚动到顶加载更早消息 ========================
 let _loadingOlder = false;
+let _noMoreOlder = false;
+let _olderCooldownUntil = 0;
+export function resetOlderState() { _noMoreOlder = false; _loadingOlder = false; _olderCooldownUntil = 0; }
 chatArea.addEventListener('scroll', async () => {
-  if (chatArea.scrollTop > 60 || _loadingOlder || !messages.length) return;
+  if (chatArea.scrollTop > 60 || _loadingOlder || _noMoreOlder || !messages.length) return;
+  if (Date.now() < _olderCooldownUntil) return;
   const minId = messages[0]?.id;
   if (!minId) return;
   _loadingOlder = true;
   const older = await dbGetBefore(activeStore(), minId, 50);
   if (older.length) {
+    if (older.length < 50) _noMoreOlder = true;
     messages.unshift(...older);
     const savedHeight = chatArea.scrollHeight;
     await renderMessages();
     // 双重rAF：等renderMessages内的scrollBottom rAF先跑完，再恢复位置
     requestAnimationFrame(() => requestAnimationFrame(() => {
       chatArea.scrollTop = Math.max(0, chatArea.scrollHeight - savedHeight);
+      _olderCooldownUntil = Date.now() + 1500; // 加载完冷却1.5秒，防止立即重触发
       _loadingOlder = false;
     }));
   } else {
+    _noMoreOlder = true;
     _loadingOlder = false;
   }
 });
