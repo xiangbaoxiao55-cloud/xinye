@@ -308,8 +308,8 @@ window.extractFriendMemory = async function() {
     const model = _currentFriend.model || 'gpt-4o';
     const recent = _friendMessages.slice(-60).map(m => `${m.role === 'user' ? '我' : _currentFriend.name}：${m.content}`).join('\n');
     const existing = (_currentFriend.memory || '').trim();
-    const sysMsg = '你是一个记忆整理助手。从对话记录中提取关键信息：对方的性格/习惯/偏好、重要事件、达成的共识等。用简洁的备忘录格式输出，每条一行，以"·"开头。不要废话，不要重复已有记忆里的内容。';
-    const userMsg = (existing ? `已有记忆：\n${existing}\n\n` : '') + `最新对话：\n${recent}\n\n请补充/更新记忆：`;
+    const sysMsg = '你是一个记忆整理助手。根据已有记忆和最新对话，整理出一份完整、无重复、无矛盾的记忆。删除过时/矛盾的条目，合并重复内容，补充新信息。用简洁的备忘录格式输出，每条一行，以"·"开头。直接输出整理后的完整记忆，不要废话。';
+    const userMsg = (existing ? `已有记忆：\n${existing}\n\n` : '') + `最新对话：\n${recent}\n\n请输出整理后的完整记忆：`;
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 60000);
     const resp = await fetch(apiUrl, {
@@ -323,7 +323,7 @@ window.extractFriendMemory = async function() {
     const data = await resp.json();
     const newMemory = data.choices?.[0]?.message?.content?.trim() || '';
     if (!newMemory) throw new Error('没有返回内容');
-    const merged = existing ? existing + '\n' + newMemory : newMemory;
+    const merged = newMemory;
     const updated = { ..._currentFriend, memory: merged };
     await dbPut('friends', null, updated);
     _currentFriend = updated;
