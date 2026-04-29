@@ -252,7 +252,9 @@ export function renderStickerMgr() {
       : `<div class="sticker-mgr-preview">${s.emoji||'🎭'}</div>`;
     return `<div class="sticker-mgr-item">
       ${preview}
-      <span class="sticker-mgr-name">${escHtml(s.name)}</span>
+      <input class="sticker-mgr-name" value="${escHtml(s.name)}"
+        onblur="renameStickerItem(${i},this.value)"
+        onkeydown="if(event.key==='Enter'){this.blur()}">
       <label class="sticker-mgr-upload">上传图<input type="file" accept="image/*" style="display:none" onchange="uploadStickerImg(${i},this)"></label>
       ${s.image ? `<span class="sticker-mgr-upload" onclick="clearStickerImg(${i})" style="color:#e57373">删图</span>` : ''}
       <button class="sticker-mgr-del" onclick="deleteStickerItem(${i})" title="删除">✕</button>
@@ -276,6 +278,15 @@ export function deleteStickerItem(idx) {
   stickers.splice(idx, 1);
   saveChatStickers(stickers);
   renderStickerMgr();
+}
+export function renameStickerItem(idx, newName) {
+  newName = newName.trim();
+  const stickers = getChatStickers();
+  if (!newName || !stickers[idx] || stickers[idx].name === newName) return;
+  if (stickers.find((s, i) => i !== idx && s.name === newName)) { toast('已有同名贴纸'); renderStickerMgr(); return; }
+  stickers[idx].name = newName;
+  saveChatStickers(stickers);
+  toast('改名成功 ✨');
 }
 export function uploadStickerImg(idx, input) {
   const file = input.files[0]; if (!file) return;
@@ -326,7 +337,7 @@ export function initStickers() {
   // window 暴露（供 HTML onclick 和 chat.js 的 window.xxx?.() 调用）
   Object.assign(window, {
     openStickerPanel, closeStickerPanel, sendStickerMsg,
-    uploadStickerImg, clearStickerImg, deleteStickerItem,
+    uploadStickerImg, clearStickerImg, deleteStickerItem, renameStickerItem,
     getStickerHint, applyStickerTags, detectStickerMsg, renderStickerHTML,
   });
 }

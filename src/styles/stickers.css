@@ -73,7 +73,8 @@
 /* 贴纸设置列表 */
 .sticker-mgr-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
 .sticker-mgr-preview{width:36px;height:36px;border-radius:8px;object-fit:contain;background:rgba(233,30,99,.06);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-.sticker-mgr-name{flex:1;font-size:14px;color:var(--text)}
+.sticker-mgr-name{flex:1;font-size:14px;color:var(--text);border:none;background:transparent;outline:none;min-width:0;padding:2px 4px;border-radius:4px}
+.sticker-mgr-name:focus{background:var(--input-bg,rgba(0,0,0,.05));outline:1px solid var(--pink-deep)}
 .sticker-mgr-del{background:none;border:none;cursor:pointer;font-size:16px;opacity:.4;padding:4px}
 .sticker-mgr-del:active{opacity:1;color:#e57373}
 .sticker-mgr-upload{font-size:11px;color:var(--pink-deep);cursor:pointer;text-decoration:underline;white-space:nowrap}
