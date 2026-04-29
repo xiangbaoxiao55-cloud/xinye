@@ -875,11 +875,11 @@
     <!-- 搜索 + 筛选 -->
     <div style="padding:10px 16px 0;flex-shrink:0;display:flex;flex-direction:column;gap:8px">
       <input id="memViewerSearch" type="text" placeholder="搜索记忆内容…" style="width:100%;padding:8px 12px;border:1.5px solid var(--pink);border-radius:20px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);box-sizing:border-box" oninput="renderMemoryViewer()">
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button onclick="setMemViewerFilter('all')" id="mvf-all" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--pink-deep);background:var(--pink-deep);color:#fff;font-size:12px;cursor:pointer;font-family:inherit">全部</button>
         <button onclick="setMemViewerFilter('pinned')" id="mvf-pinned" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📌 钉住</button>
         <button onclick="setMemViewerFilter('normal')" id="mvf-normal" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">💬 普通</button>
-        <button onclick="setMemViewerFilter('self')" id="mvf-self" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">🐰 炘也自记</button>
+        <button onclick="setMemViewerFilter('self')" id="mvf-self" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">🐰 自记</button>
         <select id="mvSortBy" onchange="renderMemoryViewer()" style="margin-left:auto;padding:4px 8px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
           <option value="time">按时间↓</option>
           <option value="weight">按权重↓</option>
