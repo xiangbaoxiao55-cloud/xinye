@@ -139,6 +139,27 @@
 .bm-expand-btn:hover{opacity:1}
 .bm-expand-btn.visible{display:inline-block}
 
+/* 收藏面板 tag、筛选、复制、语音条 */
+.bm-card-rm{background:none;border:none;cursor:pointer;padding:2px 4px;opacity:.4;color:var(--text-light);font-size:12px;line-height:1;transition:opacity .15s}
+.bm-card-rm:hover{opacity:1}
+.bm-filter-pill{background:rgba(0,0,0,.06);border:none;border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;color:var(--text-light);font-family:inherit;transition:background .15s,color .15s}
+.bm-filter-pill:hover{background:var(--pink-light);color:var(--pink-deep)}
+.bm-filter-pill.active{background:var(--pink);color:#fff}
+[data-theme="dark"] .bm-filter-pill{background:rgba(255,255,255,.1)}
+[data-theme="dark"] .bm-filter-pill.active{background:var(--pink-deep);color:#fff}
+.bm-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center}
+.bm-tag{display:inline-flex;align-items:center;gap:2px;background:var(--pink-light);color:var(--pink-deep);border-radius:20px;padding:2px 8px;font-size:11px}
+.bm-tag-rm{background:none;border:none;cursor:pointer;color:inherit;opacity:.6;padding:0 0 0 2px;font-size:11px;line-height:1}
+.bm-tag-rm:hover{opacity:1}
+.bm-tag-add{background:none;border:1.2px dashed var(--pink);border-radius:20px;padding:2px 8px;font-size:11px;color:var(--pink-deep);cursor:pointer;opacity:.7;font-family:inherit;transition:opacity .15s,background .15s}
+.bm-tag-add:hover{opacity:1;background:var(--pink-light)}
+.bm-tag-input{border:1.2px solid var(--pink);border-radius:20px;padding:2px 8px;font-size:11px;color:var(--text);outline:none;width:80px;font-family:inherit;background:#fff}
+[data-theme="dark"] .bm-tag-input{background:#241c30;color:var(--text)}
+.bm-card-footer{font-size:10px;color:var(--text-muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bm-copy-btn{margin-left:auto;background:none;border:1px solid var(--pink);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--pink-deep);cursor:pointer;font-family:inherit;opacity:.8;transition:opacity .15s,background .15s}
+.bm-copy-btn:hover{opacity:1;background:var(--pink-light)}
+.bm-voice-bar{margin-bottom:6px}
+
 /* 收藏按钮 */
 .btn-bookmark{
   border:none;background:none;cursor:pointer;

@@ -59,52 +59,151 @@ export function updateBookmarkBadge() {
   badge.style.display = (settings.bookmarks||[]).length > 0 ? 'flex' : 'none';
 }
 
+let _bmFilterTag = null;
+
+function _createBmVoiceBar(blob) {
+  const bar = document.createElement('div');
+  bar.className = 'tts-voice-bar bm-voice-bar';
+  bar.innerHTML = `<div class="tts-vbar-row"><button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span></div><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div>`;
+  const playBtn = bar.querySelector('.tts-vbar-play');
+  const fill    = bar.querySelector('.tts-vbar-progress-fill');
+  const durEl   = bar.querySelector('.tts-vbar-dur');
+  const audio   = new Audio(URL.createObjectURL(blob));
+  audio.addEventListener('loadedmetadata', () => {
+    durEl.textContent = isFinite(audio.duration) ? `${Math.round(audio.duration)}″` : '?″';
+  });
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration) fill.style.width = `${(audio.currentTime / audio.duration * 100).toFixed(1)}%`;
+  });
+  audio.addEventListener('ended', () => {
+    bar.classList.remove('playing'); playBtn.textContent = '▶'; fill.style.width = '0%';
+  });
+  playBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (audio.paused) { audio.play(); bar.classList.add('playing'); playBtn.textContent = '⏸'; }
+    else              { audio.pause(); bar.classList.remove('playing'); playBtn.textContent = '▶'; }
+  });
+  return bar;
+}
+
 export function openBookmarksPanel() {
   const ov = document.getElementById('bookmarksPanelOverlay');
   if (ov) { ov.style.display = 'flex'; renderBookmarksPanel(); }
 }
 
 export function renderBookmarksPanel() {
-  const listEl = document.getElementById('bookmarksList');
+  const listEl   = document.getElementById('bookmarksList');
+  const filterEl = document.getElementById('bookmarksTagFilter');
   if (!listEl) return;
-  const bms = settings.bookmarks || [];
-  if (!bms.length) {
+  const bms    = settings.bookmarks || [];
+  const aiName = settings.aiName || '炘也';
+  const avatarSrc = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
+
+  // tag 筛选条
+  if (filterEl) {
+    const allTags = [...new Set(bms.flatMap(b => b.tags || []))];
+    filterEl.innerHTML = allTags.length
+      ? [null, ...allTags].map(t => {
+          const active = _bmFilterTag === t;
+          const label  = t === null ? '全部' : escHtml(t);
+          return `<button class="bm-filter-pill${active ? ' active' : ''}" onclick="window.setBmFilterTag(${JSON.stringify(t)})">${label}</button>`;
+        }).join('')
+      : '';
+  }
+
+  const filtered = _bmFilterTag ? bms.filter(b => (b.tags || []).includes(_bmFilterTag)) : bms;
+
+  if (!filtered.length) {
     listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:60px 0;line-height:2">还没有收藏<br><span style="font-size:12px;opacity:.7">点消息下方的书签按钮就能收藏</span></div>';
     return;
   }
-  const aiName = settings.aiName || '炘也';
-  const avatarSrc = window._xinyeAvatarSrc || DEFAULT_AI_AVATAR;
-  listEl.innerHTML = bms.map(b => {
-    const saved = new Date(b.savedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+
+  listEl.innerHTML = filtered.map(b => {
+    const saved   = new Date(b.savedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
     const msgTime = b.time ? fmtTime(b.time) : '';
+    const tagsHtml = (b.tags || []).map(t =>
+      `<span class="bm-tag">${escHtml(t)}<button class="bm-tag-rm" onclick="window.removeBmTag(${b.id},${JSON.stringify(t)})">×</button></span>`
+    ).join('');
     return `<div style="display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:var(--ai-bubble);border:1px solid var(--ai-bubble-border);box-shadow:0 1px 6px rgba(0,0,0,.06)">
       <div class="bm-card-avatar"></div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
           <span style="font-size:12px;font-weight:700;color:var(--pink-deep)">${escHtml(aiName)}</span>
-          <button onclick="removeBookmark(${b.id})" title="取消收藏" style="background:none;border:none;cursor:pointer;padding:2px 4px;opacity:.4;color:var(--text-light);font-size:12px;line-height:1;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>
+          <button onclick="removeBookmark(${b.id})" title="取消收藏" class="bm-card-rm">✕</button>
         </div>
+        <div id="bmv-${b.id}"></div>
         <div class="bm-card-body" id="bmc-${b.id}"></div>
         <button class="bm-expand-btn" id="bmx-${b.id}" onclick="toggleBmExpand(${b.id})">展开 ▾</button>
-        <div style="font-size:10px;color:var(--text-muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+        <div class="bm-tags" id="bmt-${b.id}">
+          ${tagsHtml}
+          <button class="bm-tag-add" onclick="window.addBmTag(${b.id})">+ tag</button>
+        </div>
+        <div class="bm-card-footer">
           ${msgTime ? `<span>💬 ${msgTime}</span>` : ''}
-          <span>🔖 收藏于 ${saved}</span>
+          <span>🔖 ${saved}</span>
+          <button class="bm-copy-btn" onclick="window.copyBmContent(${b.id})">复制</button>
         </div>
       </div>
     </div>`;
   }).join('');
+
   requestAnimationFrame(() => {
-    listEl.querySelectorAll('.bm-card-avatar').forEach(el => { el.style.backgroundImage = `url("${avatarSrc}")`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; });
-    bms.forEach(b => {
+    listEl.querySelectorAll('.bm-card-avatar').forEach(el => {
+      el.style.backgroundImage = `url("${avatarSrc}")`;
+      el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center';
+    });
+    filtered.forEach(b => {
       const body = document.getElementById(`bmc-${b.id}`);
       const btn  = document.getElementById(`bmx-${b.id}`);
       if (body) {
         try { linkifyEl(body, b.content || ''); window.applyStickerTags?.(body); } catch(_) { body.textContent = b.content || ''; }
       }
       if (body && btn && body.scrollHeight > body.clientHeight + 2) btn.classList.add('visible');
+      if (b.msgId) {
+        dbGet('ttsCache', b.msgId).then(blob => {
+          if (!blob) return;
+          const vEl = document.getElementById(`bmv-${b.id}`);
+          if (vEl) vEl.appendChild(_createBmVoiceBar(blob));
+        }).catch(() => {});
+      }
     });
   });
 }
+
+window.setBmFilterTag = function(tag) {
+  _bmFilterTag = (_bmFilterTag === tag) ? null : tag;
+  renderBookmarksPanel();
+};
+
+window.addBmTag = function(bmId) {
+  const el = document.getElementById(`bmt-${bmId}`);
+  if (!el || el.querySelector('.bm-tag-input')) return;
+  const inp = document.createElement('input');
+  inp.className = 'bm-tag-input'; inp.placeholder = '输入tag…'; inp.maxLength = 20;
+  const confirm = () => {
+    const tag = inp.value.trim();
+    if (tag) {
+      const bm = (settings.bookmarks || []).find(b => b.id === bmId);
+      if (bm) { if (!bm.tags) bm.tags = []; if (!bm.tags.includes(tag)) { bm.tags.push(tag); saveSettings(); } }
+    }
+    renderBookmarksPanel();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') renderBookmarksPanel(); });
+  inp.addEventListener('blur', confirm);
+  el.insertBefore(inp, el.querySelector('.bm-tag-add'));
+  inp.focus();
+};
+
+window.removeBmTag = function(bmId, tag) {
+  const bm = (settings.bookmarks || []).find(b => b.id === bmId);
+  if (bm && bm.tags) { bm.tags = bm.tags.filter(t => t !== tag); saveSettings(); renderBookmarksPanel(); }
+};
+
+window.copyBmContent = function(bmId) {
+  const bm = (settings.bookmarks || []).find(b => b.id === bmId);
+  if (!bm) return;
+  navigator.clipboard.writeText(bm.content || '').then(() => toast('已复制 ✓')).catch(() => toast('复制失败'));
+};
 
 export function toggleBmExpand(id) {
   const body = document.getElementById(`bmc-${id}`);
