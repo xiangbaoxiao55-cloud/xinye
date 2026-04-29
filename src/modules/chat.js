@@ -106,7 +106,7 @@ export function renderBookmarksPanel() {
       ? [null, ...allTags].map(t => {
           const active = _bmFilterTag === t;
           const label  = t === null ? '全部' : escHtml(t);
-          return `<button class="bm-filter-pill${active ? ' active' : ''}" onclick="window.setBmFilterTag(${JSON.stringify(t)})">${label}</button>`;
+          return `<button class="bm-filter-pill${active ? ' active' : ''}" onclick="window.setBmFilterTag(${escHtml(JSON.stringify(t))})">${label}</button>`;
         }).join('')
       : '';
   }
@@ -122,7 +122,7 @@ export function renderBookmarksPanel() {
     const saved   = new Date(b.savedAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
     const msgTime = b.time ? fmtTime(b.time) : '';
     const tagsHtml = (b.tags || []).map(t =>
-      `<span class="bm-tag">${escHtml(t)}<button class="bm-tag-rm" onclick="window.removeBmTag(${b.id},${JSON.stringify(t)})">×</button></span>`
+      `<span class="bm-tag">${escHtml(t)}<button class="bm-tag-rm" onclick="window.removeBmTag(${b.id},${escHtml(JSON.stringify(t))})">×</button></span>`
     ).join('');
     return `<div style="display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:var(--ai-bubble);border:1px solid var(--ai-bubble-border);box-shadow:0 1px 6px rgba(0,0,0,.06)">
       <div class="bm-card-avatar"></div>
