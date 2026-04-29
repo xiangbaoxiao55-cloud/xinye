@@ -1,6 +1,6 @@
 import { dbPut, dbGet, dbDelete, dbGetAll } from './db.js';
 import { $, toast, escHtml, readFileAsBase64 } from './utils.js';
-import { settings } from './state.js';
+import { settings, messages } from './state.js';
 
 // ── 装饰贴纸（画面上可拖拽/缩放/旋转的图片） ───────────────────────────────
 const _decoStickers = [];
@@ -282,13 +282,25 @@ export function deleteStickerItem(idx) {
   saveChatStickers(stickers);
   renderStickerMgr();
 }
-export function renameStickerItem(idx, newName) {
+export async function renameStickerItem(idx, newName) {
   newName = newName.trim();
   const stickers = getChatStickers();
   if (!newName || !stickers[idx] || stickers[idx].name === newName) return;
   if (stickers.find((s, i) => i !== idx && s.name === newName)) { toast('已有同名贴纸'); renderStickerMgr(); return; }
+  const oldName = stickers[idx].name;
   stickers[idx].name = newName;
   saveChatStickers(stickers);
+  // 同步历史消息里的贴纸引用
+  const oldPill = `「${oldName}」`;
+  const newPill = `「${newName}」`;
+  const oldTag  = `[sticker:${oldName}]`;
+  const newTag  = `[sticker:${newName}]`;
+  for (const msg of messages) {
+    if (!msg.content) continue;
+    if (!msg.content.includes(oldPill) && !msg.content.includes(oldTag)) continue;
+    msg.content = msg.content.replaceAll(oldPill, newPill).replaceAll(oldTag, newTag);
+    if (msg.id) await dbPut('messages', null, msg);
+  }
   toast('改名成功 ✨');
 }
 export function uploadStickerImg(idx, input) {
