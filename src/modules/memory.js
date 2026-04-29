@@ -751,7 +751,7 @@ export function saveMemoryEdit(id, isViewer) {
 let _memViewerFilter = 'all';
 export function setMemViewerFilter(f) {
   _memViewerFilter = f;
-  ['all','pinned','normal'].forEach(k => {
+  ['all','pinned','normal','self'].forEach(k => {
     const btn = document.getElementById('mvf-' + k);
     if (!btn) return;
     const active = k === f;
@@ -822,6 +822,11 @@ export function renderMemoryViewer() {
     pool.push(...bank.archived.map(m => ({ ...m, _kind: 'normal' })));
   if ((_memViewerFilter === 'all' || _memViewerFilter === 'normal') && bank.recent && bank.recent.length)
     pool.push(...bank.recent.map(m => ({ ...m, _kind: 'normal' })));
+  if (_memViewerFilter === 'self') {
+    pool.push(...bank.pinned.filter(m => m.source === 'self').map(m => ({ ...m, _kind: 'pinned' })));
+    pool.push(...bank.archived.filter(m => m.source === 'self').map(m => ({ ...m, _kind: 'normal' })));
+    if (bank.recent?.length) pool.push(...bank.recent.filter(m => m.source === 'self').map(m => ({ ...m, _kind: 'normal' })));
+  }
 
   if (query) pool = pool.filter(m => (m.content || '').toLowerCase().includes(query) || (m.emotion || '').includes(query) || (m.tags || []).some(t => t.includes(query)));
 
