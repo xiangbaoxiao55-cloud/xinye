@@ -9,6 +9,39 @@ import { setupReminders, resetIdleTimer } from './notifications.js';
 import { saveToLocal, exportData, doImport, doImportPresetsOnly, backupToPhone, autoBackupToServer, initBackupDeps } from './backup.js';
 import { renderStickers, renderStickerMgr } from './stickers.js';
 
+// ── 画图尺寸映射 ──────────────────────────────────────────────────────────────
+const _IMAGE_SIZE_MAP = {
+  '1K': [
+    { value: '1024x1024', label: '1024×1024（1:1 方形）' },
+    { value: '1024x768',  label: '1024×768（4:3 横版）'  },
+    { value: '768x1024',  label: '768×1024（3:4 竖版）'  },
+    { value: '1536x1024', label: '1536×1024（3:2 横版）' },
+    { value: '1024x1536', label: '1024×1536（2:3 竖版）' },
+  ],
+  '2K': [
+    { value: '2048x2048', label: '2048×2048（1:1 方形）'  },
+    { value: '2048x1536', label: '2048×1536（4:3 横版）'  },
+    { value: '1536x2048', label: '1536×2048（3:4 竖版）'  },
+    { value: '2048x1152', label: '2048×1152（16:9 横版）' },
+    { value: '1152x2048', label: '1152×2048（9:16 竖版）' },
+  ],
+  '4K': [
+    { value: '4096x3072', label: '4096×3072（4:3 横版）'  },
+    { value: '3072x4096', label: '3072×4096（3:4 竖版）'  },
+    { value: '3840x2160', label: '3840×2160（16:9 横版）' },
+    { value: '2160x3840', label: '2160×3840（9:16 竖版）' },
+  ],
+};
+
+window._updateImageRatioOpts = function(res, currentValue) {
+  const sel = document.getElementById('setImageRatio');
+  if (!sel) return;
+  const opts = _IMAGE_SIZE_MAP[res] || _IMAGE_SIZE_MAP['1K'];
+  sel.innerHTML = opts.map(o =>
+    `<option value="${o.value}"${o.value === currentValue ? ' selected' : ''}>${o.label}</option>`
+  ).join('');
+};
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const settingsPanel = document.querySelector('#settingsPanel');
 const overlay       = document.querySelector('#overlay');
@@ -56,7 +89,13 @@ export async function openSettings() {
   $('#setImageApiKey').value = settings.imageApiKey || '';
   $('#setImageBaseUrl').value = settings.imageBaseUrl || '';
   $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
-  $('#setImageSize').value = settings.imageSize || '1024x1024';
+  const _imgSize = settings.imageSize || '1024x1024';
+  let _imgRes = '1K';
+  for (const [res, opts] of Object.entries(_IMAGE_SIZE_MAP)) {
+    if (opts.some(o => o.value === _imgSize)) { _imgRes = res; break; }
+  }
+  $('#setImageRes').value = _imgRes;
+  window._updateImageRatioOpts(_imgRes, _imgSize);
   $('#setContextCount').value = settings.contextCount;
   $('#setMemoryArchive').value = settings.memoryArchive || '';
   const _coreMarkersEl = document.getElementById('setCoreMarkers');
@@ -642,7 +681,7 @@ export function initSettings() {
     settings.imageApiKey = $('#setImageApiKey').value.trim();
     settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
     settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
-    settings.imageSize = $('#setImageSize').value || '1024x1024';
+    settings.imageSize = $('#setImageRatio').value || '1024x1024';
     settings.contextCount = parseInt($('#setContextCount').value) || 20;
     settings.memoryArchive = $('#setMemoryArchive').value;
     settings.memoryArchiveCoreMarkers = (document.getElementById('setCoreMarkers')?.value || '');
