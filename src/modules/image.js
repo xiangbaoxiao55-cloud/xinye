@@ -49,7 +49,7 @@ export function triggerDrawImage() {
   generateImage(desc);
 }
 
-function base64ToFile(dataUrl, filename) {
+export function base64ToFile(dataUrl, filename) {
   const arr = dataUrl.split(',');
   const mime = arr[0].match(/:(.*?);/)[1] || 'image/png';
   const bstr = atob(arr[1]);
@@ -58,7 +58,7 @@ function base64ToFile(dataUrl, filename) {
   return new File([u8arr], filename, { type: mime });
 }
 
-async function compositeRefImages(dataUrls) {
+export async function compositeRefImages(dataUrls) {
   if (dataUrls.length === 1) return dataUrls[0];
   const imgs = await Promise.all(dataUrls.map(url => new Promise((res, rej) => {
     const img = new Image();
