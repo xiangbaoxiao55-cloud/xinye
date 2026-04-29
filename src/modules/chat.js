@@ -84,7 +84,7 @@ export function renderBookmarksPanel() {
     </div>`;
   }).join('');
   requestAnimationFrame(() => {
-    listEl.querySelectorAll('.bm-card-avatar').forEach(el => { el.style.backgroundImage = `url("${avatarSrc}")`; });
+    listEl.querySelectorAll('.bm-card-avatar').forEach(el => { el.style.backgroundImage = `url("${avatarSrc}")`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; });
     bms.forEach(b => {
       const body = document.getElementById(`bmc-${b.id}`);
       const btn  = document.getElementById(`bmx-${b.id}`);
@@ -246,7 +246,6 @@ export async function appendMsgDOM(msg) {
 }
 
 export function scrollBottom() {
-  if (_loadingOlder) return;
   requestAnimationFrame(() => chatArea.scrollTop = chatArea.scrollHeight);
 }
 
@@ -270,9 +269,14 @@ chatArea.addEventListener('scroll', async () => {
     messages.unshift(...older);
     const savedHeight = chatArea.scrollHeight;
     await renderMessages();
-    chatArea.scrollTop = chatArea.scrollHeight - savedHeight;
+    // 双重rAF：等renderMessages内的scrollBottom rAF先跑完，再恢复位置
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      chatArea.scrollTop = Math.max(0, chatArea.scrollHeight - savedHeight);
+      _loadingOlder = false;
+    }));
+  } else {
+    _loadingOlder = false;
   }
-  _loadingOlder = false;
 });
 
 chatArea.addEventListener('click', e => {

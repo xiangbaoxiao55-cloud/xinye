@@ -261,14 +261,14 @@ async function describeImagesWithVision(imgs) {
             { type: 'image_url', image_url: { url: imgUrl } },
             { type: 'text', text: '请详细描述这张图片的内容，包括人物、物体、场景、颜色、动作等关键信息。用中文回答，不超过200字。' }
           ]}],
-          max_tokens: 300,
+          max_tokens: 500,
           stream: false
         })
       });
       if (!res.ok) { const t = await res.text(); console.warn(`[识图] 图${i+1} HTTP ${res.status}`, t.slice(0,200)); return null; }
       const data = await res.json();
       const desc = data?.choices?.[0]?.message?.content?.trim() || null;
-      console.log(`[识图] 图${i+1} 结果:`, desc ? desc.slice(0,80) : '(空)');
+      console.log(`[识图] 图${i+1} 结果:`, desc || '(空)');
       return desc;
     } catch(e) { console.error(`[识图] 图${i+1} 异常`, e); return null; }
   }));
