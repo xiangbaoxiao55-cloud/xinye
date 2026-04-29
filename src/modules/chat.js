@@ -537,7 +537,12 @@ export function linkifyEl(el, text) {
       thinkHtml += `<div class="thinking-block" onclick="this.classList.toggle('open')"><div class="thinking-header">💭 思考过程</div><div class="thinking-body">${esc(body)}</div></div>`;
     }
   }
-  const cleaned = text.replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '').trim();
+  const cleaned = text
+    .replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '')
+    .replace(/[＜〈《<]#[\d.]+#[＞〉》>]/g, '')
+    .replace(/\((sighs|laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)\)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
   if (typeof renderMathInElement !== 'undefined') {
     try {
