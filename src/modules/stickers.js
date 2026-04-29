@@ -154,12 +154,12 @@ const _chatStickers = [];
 export function getChatStickers() { return _chatStickers; }
 
 export async function loadChatStickers() {
-  // 优先从 IDB 读
+  // 优先从 IDB 读（新格式）
   const raw = await dbGet('settings', 'chat_stickers');
   if (raw) {
     try { _chatStickers.length = 0; _chatStickers.push(...JSON.parse(raw)); return; } catch(_) {}
   }
-  // 迁移：从 LS 读（老数据）
+  // 迁移：从 LS 读（老数据，LS未被清时）
   try {
     const ls = localStorage.getItem('xinye_chat_stickers');
     if (ls) {
@@ -167,6 +167,16 @@ export async function loadChatStickers() {
       _chatStickers.length = 0; _chatStickers.push(...arr);
       await dbPut('settings', 'chat_stickers', ls);
       localStorage.removeItem('xinye_chat_stickers');
+      return;
+    }
+  } catch(_) {}
+  // 迁移：从 IDB 旧备份读（华为清缓存后 LS 被清，但 IDB 里有 ls_xinye_chat_stickers）
+  try {
+    const lsBak = await dbGet('settings', 'ls_xinye_chat_stickers');
+    if (lsBak) {
+      const arr = JSON.parse(lsBak);
+      _chatStickers.length = 0; _chatStickers.push(...arr);
+      await dbPut('settings', 'chat_stickers', lsBak);
       return;
     }
   } catch(_) {}
