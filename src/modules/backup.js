@@ -317,8 +317,7 @@ export async function doImportPresetsOnly(jsonText) {
   if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
   if (data.imagePresets && Array.isArray(data.imagePresets))  setImagePresets(data.imagePresets);
   if (data.chatStickers && Array.isArray(data.chatStickers)) {
-    try { saveChatStickers(data.chatStickers); }
-    catch(e) { toast('⚠️ 聊天贴纸图片过大，已跳过（其他数据正常恢复）'); }
+    saveChatStickers(data.chatStickers);
   }
   if (data.stickers && Array.isArray(data.stickers)) {
     await dbClear('stickers');

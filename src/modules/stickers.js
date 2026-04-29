@@ -1,4 +1,4 @@
-import { dbPut, dbDelete, dbGetAll, lsBackup } from './db.js';
+import { dbPut, dbGet, dbDelete, dbGetAll } from './db.js';
 import { $, toast, escHtml, readFileAsBase64 } from './utils.js';
 import { settings } from './state.js';
 
@@ -149,14 +149,35 @@ const _DEFAULT_STICKERS = [
   {id:'kick', name:'踢你', emoji:'🦵'}, {id:'slap', name:'抽你', emoji:'💢'},
 ];
 
-export function getChatStickers() {
-  try { const r = localStorage.getItem('xinye_chat_stickers'); if (r) return JSON.parse(r); } catch(e){}
-  return _DEFAULT_STICKERS.map(s => ({...s}));
+const _chatStickers = [];
+
+export function getChatStickers() { return _chatStickers; }
+
+export async function loadChatStickers() {
+  // 优先从 IDB 读
+  const raw = await dbGet('settings', 'chat_stickers');
+  if (raw) {
+    try { _chatStickers.length = 0; _chatStickers.push(...JSON.parse(raw)); return; } catch(_) {}
+  }
+  // 迁移：从 LS 读（老数据）
+  try {
+    const ls = localStorage.getItem('xinye_chat_stickers');
+    if (ls) {
+      const arr = JSON.parse(ls);
+      _chatStickers.length = 0; _chatStickers.push(...arr);
+      await dbPut('settings', 'chat_stickers', ls);
+      localStorage.removeItem('xinye_chat_stickers');
+      return;
+    }
+  } catch(_) {}
+  // 默认
+  _chatStickers.length = 0;
+  _chatStickers.push(..._DEFAULT_STICKERS.map(s => ({...s})));
 }
+
 export function saveChatStickers(arr) {
-  const _v = JSON.stringify(arr);
-  localStorage.setItem('xinye_chat_stickers', _v);
-  lsBackup('xinye_chat_stickers', _v);
+  _chatStickers.length = 0; _chatStickers.push(...arr);
+  dbPut('settings', 'chat_stickers', JSON.stringify(arr)).catch(() => {});
 }
 function getStickerByName(name) { return getChatStickers().find(s => s.name === name); }
 export function renderStickerHTML(name) {
