@@ -344,7 +344,7 @@ main.js          ← 全部（入口，控制初始化顺序）
 阶段4 核心模块           ██████████  ✅ 完成（4a api ✅，4b memory ✅，4c friends ✅）
 阶段5 聊天模块           ██████████  ✅ 完成（5a chat.js）
 阶段6 收尾模块           ██████████  ✅ 完成（ui.js ✅ notifications.js ✅ stickers.js ✅ diary.js ✅ settings.js ✅ backup.js ✅ image.js ✅ rp.js ✅）
-阶段7 最终整合           ████████░░  进行中（小清理完成，回归测试进行中）
+阶段7 最终整合           ██████████  ✅ 完成（回归测试全通过，2026-04-29）
 ```
 
 ---
@@ -353,46 +353,35 @@ main.js          ← 全部（入口，控制初始化顺序）
 
 ---
 
-## 给下一窗的交接（2026-04-27）
+## 给下一窗的交接（2026-04-29）
 
-**当前进度**：阶段7 进行中。main.js 现在 **492 行**（从 637 行再减）。
+**当前进度**：**阶段7 完成。迁移全部结束。** 可以直接开始 `XINYE_ALONE_V2.md` 新功能。
 
-### 已完成的工作
+### 本窗完成的回归bug修复
 
-**main.js 小清理**（2026-04-27）：
-- `fetchModelList` + `testVisionApi` → settings.js
-- `compressImageToBase64` + `renderImgPreviews` + 上传事件 → image.js（`initImageUpload()`）
-- `quickNoteOpen/Close/Save` + `_qnToast` → diary.js
+| 问题 | 修复位置 | 说明 |
+|------|---------|------|
+| 滚动到顶加载旧消息→循环闪屏 | chat.js | 双重rAF恢复位置 + 1.5s冷却 + `_noMoreOlder`标志；RP切换时resetOlderState() |
+| 收藏面板头像黑色 | chat.js | renderMessages()赋值`window._xinyeAvatarSrc`；renderBookmarksPanel补backgroundSize/Position |
+| 识图（发图给炘也）| main.js | max_tokens 300→500，加console.log调试，confirmed working |
+| 获取模型列表→填入输入框 | index.html | onchange里`$`未定义→`document.getElementById`，confirmed OK |
+| 垫图改图工具失败无提示 | chat.js | generate_image工具失败结果之前被丢弃，现在加toast展示；补`console.error` |
+| compositeRefImages/base64ToFile/autoSaveGenImage not a function | image.js + main.js | 三个函数未export，未挂window；全部补上 |
 
-**回归测试 + bug修复**（2026-04-27）：
-- db.js：补 `dbGetBefore(store, beforeId, count)` 函数
-- chat.js：加 scroll listener（滚动到顶加载更早50条），修收藏头像（改为 rAF 直接 `el.style.backgroundImage`）
-- main.js：补回 `describeImagesWithVision`（迁移时丢失，导致识图立即报错）
-- index.html：修 `modelListMain/Sub` 的 `onchange`（`$` 未定义 → `document.getElementById`）
+### 回归测试最终状态
 
-### 回归测试当前状态
+✅ 全部通过：发消息/流式回复、编辑/删除/复制、图片上传UI、识图、RP模式、TTS、随手记、记忆系统、朋友们、API设置/预设、获取模型列表、暗夜模式/背景、一键备份/导出/导入、移动端键盘、收藏面板、垫图改图
 
-✅ 已通过（涂涂在手机测过）：
-发消息/流式回复、编辑/删除/复制消息、图片上传UI、RP模式、TTS、随手记、记忆系统、朋友们、API设置/预设、暗夜模式/背景、一键备份/导出、导入、移动端键盘
+⚠️ 已知小问题（可接受，不影响使用）：
+- 滚动到绝对顶端时会闪一下空屏（加载旧消息的renderMessages清空DOM瞬间）；涂涂日常不会滚到最顶，accepted
 
-⏳ 待复测（本窗已修，等 Vercel 部署后验证）：
-- 滚动到顶加载更多历史（已修 db.js + chat.js）
-- 收藏面板头像不再空白（已修 chat.js）
-- 发图片给炘也→识图模型被调用（已修 describeImagesWithVision）
-- 获取模型列表→选中填入输入框（已修 index.html onchange）
+### 已知坑（供将来参考）
 
-❓ 待查（非代码bug，是API网络问题）：
-- 文生图/图生图：挂起无报错——在CMD里用同一API可以跑，浏览器可能是CORS问题。6分钟超时后应出现"画图超时了"toast；如果超时后也没toast才是代码bug
-- PWA/SW：涂涂还没测
+- `window.describeImagesWithVision`、`compositeRefImages`、`base64ToFile`、`autoSaveGenImage` 都是 image.js/main.js 提供的桥接函数，chat.js 通过 `window.xxx` 调用。改动这两个文件时注意别漏
+- index.html 里的 inline handler 不能用 `$('#...')`（`$` 是 main.js 里的模块局部变量，inline handler 访问不到），只能用 `document.getElementById`
+- 画图超时是360秒（6分钟），用户等不住时可能以为没反应
+- `bm-card-avatar` 的 CSS `background: var(--bm-avatar) center/cover no-repeat`，`--bm-avatar`未定义，整个shorthand失效，JS里需同时设backgroundSize/backgroundPosition才能生效
 
 ### 下一步
 
-1. 让涂涂复测上面4项「待复测」
-2. 文生图问题：等6分钟看有没有toast；如果图API是不支持CORS的直连服务，需要换proxy或在设置里配支持CORS的中转
-3. 全部通过后 → **阶段7完成**，可以开始 XINYE_ALONE_V2.md 新功能
-
-### 已知坑（本窗发现）
-
-- `window.describeImagesWithVision` 是 chat.js 通过 `window.xxx` 调用、main.js 提供的桥接函数。如果未来再动 main.js 结构，注意别把它漏掉
-- index.html 里还有其他 `$('#...')` 的 inline handler 吗？本窗只修了 modelListMain/Sub，如果还有其他地方用 `$` 的 inline handler 遇到再修
-- 画图超时是360秒（6分钟），不是网络断了——用户等不住会以为没反应
+→ **开始 XINYE_ALONE_V2.md 新功能**
