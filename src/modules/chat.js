@@ -1163,6 +1163,7 @@ export async function sendMessage() {
           window.autoSaveGenImage(_dataUrl, _genMsg.id);
           return '[图已画好并展示给兔宝了]';
         } catch(e) {
+          console.error('[画图tool] catch:', e);
           if (e.name === 'AbortError') return '画图超时了';
           return '画图出错：' + e.message;
         }
@@ -1468,6 +1469,14 @@ export async function sendMessage() {
                 }
               }
             } else {
+              // 检查generate_image工具结果，失败时显示错误toast
+              for (const _gtc of _m1.tool_calls.filter(t => t.function.name === 'generate_image')) {
+                const _gres = loopMsgs.find(m => m.role === 'tool' && m.tool_call_id === _gtc.id)?.content || '';
+                if (_gres && _gres !== '[图已画好并展示给兔宝了]') {
+                  console.error('[画图tool] 失败结果:', _gres);
+                  toast('画图失败：' + _gres);
+                }
+              }
               rememberLatestExchange(); autoDigestMemory(); updateMoodState();
             }
             typing.classList.remove('show');
