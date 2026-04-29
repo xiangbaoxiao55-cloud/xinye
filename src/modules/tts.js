@@ -1,6 +1,6 @@
 import { settings } from './state.js';
 import { toast } from './utils.js';
-import { dbGet, dbPut } from './db.js';
+import { dbGet, dbPut, dbGetAll, dbGetAllKeys } from './db.js';
 
 let currentAudio = null;
 let _ttsGenerating = new Map();
@@ -381,5 +381,35 @@ export async function downloadTTS(text, msgId) {
   } catch(err) {
     toast(`下载失败：${err.message}`);
     console.error('[TTS DL]', err);
+  }
+}
+
+export async function exportTTSCache() {
+  try {
+    toast('正在打包TTS缓存…');
+    const [keys, blobs] = await Promise.all([dbGetAllKeys('ttsCache'), dbGetAll('ttsCache')]);
+    if (!keys.length) { toast('TTS缓存是空的，先让炘也说点话～'); return; }
+
+    const script = document.createElement('script');
+    script.src = './lib/jszip.min.js';
+    await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
+
+    const zip = new window.JSZip();
+    blobs.forEach((blob, i) => {
+      const ext = blob.type.includes('mp3') ? 'mp3' : 'wav';
+      zip.file(`tts_${String(i + 1).padStart(3, '0')}.${ext}`, blob);
+    });
+
+    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `xinye_tts_cache_${keys.length}条.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`✅ 已打包 ${keys.length} 条语音，下载中～`);
+  } catch(err) {
+    toast(`导出失败：${err.message}`);
+    console.error('[TTS Export]', err);
   }
 }
