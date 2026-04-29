@@ -185,6 +185,16 @@
 .btn-gen-img-dl:hover{background:var(--pink-light)}
 [data-theme="dark"] .btn-gen-img-dl{background:rgba(255,255,255,.08);border-color:var(--pink)}
 
+/* ---- 画图 prompt 折叠 ---- */
+.gen-prompt-wrap{margin-top:8px}
+.gen-prompt-header{display:flex;align-items:center;gap:6px}
+.btn-gen-prompt-toggle{background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-light);opacity:.6;padding:2px 8px;border-radius:6px;font-family:inherit;transition:opacity .15s,background .15s}
+.btn-gen-prompt-toggle:hover{opacity:1;background:rgba(0,0,0,.05)}
+.gen-prompt-body{display:none;font-size:12px;color:var(--text-light);line-height:1.6;padding:8px 10px;background:rgba(0,0,0,.05);border-radius:8px;margin-top:6px;word-break:break-all}
+.gen-prompt-wrap.open .gen-prompt-body{display:block}
+[data-theme="dark"] .gen-prompt-body{background:rgba(255,255,255,.06)}
+[data-theme="dark"] .btn-gen-prompt-toggle:hover{background:rgba(255,255,255,.08)}
+
 /* ---- Token 日志按钮 & 面板 ---- */
 .btn-token-log {
   background: none; border: none; cursor: pointer;

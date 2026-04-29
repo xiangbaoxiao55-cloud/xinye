@@ -35,12 +35,22 @@ export function toggleBookmark(msgId) {
   } else {
     const msg = messages.find(m => m.id === msgId);
     if (!msg) return;
-    settings.bookmarks.unshift({ id: Date.now() + Math.random(), msgId, content: msg.content, time: msg.time, savedAt: Date.now() });
+    const _bkContent = msg.isGenImage ? _extractGenPrompt(msg.content) : msg.content;
+    settings.bookmarks.unshift({ id: Date.now() + Math.random(), msgId, content: _bkContent, time: msg.time, savedAt: Date.now() });
     if (btn) { btn.classList.add('active'); btn.title = '取消收藏'; btn.querySelector('path').setAttribute('opacity', '1'); }
     toast('已收藏 🔖');
   }
   updateBookmarkBadge();
   saveSettings();
+}
+
+function _extractGenPrompt(content) {
+  if (!content) return '';
+  const m1 = content.match(/提示词：([\s\S]+)$/);
+  if (m1) return m1[1].trim();
+  const m2 = content.match(/描述：([\s\S]+)$/);
+  if (m2) return m2[1].trim();
+  return content;
 }
 
 export function updateBookmarkBadge() {
@@ -164,7 +174,7 @@ export async function renderMessages() {
     const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
     const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
     const _isBookmarked = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
-    const bookmarkBtn = isUser ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
+    const bookmarkBtn = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
     const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
     const _stickerName = isUser ? window.detectStickerMsg?.(msg.content) : null;
     const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
@@ -172,7 +182,9 @@ export async function renderMessages() {
     if (_stickerName) {
       _bubbleInner = window.renderStickerHTML?.(_stickerName) || escHtml(msg.content);
     } else if (!isUser && msg.isGenImage && msg.genImageData) {
-      _bubbleInner = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+      const _gp = _extractGenPrompt(msg.content);
+      const _gpBm = `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
+      _bubbleInner = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -218,7 +230,7 @@ export async function appendMsgDOM(msg) {
   const copyBtn2 = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
   const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
   const _isBookmarked2 = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
-  const bookmarkBtn2 = isUser ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
+  const bookmarkBtn2 = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
   const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
   const _sn = isUser ? window.detectStickerMsg?.(msg.content) : null;
   const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
@@ -226,7 +238,9 @@ export async function appendMsgDOM(msg) {
   if (_sn) {
     _bi = window.renderStickerHTML?.(_sn) || escHtml(msg.content);
   } else if (!isUser && msg.isGenImage && msg.genImageData) {
-    _bi = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button>`;
+    const _gp2 = _extractGenPrompt(msg.content);
+    const _gpBm2 = `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
+    _bi = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
