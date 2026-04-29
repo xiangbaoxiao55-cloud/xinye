@@ -157,7 +157,10 @@ export async function loadChatStickers() {
   // 优先从 IDB 读（新格式）
   const raw = await dbGet('settings', 'chat_stickers');
   if (raw) {
-    try { _chatStickers.length = 0; _chatStickers.push(...JSON.parse(raw)); return; } catch(_) {}
+    try {
+      const arr = JSON.parse(raw);
+      if (arr.length > 0) { _chatStickers.length = 0; _chatStickers.push(...arr); return; }
+    } catch(_) {}
   }
   // 迁移：从 LS 读（老数据，LS未被清时）
   try {
