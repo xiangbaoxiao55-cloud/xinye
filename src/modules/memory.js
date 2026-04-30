@@ -1205,7 +1205,7 @@ ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从炘也（我）的第一视角写，用"我"和"兔宝"，不用第三人称","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从${settings.aiName || '炘也'}（我）的第一视角写，用"我"和"${settings.userName || '兔宝'}"，不用第三人称","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight：1=日常闲聊/普通信息，2=有长期记录价值（有情感、有约定、重大时刻、关系进展）。只填1或2，不填其他值。
 arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
