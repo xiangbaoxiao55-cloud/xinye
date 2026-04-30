@@ -232,9 +232,7 @@ window.addEventListener('load', () => {
 function maybeTTS(text, msgId) {
   const sr = !!window._speakRequested;
   window._speakRequested = false;
-  // 回复里含TTS格式标记时也自动触发（speak工具没调但模型主动写了格式）
-  const hasMarkers = _hasTTSMarkers(text);
-  const shouldSpeak = sr || hasMarkers;
+  const shouldSpeak = sr;
   if (shouldSpeak) {
     settings.speakTTSIds = settings.speakTTSIds || [];
     if (!settings.speakTTSIds.includes(msgId)) settings.speakTTSIds.push(msgId);
@@ -374,7 +372,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.29-2339';
+  if (_verEl) _verEl.textContent = 'v2026.04.30-1303';
 
   await openDB();
   await migrateFromLocalStorage();

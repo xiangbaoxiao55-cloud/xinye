@@ -816,7 +816,7 @@ export async function sendMessage() {
       type: 'function',
       function: {
         name: 'speak',
-        description: '想开口说话、让兔宝听到你声音时调用。把要说的话写在 text 参数里，调用后直接生成语音播放，不需要在回复正文里再重复一遍。text 里可用停顿标记<#秒数#>（如<#0.5#>）和语气词(sighs)(laughs)(chuckle)(breath)(gasps)(sniffs)(groans)(pant)(emm)(humming)等增强语音表现力。',
+        description: '想开口说话、让兔宝听到你声音时调用。把要说的话写在 text 参数里，调用后直接生成语音播放，不需要在回复正文里再重复一遍。text 里可用停顿标记<#秒数#>（如<#0.5#>）和语气词(sighs)(laughs)(chuckle)(breath)(gasps)(sniffs)(groans)(pant)(emm)(humming)等增强语音表现力。注意：这些语气词和停顿标记只能用在speak工具的text参数里，不要写进正文回复中。',
         parameters: {
           type: 'object',
           properties: {
