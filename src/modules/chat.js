@@ -415,7 +415,7 @@ chatArea.addEventListener('click', e => {
     const msg = messages.find(m => m.id === id);
     if (msg && msg.genImageData) {
       const src = msg.genImageData;
-      const filename = `炘也画的图_${id}.png`;
+      const filename = `${settings.aiName || '炘也'}画的图_${id}.png`;
       if (src.startsWith('data:')) {
         const a = document.createElement('a');
         a.href = src; a.download = filename;
@@ -599,7 +599,7 @@ export function renderTokenLog(msgId) {
   const isStream   = inputTok === '—';
   const reqFormatted = requestMsgs.map((m, i) => {
     const meta = msgsMeta && msgsMeta[i];
-    const label = meta ? meta.label : (m.role === 'user' ? '涂涂' : m.role === 'assistant' ? '炘也' : 'system');
+    const label = meta ? meta.label : (m.role === 'user' ? (settings.userName || '涂涂') : m.role === 'assistant' ? (settings.aiName || '炘也') : 'system');
     const timeStr = meta && meta.time ? `  [${fmtTime(meta.time)}]` : '';
     const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2);
     return `── [${i + 1}] ${label}${timeStr} ──\n${content}`;
@@ -782,7 +782,7 @@ export async function sendMessage() {
       } else {
         apiMsgs.push({ role, content: m.content });
       }
-      _apiMeta.push({ label: role === 'user' ? '涂涂' : '炘也', time: m.time });
+      _apiMeta.push({ label: role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也'), time: m.time });
     }
 
     let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
