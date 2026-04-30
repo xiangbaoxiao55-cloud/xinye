@@ -414,12 +414,21 @@ chatArea.addEventListener('click', e => {
     const id = Number(genImgDlBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
     if (msg && msg.genImageData) {
-      const a = document.createElement('a');
-      a.href = msg.genImageData;
-      a.download = `炘也画的图_${id}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const src = msg.genImageData;
+      const filename = `炘也画的图_${id}.png`;
+      if (src.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = src; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } else {
+        fetch(src).then(r => r.blob()).then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click();
+          document.body.removeChild(a); URL.revokeObjectURL(url);
+        }).catch(() => { window.open(src, '_blank'); });
+      }
     }
     return;
   }
