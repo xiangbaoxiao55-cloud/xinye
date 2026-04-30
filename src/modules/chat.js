@@ -780,7 +780,10 @@ export async function sendMessage() {
         msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
         apiMsgs.push({ role: 'user', content: parts });
       } else {
-        apiMsgs.push({ role, content: m.content });
+        const _content = (role === 'assistant' && m.isGenImage)
+          ? `（画了一张图，prompt：${m.content?.replace(/^\[🎨[^\]]*\]\n描述：/, '').slice(0, 100) || ''}）`
+          : m.content;
+        apiMsgs.push({ role, content: _content });
       }
       _apiMeta.push({ label: role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也'), time: m.time });
     }
