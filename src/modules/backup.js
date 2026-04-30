@@ -204,7 +204,7 @@ export async function backupToPhone() {
     const payload = JSON.stringify({
       version: 3, type: 'auto',
       exportTime: new Date().toISOString(),
-      settings, apiPresets: getApiPresets(),
+      settings, apiPresets: getApiPresets(), visionPresets: getVisionPresets(), imagePresets: getImagePresets(),
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
