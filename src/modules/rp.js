@@ -2,6 +2,7 @@ import { lsBackup, lsRemoveBackup, dbGetRecent } from './db.js';
 import { toast } from './utils.js';
 import { settings, messages } from './state.js';
 import { getAiAvatar, getUserAvatar, renderMessages, resetOlderState } from './chat.js';
+const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 
 async function switchRpMode(active) {
   const loadCount = Math.max(settings ? (settings.displayLimit || 0) : 0, 2000);
@@ -13,18 +14,18 @@ async function switchRpMode(active) {
 }
 
 export function initRp() {
-  let rpActive = localStorage.getItem('rp_active') === '1';
-  let rpPresets = JSON.parse(localStorage.getItem('rp_presets') || '[]');
+  let rpActive = localStorage.getItem(_PFX + 'rp_active') === '1';
+  let rpPresets = JSON.parse(localStorage.getItem(_PFX + 'rp_presets') || '[]');
 
   function rpInit() {
-    rpActive = localStorage.getItem('rp_active') === '1';
+    rpActive = localStorage.getItem(_PFX + 'rp_active') === '1';
     window._rpActive = rpActive;
     const ta = document.getElementById('rpPromptInput');
-    if (ta) ta.value = localStorage.getItem('rp_prompt') || '';
+    if (ta) ta.value = localStorage.getItem(_PFX + 'rp_prompt') || '';
     const nameInput = document.getElementById('rpCharName');
-    if (nameInput) nameInput.value = localStorage.getItem('rp_char_name') || '';
+    if (nameInput) nameInput.value = localStorage.getItem(_PFX + 'rp_char_name') || '';
     const userNameInput = document.getElementById('rpUserName');
-    if (userNameInput) userNameInput.value = localStorage.getItem('rp_user_name') || '';
+    if (userNameInput) userNameInput.value = localStorage.getItem(_PFX + 'rp_user_name') || '';
     refreshRpCharAvatar();
     refreshRpUserAvatar();
     refreshRpPresetSelect();
@@ -36,8 +37,8 @@ export function initRp() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-      localStorage.setItem('rp_char_avatar', e.target.result);
-      lsBackup('rp_char_avatar', e.target.result);
+      localStorage.setItem(_PFX + 'rp_char_avatar', e.target.result);
+      lsBackup(_PFX + 'rp_char_avatar', e.target.result);
       refreshRpCharAvatar();
       if (rpActive) applyRpHeader();
     };
@@ -46,8 +47,8 @@ export function initRp() {
   };
 
   window.clearRpAvatar = function() {
-    localStorage.removeItem('rp_char_avatar');
-    lsRemoveBackup('rp_char_avatar');
+    localStorage.removeItem(_PFX + 'rp_char_avatar');
+    lsRemoveBackup(_PFX + 'rp_char_avatar');
     refreshRpCharAvatar();
     if (rpActive) applyRpHeader();
   };
@@ -57,8 +58,8 @@ export function initRp() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-      localStorage.setItem('rp_user_avatar', e.target.result);
-      lsBackup('rp_user_avatar', e.target.result);
+      localStorage.setItem(_PFX + 'rp_user_avatar', e.target.result);
+      lsBackup(_PFX + 'rp_user_avatar', e.target.result);
       refreshRpUserAvatar();
     };
     reader.readAsDataURL(file);
@@ -66,23 +67,23 @@ export function initRp() {
   };
 
   window.clearRpUserAvatar = function() {
-    localStorage.removeItem('rp_user_avatar');
-    lsRemoveBackup('rp_user_avatar');
+    localStorage.removeItem(_PFX + 'rp_user_avatar');
+    lsRemoveBackup(_PFX + 'rp_user_avatar');
     refreshRpUserAvatar();
   };
 
   window.saveRpCharInfo = function() {
     const name = document.getElementById('rpCharName')?.value || '';
-    localStorage.setItem('rp_char_name', name);
-    lsBackup('rp_char_name', name);
+    localStorage.setItem(_PFX + 'rp_char_name', name);
+    lsBackup(_PFX + 'rp_char_name', name);
     const userName = document.getElementById('rpUserName')?.value || '';
-    localStorage.setItem('rp_user_name', userName);
-    lsBackup('rp_user_name', userName);
+    localStorage.setItem(_PFX + 'rp_user_name', userName);
+    lsBackup(_PFX + 'rp_user_name', userName);
     if (rpActive) applyRpHeader();
   };
 
   function refreshRpCharAvatar() {
-    const av = localStorage.getItem('rp_char_avatar');
+    const av = localStorage.getItem(_PFX + 'rp_char_avatar');
     const img = document.getElementById('rpCharAvatar');
     const placeholder = document.getElementById('rpCharAvatarPlaceholder');
     if (!img || !placeholder) return;
@@ -91,7 +92,7 @@ export function initRp() {
   }
 
   function refreshRpUserAvatar() {
-    const av = localStorage.getItem('rp_user_avatar');
+    const av = localStorage.getItem(_PFX + 'rp_user_avatar');
     const img = document.getElementById('rpUserAvatar');
     const placeholder = document.getElementById('rpUserAvatarPlaceholder');
     if (!img || !placeholder) return;
@@ -100,8 +101,8 @@ export function initRp() {
   }
 
   function applyRpHeader() {
-    const charName = localStorage.getItem('rp_char_name') || '';
-    const charAvatar = localStorage.getItem('rp_char_avatar') || '';
+    const charName = localStorage.getItem(_PFX + 'rp_char_name') || '';
+    const charAvatar = localStorage.getItem(_PFX + 'rp_char_avatar') || '';
     const headerAv = document.getElementById('headerAvatar');
     const headerNm = document.getElementById('headerName');
     const typingAv = document.getElementById('typingAvatar');
@@ -131,7 +132,7 @@ export function initRp() {
 
   window.getEffectiveAiAvatar = async function() {
     if (rpActive) {
-      const av = localStorage.getItem('rp_char_avatar');
+      const av = localStorage.getItem(_PFX + 'rp_char_avatar');
       if (av) return av;
     }
     return getAiAvatar();
@@ -139,14 +140,14 @@ export function initRp() {
 
   window.getEffectiveUserAvatar = async function() {
     if (rpActive) {
-      const av = localStorage.getItem('rp_user_avatar');
+      const av = localStorage.getItem(_PFX + 'rp_user_avatar');
       if (av) return av;
     }
     return getUserAvatar();
   };
 
   window.getRpUserName = function() {
-    return rpActive ? (localStorage.getItem('rp_user_name') || '') : '';
+    return rpActive ? (localStorage.getItem(_PFX + 'rp_user_name') || '') : '';
   };
 
   window.openRpPanel = function() {
@@ -161,8 +162,8 @@ export function initRp() {
 
   window.toggleRpActive = async function() {
     rpActive = !rpActive;
-    localStorage.setItem('rp_active', rpActive ? '1' : '0');
-    lsBackup('rp_active', rpActive ? '1' : '0');
+    localStorage.setItem(_PFX + 'rp_active', rpActive ? '1' : '0');
+    lsBackup(_PFX + 'rp_active', rpActive ? '1' : '0');
     window._rpActive = rpActive;
     applyRpUI();
     toast(rpActive ? '🎭 RP模式已开启，对话已隔离' : '🎭 RP模式已关闭，恢复正常聊天');
@@ -171,8 +172,8 @@ export function initRp() {
 
   window.saveRpPrompt = function() {
     const val = document.getElementById('rpPromptInput').value;
-    localStorage.setItem('rp_prompt', val);
-    lsBackup('rp_prompt', val);
+    localStorage.setItem(_PFX + 'rp_prompt', val);
+    lsBackup(_PFX + 'rp_prompt', val);
   };
 
   window.saveRpPreset = function() {
@@ -188,8 +189,8 @@ export function initRp() {
     if (idx >= 0) rpPresets[idx] = preset;
     else rpPresets.push(preset);
     const _rpPresetsStr = JSON.stringify(rpPresets);
-    localStorage.setItem('rp_presets', _rpPresetsStr);
-    lsBackup('rp_presets', _rpPresetsStr);
+    localStorage.setItem(_PFX + 'rp_presets', _rpPresetsStr);
+    lsBackup(_PFX + 'rp_presets', _rpPresetsStr);
     refreshRpPresetSelect();
     if (nameInput) nameInput.value = '';
     toast('✨ 已保存「' + name + '」');
@@ -202,16 +203,16 @@ export function initRp() {
     const p = rpPresets[idx];
     if (!p) return;
     document.getElementById('rpPromptInput').value = p.text;
-    localStorage.setItem('rp_prompt', p.text);
-    lsBackup('rp_prompt', p.text);
+    localStorage.setItem(_PFX + 'rp_prompt', p.text);
+    lsBackup(_PFX + 'rp_prompt', p.text);
     const nameInput = document.getElementById('rpCharName');
     if (nameInput) nameInput.value = p.charName || '';
-    localStorage.setItem('rp_char_name', p.charName || '');
-    lsBackup('rp_char_name', p.charName || '');
+    localStorage.setItem(_PFX + 'rp_char_name', p.charName || '');
+    lsBackup(_PFX + 'rp_char_name', p.charName || '');
     const userNameInput2 = document.getElementById('rpUserName');
     if (userNameInput2) userNameInput2.value = p.userName || '';
-    localStorage.setItem('rp_user_name', p.userName || '');
-    lsBackup('rp_user_name', p.userName || '');
+    localStorage.setItem(_PFX + 'rp_user_name', p.userName || '');
+    lsBackup(_PFX + 'rp_user_name', p.userName || '');
     refreshRpCharAvatar();
     refreshRpUserAvatar();
     if (rpActive) applyRpHeader();
@@ -224,8 +225,8 @@ export function initRp() {
     const name = rpPresets[idx].name;
     rpPresets.splice(idx, 1);
     const _rpDelStr = JSON.stringify(rpPresets);
-    localStorage.setItem('rp_presets', _rpDelStr);
-    lsBackup('rp_presets', _rpDelStr);
+    localStorage.setItem(_PFX + 'rp_presets', _rpDelStr);
+    lsBackup(_PFX + 'rp_presets', _rpDelStr);
     refreshRpPresetSelect();
     toast('已删除「' + name + '」');
   };
@@ -254,7 +255,7 @@ export function initRp() {
 
   window.getRpInjection = function() {
     if (!rpActive) return null;
-    const prompt = localStorage.getItem('rp_prompt') || '';
+    const prompt = localStorage.getItem(_PFX + 'rp_prompt') || '';
     return prompt.trim() || '【RP模式】';
   };
 

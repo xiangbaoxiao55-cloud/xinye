@@ -1,5 +1,6 @@
 import { toast } from './utils.js';
 import { db, dbPut, dbGet, dbGetAll, dbClear, dbDelete, lsBackup } from './db.js';
+const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { settings, messages, ensureMemoryBank } from './state.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets } from './api.js';
 import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers } from './stickers.js';
@@ -59,7 +60,7 @@ export async function saveToLocal() {
         return r;
       }),
     };
-    localStorage.setItem('fox_auto_save', JSON.stringify(localData));
+    localStorage.setItem(_PFX + 'fox_auto_save', JSON.stringify(localData));
   } catch (e) {
     if (e.name === 'QuotaExceededError') {
       try {
@@ -72,7 +73,7 @@ export async function saveToLocal() {
             userAvatar: await dbGet('images', 'userAvatar') || null,
           }
         };
-        localStorage.setItem('fox_auto_save', JSON.stringify(slim));
+        localStorage.setItem(_PFX + 'fox_auto_save', JSON.stringify(slim));
       } catch (_) { console.warn('[AutoSave] localStorage 写入彻底失败'); }
     } else {
       console.warn('[AutoSave] 写入失败', e);
@@ -82,7 +83,7 @@ export async function saveToLocal() {
 
 export function loadFromLocal() {
   try {
-    const raw = localStorage.getItem('fox_auto_save');
+    const raw = localStorage.getItem(_PFX + 'fox_auto_save');
     if (!raw) return null;
     return JSON.parse(raw);
   } catch (e) {
@@ -149,7 +150,7 @@ export async function autoBackupToServer() {
       apiPresets: getApiPresets(),
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
-      rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
+      rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
       diary: diaryData,
       reading: readingData,
@@ -159,7 +160,7 @@ export async function autoBackupToServer() {
     await fetch(`${serverUrl}/api/backup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
     const backupTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     console.log('[自动备份] 完成');
-    localStorage.setItem('lastAutoBackupTime', backupTime);
+    localStorage.setItem(_PFX + 'lastAutoBackupTime', backupTime);
     toast('💾 已自动备份到电脑');
   } catch (e) {
     console.warn('[自动备份] 失败:', e.message);
@@ -206,7 +207,7 @@ export async function backupToPhone() {
       settings, apiPresets: getApiPresets(),
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
-      rpData: { rp_prompt: localStorage.getItem('rp_prompt') || '', rp_presets: localStorage.getItem('rp_presets') || '[]', rp_char_name: localStorage.getItem('rp_char_name') || '', rp_char_avatar: localStorage.getItem('rp_char_avatar') || '', rp_active: localStorage.getItem('rp_active') || '0' },
+      rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
       diary: diaryData, reading: readingData,
       friendsData: await getFriendsBackupData(),
@@ -268,7 +269,7 @@ export async function exportData(mode) {
       rp_prompt:      localStorage.getItem('rp_prompt') || '',
       rp_presets:     localStorage.getItem('rp_presets') || '[]',
       rp_char_name:   localStorage.getItem('rp_char_name') || '',
-      rp_char_avatar: localStorage.getItem('rp_char_avatar') || '',
+      rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '',
       rp_active:      localStorage.getItem('rp_active') || '0',
     },
     images: {

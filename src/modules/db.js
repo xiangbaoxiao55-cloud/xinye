@@ -1,4 +1,4 @@
-const DB_NAME = 'XinyeChatDB';
+const DB_NAME = window.__APP_ID__ === 'choubao' ? 'ChoubaoChatDB' : 'XinyeChatDB';
 const DB_VER = 4;
 export let db = null;
 

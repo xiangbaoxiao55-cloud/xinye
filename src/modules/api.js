@@ -1,31 +1,32 @@
 import { settings } from './state.js';
 import { toast } from './utils.js';
 import { lsBackup } from './db.js';
+const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 
 export function getApiPresets() {
-  try { return JSON.parse(localStorage.getItem('xinye_api_presets') || '[]'); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_api_presets') || '[]'); } catch(e) { return []; }
 }
 export function setApiPresets(arr) {
   const _v = JSON.stringify(arr);
-  localStorage.setItem('xinye_api_presets', _v);
-  lsBackup('xinye_api_presets', _v);
+  localStorage.setItem(_PFX + 'xinye_api_presets', _v);
+  lsBackup(_PFX + 'xinye_api_presets', _v);
 }
 
 export function getVisionPresets() {
-  try { return JSON.parse(localStorage.getItem('xinye_vision_presets') || '[]'); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_vision_presets') || '[]'); } catch(e) { return []; }
 }
 export function setVisionPresets(arr) {
   const _v = JSON.stringify(arr);
-  localStorage.setItem('xinye_vision_presets', _v);
-  lsBackup('xinye_vision_presets', _v);
+  localStorage.setItem(_PFX + 'xinye_vision_presets', _v);
+  lsBackup(_PFX + 'xinye_vision_presets', _v);
 }
 export function getImagePresets() {
-  try { return JSON.parse(localStorage.getItem('xinye_image_presets') || '[]'); } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_image_presets') || '[]'); } catch(e) { return []; }
 }
 export function setImagePresets(arr) {
   const _v = JSON.stringify(arr);
-  localStorage.setItem('xinye_image_presets', _v);
-  lsBackup('xinye_image_presets', _v);
+  localStorage.setItem(_PFX + 'xinye_image_presets', _v);
+  lsBackup(_PFX + 'xinye_image_presets', _v);
 }
 
 export function getSubApiCfg() {

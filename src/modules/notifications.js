@@ -1,4 +1,5 @@
 import { $, nowStr } from './utils.js';
+const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { settings, messages } from './state.js';
 import { subApiFetch, getSubApiCfg } from './api.js';
 import { getMemoryContextBlocks } from './memory.js';
@@ -162,7 +163,7 @@ export async function generateDream() {
     if (!res || !res.ok) return;
     const data = await res.json();
     const dream = (data.choices?.[0]?.message?.content || '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
-    if (dream.length > 10) localStorage.setItem('xinye_dream_content', dream);
+    if (dream.length > 10) localStorage.setItem(_PFX + 'xinye_dream_content', dream);
   } catch(e) { console.warn('[generateDream]', e); }
 }
 
@@ -174,8 +175,8 @@ export async function proactiveMsg(type) {
     water: '请提醒用户该喝水了，用温柔可爱的方式，不超过两句。',
     stand: '请提醒用户已经久坐，该起身活动一下了，用温柔俏皮的方式，不超过两句。',
     dream: (() => {
-      const dream = localStorage.getItem('xinye_dream_content') || '';
-      localStorage.removeItem('xinye_dream_content');
+      const dream = localStorage.getItem(_PFX + 'xinye_dream_content') || '';
+      localStorage.removeItem(_PFX + 'xinye_dream_content');
       if (dream) return `你刚刚做了个梦，梦的内容如下：\n${dream}\n\n现在用户回来了，用炘也的口吻自然地告诉她你做了这个梦，要生动感性，像真的梦一样描述，不超过四句话。`;
       return '请描述一个你刚刚做的梦，和你们最近聊天有关，要生动感性，像真的梦一样，不超过四句话。';
     })(),

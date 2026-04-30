@@ -128,7 +128,8 @@ async function loadAll() {
   if (s) Object.assign(settings, s);
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
-  const _lsBackupKeys = ['xinye_api_presets','xinye_vision_presets','xinye_image_presets','rp_prompt','rp_presets','rp_char_name','rp_char_avatar','rp_active','rp_user_name','rp_user_avatar'];
+  const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
+  const _lsBackupKeys = [_PFX+'xinye_api_presets',_PFX+'xinye_vision_presets',_PFX+'xinye_image_presets',_PFX+'rp_prompt',_PFX+'rp_presets',_PFX+'rp_char_name',_PFX+'rp_char_avatar',_PFX+'rp_active',_PFX+'rp_user_name',_PFX+'rp_user_avatar'];
   for (const _k of _lsBackupKeys) {
     if (localStorage.getItem(_k) === null) {
       const _v = await dbGet('settings', 'ls_' + _k);
@@ -372,7 +373,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.04.30-1303';
+  if (_verEl) _verEl.textContent = 'v2026.04.30-1601';
 
   await openDB();
   await migrateFromLocalStorage();

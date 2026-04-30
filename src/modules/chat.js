@@ -1,4 +1,5 @@
 import { toast, fallbackCopy, escHtml, fmtTime, nowStr, $ } from './utils.js';
+const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
@@ -684,7 +685,7 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'system', content: `【我的角色名】${_rpUserName}` });
         _apiMeta.push({ label: 'system · 🎭我的角色名' });
       }
-      localStorage.removeItem('xinye_kiss_hint');
+      localStorage.removeItem(_PFX + 'xinye_kiss_hint');
     } else {
       apiMsgs.push({ role: 'system', content: window.getStickerHint?.() || '' });
       _apiMeta.push({ label: 'system · 贴纸列表' });
@@ -692,17 +693,17 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'system', content: '【重要】用简短自然的方式回复，通常1-2句话，像日常聊天，不写长段。' });
         _apiMeta.push({ label: 'system · 简短回复' });
       }
-      const _proactiveHint = localStorage.getItem('xinye_proactive_hint');
+      const _proactiveHint = localStorage.getItem(_PFX + 'xinye_proactive_hint');
       if (_proactiveHint) {
         apiMsgs.push({ role: 'system', content: `【提示】你刚才主动给兔宝发了一条消息："${_proactiveHint}"，是你在她不在时发的，现在她回来了。自然地接续，不用重复那句话。` });
         _apiMeta.push({ label: 'system · 主动消息提示' });
-        localStorage.removeItem('xinye_proactive_hint');
+        localStorage.removeItem(_PFX + 'xinye_proactive_hint');
       }
-      const _kissHint = localStorage.getItem('xinye_kiss_hint');
+      const _kissHint = localStorage.getItem(_PFX + 'xinye_kiss_hint');
       if (_kissHint) {
         apiMsgs.push({ role: 'system', content: '【提示】兔宝刚刚点了亲亲按钮，主动亲了你，要有真实的、属于炘也的反应——不是普通回复，是被亲到了的那种感觉。' });
         _apiMeta.push({ label: 'system · 亲亲提示' });
-        localStorage.removeItem('xinye_kiss_hint');
+        localStorage.removeItem(_PFX + 'xinye_kiss_hint');
       }
       if (window._forceSearch && settings.braveKey) {
         apiMsgs.push({ role: 'system', content: '【指令】请务必先使用 web_search 工具搜索相关最新信息，再整合结果回答。' });

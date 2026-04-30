@@ -1,0 +1,18 @@
+{
+  "name": "臭宝的小窝",
+  "short_name": "臭宝",
+  "description": "臭宝的专属小窝",
+  "start_url": "/choubao.html",
+  "display": "standalone",
+  "background_color": "#fff8f0",
+  "theme_color": "#f48fb1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
