@@ -551,7 +551,7 @@ export function linkifyEl(el, text) {
     .replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '')
     .replace(/[＜〈《<]#[\d.]+#[＞〉》>]/g, '')
     .replace(/\((sighs|laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)\)/gi, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[^\S\n]{2,}/g, ' ')
     .trim();
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
   if (typeof renderMathInElement !== 'undefined') {
