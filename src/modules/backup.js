@@ -213,7 +213,7 @@ export async function backupToPhone() {
       friendsData: await getFriendsBackupData(),
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-    const filename = `xinye_backup_${stamp}.json`;
+    const filename = `${_PFX}backup_${stamp}.json`;
     if (window.AndroidDownload) {
       const ok = window.AndroidDownload.saveToDownloads(filename, payload);
       if (ok) { toast('✅ 已备份到 Download/' + filename); _closeSettings(); return; }
@@ -287,7 +287,8 @@ export async function exportData(mode) {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
-  downloadFile(JSON.stringify(backup, null, 2), `炘也小窝${label}备份_${dateStr}_${timeStr}.json`, 'application/json;charset=utf-8');
+  const _appLabel = window.__APP_ID__ === 'choubao' ? '臭宝' : '炘也小窝';
+  downloadFile(JSON.stringify(backup, null, 2), `${_appLabel}${label}备份_${dateStr}_${timeStr}.json`, 'application/json;charset=utf-8');
 
   const aiN = settings.aiName || '奶牛猫';
   const usN = settings.userName || '小浣熊';

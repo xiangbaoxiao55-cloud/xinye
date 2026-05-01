@@ -5,7 +5,8 @@ import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
 
 export async function autoSaveGenImage(dataUrl, msgId) {
-  const filename = `炘也画的图_${msgId}.png`;
+  const _imgLabel = window.__APP_ID__ === 'choubao' ? '臭宝画的图' : '炘也画的图';
+  const filename = `${_imgLabel}_${msgId}.png`;
   try {
     let b64, blob;
     if (dataUrl.startsWith('data:')) {

@@ -404,7 +404,8 @@ export async function exportTTSCache() {
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `xinye_tts_cache_${keys.length}条.zip`;
+    const _ttsPrefix = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
+    a.download = `${_ttsPrefix}_tts_cache_${keys.length}条.zip`;
     a.click();
     URL.revokeObjectURL(url);
     toast(`✅ 已打包 ${keys.length} 条语音，下载中～`);
