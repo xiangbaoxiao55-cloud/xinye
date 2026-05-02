@@ -783,7 +783,8 @@ export async function sendMessage() {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         if (_isGenImg) {
           const _promptMatch = m.content?.match(/提示词：([\s\S]+)$/);
-          const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : '（画面内容）';
+          const _userDescMatch = m.content?.match(/你说：(.+?)(?:\n|$)/);
+          const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : (_userDescMatch ? _userDescMatch[1].trim() : 'anime illustration');
           const _fakeId = `img_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt }) } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: '[图已画好并展示给兔宝了]' });
