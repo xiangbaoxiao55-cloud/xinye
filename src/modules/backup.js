@@ -185,6 +185,12 @@ export async function backupToPhone() {
       readingData = await new Promise((resolve) => {
         const req = indexedDB.open('ReadingDB', 2);
         req.onerror = () => resolve({ books: [], chapters: [], annotations: [] });
+        req.onupgradeneeded = e => {
+          const rdb = e.target.result;
+          if (!rdb.objectStoreNames.contains('books'))       rdb.createObjectStore('books', { keyPath: 'id' });
+          if (!rdb.objectStoreNames.contains('chapters'))    rdb.createObjectStore('chapters', { keyPath: 'bookId' });
+          if (!rdb.objectStoreNames.contains('annotations')) rdb.createObjectStore('annotations', { keyPath: 'bookId' });
+        };
         req.onsuccess = e => {
           const rdb = e.target.result;
           const result = { books: [], chapters: [], annotations: [] };
@@ -467,6 +473,7 @@ export async function doImport(jsonText) {
           const stores = ['books', 'chapters', 'annotations'];
           let done = 0;
           for (const store of stores) {
+            if (!rdb.objectStoreNames.contains(store)) { if (++done === stores.length) resolve(); continue; }
             const tx = rdb.transaction(store, 'readwrite');
             const os = tx.objectStore(store);
             os.clear();
