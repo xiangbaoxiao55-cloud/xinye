@@ -782,7 +782,7 @@ export async function sendMessage() {
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         const _content = _isGenImg
-          ? `（画了一张图，prompt：${m.content?.replace(/^\[🎨[^\]]*\]\n(?:描述：|你说：[^\n]*\n提示词：)/, '').slice(0, 100) || ''}）`
+          ? '[assistant called generate_image tool]'
           : m.content;
         apiMsgs.push({ role, content: _content });
       }
