@@ -781,7 +781,7 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'user', content: parts });
       } else {
         const _content = (role === 'assistant' && m.isGenImage)
-          ? `（画了一张图，prompt：${m.content?.replace(/^\[🎨[^\]]*\]\n描述：/, '').slice(0, 100) || ''}）`
+          ? `（画了一张图，prompt：${m.content?.replace(/^\[🎨[^\]]*\]\n(?:描述：|你说：[^\n]*\n提示词：)/, '').slice(0, 100) || ''}）`
           : m.content;
         apiMsgs.push({ role, content: _content });
       }
@@ -1221,7 +1221,7 @@ export async function sendMessage() {
       }
       if (name === 'generate_image') {
         const _hasRef = imgs && imgs.length > 0;
-        toast(_hasRef ? '炘也正在改图...' : '炘也正在画...');
+        toast(_hasRef ? `${settings.aiName||'炘也'}正在改图...` : `${settings.aiName||'炘也'}正在画...`);
         const _imgKey = settings.imageApiKey || settings.apiKey;
         const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         const _imgModel = settings.imageModel;
@@ -1283,7 +1283,7 @@ export async function sendMessage() {
           if (_imgItem?.b64_json) _dataUrl = `data:image/png;base64,${_imgItem.b64_json}`;
           else if (_imgItem?.url) _dataUrl = _imgItem.url;
           else return '画图API没返回图片';
-          const _ctxDesc = `[🎨 炘也画了一张图]\n描述：${args.prompt}`;
+          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n描述：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true;
           _genMsg.genImageData = _dataUrl;

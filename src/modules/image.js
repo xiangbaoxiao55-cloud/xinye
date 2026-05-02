@@ -186,7 +186,7 @@ export async function generateImage(userDesc) {
       throw new Error('画图API没返回图片，vConsole查看完整返回');
     }
 
-    const ctxDesc = `[🎨 炘也${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
+    const ctxDesc = `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
