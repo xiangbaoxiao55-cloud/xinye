@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260502-1843';
+const CACHE_NAME = 'xinye-20260502-1901';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',

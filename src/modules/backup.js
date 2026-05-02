@@ -213,7 +213,8 @@ export async function backupToPhone() {
       friendsData: await getFriendsBackupData(),
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
-    const filename = `${_PFX}backup_${stamp}.json`;
+    const _backupPrefix = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
+    const filename = `${_backupPrefix}_backup_${stamp}.json`;
     if (window.AndroidDownload) {
       const ok = window.AndroidDownload.saveToDownloads(filename, payload);
       if (ok) { toast('✅ 已备份到 Download/' + filename); _closeSettings(); return; }
