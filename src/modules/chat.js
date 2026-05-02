@@ -427,7 +427,7 @@ chatArea.addEventListener('click', e => {
           a.href = url; a.download = filename;
           document.body.appendChild(a); a.click();
           document.body.removeChild(a); URL.revokeObjectURL(url);
-        }).catch(() => { window.open(src, '_blank'); });
+        }).catch(() => { toast('图片链接因跨域无法直接下载，长按图片保存'); });
       }
     }
     return;

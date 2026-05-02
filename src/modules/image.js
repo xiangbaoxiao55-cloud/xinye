@@ -24,6 +24,7 @@ export async function autoSaveGenImage(dataUrl, msgId) {
           fr.readAsDataURL(blob);
         });
       } catch {
+        toast('🎨 图片已生成，长按图片可保存');
         return;
       }
     }
