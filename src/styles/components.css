@@ -165,7 +165,7 @@
   100%{opacity:0;transform:translateY(-200px) scale(.3) rotate(var(--rot,15deg))}
 }
 .msg-bubble img.bubble-img{
-  max-width:240px;max-height:180px;border-radius:10px;
+  max-width:min(240px,100%);max-height:180px;border-radius:10px;
   margin-top:6px;display:block;cursor:pointer;
 }
 .gen-img{

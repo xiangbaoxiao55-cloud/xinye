@@ -112,7 +112,8 @@ export async function generateImage(userDesc) {
     const prompt = userDesc;
     console.log('[画图] 模式:', hasRef ? '垫图/改图' : '生成', 'prompt:', prompt);
 
-    toast(hasRef ? '炘也正在改图...' : '炘也正在画...');
+    const _aiN = settings.aiName || '炘也';
+    toast(hasRef ? `${_aiN}正在改图...` : `${_aiN}正在画...`);
     const imgKey = settings.imageApiKey || settings.apiKey;
     const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const imgModel = settings.imageModel;
