@@ -134,6 +134,7 @@ export async function generateImage(userDesc) {
       form.append('prompt', prompt);
       form.append('n', '1');
       form.append('size', settings.imageSize || '1024x1024');
+      form.append('response_format', 'b64_json');
       const composited = await compositeRefImages(refImgs);
       form.append('image', base64ToFile(composited, 'ref.png'));
       imgRes = await fetch(editsEndpoint, {
@@ -149,7 +150,7 @@ export async function generateImage(userDesc) {
       imgRes = await fetch(genEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-        body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+        body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
         signal: ctrl.signal
       });
     }

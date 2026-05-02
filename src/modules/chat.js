@@ -1244,6 +1244,7 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
+            _form.append('response_format', 'b64_json');
             const _composited = await window.compositeRefImages(imgs);
             _form.append('image', window.base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
@@ -1259,7 +1260,7 @@ export async function sendMessage() {
             _imgRes = await fetch(_genEp, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
               signal: _ctrl.signal
             });
           }
