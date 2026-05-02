@@ -782,9 +782,9 @@ export async function sendMessage() {
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         if (_isGenImg) {
-          const _promptMatch = m.content?.match(/提示词：([\s\S]+)$/);
+          const _promptMatch = m.content?.match(/(?:提示词|描述)：([\s\S]+?)(?:\n你说|$)/);
           const _userDescMatch = m.content?.match(/你说：(.+?)(?:\n|$)/);
-          const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : (_userDescMatch ? _userDescMatch[1].trim() : 'anime illustration');
+          const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : (_userDescMatch ? _userDescMatch[1].trim() : '');
           const _fakeId = `img_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt }) } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: '[图已画好并展示给兔宝了]' });
@@ -1290,7 +1290,7 @@ export async function sendMessage() {
           if (_imgItem?.b64_json) _dataUrl = `data:image/png;base64,${_imgItem.b64_json}`;
           else if (_imgItem?.url) _dataUrl = _imgItem.url;
           else return '画图API没返回图片';
-          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n描述：${args.prompt}`;
+          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true;
           _genMsg.genImageData = _dataUrl;
