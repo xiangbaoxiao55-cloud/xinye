@@ -846,7 +846,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '当兔宝想让你帮她画图、或你想画图送给她时调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图，prompt里描述想要的效果即可。',
+          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图，prompt里描述想要的效果即可。',
           parameters: {
             type: 'object',
             properties: {
