@@ -780,7 +780,8 @@ export async function sendMessage() {
         msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
         apiMsgs.push({ role: 'user', content: parts });
       } else {
-        const _content = (role === 'assistant' && m.isGenImage)
+        const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
+        const _content = _isGenImg
           ? `（画了一张图，prompt：${m.content?.replace(/^\[🎨[^\]]*\]\n(?:描述：|你说：[^\n]*\n提示词：)/, '').slice(0, 100) || ''}）`
           : m.content;
         apiMsgs.push({ role, content: _content });

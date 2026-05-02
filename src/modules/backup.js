@@ -264,6 +264,7 @@ export async function exportData(mode) {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
       if (m.images) r.images = m.images;
+      if (m.isGenImage) r.isGenImage = true;
       return r;
     }),
     rpMessages: allRpMsgs.map(m => {
@@ -397,6 +398,7 @@ export async function doImport(jsonText) {
       const rec = { role: m.role, content: m.content, time: m.time || Date.now() };
       if (m.image) rec.image = m.image;
       if (m.images) rec.images = m.images;
+      if (m.isGenImage) rec.isGenImage = true;
       await dbPut('messages', null, rec);
     }
     const importedSettings = await dbGet('settings', 'main');
