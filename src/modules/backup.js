@@ -110,7 +110,7 @@ export async function autoBackupToServer() {
     const diaryData = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_'))) {
+      if (k && (k.startsWith(_PFX + 'rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) {
         diaryData[k] = localStorage.getItem(k);
       }
     }
@@ -148,6 +148,12 @@ export async function autoBackupToServer() {
       exportTime: new Date().toISOString(),
       settings,
       apiPresets: getApiPresets(),
+      images: {
+        aiAvatar:   await dbGet('images', 'aiAvatar')   || null,
+        userAvatar: await dbGet('images', 'userAvatar') || null,
+        bgImage:    await dbGet('images', 'bgImage')    || null,
+        bgType:     await dbGet('images', 'bgType')     || null,
+      },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
@@ -178,7 +184,7 @@ export async function backupToPhone() {
     const diaryData = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
+      if (k && (k.startsWith(_PFX + 'rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
     }
     let readingData = { books: [], chapters: [], annotations: [] };
     try {
@@ -211,6 +217,12 @@ export async function backupToPhone() {
       version: 3, type: 'auto',
       exportTime: new Date().toISOString(),
       settings, apiPresets: getApiPresets(), visionPresets: getVisionPresets(), imagePresets: getImagePresets(),
+      images: {
+        aiAvatar:   await dbGet('images', 'aiAvatar')   || null,
+        userAvatar: await dbGet('images', 'userAvatar') || null,
+        bgImage:    await dbGet('images', 'bgImage')    || null,
+        bgType:     await dbGet('images', 'bgType')     || null,
+      },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
