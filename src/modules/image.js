@@ -15,13 +15,17 @@ export async function autoSaveGenImage(dataUrl, msgId) {
       const u8 = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
       blob = new Blob([u8], { type: mime });
     } else {
-      const resp = await fetch(dataUrl);
-      blob = await resp.blob();
-      b64 = await new Promise(r => {
-        const fr = new FileReader();
-        fr.onload = () => r(fr.result.split(',')[1]);
-        fr.readAsDataURL(blob);
-      });
+      try {
+        const resp = await fetch(dataUrl);
+        blob = await resp.blob();
+        b64 = await new Promise(r => {
+          const fr = new FileReader();
+          fr.onload = () => r(fr.result.split(',')[1]);
+          fr.readAsDataURL(blob);
+        });
+      } catch {
+        return;
+      }
     }
 
     if (window.AndroidDownload) {
