@@ -538,6 +538,14 @@ function openDB() {
     req.onsuccess = e => {
       db = e.target.result;
       db.onversionchange = () => { db.close(); db = null; };
+      const required = ['books', 'chapters', 'annotations'];
+      if (!required.every(s => db.objectStoreNames.contains(s))) {
+        db.close(); db = null;
+        const del = indexedDB.deleteDatabase('ReadingDB');
+        del.onsuccess = () => openDB().then(res).catch(rej);
+        del.onerror = rej;
+        return;
+      }
       res();
     };
     req.onerror = rej;

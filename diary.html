@@ -528,6 +528,7 @@ let editingKey = null;
 let searchKeyword = '';
 
 const _PFX = new URLSearchParams(location.search).get('app') === 'choubao' ? 'choubao_' : '';
+const _AINAME = _PFX === 'choubao_' ? '臭宝' : '炘也';
 
 // ===== 数据读写 =====
 function getUserEntry(dateStr) {
@@ -650,7 +651,7 @@ function renderPanel(tab) {
   if (!filtered.length) {
     el.innerHTML = `<div class="empty-state">
       <div class="empty-emoji">${isMe ? '📝' : '💙'}</div>
-      <div class="empty-text">${isMe ? '还没有日记\n点右下角 ✏️ 开始记录今天' : '还没有炘也的日记\n切到这个页面再点 ✏️\n让炘也用AI生成一篇'}</div>
+      <div class="empty-text">${isMe ? '还没有日记\n点右下角 ✏️ 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 ✏️\n让${_AINAME}用AI生成一篇`}</div>
     </div>`;
     return;
   }
@@ -772,7 +773,7 @@ function renderSameday() {
       });
       html += `</div>`;
     }
-    if (xNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#7c5cbf;white-space:pre-wrap;word-break:break-all;background:rgba(167,139,250,.07);border-top:1px solid var(--border)">💙 炘也：${escHtml(xNote)}</div>`;
+    if (xNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#7c5cbf;white-space:pre-wrap;word-break:break-all;background:rgba(167,139,250,.07);border-top:1px solid var(--border)">💙 ${_AINAME}：${escHtml(xNote)}</div>`;
     html += '</div>';
     return html;
   }).join('');
@@ -916,7 +917,7 @@ function updateSheetUI() {
   document.getElementById('moodRow').style.display = isXinye ? 'none' : 'flex';
   document.getElementById('btnAI').style.display = isXinye ? 'flex' : 'none';
   document.getElementById('sheetTA').placeholder = isXinye
-    ? '炘也的日记会显示在这里…也可以自己写'
+    ? `${_AINAME}的日记会显示在这里…也可以自己写`
     : '今天想写点什么…';
 }
 function selectMood(btn) {
@@ -948,7 +949,7 @@ async function saveEntry() {
   }
   closeSheet();
   renderBoth();
-  toast(isXinye ? '炘也的日记已保存 💙' : '日记已存好 📝');
+  toast(isXinye ? `${_AINAME}的日记已保存 💙` : '日记已存好 📝');
 }
 
 // ===== AI 生成（炘也写日记） =====
@@ -975,7 +976,7 @@ async function generateAI() {
     const apiKey = cfg.apiKey;
     const baseUrl = (cfg.baseUrl||'').replace(/\/+$/, '');
     const model = cfg.model || 'gpt-4o';
-    if (!apiKey) { ta.value = ''; ta.placeholder = '需要先在炘也APP里配置 API Key'; btn.disabled = false; saveBtn.disabled = false; status.classList.remove('show'); return; }
+    if (!apiKey) { ta.value = ''; ta.placeholder = `需要先在${_AINAME}APP里配置 API Key`; btn.disabled = false; saveBtn.disabled = false; status.classList.remove('show'); return; }
 
     // 系统提示词：和聊天界面一样，带记忆档案
     const memoryArchive = cfg.memoryArchive || '';
@@ -1415,7 +1416,7 @@ function importDiary() {
       closeImportExport();
       const imgNote = imgCount ? `· 图片 ${imgCount} 天` : '';
       const msg = meCount || xinyeCount
-        ? `涂涂 ${meCount} 篇 · 炘也 ${xinyeCount} 篇 ${imgNote} 已导入 📥`
+        ? `涂涂 ${meCount} 篇 · ${_AINAME} ${xinyeCount} 篇 ${imgNote} 已导入 📥`
         : '备份文件里没找到日记数据，可能是聊天备份？';
       toast(msg, 3500);
     } catch (e) {
@@ -1511,6 +1512,18 @@ function toggleDark() {
 })();
 
 // ===== 初始化 =====
+if (_AINAME !== '炘也') {
+  const _aiStatus = document.getElementById('aiStatus');
+  if (_aiStatus) _aiStatus.textContent = `✨ ${_AINAME}正在写日记…`;
+  const _btnAI = document.getElementById('btnAI');
+  if (_btnAI) _btnAI.textContent = `✨ 让${_AINAME}写`;
+  document.querySelectorAll('.tab-top-btn').forEach(btn => {
+    if (btn.textContent.includes('炘也的日记')) btn.textContent = `💙 ${_AINAME}的日记`;
+  });
+  document.querySelectorAll('.cal-legend-item').forEach(el => {
+    if (el.textContent.includes('炘也的日记')) el.lastChild.textContent = `${_AINAME}的日记`;
+  });
+}
 renderBoth();
 </script>
 </body>
