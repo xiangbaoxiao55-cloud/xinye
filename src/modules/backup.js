@@ -110,7 +110,7 @@ export async function autoBackupToServer() {
     const diaryData = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith(_PFX + 'rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) {
+      if (k && (k.startsWith('rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) {
         diaryData[k] = localStorage.getItem(k);
       }
     }
@@ -184,7 +184,7 @@ export async function backupToPhone() {
     const diaryData = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith(_PFX + 'rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
+      if (k && (k.startsWith('rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
     }
     let readingData = { books: [], chapters: [], annotations: [] };
     try {
@@ -467,7 +467,7 @@ export async function doImport(jsonText) {
 
   if (data.diary && typeof data.diary === 'object') {
     for (const [k, v] of Object.entries(data.diary)) {
-      if (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_')) localStorage.setItem(k, v);
+      if (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_') || k.startsWith('choubao_xinye_diary_')) localStorage.setItem(k, v);
     }
   }
 

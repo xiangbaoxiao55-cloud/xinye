@@ -530,9 +530,26 @@ let searchKeyword = '';
 const _PFX = new URLSearchParams(location.search).get('app') === 'choubao' ? 'choubao_' : '';
 const _AINAME = _PFX === 'choubao_' ? '臭宝' : '炘也';
 
+// 迁移旧版 choubao_rbdiary_* → rbdiary_*（涂涂日记两端共享）
+(function migrateUserDiary() {
+  if (_PFX !== 'choubao_') return;
+  const toMigrate = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('choubao_rbdiary_')) toMigrate.push(k);
+  }
+  toMigrate.forEach(oldKey => {
+    const newKey = oldKey.slice('choubao_'.length); // → rbdiary_YYYY-MM-DD
+    if (!localStorage.getItem(newKey)) {
+      localStorage.setItem(newKey, localStorage.getItem(oldKey));
+    }
+    localStorage.removeItem(oldKey);
+  });
+})();
+
 // ===== 数据读写 =====
 function getUserEntry(dateStr) {
-  const raw = localStorage.getItem((_PFX+'rbdiary_') + dateStr);
+  const raw = localStorage.getItem('rbdiary_' + dateStr);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -559,26 +576,26 @@ function getMood(entry) {
 }
 function saveUserEntry(dateStr, note, mood) {
   let old = {};
-  try { old = JSON.parse(localStorage.getItem((_PFX+'rbdiary_') + dateStr) || '{}'); } catch {}
+  try { old = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
   old.note = note; old.mood = mood;
   if (!Array.isArray(old.snippets)) old.snippets = [];
-  localStorage.setItem((_PFX+'rbdiary_') + dateStr, JSON.stringify(old));
+  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(old));
 }
-function deleteUserEntry(dateStr) { localStorage.removeItem((_PFX+'rbdiary_') + dateStr); }
+function deleteUserEntry(dateStr) { localStorage.removeItem('rbdiary_' + dateStr); }
 function getSnippets(entry) {
   if (!entry || !Array.isArray(entry.snippets)) return [];
   return entry.snippets;
 }
 function deleteSnippet(dateStr, idx) {
   let entry = {};
-  try { entry = JSON.parse(localStorage.getItem((_PFX+'rbdiary_') + dateStr) || '{}'); } catch {}
+  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
   if (!Array.isArray(entry.snippets)) return;
   entry.snippets.splice(idx, 1);
   // 如果 snippets 空且 note 也空，删整条
   if (!entry.snippets.length && !entry.note) {
-    localStorage.removeItem((_PFX+'rbdiary_') + dateStr);
+    localStorage.removeItem('rbdiary_' + dateStr);
   } else {
-    localStorage.setItem((_PFX+'rbdiary_') + dateStr, JSON.stringify(entry));
+    localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
   }
   // 刷新详情 snippets
   if (currentDetailKey && currentDetailKey.dateStr === dateStr) {
@@ -604,7 +621,7 @@ function getAllDateKeys(prefix) {
   return keys.sort((a, b) => b.localeCompare(a));
 }
 
-function getAllMeDates() { return getAllDateKeys((_PFX+'rbdiary_')); }
+function getAllMeDates() { return getAllDateKeys('rbdiary_'); }
 function getAllXinyeDates() { return getAllDateKeys((_PFX+'xinye_diary_')); }
 
 // ===== 工具 =====
@@ -741,7 +758,7 @@ function renderSameday() {
   const [mm, dd] = samedayMD.split('-');
   document.getElementById('samedayTitle').textContent = `${parseInt(mm)}月${parseInt(dd)}日`;
   // 收集所有有这个M-D的条目
-  const meKeys = getAllDateKeys((_PFX+'rbdiary_'));
+  const meKeys = getAllDateKeys('rbdiary_');
   const xKeys = getAllDateKeys((_PFX+'xinye_diary_'));
   const suffix = `-${mm}-${dd}`;
   const years = new Set();
@@ -940,11 +957,11 @@ async function saveEntry() {
       await setDiaryImgs(dateStr, _sheetImgs);
       const e = getUserEntry(dateStr) || {};
       e.imgCount = _sheetImgs.length;
-      localStorage.setItem((_PFX+'rbdiary_') + dateStr, JSON.stringify(e));
+      localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e));
     } else {
       await deleteDiaryImgs(dateStr);
       const e = getUserEntry(dateStr);
-      if (e && e.imgCount) { delete e.imgCount; localStorage.setItem((_PFX+'rbdiary_') + dateStr, JSON.stringify(e)); }
+      if (e && e.imgCount) { delete e.imgCount; localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e)); }
     }
   }
   closeSheet();
@@ -1379,7 +1396,7 @@ function importDiary() {
           } else if (v && typeof v === 'object') {
             const entry = { note: v.note||'', mood: v.mood||'' };
             if (Array.isArray(v.snippets) && v.snippets.length) entry.snippets = v.snippets;
-            localStorage.setItem((_PFX+'rbdiary_') + d, JSON.stringify(entry));
+            localStorage.setItem('rbdiary_' + d, JSON.stringify(entry));
             meCount++;
           }
         });
@@ -1407,7 +1424,7 @@ function importDiary() {
           if (Array.isArray(imgs) && imgs.length) {
             await setDiaryImgs(d, imgs);
             const entry = getUserEntry(d);
-            if (entry) { entry.imgCount = imgs.length; localStorage.setItem((_PFX+'rbdiary_') + d, JSON.stringify(entry)); }
+            if (entry) { entry.imgCount = imgs.length; localStorage.setItem('rbdiary_' + d, JSON.stringify(entry)); }
             imgCount++;
           }
         }

@@ -123,7 +123,7 @@ export function initDiary() {
       diaryOverlay.classList.remove('show');
       toast('已存入日记 💙');
     } else {
-      const key = _dpfx + 'rbdiary_' + dateStr;
+      const key = 'rbdiary_' + dateStr;
       let rec = {};
       try { rec = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
       if (!rec.water) rec.water = 0;
@@ -179,12 +179,11 @@ export function quickNoteSave() {
   const now = new Date();
   const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  const _qpfx = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
   let entry = {};
-  try { entry = JSON.parse(localStorage.getItem(_qpfx + 'rbdiary_' + dateStr) || '{}'); } catch {}
+  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
   if (!Array.isArray(entry.snippets)) entry.snippets = [];
   entry.snippets.push({ time: hm, text: text, ts: now.getTime() });
-  localStorage.setItem(_qpfx + 'rbdiary_' + dateStr, JSON.stringify(entry));
+  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
   quickNoteClose();
   try {
     const frame = document.getElementById('diaryFrame');
