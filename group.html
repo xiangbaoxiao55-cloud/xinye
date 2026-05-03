@@ -73,6 +73,17 @@
 [data-theme="dark"] .api-status.err{background:var(--g-api-err-bg);color:var(--g-api-err-text)}
 [data-theme="dark"] #btnDark{color:#f0c040}
 
+/* 气泡操作按钮 */
+.del-btn{font-size:11px;cursor:pointer;padding:2px 8px;border:none;background:rgba(0,0,0,.06);border-radius:10px;color:var(--g-text-muted);opacity:.7;line-height:1.6}
+/* 头像图片 */
+.msg-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+/* 头像设置 UI */
+.avatar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.avatar-preview{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:1px solid var(--g-drawer-border);background:var(--g-s-textarea-bg);overflow:hidden}
+.avatar-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.avatar-input-row{display:flex;gap:6px;align-items:center}
+.avatar-input-row .api-input{margin:0;flex:1}
+
 html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;overflow:hidden;color:var(--g-text)}
 body{display:flex;flex-direction:column;background:var(--g-body-bg)}
 
@@ -275,6 +286,44 @@ body{display:flex;flex-direction:column;background:var(--g-body-bg)}
         </div>
       </div>
 
+      <!-- 头像设置 -->
+      <div class="s-section">
+        <h3>头像设置</h3>
+        <div class="avatar-row">
+          <div class="avatar-preview" id="prevUser">🐰</div>
+          <div style="flex:1">
+            <div class="s-label" style="margin-bottom:4px">涂涔（我）</div>
+            <div class="avatar-input-row">
+              <input class="api-input" id="avatarUserEmoji" placeholder="emoji 或文字">
+              <label class="s-btn ghost" style="cursor:pointer;padding:7px 10px;font-size:12px;flex-shrink:0;white-space:nowrap">上传图<input type="file" id="avatarUserImg" accept="image/*" style="display:none"></label>
+              <button class="s-btn ghost" id="avatarUserClear" style="padding:7px 10px;font-size:12px;flex-shrink:0">清</button>
+            </div>
+          </div>
+        </div>
+        <div class="avatar-row">
+          <div class="avatar-preview" id="prevXinye">💙</div>
+          <div style="flex:1">
+            <div class="s-label" style="margin-bottom:4px">炘也 💙</div>
+            <div class="avatar-input-row">
+              <input class="api-input" id="avatarXinyeEmoji" placeholder="emoji 或文字">
+              <label class="s-btn ghost" style="cursor:pointer;padding:7px 10px;font-size:12px;flex-shrink:0;white-space:nowrap">上传图<input type="file" id="avatarXinyeImg" accept="image/*" style="display:none"></label>
+              <button class="s-btn ghost" id="avatarXinyeClear" style="padding:7px 10px;font-size:12px;flex-shrink:0">清</button>
+            </div>
+          </div>
+        </div>
+        <div class="avatar-row">
+          <div class="avatar-preview" id="prevChoubao">🐾</div>
+          <div style="flex:1">
+            <div class="s-label" style="margin-bottom:4px">臭宝 🐾</div>
+            <div class="avatar-input-row">
+              <input class="api-input" id="avatarChoubaEmoji" placeholder="emoji 或文字">
+              <label class="s-btn ghost" style="cursor:pointer;padding:7px 10px;font-size:12px;flex-shrink:0;white-space:nowrap">上传图<input type="file" id="avatarChoubaImg" accept="image/*" style="display:none"></label>
+              <button class="s-btn ghost" id="avatarChoubaClear" style="padding:7px 10px;font-size:12px;flex-shrink:0">清</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 提示词 -->
       <div class="s-section">
         <h3>炘也 群聊提示词 💙</h3>
@@ -402,6 +451,15 @@ function gdbClearMessages() {
   });
 }
 
+function gdbDeleteMsg(id) {
+  return new Promise((res, rej) => {
+    const tx = gdb.transaction('messages', 'readwrite');
+    const r = tx.objectStore('messages').delete(id);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
+  });
+}
+
 // ---- 从炘也/臭宝各自的DB读API配置 ----
 function readExternalDB(dbName) {
   return new Promise(res => {
@@ -453,7 +511,10 @@ let grpSettings = {
   groupMemory: '',
   groupSummary: '',
   xinyeApis:  [EMPTY_API(), EMPTY_API(), EMPTY_API(), EMPTY_API()],
-  choubaApis: [EMPTY_API(), EMPTY_API(), EMPTY_API(), EMPTY_API()]
+  choubaApis: [EMPTY_API(), EMPTY_API(), EMPTY_API(), EMPTY_API()],
+  userAvatar:   '🐰',
+  xinyeAvatar:  '💙',
+  choubaAvatar: '🐾'
 };
 
 // ---- context构建 ----
@@ -517,6 +578,9 @@ async function importGroupData(file) {
       if (s.groupSummary !== undefined) grpSettings.groupSummary = s.groupSummary;
       if (s.xinyeApis)  grpSettings.xinyeApis  = s.xinyeApis;
       if (s.choubaApis) grpSettings.choubaApis = s.choubaApis;
+      if (s.userAvatar   !== undefined) grpSettings.userAvatar   = s.userAvatar;
+      if (s.xinyeAvatar  !== undefined) grpSettings.xinyeAvatar  = s.xinyeAvatar;
+      if (s.choubaAvatar !== undefined) grpSettings.choubaAvatar = s.choubaAvatar;
       await gdbPut('settings', 'groupSettings', grpSettings);
       xinyeCfgs = buildCfgList(grpSettings.xinyeApis);
       choubaCfgs = buildCfgList(grpSettings.choubaApis);
@@ -595,6 +659,27 @@ async function streamWithFallback(cfgs, apiMsgs, signal, onChunk, onFirstToken) 
   throw lastErr || new Error('没有可用的API');
 }
 
+// ---- 头像工具 ----
+function setAvatarEl(el, av, fallback) {
+  el.innerHTML = '';
+  if (av && av.startsWith('data:')) {
+    const img = document.createElement('img');
+    img.src = av;
+    el.appendChild(img);
+  } else {
+    el.textContent = av || fallback;
+  }
+}
+
+function getAvatarEl(role) {
+  const av = role === 'xinye' ? grpSettings.xinyeAvatar : role === 'choubao' ? grpSettings.choubaAvatar : grpSettings.userAvatar;
+  const fallback = role === 'xinye' ? '💙' : role === 'choubao' ? '🐾' : '🐰';
+  const div = document.createElement('div');
+  div.className = 'msg-avatar';
+  setAvatarEl(div, av, fallback);
+  return div;
+}
+
 // ---- UI ----
 const messagesEl = document.getElementById('messages');
 const emptyState = document.getElementById('emptyState');
@@ -607,9 +692,7 @@ function renderMessage(msg) {
   row.className = `msg-row ${msg.role}`;
   row.dataset.id = msg.id || '';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = msg.role === 'xinye' ? '💙' : msg.role === 'choubao' ? '🐾' : '🐰';
+  const avatar = getAvatarEl(msg.role);
 
   const body = document.createElement('div');
   body.className = 'msg-body';
@@ -626,9 +709,47 @@ function renderMessage(msg) {
   bubble.textContent = msg.content;
   body.appendChild(bubble);
 
+  // 操作按钮行
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:none;gap:4px;margin-top:3px;' + (msg.role === 'user' ? 'justify-content:flex-end' : 'justify-content:flex-start');
+  row.addEventListener('mouseenter', () => btnRow.style.display = 'flex');
+  row.addEventListener('mouseleave', () => btnRow.style.display = 'none');
+  // 移动端长按
+  let pressTimer;
+  row.addEventListener('touchstart', () => { pressTimer = setTimeout(() => btnRow.style.display = 'flex', 500); });
+  row.addEventListener('touchend', () => clearTimeout(pressTimer));
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'del-btn';
+  copyBtn.style.display = '';
+  copyBtn.textContent = '复制';
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(msg.content).then(() => toast('已复制 ✓')).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = msg.content; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove(); toast('已复制 ✓');
+    });
+  };
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'del-btn';
+  delBtn.style.display = '';
+  delBtn.textContent = '删除';
+  delBtn.onclick = async () => {
+    if (!confirm('删除这条消息？')) return;
+    if (msg.id) await gdbDeleteMsg(msg.id);
+    row.remove();
+    if (!messagesEl.querySelector('.msg-row')) messagesEl.appendChild(emptyState);
+  };
+
+  btnRow.appendChild(copyBtn);
+  btnRow.appendChild(delBtn);
+  body.appendChild(btnRow);
+
+  // user: avatar在右（row-reverse下先append的在右）
   if (msg.role === 'user') {
-    row.appendChild(body);
     row.appendChild(avatar);
+    row.appendChild(body);
   } else {
     row.appendChild(avatar);
     row.appendChild(body);
@@ -646,9 +767,7 @@ function showTyping(who) {
   const row = document.createElement('div');
   row.className = 'typing-row';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = who === 'xinye' ? '💙' : '🐾';
+  const avatar = getAvatarEl(who);
 
   const body = document.createElement('div');
   body.className = 'typing-body';
@@ -912,6 +1031,11 @@ document.getElementById('btnDark').onclick = () => {
   applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
 };
 
+function fillAvatarPreview(prevId, emojiId, av, fallback) {
+  setAvatarEl(document.getElementById(prevId), av, fallback);
+  document.getElementById(emojiId).value = (av && !av.startsWith('data:')) ? av : '';
+}
+
 document.getElementById('settingsBtn').onclick = () => {
   fillApiFields('x', grpSettings.xinyeApis);
   fillApiFields('c', grpSettings.choubaApis);
@@ -919,6 +1043,9 @@ document.getElementById('settingsBtn').onclick = () => {
   choubaPromptEl.value = grpSettings.choubaPrompt;
   groupMemoryEl.value  = grpSettings.groupMemory;
   groupSummaryEl.value = grpSettings.groupSummary;
+  fillAvatarPreview('prevUser',    'avatarUserEmoji',   grpSettings.userAvatar,   '🐰');
+  fillAvatarPreview('prevXinye',   'avatarXinyeEmoji',  grpSettings.xinyeAvatar,  '💙');
+  fillAvatarPreview('prevChoubao', 'avatarChoubaEmoji', grpSettings.choubaAvatar, '🐾');
   settingsPanel.classList.add('open');
 };
 document.getElementById('closeSettings').onclick  = () => settingsPanel.classList.remove('open');
@@ -931,6 +1058,13 @@ document.getElementById('saveSettingsBtn').onclick = async () => {
   grpSettings.choubaPrompt = choubaPromptEl.value.trim() || DEFAULT_CHOUBA_PROMPT;
   grpSettings.groupMemory  = groupMemoryEl.value.trim();
   grpSettings.groupSummary = groupSummaryEl.value.trim();
+  // 头像：输入框有值就覆盖（图片上传已实时更新 grpSettings）
+  const uv = document.getElementById('avatarUserEmoji').value.trim();
+  if (uv) grpSettings.userAvatar = uv;
+  const xv = document.getElementById('avatarXinyeEmoji').value.trim();
+  if (xv) grpSettings.xinyeAvatar = xv;
+  const cv = document.getElementById('avatarChoubaEmoji').value.trim();
+  if (cv) grpSettings.choubaAvatar = cv;
   await gdbPut('settings', 'groupSettings', grpSettings);
   xinyeCfgs = buildCfgList(grpSettings.xinyeApis);
   choubaCfgs = buildCfgList(grpSettings.choubaApis);
@@ -973,6 +1107,37 @@ document.getElementById('importInput').onchange = e => {
   if (f) { importGroupData(f); e.target.value = ''; }
 };
 
+// ---- 头像上传/清除 ----
+function bindAvatarUpload(fileInputId, prevId, emojiId, key) {
+  document.getElementById(fileInputId).onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      grpSettings[key] = ev.target.result;
+      setAvatarEl(document.getElementById(prevId), ev.target.result, '');
+      document.getElementById(emojiId).value = '';
+      gdbPut('settings', 'groupSettings', grpSettings).then(() => toast('头像已更新 ✓'));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+}
+function bindAvatarClear(btnId, prevId, emojiId, key, fallback) {
+  document.getElementById(btnId).onclick = () => {
+    grpSettings[key] = fallback;
+    setAvatarEl(document.getElementById(prevId), fallback, fallback);
+    document.getElementById(emojiId).value = '';
+    gdbPut('settings', 'groupSettings', grpSettings).then(() => toast('已重置 ✓'));
+  };
+}
+bindAvatarUpload('avatarUserImg',   'prevUser',    'avatarUserEmoji',   'userAvatar');
+bindAvatarUpload('avatarXinyeImg',  'prevXinye',   'avatarXinyeEmoji',  'xinyeAvatar');
+bindAvatarUpload('avatarChoubaImg', 'prevChoubao', 'avatarChoubaEmoji', 'choubaAvatar');
+bindAvatarClear('avatarUserClear',   'prevUser',    'avatarUserEmoji',   'userAvatar',   '🐰');
+bindAvatarClear('avatarXinyeClear',  'prevXinye',   'avatarXinyeEmoji',  'xinyeAvatar',  '💙');
+bindAvatarClear('avatarChoubaClear', 'prevChoubao', 'avatarChoubaEmoji', 'choubaAvatar', '🐾');
+
 genSummaryBtn.onclick = generateSummary;
 initMemoryBtn.onclick = initMemory;
 
@@ -1005,6 +1170,9 @@ async function init() {
     if (saved.groupSummary !== undefined) grpSettings.groupSummary = saved.groupSummary;
     if (saved.xinyeApis)  grpSettings.xinyeApis  = saved.xinyeApis;
     if (saved.choubaApis) grpSettings.choubaApis = saved.choubaApis;
+    if (saved.userAvatar   !== undefined) grpSettings.userAvatar   = saved.userAvatar;
+    if (saved.xinyeAvatar  !== undefined) grpSettings.xinyeAvatar  = saved.xinyeAvatar;
+    if (saved.choubaAvatar !== undefined) grpSettings.choubaAvatar = saved.choubaAvatar;
   }
 
   // 从 grpSettings 构建 API cfg 列表
