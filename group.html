@@ -8,66 +8,130 @@
 <script>if(location.protocol==='file:')location.replace('http://localhost:8787/group.html');</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;overflow:hidden;color:#4a3728}
-body{display:flex;flex-direction:column;background:linear-gradient(135deg,#f0ebff 0%,#e8f4fd 50%,#fff0f8 100%)}
+
+/* ---- CSS 变量（亮色模式） ---- */
+:root{
+  --g-body-bg:linear-gradient(135deg,#f0ebff 0%,#e8f4fd 50%,#fff0f8 100%);
+  --g-text:#4a3728;--g-text-muted:#aaa;
+  --g-header-bg:rgba(255,255,255,.85);--g-header-border:rgba(180,160,220,.25);
+  --g-xinye-bg:#dbeeff;--g-xinye-border:#b3d4f5;--g-xinye-text:#1a3a6b;
+  --g-xinye-avatar:#dbeeff;
+  --g-choubao-bg:#fff0dc;--g-choubao-border:#ffd599;--g-choubao-text:#7a3800;
+  --g-choubao-avatar:#fff0dc;
+  --g-user-bg:#fce4ec;--g-user-border:#f8bbd0;--g-user-text:#6d0030;
+  --g-user-avatar:#fce4ec;
+  --g-input-area-bg:rgba(255,255,255,.9);--g-input-area-border:rgba(180,160,220,.25);
+  --g-textarea-bg:rgba(255,255,255,.95);--g-textarea-border:#e0c8e8;--g-textarea-focus:#c39bd3;
+  --g-empty-color:#ccc;
+  --g-drawer-bg:#fff8f5;--g-drawer-border:#f0e0d8;
+  --g-s-title:#a0856b;--g-s-textarea-bg:#fff;--g-s-textarea-border:#f0e0d8;
+  --g-s-btn-ghost-bg:#f0e6da;--g-s-btn-ghost-text:#5d4037;
+  --g-s-btn-danger-bg:#fce4ec;--g-s-btn-danger-text:#880e4f;
+  --g-s-label:#b0927a;
+  --g-api-ok-bg:#e8f5e9;--g-api-ok-text:#2e7d32;
+  --g-api-err-bg:#fce4ec;--g-api-err-text:#c62828;
+  --g-api-bg:#f5f5f5;--g-api-text:#888;
+  --g-typing-dot:#bbb;
+}
+
+/* ---- 暗色模式变量 ---- */
+[data-theme="dark"]{
+  --g-body-bg:linear-gradient(135deg,#16121e 0%,#1e1630 50%,#1a1020 100%);
+  --g-text:#e8d4e4;--g-text-muted:#7a6a80;
+  --g-header-bg:rgba(22,14,30,.88);--g-header-border:rgba(255,255,255,.08);
+  --g-xinye-bg:#0e2035;--g-xinye-border:#1e4060;--g-xinye-text:#7ab8e0;
+  --g-xinye-avatar:#0e2035;
+  --g-choubao-bg:#2a1c08;--g-choubao-border:#4a3010;--g-choubao-text:#c89050;
+  --g-choubao-avatar:#2a1c08;
+  --g-user-bg:#2a1020;--g-user-border:#5a2040;--g-user-text:#e090b0;
+  --g-user-avatar:#2a1020;
+  --g-input-area-bg:rgba(22,14,30,.85);--g-input-area-border:rgba(255,255,255,.08);
+  --g-textarea-bg:rgba(30,20,44,.8);--g-textarea-border:rgba(255,255,255,.12);--g-textarea-focus:#9b6bbd;
+  --g-empty-color:#4a3a52;
+  --g-drawer-bg:#1e1228;--g-drawer-border:#3a2848;
+  --g-s-title:#9a7aaa;--g-s-textarea-bg:#241830;--g-s-textarea-border:#3a2848;
+  --g-s-btn-ghost-bg:#2a1e38;--g-s-btn-ghost-text:#c0a0c8;
+  --g-s-btn-danger-bg:#3a1020;--g-s-btn-danger-text:#e07090;
+  --g-s-label:#7a5a8a;
+  --g-api-ok-bg:#0e2818;--g-api-ok-text:#60c880;
+  --g-api-err-bg:#2a0e18;--g-api-err-text:#e07080;
+  --g-api-bg:#241830;--g-api-text:#7a6a80;
+  --g-typing-dot:#5a4a62;
+}
+[data-theme="dark"] body{background:var(--g-body-bg)}
+[data-theme="dark"] #settingsDrawer{background:var(--g-drawer-bg)}
+[data-theme="dark"] #settingsHeader{border-bottom-color:var(--g-drawer-border)}
+[data-theme="dark"] #settingsHeader h2{color:var(--g-text)}
+[data-theme="dark"] .s-section h3{color:var(--g-s-title)}
+[data-theme="dark"] .s-label{color:var(--g-s-label)}
+[data-theme="dark"] .s-section textarea{background:var(--g-s-textarea-bg);border-color:var(--g-s-textarea-border);color:var(--g-text)}
+[data-theme="dark"] .s-section textarea:focus{border-color:var(--g-textarea-focus)}
+[data-theme="dark"] .s-btn.ghost{background:var(--g-s-btn-ghost-bg);color:var(--g-s-btn-ghost-text)}
+[data-theme="dark"] .s-btn.danger{background:var(--g-s-btn-danger-bg);color:var(--g-s-btn-danger-text)}
+[data-theme="dark"] .api-status{background:var(--g-api-bg);color:var(--g-api-text)}
+[data-theme="dark"] .api-status.ok{background:var(--g-api-ok-bg);color:var(--g-api-ok-text)}
+[data-theme="dark"] .api-status.err{background:var(--g-api-err-bg);color:var(--g-api-err-text)}
+[data-theme="dark"] #btnDark{color:#f0c040}
+
+html,body{height:100%;height:100svh;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;overflow:hidden;color:var(--g-text)}
+body{display:flex;flex-direction:column;background:var(--g-body-bg)}
 
 /* 顶栏 */
-#header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);border-bottom:1px solid rgba(180,160,220,0.25);flex-shrink:0;gap:8px}
-#header h1{font-size:16px;font-weight:600;color:#4a3728}
+#header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--g-header-bg);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--g-header-border);flex-shrink:0;gap:8px}
+#header h1{font-size:16px;font-weight:600;color:var(--g-text)}
 #headerLeft{display:flex;align-items:center;gap:8px}
-.header-btn{background:none;border:none;font-size:20px;cursor:pointer;opacity:0.65;padding:2px;line-height:1;flex-shrink:0}
-.header-btn:active{opacity:1}
+#headerRight{display:flex;align-items:center;gap:4px}
+.g-btn{width:34px;height:34px;border:0.5px solid rgba(255,255,255,.45);border-radius:50%;background:rgba(255,255,255,.38);color:var(--g-text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;padding:0}
+.g-btn:active{opacity:.7}
+[data-theme="dark"] .g-btn{background:rgba(46,28,58,.5);border-color:rgba(255,255,255,.1);color:var(--g-text-muted)}
 
 /* 消息区 */
 #messages{flex:1;overflow-y:auto;padding:14px 12px 10px;display:flex;flex-direction:column;gap:10px}
 #messages::-webkit-scrollbar{width:4px}
-#messages::-webkit-scrollbar-thumb{background:rgba(180,140,200,0.3);border-radius:2px}
+#messages::-webkit-scrollbar-thumb{background:rgba(180,140,200,.3);border-radius:2px}
 
 /* 消息行 */
 .msg-row{display:flex;align-items:flex-end;gap:8px;max-width:82%}
 .msg-row.user{align-self:flex-end;flex-direction:row-reverse}
 .msg-row.xinye,.msg-row.choubao{align-self:flex-start}
-
-/* 头像 */
 .msg-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;line-height:1}
-.xinye .msg-avatar{background:#dbeeff}
-.choubao .msg-avatar{background:#fff0dc}
-.user .msg-avatar{background:#fce4ec}
-
-/* 气泡右侧容器 */
+.xinye .msg-avatar{background:var(--g-xinye-avatar)}
+.choubao .msg-avatar{background:var(--g-choubao-avatar)}
+.user .msg-avatar{background:var(--g-user-avatar)}
 .msg-body{max-width:100%;display:flex;flex-direction:column}
-.msg-name{font-size:11px;color:#aaa;margin-bottom:3px;padding-left:2px}
+.msg-name{font-size:11px;color:var(--g-text-muted);margin-bottom:3px;padding-left:2px}
 .msg-bubble{padding:10px 14px;border-radius:18px;line-height:1.55;word-break:break-word;font-size:15px;white-space:pre-wrap}
-.xinye .msg-bubble{background:#dbeeff;border:1px solid #b3d4f5;color:#1a3a6b;border-bottom-left-radius:4px}
-.choubao .msg-bubble{background:#fff0dc;border:1px solid #ffd599;color:#7a3800;border-bottom-left-radius:4px}
-.user .msg-bubble{background:#fce4ec;border:1px solid #f8bbd0;color:#6d0030;border-bottom-right-radius:4px}
+.xinye .msg-bubble{background:var(--g-xinye-bg);border:1px solid var(--g-xinye-border);color:var(--g-xinye-text);border-bottom-left-radius:4px}
+.choubao .msg-bubble{background:var(--g-choubao-bg);border:1px solid var(--g-choubao-border);color:var(--g-choubao-text);border-bottom-left-radius:4px}
+.user .msg-bubble{background:var(--g-user-bg);border:1px solid var(--g-user-border);color:var(--g-user-text);border-bottom-right-radius:4px}
 
-/* typing indicator */
+/* typing */
 .typing-row{display:flex;align-items:flex-end;gap:8px;max-width:82%;align-self:flex-start}
 .typing-body{display:flex;flex-direction:column}
-.typing-name{font-size:11px;color:#aaa;margin-bottom:3px;padding-left:2px}
+.typing-name{font-size:11px;color:var(--g-text-muted);margin-bottom:3px;padding-left:2px}
 .typing-bubble{padding:10px 14px;border-radius:18px;border-bottom-left-radius:4px;min-width:56px}
-.typing-bubble.xinye-t{background:#dbeeff;border:1px solid #b3d4f5}
-.typing-bubble.choubao-t{background:#fff0dc;border:1px solid #ffd599}
+.typing-bubble.xinye-t{background:var(--g-xinye-bg);border:1px solid var(--g-xinye-border)}
+.typing-bubble.choubao-t{background:var(--g-choubao-bg);border:1px solid var(--g-choubao-border)}
 .typing-dots{display:flex;gap:4px;align-items:center;height:20px}
-.typing-dots span{width:6px;height:6px;border-radius:50%;background:#bbb;animation:tdot 1.2s infinite ease-in-out}
+.typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--g-typing-dot);animation:tdot 1.2s infinite ease-in-out}
 .typing-dots span:nth-child(2){animation-delay:.2s}
 .typing-dots span:nth-child(3){animation-delay:.4s}
 @keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
-.typing-content{font-size:15px;line-height:1.55;word-break:break-word;white-space:pre-wrap;color:#555}
-.xinye-t .typing-content{color:#1a3a6b}
-.choubao-t .typing-content{color:#7a3800}
+.typing-content{font-size:15px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
+.xinye-t .typing-content{color:var(--g-xinye-text)}
+.choubao-t .typing-content{color:var(--g-choubao-text)}
 
 /* 输入区 */
-#inputArea{display:flex;gap:8px;padding:10px 12px;background:rgba(255,255,255,0.9);border-top:1px solid rgba(180,160,220,0.25);flex-shrink:0;align-items:flex-end}
-#userInput{flex:1;border:1px solid #e0c8e8;border-radius:20px;padding:10px 16px;font-size:15px;font-family:inherit;resize:none;outline:none;background:rgba(255,255,255,0.95);color:#4a3728;max-height:120px;min-height:42px;line-height:1.45;overflow-y:auto}
-#userInput:focus{border-color:#c39bd3}
+#inputArea{display:flex;gap:8px;padding:10px 12px;background:var(--g-input-area-bg);border-top:1px solid var(--g-input-area-border);flex-shrink:0;align-items:flex-end}
+#userInput{flex:1;border:1px solid var(--g-textarea-border);border-radius:20px;padding:10px 16px;font-size:15px;font-family:inherit;resize:none;outline:none;background:var(--g-textarea-bg);color:var(--g-text);max-height:120px;min-height:42px;line-height:1.45;overflow-y:auto}
+#userInput::placeholder{color:var(--g-text-muted)}
+#userInput:focus{border-color:var(--g-textarea-focus)}
 #sendBtn{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#7ab3e0,#b39ddb);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;line-height:1}
 #sendBtn:disabled{opacity:.4;cursor:default}
 #sendBtn:not(:disabled):active{opacity:.75}
 
 /* 空状态 */
-#emptyState{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#ccc;font-size:14px;pointer-events:none}
+#emptyState{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--g-empty-color);font-size:14px;pointer-events:none}
 
 /* toast */
 .g-toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:rgba(40,20,60,.75);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;z-index:9999;pointer-events:none;white-space:nowrap;backdrop-filter:blur(6px)}
@@ -75,26 +139,26 @@ body{display:flex;flex-direction:column;background:linear-gradient(135deg,#f0ebf
 /* 设置面板 */
 #settingsPanel{position:fixed;inset:0;z-index:200;display:none}
 #settingsPanel.open{display:flex}
-#settingsOverlay{position:absolute;inset:0;background:rgba(0,0,0,.35)}
-#settingsDrawer{position:absolute;right:0;top:0;bottom:0;width:min(380px,100vw);background:#fff8f5;display:flex;flex-direction:column;overflow:hidden;box-shadow:-4px 0 20px rgba(0,0,0,.12)}
-#settingsHeader{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #f0e0d8;flex-shrink:0}
-#settingsHeader h2{font-size:16px;color:#4a3728}
-#closeSettings{background:none;border:none;font-size:22px;cursor:pointer;opacity:.6;line-height:1}
+#settingsOverlay{position:absolute;inset:0;background:rgba(0,0,0,.38)}
+#settingsDrawer{position:absolute;right:0;top:0;bottom:0;width:min(380px,100vw);background:var(--g-drawer-bg);display:flex;flex-direction:column;overflow:hidden;box-shadow:-4px 0 20px rgba(0,0,0,.15)}
+#settingsHeader{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--g-drawer-border);flex-shrink:0}
+#settingsHeader h2{font-size:16px;color:var(--g-text)}
+#closeSettings{background:none;border:none;font-size:22px;cursor:pointer;opacity:.55;line-height:1;color:var(--g-text)}
 #closeSettings:active{opacity:1}
 #settingsBody{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:18px}
-.s-section h3{font-size:12px;color:#a0856b;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
-.s-section textarea{width:100%;border:1px solid #f0e0d8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;background:#fff;color:#4a3728;outline:none;line-height:1.5}
-.s-section textarea:focus{border-color:#c39bd3}
+.s-section h3{font-size:12px;color:var(--g-s-title);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.s-section textarea{width:100%;border:1px solid var(--g-s-textarea-border);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;background:var(--g-s-textarea-bg);color:var(--g-text);outline:none;line-height:1.5}
+.s-section textarea:focus{border-color:var(--g-textarea-focus)}
 .s-btn{padding:8px 16px;border-radius:16px;border:none;cursor:pointer;font-size:13px;font-family:inherit;transition:opacity .15s}
 .s-btn:active{opacity:.75}
 .s-btn.primary{background:linear-gradient(135deg,#7ab3e0,#b39ddb);color:#fff}
-.s-btn.ghost{background:#f0e6da;color:#5d4037}
-.s-btn.danger{background:#fce4ec;color:#880e4f}
+.s-btn.ghost{background:var(--g-s-btn-ghost-bg);color:var(--g-s-btn-ghost-text)}
+.s-btn.danger{background:var(--g-s-btn-danger-bg);color:var(--g-s-btn-danger-text)}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.s-label{font-size:12px;color:#b0927a;margin-bottom:4px}
-.api-status{font-size:12px;padding:6px 10px;border-radius:8px;background:#f5f5f5;color:#888;margin-top:6px}
-.api-status.ok{background:#e8f5e9;color:#2e7d32}
-.api-status.err{background:#fce4ec;color:#c62828}
+.s-label{font-size:12px;color:var(--g-s-label);margin-bottom:4px}
+.api-status{font-size:12px;padding:6px 10px;border-radius:8px;background:var(--g-api-bg);color:var(--g-api-text);margin-top:6px}
+.api-status.ok{background:var(--g-api-ok-bg);color:var(--g-api-ok-text)}
+.api-status.err{background:var(--g-api-err-bg);color:var(--g-api-err-text)}
 
 /* splash */
 #splash{position:fixed;inset:0;z-index:9999;background:#1a0e2e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
@@ -110,10 +174,13 @@ body{display:flex;flex-direction:column;background:linear-gradient(135deg,#f0ebf
 
 <div id="header">
   <div id="headerLeft">
-    <span style="font-size:22px">💙🐾</span>
-    <h1>我们的群聊</h1>
+    <span style="font-size:20px;line-height:1">💙🐾</span>
+    <h1>桂花树下</h1>
   </div>
-  <button class="header-btn" id="settingsBtn" title="设置">⚙️</button>
+  <div id="headerRight">
+    <button class="g-btn" id="btnDark" title="夜间模式"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
+    <button class="g-btn" id="settingsBtn" title="设置"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2.8" fill="currentColor" opacity="0.4"/><circle cx="12" cy="5" r="2" fill="currentColor" opacity="0.45"/><circle cx="12" cy="19" r="2" fill="currentColor" opacity="0.45"/><circle cx="5" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="19" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="7.05" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="7.05" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/></svg></button>
+  </div>
 </div>
 
 <div id="messages">
@@ -662,6 +729,16 @@ const genSummaryBtn  = document.getElementById('genSummaryBtn');
 const initMemoryBtn  = document.getElementById('initMemoryBtn');
 const settingsPanel  = document.getElementById('settingsPanel');
 
+// ---- 夜间模式 ----
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  localStorage.setItem('group_dark', dark ? '1' : '');
+}
+document.getElementById('btnDark').onclick = () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  applyTheme(!isDark);
+};
+
 document.getElementById('settingsBtn').onclick = () => {
   xinyePromptEl.value  = grpSettings.xinyePrompt;
   choubaPromptEl.value = grpSettings.choubaPrompt;
@@ -706,6 +783,11 @@ sendBtn.onclick = sendMessage;
 
 // ---- 初始化 ----
 async function init() {
+  // 恢复夜间模式（在DB读取之前先应用，避免闪白）
+  if (localStorage.getItem('group_dark') === '1') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+
   gdb = await openGroupDB();
 
   // 读群聊设置
