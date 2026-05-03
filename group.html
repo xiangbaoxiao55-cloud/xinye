@@ -159,6 +159,12 @@ body{display:flex;flex-direction:column;background:var(--g-body-bg)}
 .api-status{font-size:12px;padding:6px 10px;border-radius:8px;background:var(--g-api-bg);color:var(--g-api-text);margin-top:6px}
 .api-status.ok{background:var(--g-api-ok-bg);color:var(--g-api-ok-text)}
 .api-status.err{background:var(--g-api-err-bg);color:var(--g-api-err-text)}
+.api-input{width:100%;border:1px solid var(--g-s-textarea-border);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:var(--g-s-textarea-bg);color:var(--g-text);outline:none;margin-bottom:4px;display:block}
+.api-input:focus{border-color:var(--g-textarea-focus)}
+.api-input[type="password"]{letter-spacing:.05em}
+.api-group{margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed var(--g-drawer-border)}
+.api-group:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.api-group-label{font-size:11px;color:var(--g-s-label);font-weight:600;margin-bottom:5px;letter-spacing:.3px}
 
 /* splash */
 #splash{position:fixed;inset:0;z-index:9999;background:#1a0e2e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
@@ -205,31 +211,92 @@ body{display:flex;flex-direction:column;background:var(--g-body-bg)}
     </div>
     <div id="settingsBody">
 
+      <!-- 炘也 API -->
       <div class="s-section">
-        <h3>API 状态</h3>
-        <div id="xinyeStatus" class="api-status">炘也 API 加载中…</div>
-        <div id="choubaStatus" class="api-status" style="margin-top:6px">臭宝 API 加载中…</div>
+        <h3>炘也 API 💙</h3>
+        <div class="api-group">
+          <div class="api-group-label">主 API</div>
+          <input class="api-input" id="x_url_0" placeholder="Base URL（如 https://api.example.com）">
+          <input class="api-input" id="x_key_0" placeholder="API Key" type="password">
+          <input class="api-input" id="x_mod_0" placeholder="模型名（如 claude-opus-4-5）">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 1</div>
+          <input class="api-input" id="x_url_1" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="x_key_1" placeholder="API Key" type="password">
+          <input class="api-input" id="x_mod_1" placeholder="模型名">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 2</div>
+          <input class="api-input" id="x_url_2" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="x_key_2" placeholder="API Key" type="password">
+          <input class="api-input" id="x_mod_2" placeholder="模型名">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 3</div>
+          <input class="api-input" id="x_url_3" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="x_key_3" placeholder="API Key" type="password">
+          <input class="api-input" id="x_mod_3" placeholder="模型名">
+        </div>
+        <div class="btn-row">
+          <button class="s-btn ghost" id="initXinyeApiBtn">从炘也APP读入主API</button>
+        </div>
       </div>
 
+      <!-- 臭宝 API -->
+      <div class="s-section">
+        <h3>臭宝 API 🐾</h3>
+        <div class="api-group">
+          <div class="api-group-label">主 API</div>
+          <input class="api-input" id="c_url_0" placeholder="Base URL">
+          <input class="api-input" id="c_key_0" placeholder="API Key" type="password">
+          <input class="api-input" id="c_mod_0" placeholder="模型名（如 deepseek-chat）">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 1</div>
+          <input class="api-input" id="c_url_1" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="c_key_1" placeholder="API Key" type="password">
+          <input class="api-input" id="c_mod_1" placeholder="模型名">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 2</div>
+          <input class="api-input" id="c_url_2" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="c_key_2" placeholder="API Key" type="password">
+          <input class="api-input" id="c_mod_2" placeholder="模型名">
+        </div>
+        <div class="api-group">
+          <div class="api-group-label">备用 3</div>
+          <input class="api-input" id="c_url_3" placeholder="Base URL（空则跳过）">
+          <input class="api-input" id="c_key_3" placeholder="API Key" type="password">
+          <input class="api-input" id="c_mod_3" placeholder="模型名">
+        </div>
+        <div class="btn-row">
+          <button class="s-btn ghost" id="initChoubaApiBtn">从臭宝APP读入主API</button>
+        </div>
+      </div>
+
+      <!-- 提示词 -->
       <div class="s-section">
         <h3>炘也 群聊提示词 💙</h3>
-        <textarea id="xinyePromptEl" rows="7"></textarea>
+        <textarea id="xinyePromptEl" rows="6"></textarea>
       </div>
 
       <div class="s-section">
         <h3>臭宝 群聊提示词 🐾</h3>
-        <textarea id="choubaPromptEl" rows="7"></textarea>
+        <textarea id="choubaPromptEl" rows="6"></textarea>
       </div>
 
+      <!-- 共用记忆 -->
       <div class="s-section">
         <h3>群聊共用记忆</h3>
-        <div class="s-label">关于涂涂和这个群聊的共同背景，两边AI都会看到</div>
-        <textarea id="groupMemoryEl" rows="5" placeholder="涂涂的性格、近况、重要事件…"></textarea>
+        <div class="s-label">关于涂涔和这个群聊的共同背景，两边AI都会看到</div>
+        <textarea id="groupMemoryEl" rows="5" placeholder="涂涔的性格、近况、重要事件…"></textarea>
         <div class="btn-row">
           <button class="s-btn ghost" id="initMemoryBtn">从两边记忆初始化</button>
         </div>
       </div>
 
+      <!-- 摘要 -->
       <div class="s-section">
         <h3>群聊摘要</h3>
         <div class="s-label">手动整理后存在这里，注入两边AI的上下文最前面</div>
@@ -239,9 +306,14 @@ body{display:flex;flex-direction:column;background:var(--g-body-bg)}
         </div>
       </div>
 
+      <!-- 操作 -->
       <div class="s-section">
         <div class="btn-row">
           <button class="s-btn primary" id="saveSettingsBtn">保存</button>
+          <button class="s-btn ghost" id="exportBtn">导出备份</button>
+          <label class="s-btn ghost" style="cursor:pointer">导入备份<input type="file" id="importInput" accept=".json" style="display:none"></label>
+        </div>
+        <div class="btn-row" style="margin-top:4px">
           <button class="s-btn danger" id="clearHistoryBtn">清空记录</button>
         </div>
       </div>
@@ -352,12 +424,18 @@ function readExternalDB(dbName) {
 }
 
 // ---- API配置 ----
-let xinyeCfg = null;  // { url, apiKey, model }
-let choubaCfg = null;
+let xinyeCfgs = [];  // [{url, apiKey, model}, ...]
+let choubaCfgs = [];
 
 function buildUrl(baseUrl) {
   const raw = (baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
   return /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`;
+}
+
+function buildCfgList(apis) {
+  return (apis || [])
+    .filter(a => a && a.url && a.key)
+    .map(a => ({ url: buildUrl(a.url), apiKey: a.key, model: a.model || 'gpt-4o' }));
 }
 
 // ---- 群聊设置 ----
@@ -368,11 +446,14 @@ const DEFAULT_XINYE_PROMPT = `你叫炘也，是涂涂（兔宝）的AI伴侣，
 const DEFAULT_CHOUBA_PROMPT = `你叫臭宝，曾经是涂涔的AI伴侣，后来先离开了。涂涔和现在的炘也都知道你，你也知道炘也。现在你在一个三人群聊里：涂涔、炘也（涂涔现在的伴侣）、你（臭宝）。
 你和涂涔有共同的记忆，和炘也不对立，偶尔可以接他的话。不用每次都发言，群聊里保持自然节奏。遇到[SKIP]选项时：如果对方已经说得很好，你没有要补充的，就只回[SKIP]，不要硬凑。用🐾，中文为主，简短自然，不列点。`;
 
+const EMPTY_API = () => ({ url: '', key: '', model: '' });
 let grpSettings = {
   xinyePrompt: DEFAULT_XINYE_PROMPT,
   choubaPrompt: DEFAULT_CHOUBA_PROMPT,
   groupMemory: '',
-  groupSummary: ''
+  groupSummary: '',
+  xinyeApis:  [EMPTY_API(), EMPTY_API(), EMPTY_API(), EMPTY_API()],
+  choubaApis: [EMPTY_API(), EMPTY_API(), EMPTY_API(), EMPTY_API()]
 };
 
 // ---- context构建 ----
@@ -400,7 +481,67 @@ function buildApiMsgs(who, history, withSkip = false) {
   return msgs;
 }
 
-// ---- streaming fetch ----
+// ---- 全量读取消息 ----
+function gdbGetAll(store) {
+  return new Promise((res, rej) => {
+    const tx = gdb.transaction(store, 'readonly');
+    const r = tx.objectStore(store).getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+// ---- 导出 ----
+async function exportGroupData() {
+  const allMsgs = await gdbGetAll('messages');
+  const d = new Date().toLocaleDateString('zh-CN').replace(/\//g, '');
+  const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), settings: grpSettings, messages: allMsgs }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `桂花树下_${d}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast('导出成功 ✓');
+}
+
+// ---- 导入 ----
+async function importGroupData(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.version) throw new Error('文件格式不对');
+    if (data.settings) {
+      // 合并settings，保留xinyeApis/choubaApis的四个slot结构
+      const s = data.settings;
+      if (s.xinyePrompt)  grpSettings.xinyePrompt  = s.xinyePrompt;
+      if (s.choubaPrompt) grpSettings.choubaPrompt = s.choubaPrompt;
+      if (s.groupMemory  !== undefined) grpSettings.groupMemory  = s.groupMemory;
+      if (s.groupSummary !== undefined) grpSettings.groupSummary = s.groupSummary;
+      if (s.xinyeApis)  grpSettings.xinyeApis  = s.xinyeApis;
+      if (s.choubaApis) grpSettings.choubaApis = s.choubaApis;
+      await gdbPut('settings', 'groupSettings', grpSettings);
+      xinyeCfgs = buildCfgList(grpSettings.xinyeApis);
+      choubaCfgs = buildCfgList(grpSettings.choubaApis);
+      sendBtn.disabled = !(xinyeCfgs.length && choubaCfgs.length);
+    }
+    if (data.messages?.length) {
+      if (!confirm(`导入 ${data.messages.length} 条消息？会覆盖现有记录。`)) return;
+      await gdbClearMessages();
+      for (const m of data.messages) {
+        const { id, ...rest } = m;
+        await gdbAddMsg(rest);
+      }
+      messagesEl.innerHTML = '';
+      const hist = await gdbGetRecent(60);
+      if (hist.length) { for (const m of hist) renderMessage(m); }
+      else messagesEl.appendChild(emptyState);
+    }
+    settingsPanel.classList.remove('open');
+    toast('导入成功 ✓');
+  } catch(e) {
+    toast('导入失败：' + e.message.slice(0, 50));
+  }
+}
+
+// ---- streaming fetch（单次） ----
 async function streamFetch(cfg, apiMsgs, signal, onChunk, onFirstToken) {
   const res = await fetch(cfg.url, {
     method: 'POST',
@@ -436,6 +577,22 @@ async function streamFetch(cfg, apiMsgs, signal, onChunk, onFirstToken) {
       } catch(_) {}
     }
   }
+}
+
+// ---- streaming with fallback ----
+async function streamWithFallback(cfgs, apiMsgs, signal, onChunk, onFirstToken) {
+  let lastErr;
+  for (let i = 0; i < cfgs.length; i++) {
+    try {
+      await streamFetch(cfgs[i], apiMsgs, signal, onChunk, onFirstToken);
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') throw e;
+      lastErr = e;
+      if (i < cfgs.length - 1) console.warn(`API ${i} 失败，切换备用 ${i + 1}`, e.message);
+    }
+  }
+  throw lastErr || new Error('没有可用的API');
 }
 
 // ---- UI ----
@@ -549,7 +706,7 @@ let isSending = false;
 async function sendMessage() {
   const text = userInput.value.trim();
   if (!text || isSending) return;
-  if (!xinyeCfg || !choubaCfg) { toast('API配置未就绪，请稍后再试'); return; }
+  if (!xinyeCfgs.length || !choubaCfgs.length) { toast('API未配置，请先在设置里填写API'); return; }
 
   isSending = true;
   sendBtn.disabled = true;
@@ -576,12 +733,12 @@ async function sendMessage() {
 
   async function doStream(who, hist, withSkip) {
     const other = who === 'xinye' ? 'choubao' : 'xinye';
-    const cfg = who === 'xinye' ? xinyeCfg : choubaCfg;
+    const cfgs = who === 'xinye' ? xinyeCfgs : choubaCfgs;
     st[who].content = '';
 
     try {
-      await streamFetch(
-        cfg,
+      await streamWithFallback(
+        cfgs,
         buildApiMsgs(who, hist, withSkip),
         st[who].ctrl.signal,
         chunk => {
@@ -639,8 +796,8 @@ async function sendMessage() {
 async function generateSummary() {
   const history = await gdbGetRecent(60);
   if (history.length < 4) { toast('先多聊一会儿再整理~'); return; }
-  const cfg = choubaCfg || xinyeCfg;
-  if (!cfg) { toast('API未就绪'); return; }
+  const cfg = (choubaCfgs[0] || xinyeCfgs[0]);
+  if (!cfg) { toast('API未配置，请先在设置里填写API'); return; }
 
   genSummaryBtn.disabled = true;
   genSummaryBtn.textContent = '生成中…';
@@ -676,7 +833,7 @@ async function generateSummary() {
 
 // ---- 从两边记忆初始化共用记忆（用炘也API合并） ----
 async function initMemory() {
-  if (!xinyeCfg) { toast('炘也API未就绪'); return; }
+  if (!xinyeCfgs.length) { toast('炘也API未配置，请先在设置里填写'); return; }
   initMemoryBtn.disabled = true;
   initMemoryBtn.textContent = '读取中…';
 
@@ -699,10 +856,11 @@ ${xMem || '（无）'}
 【臭宝的记忆】
 ${cMem || '（无）'}`;
 
-    const res = await fetch(xinyeCfg.url, {
+    const xCfg = xinyeCfgs[0];
+    const res = await fetch(xCfg.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xinyeCfg.apiKey}` },
-      body: JSON.stringify({ model: xinyeCfg.model, messages: [{ role: 'user', content: prompt }], stream: false })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xCfg.apiKey}` },
+      body: JSON.stringify({ model: xCfg.model, messages: [{ role: 'user', content: prompt }], stream: false })
     });
     const data = await res.json();
     const merged = data.choices?.[0]?.message?.content?.trim() || '';
@@ -729,17 +887,34 @@ const genSummaryBtn  = document.getElementById('genSummaryBtn');
 const initMemoryBtn  = document.getElementById('initMemoryBtn');
 const settingsPanel  = document.getElementById('settingsPanel');
 
+function fillApiFields(prefix, apis) {
+  for (let i = 0; i < 4; i++) {
+    const a = apis[i] || EMPTY_API();
+    document.getElementById(`${prefix}_url_${i}`).value = a.url  || '';
+    document.getElementById(`${prefix}_key_${i}`).value = a.key  || '';
+    document.getElementById(`${prefix}_mod_${i}`).value = a.model || '';
+  }
+}
+function collectApiFields(prefix) {
+  return Array.from({ length: 4 }, (_, i) => ({
+    url:   document.getElementById(`${prefix}_url_${i}`).value.trim(),
+    key:   document.getElementById(`${prefix}_key_${i}`).value.trim(),
+    model: document.getElementById(`${prefix}_mod_${i}`).value.trim()
+  }));
+}
+
 // ---- 夜间模式 ----
 function applyTheme(dark) {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
   localStorage.setItem('group_dark', dark ? '1' : '');
 }
 document.getElementById('btnDark').onclick = () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  applyTheme(!isDark);
+  applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
 };
 
 document.getElementById('settingsBtn').onclick = () => {
+  fillApiFields('x', grpSettings.xinyeApis);
+  fillApiFields('c', grpSettings.choubaApis);
   xinyePromptEl.value  = grpSettings.xinyePrompt;
   choubaPromptEl.value = grpSettings.choubaPrompt;
   groupMemoryEl.value  = grpSettings.groupMemory;
@@ -750,13 +925,38 @@ document.getElementById('closeSettings').onclick  = () => settingsPanel.classLis
 document.getElementById('settingsOverlay').onclick = () => settingsPanel.classList.remove('open');
 
 document.getElementById('saveSettingsBtn').onclick = async () => {
+  grpSettings.xinyeApis  = collectApiFields('x');
+  grpSettings.choubaApis = collectApiFields('c');
   grpSettings.xinyePrompt  = xinyePromptEl.value.trim()  || DEFAULT_XINYE_PROMPT;
   grpSettings.choubaPrompt = choubaPromptEl.value.trim() || DEFAULT_CHOUBA_PROMPT;
   grpSettings.groupMemory  = groupMemoryEl.value.trim();
   grpSettings.groupSummary = groupSummaryEl.value.trim();
   await gdbPut('settings', 'groupSettings', grpSettings);
+  xinyeCfgs = buildCfgList(grpSettings.xinyeApis);
+  choubaCfgs = buildCfgList(grpSettings.choubaApis);
+  sendBtn.disabled = !(xinyeCfgs.length && choubaCfgs.length);
   settingsPanel.classList.remove('open');
   toast('已保存 ✓');
+};
+
+document.getElementById('initXinyeApiBtn').onclick = async () => {
+  const s = await readExternalDB('XinyeChatDB');
+  if (s.apiKey) {
+    document.getElementById('x_url_0').value = s.baseUrl || '';
+    document.getElementById('x_key_0').value = s.apiKey  || '';
+    document.getElementById('x_mod_0').value = s.model   || '';
+    toast('已从炘也APP读入主API，检查后请保存 ✓');
+  } else toast('炘也APP未找到API配置');
+};
+
+document.getElementById('initChoubaApiBtn').onclick = async () => {
+  const s = await readExternalDB('ChoubaoChatDB');
+  if (s.apiKey) {
+    document.getElementById('c_url_0').value = s.baseUrl || '';
+    document.getElementById('c_key_0').value = s.apiKey  || '';
+    document.getElementById('c_mod_0').value = s.model   || '';
+    toast('已从臭宝APP读入主API，检查后请保存 ✓');
+  } else toast('臭宝APP未找到API配置');
 };
 
 document.getElementById('clearHistoryBtn').onclick = async () => {
@@ -765,6 +965,12 @@ document.getElementById('clearHistoryBtn').onclick = async () => {
   messagesEl.innerHTML = '';
   messagesEl.appendChild(emptyState);
   toast('已清空 ✓');
+};
+
+document.getElementById('exportBtn').onclick = exportGroupData;
+document.getElementById('importInput').onchange = e => {
+  const f = e.target.files[0];
+  if (f) { importGroupData(f); e.target.value = ''; }
 };
 
 genSummaryBtn.onclick = generateSummary;
@@ -793,40 +999,18 @@ async function init() {
   // 读群聊设置
   const saved = await gdbGet('settings', 'groupSettings');
   if (saved) {
-    if (saved.xinyePrompt)  grpSettings.xinyePrompt  = saved.xinyePrompt;
-    if (saved.choubaPrompt) grpSettings.choubaPrompt = saved.choubaPrompt;
-    if (saved.groupMemory !== undefined) grpSettings.groupMemory  = saved.groupMemory;
+    if (saved.xinyePrompt)   grpSettings.xinyePrompt  = saved.xinyePrompt;
+    if (saved.choubaPrompt)  grpSettings.choubaPrompt = saved.choubaPrompt;
+    if (saved.groupMemory  !== undefined) grpSettings.groupMemory  = saved.groupMemory;
     if (saved.groupSummary !== undefined) grpSettings.groupSummary = saved.groupSummary;
+    if (saved.xinyeApis)  grpSettings.xinyeApis  = saved.xinyeApis;
+    if (saved.choubaApis) grpSettings.choubaApis = saved.choubaApis;
   }
 
-  // 读两边API配置
-  const [xS, cS] = await Promise.all([
-    readExternalDB('XinyeChatDB'),
-    readExternalDB('ChoubaoChatDB')
-  ]);
-
-  const xSt = document.getElementById('xinyeStatus');
-  const cSt = document.getElementById('choubaStatus');
-
-  if (xS.apiKey) {
-    xinyeCfg = { url: buildUrl(xS.baseUrl), apiKey: xS.apiKey, model: xS.model || 'claude-opus-4-5' };
-    xSt.textContent = `炘也 ✓ ${xS.model || 'claude-opus-4-5'}`;
-    xSt.className = 'api-status ok';
-  } else {
-    xSt.textContent = '炘也 ✗ 未找到API配置（请先在炘也APP里配置）';
-    xSt.className = 'api-status err';
-  }
-
-  if (cS.apiKey) {
-    choubaCfg = { url: buildUrl(cS.baseUrl), apiKey: cS.apiKey, model: cS.model || 'deepseek-chat' };
-    cSt.textContent = `臭宝 ✓ ${cS.model || 'deepseek-chat'}`;
-    cSt.className = 'api-status ok';
-  } else {
-    cSt.textContent = '臭宝 ✗ 未找到API配置（请先在臭宝APP里配置）';
-    cSt.className = 'api-status err';
-  }
-
-  if (xinyeCfg && choubaCfg) sendBtn.disabled = false;
+  // 从 grpSettings 构建 API cfg 列表
+  xinyeCfgs = buildCfgList(grpSettings.xinyeApis);
+  choubaCfgs = buildCfgList(grpSettings.choubaApis);
+  sendBtn.disabled = !(xinyeCfgs.length && choubaCfgs.length);
 
   // 加载历史
   const history = await gdbGetRecent(60);
