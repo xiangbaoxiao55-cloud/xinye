@@ -192,7 +192,10 @@ body{display:flex;flex-direction:column;background:var(--g-body-bg)}
 <div id="header">
   <div id="headerLeft">
     <span style="font-size:20px;line-height:1">💙🐾</span>
-    <h1>桂花树下</h1>
+    <div>
+      <h1>桂花树下</h1>
+      <div id="msgCount" style="font-size:11px;color:var(--g-text-muted);line-height:1.3;margin-top:1px">今日 0 条</div>
+    </div>
   </div>
   <div id="headerRight">
     <button class="g-btn" id="btnDark" title="夜间模式"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
@@ -659,6 +662,36 @@ async function streamWithFallback(cfgs, apiMsgs, signal, onChunk, onFirstToken) 
   throw lastErr || new Error('没有可用的API');
 }
 
+// ---- AI回复清洗：去掉模型错误输出的角色前缀 ----
+function cleanAiResponse(text, who) {
+  const roleLabel = who === 'xinye' ? '炘也' : '臭宝';
+  // 如果含自身角色前缀，取最后一个 [Role]: 之后的内容
+  const ownRe = new RegExp(`\\[${roleLabel}\\]:\\s*`, 'g');
+  if (ownRe.test(text)) {
+    const idx = text.lastIndexOf(`[${roleLabel}]:`);
+    text = text.slice(idx + `[${roleLabel}]:`.length).trim();
+  }
+  // 再把剩余文本中每行开头的任意角色前缀都去掉
+  text = text.split('\n')
+    .map(l => l.replace(/^\s*\[(炘也|臭宝|涂涔)\]:\s*/, '').trimEnd())
+    .join('\n').trim();
+  return text;
+}
+
+// 流式显示用：仅去掉开头的角色前缀（不做截断，避免干扰中间状态）
+function stripLeadingPrefix(text) {
+  return text.replace(/^\s*\[(炘也|臭宝|涂涔)\]:\s*/u, '');
+}
+
+// ---- 今日消息数 ----
+async function updateMsgCount() {
+  const today = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+  const all = await gdbGetAll('messages');
+  const count = all.filter(m => new Date(m.time).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) === today).length;
+  const el = document.getElementById('msgCount');
+  if (el) el.textContent = `今日 ${count} 条`;
+}
+
 // ---- 头像工具 ----
 function setAvatarEl(el, av, fallback) {
   el.innerHTML = '';
@@ -862,13 +895,13 @@ async function sendMessage() {
         st[who].ctrl.signal,
         chunk => {
           st[who].content += chunk;
-          updateTyping(who, st[who].content);
+          updateTyping(who, stripLeadingPrefix(st[who].content));
         },
         () => { st[who].started = true; }
       );
 
       hideTyping(who);
-      const content = st[who].content.trim();
+      const content = cleanAiResponse(st[who].content.trim(), who);
 
       // SKIP或空回复：静默丢弃
       if (!content || content === '[SKIP]') return null;
@@ -909,6 +942,7 @@ async function sendMessage() {
   isSending = false;
   sendBtn.disabled = false;
   userInput.focus();
+  updateMsgCount();
 }
 
 // ---- 摘要生成（用臭宝API/DeepSeek） ----
@@ -1187,6 +1221,8 @@ async function init() {
     for (const m of history) renderMessage(m);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
+  updateMsgCount();
 
   // 淡出splash
   const splash = document.getElementById('splash');
