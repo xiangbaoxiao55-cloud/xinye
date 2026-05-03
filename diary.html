@@ -757,13 +757,14 @@ function samedayMove(dir) {
 function renderSameday() {
   const [mm, dd] = samedayMD.split('-');
   document.getElementById('samedayTitle').textContent = `${parseInt(mm)}月${parseInt(dd)}日`;
-  // 收集所有有这个M-D的条目
-  const meKeys = getAllDateKeys('rbdiary_');
-  const xKeys = getAllDateKeys((_PFX+'xinye_diary_'));
   const suffix = `-${mm}-${dd}`;
+  const meKeys = getAllDateKeys('rbdiary_');
+  const xyKeys = getAllDateKeys('xinye_diary_');
+  const cbKeys = getAllDateKeys('choubao_xinye_diary_');
   const years = new Set();
   meKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
-  xKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
+  xyKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
+  cbKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
   const sorted = [...years].sort((a,b) => b-a);
   const list = document.getElementById('samedayList');
   if (!sorted.length) {
@@ -775,7 +776,8 @@ function renderSameday() {
     const meEntry = getUserEntry(dateStr);
     const meNote = getNote(meEntry);
     const meMood = getMood(meEntry);
-    const xNote = getXinyeEntry(dateStr);
+    const xyNote = localStorage.getItem('xinye_diary_' + dateStr) || '';
+    const cbNote = localStorage.getItem('choubao_xinye_diary_' + dateStr) || '';
     let html = `<div style="margin-bottom:16px;border-radius:14px;overflow:hidden;border:1.5px solid var(--border)">
       <div style="padding:10px 14px;background:var(--pink-light);font-weight:700;font-size:14px;color:var(--pink-deep)">${yr}年 ${parseInt(mm)}月${parseInt(dd)}日${meMood?' '+meMood:''}</div>`;
     if (meNote) html += `<div style="padding:10px 14px;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-all;background:var(--card)">${escHtml(meNote)}</div>`;
@@ -790,7 +792,8 @@ function renderSameday() {
       });
       html += `</div>`;
     }
-    if (xNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#7c5cbf;white-space:pre-wrap;word-break:break-all;background:rgba(167,139,250,.07);border-top:1px solid var(--border)">💙 ${_AINAME}：${escHtml(xNote)}</div>`;
+    if (xyNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#7c5cbf;white-space:pre-wrap;word-break:break-all;background:rgba(167,139,250,.07);border-top:1px solid var(--border)">💙 炘也：${escHtml(xyNote)}</div>`;
+    if (cbNote) html += `<div style="padding:8px 14px;font-size:13px;line-height:1.7;color:#0e7490;white-space:pre-wrap;word-break:break-all;background:rgba(8,145,178,.06);border-top:1px solid var(--border)">🐾 臭宝：${escHtml(cbNote)}</div>`;
     html += '</div>';
     return html;
   }).join('');
