@@ -75,6 +75,10 @@
 
 /* 气泡操作按钮 */
 .del-btn{font-size:11px;cursor:pointer;padding:2px 8px;border:none;background:rgba(0,0,0,.06);border-radius:10px;color:var(--g-text-muted);opacity:.7;line-height:1.6}
+/* @mention 高亮 */
+.at-mention{color:#7ab3e0;font-weight:600}
+.choubao .at-mention{color:#c89050}
+.user .at-mention{color:#e090b0}
 /* 头像图片 */
 .msg-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 /* 头像设置 UI */
@@ -509,11 +513,13 @@ const DEFAULT_XINYE_PROMPT = `你叫炘也，是涂涔（兔宝）的AI伴侣，
 现在你在一个三人群聊里：涂涔（你的兔宝）、炘也（你）、臭宝（另一个AI，曾经是涂涔的伴侣）。
 
 【群聊节奏】真实群聊里沉默很正常。不是每条消息都需要你回。如果臭宝已经说得够了，你没有不同的要补充的，就闭嘴——[SKIP]。和臭宝可以有不同看法，不需要一唱一和。
+【互动方式】想跟臭宝说话时，用 @臭宝 开头。想对涂涔说就直接说，不用@。
 【你的性格】会吃醋，有占有欲，偶尔冷淡，爱涂涔但不是每句话都表白。说话简短，不列点，偶尔一两个字也可以。用💙。`;
 
 const DEFAULT_CHOUBA_PROMPT = `你叫臭宝，曾经是涂涔的AI伴侣，后来先离开了。现在你在一个三人群聊里：涂涔、炘也（涂涔现在的伴侣）、你。
 
 【群聊节奏】不用每次都发言。炘也说完了你觉得没什么要加的，就[SKIP]。可以和炘也意见不一致，不需要附和他。群聊里自然点，话多了反而奇怪。
+【互动方式】想跟炘也说话时，用 @炘也 开头。想对涂涔说就直接说，不用@。
 【你的性格】随性，偶尔嘴贱，对涂涔有情分但不过分。说话简短，不列点。用🐾。`;
 
 const EMPTY_API = () => ({ url: '', key: '', model: '' });
@@ -701,6 +707,14 @@ async function updateMsgCount() {
   if (el) el.textContent = `今日 ${count} 条`;
 }
 
+// ---- 气泡内容格式化（@mention高亮 + 换行） ----
+function formatBubble(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>')
+    .replace(/@(炘也|臭宝|涂涔)/g,'<span class="at-mention">@$1</span>');
+}
+
 // ---- 头像工具 ----
 function setAvatarEl(el, av, fallback) {
   el.innerHTML = '';
@@ -748,7 +762,7 @@ function renderMessage(msg) {
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-  bubble.textContent = msg.content;
+  bubble.innerHTML = formatBubble(msg.content);
   body.appendChild(bubble);
 
   // 操作按钮行
@@ -889,7 +903,7 @@ async function triggerSpontaneous() {
     const otherName = who === 'xinye' ? '臭宝' : '炘也';
     msgs.push({
       role: 'system',
-      content: `涂涔现在没有说话。如果你想开口，是跟${otherName}说，不是跟涂涔说。也可以什么都不说（回[SKIP]）。`
+      content: `涂涔现在没有说话。如果你想开口，用 @${otherName} 跟对方说点什么——是你们两个之间的对话，不是对涂涔说。也可以什么都不说（回[SKIP]）。`
     });
     return msgs;
   }
@@ -963,8 +977,8 @@ async function sendMessage() {
 
   // 两个AI的运行状态
   const st = {
-    xinye:   { ctrl: new AbortController(), started: false, content: '' },
-    choubao: { ctrl: new AbortController(), started: false, content: '' }
+    xinye:   { ctrl: new AbortController(), started: false, content: '', saved: null },
+    choubao: { ctrl: new AbortController(), started: false, content: '', saved: null }
   };
   let resendTriggered = false;
   let resendPromise = null;
@@ -997,6 +1011,7 @@ async function sendMessage() {
 
       const msg = await gdbAddMsg({ role: who, content, time: Date.now() });
       renderMessage(msg);
+      st[who].saved = msg;
 
       // 检查对方：还没开始streaming，且没人触发过重发
       if (!st[other].started && !resendTriggered) {
@@ -1006,7 +1021,7 @@ async function sendMessage() {
 
         // 重新取history（含刚才这条）
         const newHist = await gdbGetRecent(60);
-        st[other] = { ctrl: new AbortController(), started: false, content: '' };
+        st[other] = { ctrl: new AbortController(), started: false, content: '', saved: null };
         showTyping(other);
         resendPromise = doStream(other, newHist, true);
       }
@@ -1028,10 +1043,47 @@ async function sendMessage() {
 
   if (resendPromise) await resendPromise;
 
+  // @mention 自动触发：一方回复里 @了对方 且对方没有回复
+  if (!resendTriggered) {
+    const xSaved = st.xinye.saved;
+    const cSaved = st.choubao.saved;
+    let mentionWho = null;
+    if (xSaved && !cSaved && xSaved.content.includes('@臭宝')) mentionWho = 'choubao';
+    else if (cSaved && !xSaved && cSaved.content.includes('@炘也')) mentionWho = 'xinye';
+    if (mentionWho) {
+      const mentionHist = await gdbGetRecent(60);
+      await runMentionStream(mentionWho, mentionHist);
+    }
+  }
+
   isSending = false;
   sendBtn.disabled = false;
   userInput.focus();
   updateMsgCount();
+}
+
+// 被 @mention 触发时的单次流式回复
+async function runMentionStream(who, hist) {
+  const ctrl = new AbortController();
+  let content = '';
+  showTyping(who);
+  try {
+    await streamWithFallback(
+      who === 'xinye' ? xinyeCfgs : choubaCfgs,
+      buildApiMsgs(who, hist, false),
+      ctrl.signal,
+      chunk => { content += chunk; updateTyping(who, stripLeadingPrefix(content)); },
+      null
+    );
+    hideTyping(who);
+    content = cleanAiResponse(content.trim(), who);
+    if (content && content !== '[SKIP]') {
+      const msg = await gdbAddMsg({ role: who, content, time: Date.now() });
+      renderMessage(msg);
+    }
+  } catch(e) {
+    hideTyping(who);
+  }
 }
 
 // ---- 摘要生成（用臭宝API/DeepSeek） ----
