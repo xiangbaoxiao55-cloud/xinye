@@ -1181,8 +1181,9 @@ function autoResize() {
   userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
 }
 userInput.addEventListener('input', autoResize);
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || ('ontouchstart' in window);
 userInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); sendMessage(); }
 });
 sendBtn.onclick = sendMessage;
 
