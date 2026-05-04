@@ -80,7 +80,7 @@
       </div>
       <div>
         <div class="header-name" id="headerName">炘也</div>
-        <div class="header-status" id="headerStatus">在一起第 … 天 · 今日 … 条<span class="rp-status-badge" id="rpStatusBadge">🎭 RP中</span></div>
+        <div class="header-status" id="headerStatus">在一起第 … 天 · 今日 … 条</div>
       </div>
     </div>
     <div class="header-actions">
@@ -112,58 +112,6 @@
     <div class="typing-dots"><span></span><span></span><span></span></div>
   </div>
 
-  <!-- RP面板 -->
-  <div class="rp-panel" id="rpPanel">
-    <div class="rp-panel-header">
-      <div class="rp-panel-title">
-        🎭 RP模式
-        <span class="rp-active-dot" id="rpActiveDot"></span>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="rp-toggle-btn off" id="rpToggleBtn" onclick="toggleRpActive()">未开启</button>
-        <button style="width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,.08);color:#9e6aae;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0" onclick="closeRpPanel()" title="收起">✕</button>
-      </div>
-    </div>
-    <!-- 角色身份行：TA的角色 -->
-    <div style="font-size:11px;color:#9e6aae;font-weight:600;margin-bottom:-4px">TA的角色</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="position:relative;flex-shrink:0">
-        <img id="rpCharAvatar" src="" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #ce93d8;cursor:pointer;display:none" onclick="document.getElementById('rpAvatarInput').click()" title="点击换头像">
-        <div id="rpCharAvatarPlaceholder" onclick="document.getElementById('rpAvatarInput').click()" style="width:38px;height:38px;border-radius:50%;border:2px dashed #ce93d8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.4)" title="上传头像">🎭</div>
-        <input type="file" id="rpAvatarInput" accept="image/*" style="display:none" onchange="handleRpAvatarUpload(this)">
-      </div>
-      <input type="text" id="rpCharName" placeholder="角色名（不填则保持炘也）" value=""
-        style="flex:1;padding:7px 12px;border:1.5px solid #ce93d8;border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none"
-        oninput="saveRpCharInfo()">
-      <button onclick="clearRpAvatar()" style="padding:5px 8px;border:none;border-radius:8px;background:rgba(0,0,0,.08);color:#9e6aae;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap">清除</button>
-    </div>
-    <!-- 我的角色行 -->
-    <div style="font-size:11px;color:#9e6aae;font-weight:600;margin-bottom:-4px">我的角色</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="position:relative;flex-shrink:0">
-        <img id="rpUserAvatar" src="" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #ce93d8;cursor:pointer;display:none" onclick="document.getElementById('rpUserAvatarInput').click()" title="点击换头像">
-        <div id="rpUserAvatarPlaceholder" onclick="document.getElementById('rpUserAvatarInput').click()" style="width:38px;height:38px;border-radius:50%;border:2px dashed #ce93d8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.4)" title="上传头像">👤</div>
-        <input type="file" id="rpUserAvatarInput" accept="image/*" style="display:none" onchange="handleRpUserAvatarUpload(this)">
-      </div>
-      <input type="text" id="rpUserName" placeholder="我的角色名（会告知AI，不填则不设定）" value=""
-        style="flex:1;padding:7px 12px;border:1.5px solid #ce93d8;border-radius:10px;font-size:13px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none"
-        oninput="saveRpCharInfo()">
-      <button onclick="clearRpUserAvatar()" style="padding:5px 8px;border:none;border-radius:8px;background:rgba(0,0,0,.08);color:#9e6aae;font-size:11px;cursor:pointer;flex-shrink:0;white-space:nowrap">清除</button>
-    </div>
-    <textarea id="rpPromptInput" placeholder="写RP场景设定…&#10;比如：「现在是中世纪奇幻世界，你扮演一个神秘的黑袍魔法师，我是误入魔法塔的旅人……」" oninput="saveRpPrompt()"></textarea>
-    <div class="rp-panel-presets">
-      <select id="rpPresetSelect" onchange="loadRpPreset()">
-        <option value="">— 选择保存的预设 —</option>
-      </select>
-      <button class="rp-preset-btn rp-preset-del" onclick="deleteRpPreset()">删除</button>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <input type="text" id="rpPresetNameInput" placeholder="预设名称…" style="flex:1;padding:6px 10px;border:1.5px solid #ce93d8;border-radius:10px;font-size:12px;font-family:inherit;background:rgba(255,255,255,.7);color:var(--text);outline:none">
-      <button class="rp-preset-btn rp-preset-save" onclick="saveRpPreset()">保存预设</button>
-    </div>
-    <div class="rp-panel-hint">💡 开启后只用角色卡，记忆档案和炘也人设完全隔离。关闭即恢复正常聊天。</div>
-  </div>
-
   <!-- 输入区 -->
   <div class="input-area">
     <div class="input-main-row">
@@ -180,7 +128,6 @@
       <button class="btn-img" id="btnSticker" onclick="openStickerPanel()" title="发贴纸"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.3L12 17l-6.2 4.2 2.4-7.3L2 9.4h7.6z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
       <button class="btn-img" id="btnImg" title="发送图片给 AI 看"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" opacity="0.6"/><path d="M3 17l5-5 4 4 3-3 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="btn-search hidden" id="btnSearch" title="联网搜索后发送"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button class="btn-rp" id="btnRp" onclick="openRpPanel()" title="RP模式">🎭</button>
       <button class="btn-img" id="btnDrawImage" onclick="triggerDrawImage()" title="让炘也画图">🎨</button>
       <button class="btn-kiss" id="btnKiss" onclick="sendKiss()" title="亲亲炘也"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 20.5C12 20.5 3 13.8 3 8.2 3 5.3 5.4 3 8.3 3c1.6 0 3 .8 3.7 2C12.7 3.8 14.1 3 15.7 3 18.6 3 21 5.3 21 8.2c0 5.6-9 12.3-9 12.3z" fill="currentColor" opacity=".4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
     </div>
