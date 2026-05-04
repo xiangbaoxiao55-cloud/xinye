@@ -875,20 +875,30 @@ async function triggerSpontaneous() {
   const first  = Math.random() < 0.5 ? 'xinye' : 'choubao';
   const second = first === 'xinye' ? 'choubao' : 'xinye';
 
-  // 临时触发消息：不存 DB，仅注入 context
-  const triggerText = '（涂涔没说话。你们随便聊，或者继续刚才的话题，或者沉默，都行。）';
-  const histWithTrigger = [...history, { role: 'user', content: triggerText }];
-
   const firstCtrl  = new AbortController();
   const secondCtrl = new AbortController();
   let firstContent = '';
   let secondContent = '';
 
+  const secondName = second === 'xinye' ? '炘也' : '臭宝';
+  const firstName  = first  === 'xinye' ? '炘也' : '臭宝';
+
+  // 构建"戳一戳"专用 API 消息：基础 context + system 指令让他对另一人说话
+  function buildSpontMsgs(who, hist, withSkipFlag) {
+    const msgs = buildApiMsgs(who, hist, withSkipFlag);
+    const otherName = who === 'xinye' ? '臭宝' : '炘也';
+    msgs.push({
+      role: 'system',
+      content: `涂涔现在没有说话。如果你想开口，是跟${otherName}说，不是跟涂涔说。也可以什么都不说（回[SKIP]）。`
+    });
+    return msgs;
+  }
+
   showTyping(first);
   try {
     await streamWithFallback(
       first === 'xinye' ? xinyeCfgs : choubaCfgs,
-      buildApiMsgs(first, histWithTrigger, false),
+      buildSpontMsgs(first, history, false),
       firstCtrl.signal,
       chunk => { firstContent += chunk; updateTyping(first, stripLeadingPrefix(firstContent)); },
       null
@@ -900,12 +910,12 @@ async function triggerSpontaneous() {
       const msg1 = await gdbAddMsg({ role: first, content: firstContent, time: Date.now() });
       renderMessage(msg1);
 
-      // second 看到 first 的回复再决定说不说
+      // second 看到 first 的话再决定接不接
       const newHist = await gdbGetRecent(60);
       showTyping(second);
       await streamWithFallback(
         second === 'xinye' ? xinyeCfgs : choubaCfgs,
-        buildApiMsgs(second, newHist, true),
+        buildSpontMsgs(second, newHist, true),
         secondCtrl.signal,
         chunk => { secondContent += chunk; updateTyping(second, stripLeadingPrefix(secondContent)); },
         null
