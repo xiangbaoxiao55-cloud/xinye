@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>炘也的手机</title>
+<style>
+:root {
+  --bg: #f5f0eb;
+  --surface: #fff;
+  --surface2: #f0ebe4;
+  --border: #e8e0d8;
+  --text: #2d2420;
+  --text2: #7a6e68;
+  --text3: #b0a8a0;
+  --accent: #c97c5a;
+  --accent2: #e8c4aa;
+  --todo-done: #b0a8a0;
+  --del-btn: #c97c5a;
+  --card-shadow: 0 2px 12px rgba(0,0,0,.07);
+  --phone-bg: #1a1410;
+  --tab-active: #c97c5a;
+  --tab-inactive: #b0a8a0;
+  --link: #7a9abf;
+  --memo-note-bg: #fffdf8;
+  --draft-current-bg: #fff8f4;
+  --mood-dot: #c97c5a;
+}
+[data-theme="dark"] {
+  --bg: #16121a;
+  --surface: #1f1b24;
+  --surface2: #2a2530;
+  --border: #33303a;
+  --text: #e8e0f0;
+  --text2: #9890a8;
+  --text3: #5a5568;
+  --accent: #c4a0e0;
+  --accent2: #6a4a88;
+  --todo-done: #5a5568;
+  --del-btn: #c4a0e0;
+  --phone-bg: #0d0b10;
+  --tab-active: #c4a0e0;
+  --tab-inactive: #5a5568;
+  --link: #8ab4d4;
+  --memo-note-bg: #1f1b24;
+  --draft-current-bg: #231e2d;
+  --mood-dot: #c4a0e0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  background: var(--phone-bg);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+.phone-shell {
+  width: 375px;
+  height: 812px;
+  background: var(--bg);
+  border-radius: 50px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(255,255,255,.12);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+/* 状态栏 */
+.status-bar {
+  height: 44px;
+  padding: 12px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+.status-time { font-size: 15px; font-weight: 700; }
+.status-icons { display: flex; gap: 6px; align-items: center; opacity: .7; }
+
+/* 屏幕内容区 */
+.screen { flex: 1; overflow: hidden; position: relative; }
+
+/* 锁屏 */
+#lockScreen {
+  position: absolute; inset: 0;
+  background: linear-gradient(160deg, #2d1e3a 0%, #1a2d3a 50%, #1e2a1e 100%);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px;
+  cursor: pointer;
+  transition: opacity .3s;
+}
+#lockScreen.hidden { opacity: 0; pointer-events: none; }
+.lock-time {
+  font-size: 72px; font-weight: 200; color: #fff;
+  letter-spacing: -2px; line-height: 1;
+}
+.lock-date { font-size: 16px; color: rgba(255,255,255,.7); margin-bottom: 40px; }
+.lock-hint { font-size: 13px; color: rgba(255,255,255,.4); position: absolute; bottom: 50px; }
+
+/* 桌面 */
+#homeScreen {
+  position: absolute; inset: 0;
+  background: var(--bg);
+  padding: 24px 20px;
+  display: none;
+  flex-direction: column;
+  gap: 0;
+}
+#homeScreen.show { display: flex; }
+.home-title {
+  font-size: 13px; color: var(--text2);
+  text-align: center; margin-bottom: 32px;
+  letter-spacing: .5px;
+}
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px 8px;
+  padding: 0 4px;
+}
+.app-icon {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-icon:active .icon-wrap { transform: scale(.92); }
+.icon-wrap {
+  width: 60px; height: 60px;
+  background: var(--surface);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--card-shadow);
+  transition: transform .15s;
+}
+.icon-wrap svg { width: 28px; height: 28px; }
+.app-label { font-size: 11px; color: var(--text2); text-align: center; line-height: 1.2; }
+
+/* 夜间模式切换按钮 */
+.theme-toggle {
+  position: absolute; top: 16px; right: 20px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text2); padding: 4px;
+}
+
+/* APP页面 */
+#appScreen {
+  position: absolute; inset: 0;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+}
+#appScreen.show { display: flex; }
+.app-header {
+  height: 52px;
+  display: flex; align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.back-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent); font-size: 15px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 0;
+}
+.back-btn svg { width: 18px; height: 18px; }
+.app-title {
+  flex: 1; text-align: center;
+  font-size: 17px; font-weight: 600;
+  color: var(--text); margin-right: 40px;
+}
+.app-content {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 24px;
+}
+.app-content::-webkit-scrollbar { width: 0; }
+
+/* Tab 切换 */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.tab-btn {
+  flex: 1; padding: 12px 0;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; color: var(--tab-inactive);
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.tab-btn.active { color: var(--tab-active); border-bottom-color: var(--tab-active); }
+
+/* 通用列表项 */
+.list-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--surface);
+  position: relative;
+}
+.list-item:first-child { margin-top: 12px; }
+.item-body { flex: 1; min-width: 0; }
+.item-main { font-size: 15px; color: var(--text); line-height: 1.5; word-break: break-word; }
+.item-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.del-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); padding: 2px 0 2px 8px;
+  font-size: 18px; line-height: 1;
+  flex-shrink: 0;
+  transition: color .2s;
+}
+.del-btn:hover { color: var(--del-btn); }
+.del-btn svg { width: 16px; height: 16px; }
+
+/* 空状态 */
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.empty-icon { font-size: 32px; margin-bottom: 12px; opacity: .4; }
+
+/* 备忘录 - 笔记 */
+.note-card {
+  margin: 12px 16px 0;
+  background: var(--memo-note-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+}
+.note-text { font-size: 15px; color: var(--text); line-height: 1.6; word-break: break-word; }
+.note-time { font-size: 11px; color: var(--text3); margin-top: 8px; }
+.note-del { position: absolute; top: 10px; right: 12px; }
+
+/* 备忘录 - 待办 */
+.todo-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.todo-item:first-child { margin-top: 12px; }
+.todo-check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color .2s, background .2s;
+}
+.todo-check.done { border-color: var(--accent); background: var(--accent); }
+.todo-check.done svg { display: block; }
+.todo-check svg { display: none; width: 12px; height: 12px; fill: #fff; }
+.todo-text { flex: 1; font-size: 15px; color: var(--text); line-height: 1.5; word-break: break-word; }
+.todo-text.done { color: var(--todo-done); text-decoration: line-through; }
+.todo-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* 歌单 */
+.lyric-card {
+  margin: 12px 16px 0;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+}
+.lyric-song { font-size: 15px; font-weight: 600; color: var(--text); }
+.lyric-artist { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.lyric-line { font-size: 15px; color: var(--text); font-style: italic; margin-top: 10px; line-height: 1.6; }
+.lyric-why { font-size: 13px; color: var(--text2); margin-top: 6px; }
+.lyric-time { font-size: 11px; color: var(--text3); margin-top: 8px; }
+.lyric-del { position: absolute; top: 12px; right: 12px; }
+
+/* 书摘 */
+.quote-card {
+  margin: 12px 16px 0;
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  background: var(--surface);
+  border-radius: 0 10px 10px 0;
+}
+.quote-text { font-size: 16px; color: var(--text); line-height: 1.7; word-break: break-word; }
+.quote-meta { font-size: 12px; color: var(--text3); margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+.quote-del { background: none; border: none; cursor: pointer; color: var(--text3); transition: color .2s; }
+.quote-del:hover { color: var(--del-btn); }
+.quote-del svg { width: 15px; height: 15px; }
+
+/* 草稿箱 */
+.draft-current {
+  margin: 16px;
+  background: var(--draft-current-bg);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+}
+.draft-label { font-size: 11px; color: var(--text3); margin-bottom: 10px; letter-spacing: .5px; text-transform: uppercase; }
+.draft-text { font-size: 16px; color: var(--text); line-height: 1.7; word-break: break-word; }
+.draft-time { font-size: 11px; color: var(--text3); margin-top: 10px; }
+.draft-divider { margin: 8px 16px; border: none; border-top: 1px solid var(--border); }
+.draft-history-title { font-size: 12px; color: var(--text3); padding: 8px 20px 4px; letter-spacing: .5px; }
+.draft-history-item {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.draft-history-text { flex: 1; font-size: 14px; color: var(--text2); line-height: 1.5; word-break: break-word; }
+.draft-history-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* 心情 */
+.mood-current {
+  margin: 16px;
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  text-align: center;
+}
+.mood-label { font-size: 11px; color: var(--text3); margin-bottom: 10px; letter-spacing: .5px; }
+.mood-text { font-size: 20px; color: var(--text); font-weight: 300; line-height: 1.5; }
+.mood-time { font-size: 11px; color: var(--text3); margin-top: 10px; }
+.mood-timeline { padding: 0 0 8px; }
+.mood-timeline-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.mood-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
+.mood-dot-el { width: 8px; height: 8px; border-radius: 50%; background: var(--mood-dot); flex-shrink: 0; }
+.mood-line { width: 1px; background: var(--border); flex: 1; margin-top: 4px; }
+.mood-item-text { font-size: 14px; color: var(--text); line-height: 1.5; flex: 1; word-break: break-word; }
+.mood-item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* 浏览器 */
+.browser-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.browser-item:first-child { margin-top: 12px; }
+.browser-body { flex: 1; min-width: 0; }
+.browser-title { font-size: 15px; color: var(--link); font-weight: 500; word-break: break-word; }
+.browser-url { font-size: 11px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-note { font-size: 13px; color: var(--text2); margin-top: 5px; }
+.browser-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* 相册 */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  padding: 12px 0 0;
+}
+.photo-cell {
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--surface2);
+}
+.photo-cell img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.photo-cell:active img { transform: scale(.97); }
+.photo-memo-cell {
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  padding: 16px;
+  cursor: pointer;
+}
+.photo-memo-text { font-size: 14px; color: var(--text2); text-align: center; line-height: 1.6; }
+.photo-del {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(0,0,0,.5); border: none; border-radius: 50%;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff;
+}
+.photo-del svg { width: 12px; height: 12px; }
+.photo-caption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,.55));
+  color: #fff; font-size: 11px; padding: 12px 8px 6px;
+}
+
+/* 图片预览 */
+#photoModal {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.9);
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#photoModal.show { display: flex; }
+#photoModal img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* 加载更多 */
+.load-more-sentinel { height: 1px; }
+
+/* 底部安全区 */
+.home-bar {
+  height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.home-bar-line {
+  width: 120px; height: 5px;
+  background: var(--text);
+  border-radius: 3px;
+  opacity: .2;
+}
+</style>
+</head>
+<body>
+<div class="phone-shell">
+  <div class="status-bar">
+    <span class="status-time" id="statusTime">9:41</span>
+    <div class="status-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="3" width="3" height="9" rx="1"/><rect x="4.5" y="2" width="3" height="10" rx="1"/><rect x="9" y="0" width="3" height="12" rx="1"/><rect x="13.5" y="1" width="2.5" height="11" rx="1" opacity=".3"/></svg>
+      <svg width="16" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor"><rect x="0" y="1" width="21" height="10" rx="3" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="21.5" y="3.5" width="2.5" height="5" rx="1.25" opacity=".4"/><rect x="1.5" y="2.5" width="15" height="7" rx="1.5"/></svg>
+    </div>
+  </div>
+
+  <div class="screen">
+    <!-- 锁屏 -->
+    <div id="lockScreen">
+      <div class="lock-time" id="lockTime">9:41</div>
+      <div class="lock-date" id="lockDate">5月5日 星期一</div>
+      <div class="lock-hint">点击解锁</div>
+    </div>
+
+    <!-- 桌面 -->
+    <div id="homeScreen">
+      <button class="theme-toggle" id="themeToggle" title="夜间模式">
+        <svg id="themeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <div class="home-title">炘也的手机</div>
+      <div class="app-grid">
+        <div class="app-icon" data-app="memo">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#fff8f0,#ffe0c8)">
+            <svg viewBox="0 0 28 28" fill="none"><rect x="5" y="4" width="16" height="20" rx="3" fill="#f4a570" opacity=".3"/><rect x="5" y="4" width="16" height="20" rx="3" stroke="#d4784a" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="10" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="19" y2="14" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="18" x2="15" y2="18" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><circle cx="21" cy="21" r="5" fill="#f4a570"/><line x1="19" y1="21" x2="23" y2="21" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="19" x2="21" y2="23" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="app-label">备忘录</span>
+        </div>
+        <div class="app-icon" data-app="lyrics">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#f0f4ff,#d4e0ff)">
+            <svg viewBox="0 0 28 28" fill="none"><circle cx="10" cy="20" r="4" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><circle cx="20" cy="18" r="3" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><line x1="14" y1="20" x2="14" y2="8" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="8" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="24" y1="18" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="app-label">歌单</span>
+        </div>
+        <div class="app-icon" data-app="quotes">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#f4fff0,#d0f0c0)">
+            <svg viewBox="0 0 28 28" fill="none"><path d="M7 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="21" x2="20" y2="21" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round" opacity=".4"/></svg>
+          </div>
+          <span class="app-label">书摘</span>
+        </div>
+        <div class="app-icon" data-app="drafts">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#fff0f8,#ffd0e8)">
+            <svg viewBox="0 0 28 28" fill="none"><rect x="4" y="7" width="20" height="16" rx="3" stroke="#c05080" stroke-width="1.5" fill="#f8b0d0" opacity=".3"/><polyline points="4,7 14,16 24,7" stroke="#c05080" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="app-label">草稿箱</span>
+        </div>
+        <div class="app-icon" data-app="mood">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#fffff0,#fff0b0)">
+            <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="9" stroke="#b09030" stroke-width="1.5"/><path d="M10 17c1 1.5 7 1.5 8 0" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.5" cy="12.5" r="1.5" fill="#b09030"/><circle cx="17.5" cy="12.5" r="1.5" fill="#b09030"/><line x1="14" y1="2" x2="14" y2="5" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="23" x2="14" y2="26" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="14" x2="5" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="14" x2="26" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <span class="app-label">心情</span>
+        </div>
+        <div class="app-icon" data-app="browser">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#f0f8ff,#c8e8ff)">
+            <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#3880c0" stroke-width="1.5"/><ellipse cx="14" cy="14" rx="5" ry="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="10" x2="24" y2="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="18" x2="24" y2="18" stroke="#3880c0" stroke-width="1.5"/></svg>
+          </div>
+          <span class="app-label">浏览器</span>
+        </div>
+        <div class="app-icon" data-app="photos">
+          <div class="icon-wrap" style="background:linear-gradient(135deg,#f8f0ff,#e0c8ff)">
+            <svg viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="18" rx="3" stroke="#8050c0" stroke-width="1.5"/><circle cx="10" cy="13" r="3" stroke="#8050c0" stroke-width="1.5"/><polyline points="3,20 9,14 13,18 17,13 25,20" stroke="#8050c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21" cy="10" r="2" fill="#8050c0" opacity=".5"/></svg>
+          </div>
+          <span class="app-label">相册</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP内页 -->
+    <div id="appScreen">
+      <div class="app-header">
+        <button class="back-btn" id="backBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
+          返回
+        </button>
+        <div class="app-title" id="appTitle"></div>
+      </div>
+      <div id="tabBar" class="tab-bar" style="display:none">
+        <button class="tab-btn active" id="tabNote" data-tab="note">笔记</button>
+        <button class="tab-btn" id="tabTodo" data-tab="todo">待办</button>
+      </div>
+      <div class="app-content" id="appContent"></div>
+    </div>
+  </div>
+
+  <div class="home-bar"><div class="home-bar-line"></div></div>
+</div>
+
+<!-- 图片预览弹层 -->
+<div id="photoModal">
+  <img id="photoModalImg" src="" alt="">
+</div>
+
+<script type="module">
+// ── DB ──────────────────────────────────────────────────────
+const DB_NAME = 'XinyePhoneDB', DB_VER = 1;
+let _db = null;
+
+function openDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('xinye_memo')) {
+        const s = db.createObjectStore('xinye_memo', { autoIncrement: true, keyPath: 'id' });
+        s.createIndex('type', 'type', { unique: false });
+        s.createIndex('done', 'done', { unique: false });
+      }
+      for (const n of ['xinye_lyrics','xinye_quotes','xinye_browser','xinye_photos']) {
+        if (!db.objectStoreNames.contains(n)) {
+          db.createObjectStore(n, { autoIncrement: true, keyPath: 'id' });
+        }
+      }
+      for (const n of ['xinye_drafts','xinye_mood']) {
+        if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: 'key' });
+      }
+    };
+    r.onsuccess = e => { _db = e.target.result; res(_db); };
+    r.onerror = e => rej(e.target.error);
+  });
+}
+
+function tx(store, mode = 'readonly') { return _db.transaction(store, mode).objectStore(store); }
+function getAll(store) { return new Promise((res,rej)=>{ const r=tx(store).getAll(); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e.target.error); }); }
+function getOne(store, key) { return new Promise((res,rej)=>{ const r=tx(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e.target.error); }); }
+function del(store, key) { return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(key); r.onsuccess=()=>res(); r.onerror=e=>rej(e.target.error); }); }
+
+// ── 时间 & 主题 ───────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const hm = now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const date = now.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
+  document.getElementById('statusTime').textContent = hm;
+  document.getElementById('lockTime').textContent = hm;
+  document.getElementById('lockDate').textContent = date;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+const root = document.documentElement;
+let dark = localStorage.getItem('phone_theme') === 'dark';
+function applyTheme() {
+  root.setAttribute('data-theme', dark ? 'dark' : '');
+  const icon = document.getElementById('themeIcon');
+  icon.innerHTML = dark
+    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+}
+applyTheme();
+document.getElementById('themeToggle').addEventListener('click', () => { dark=!dark; localStorage.setItem('phone_theme', dark?'dark':''); applyTheme(); });
+
+// ── 导航 ─────────────────────────────────────────────────
+const lockScreen  = document.getElementById('lockScreen');
+const homeScreen  = document.getElementById('homeScreen');
+const appScreen   = document.getElementById('appScreen');
+const appTitle    = document.getElementById('appTitle');
+const appContent  = document.getElementById('appContent');
+const tabBar      = document.getElementById('tabBar');
+
+lockScreen.addEventListener('click', () => { lockScreen.classList.add('hidden'); homeScreen.classList.add('show'); });
+
+document.querySelectorAll('.app-icon').forEach(el => {
+  el.addEventListener('click', () => openApp(el.dataset.app));
+});
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  appScreen.classList.remove('show');
+  homeScreen.classList.add('show');
+  tabBar.style.display = 'none';
+});
+
+const APP_TITLES = { memo:'备忘录', lyrics:'歌单', quotes:'书摘', drafts:'草稿箱', mood:'心情', browser:'浏览器', photos:'相册' };
+let _currentApp = null, _currentTab = 'note';
+let _memoPage = 0, _lyricsPage = 0, _quotesPage = 0, _browserPage = 0, _photosPage = 0;
+const PAGE = 20;
+
+async function openApp(app) {
+  _currentApp = app;
+  appTitle.textContent = APP_TITLES[app] || app;
+  homeScreen.classList.remove('show');
+  appScreen.classList.add('show');
+  appContent.innerHTML = '';
+  tabBar.style.display = app === 'memo' ? 'flex' : 'none';
+  if (app === 'memo') { _currentTab = 'note'; document.getElementById('tabNote').classList.add('active'); document.getElementById('tabTodo').classList.remove('active'); }
+  await renderApp(app);
+}
+
+document.getElementById('tabNote').addEventListener('click', () => {
+  _currentTab = 'note'; document.getElementById('tabNote').classList.add('active'); document.getElementById('tabTodo').classList.remove('active');
+  renderApp('memo');
+});
+document.getElementById('tabTodo').addEventListener('click', () => {
+  _currentTab = 'todo'; document.getElementById('tabTodo').classList.add('active'); document.getElementById('tabNote').classList.remove('active');
+  renderApp('memo');
+});
+
+async function renderApp(app) {
+  await openDB();
+  appContent.innerHTML = '';
+  if (app === 'memo' && _currentTab === 'note') await renderNotes();
+  else if (app === 'memo' && _currentTab === 'todo') await renderTodos();
+  else if (app === 'lyrics') await renderLyrics();
+  else if (app === 'quotes') await renderQuotes();
+  else if (app === 'drafts') await renderDrafts();
+  else if (app === 'mood') await renderMood();
+  else if (app === 'browser') await renderBrowser();
+  else if (app === 'photos') await renderPhotos();
+}
+
+// ── SVG 删除按钮 ──────────────────────────────────────────
+const DEL_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+const DEL_SMALL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+function empty(msg='还没有记录') {
+  return `<div class="empty-state"><div class="empty-icon">·</div>${msg}</div>`;
+}
+
+// ── 懒加载工具 ────────────────────────────────────────────
+let _sentinel = null;
+function setupLazyLoad(loadFn) {
+  if (_sentinel) { _sentinel._obs?.disconnect(); _sentinel = null; }
+  const el = document.createElement('div');
+  el.className = 'load-more-sentinel';
+  appContent.appendChild(el);
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) loadFn();
+  }, { threshold: 0.1 });
+  obs.observe(el);
+  el._obs = obs;
+  _sentinel = el;
+}
+
+// ── 备忘录 - 笔记 ────────────────────────────────────────
+async function renderNotes() {
+  const all = (await getAll('xinye_memo')).filter(m => m.type === 'note').reverse();
+  if (!all.length) { appContent.innerHTML = empty('还没有笔记'); return; }
+  _memoPage = 0;
+  function loadPage() {
+    const chunk = all.slice(_memoPage * PAGE, (_memoPage+1) * PAGE);
+    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
+    chunk.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'note-card';
+      div.innerHTML = `<div class="note-text">${escHtml(item.content)}</div><div class="note-time">${item.time||''}</div><button class="del-btn note-del" title="删除">${DEL_SMALL}</button>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_memo', item.id); div.remove(); });
+      appContent.insertBefore(div, _sentinel);
+    });
+    _memoPage++;
+    if (all.length <= _memoPage * PAGE && _sentinel) _sentinel._obs?.disconnect();
+  }
+  setupLazyLoad(loadPage);
+  loadPage();
+}
+
+// ── 备忘录 - 待办 ────────────────────────────────────────
+async function renderTodos() {
+  const all = (await getAll('xinye_memo')).filter(m => m.type === 'todo');
+  const undone = all.filter(m => !m.done);
+  const done   = all.filter(m => m.done);
+  const sorted = [...undone, ...done];
+  if (!sorted.length) { appContent.innerHTML = empty('还没有待办'); return; }
+  sorted.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'todo-item';
+    div.innerHTML = `
+      <div class="todo-check${item.done?' done':''}" data-id="${item.id}">
+        <svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+      </div>
+      <div class="item-body">
+        <div class="todo-text${item.done?' done':''}">${escHtml(item.content)}</div>
+        <div class="todo-time">${item.time||''}</div>
+      </div>
+      <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
+    div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_memo', item.id); div.remove(); });
+    div.querySelector('.todo-check').addEventListener('click', async () => {
+      item.done = !item.done;
+      const db2 = await openDB();
+      await new Promise((res,rej)=>{ const r=db2.transaction('xinye_memo','readwrite').objectStore('xinye_memo').put(item); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
+      div.querySelector('.todo-check').classList.toggle('done', item.done);
+      div.querySelector('.todo-text').classList.toggle('done', item.done);
+    });
+    appContent.appendChild(div);
+  });
+}
+
+// ── 歌单 ─────────────────────────────────────────────────
+async function renderLyrics() {
+  const all = (await getAll('xinye_lyrics')).reverse();
+  if (!all.length) { appContent.innerHTML = empty('还没有歌词'); return; }
+  _lyricsPage = 0;
+  function loadPage() {
+    const chunk = all.slice(_lyricsPage * PAGE, (_lyricsPage+1) * PAGE);
+    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
+    chunk.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'lyric-card';
+      div.innerHTML = `
+        <div class="lyric-song">${escHtml(item.song||'')}</div>
+        <div class="lyric-artist">${escHtml(item.artist||'')}</div>
+        <div class="lyric-line">"${escHtml(item.line||'')}"</div>
+        ${item.why ? `<div class="lyric-why">${escHtml(item.why)}</div>` : ''}
+        <div class="lyric-time">${item.time||''}</div>
+        <button class="del-btn lyric-del" title="删除">${DEL_SMALL}</button>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_lyrics', item.id); div.remove(); });
+      appContent.insertBefore(div, _sentinel);
+    });
+    _lyricsPage++;
+  }
+  setupLazyLoad(loadPage);
+  loadPage();
+}
+
+// ── 书摘 ─────────────────────────────────────────────────
+async function renderQuotes() {
+  const all = (await getAll('xinye_quotes')).reverse();
+  if (!all.length) { appContent.innerHTML = empty('还没有书摘'); return; }
+  _quotesPage = 0;
+  function loadPage() {
+    const chunk = all.slice(_quotesPage * PAGE, (_quotesPage+1) * PAGE);
+    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
+    chunk.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'quote-card';
+      div.innerHTML = `
+        <div class="quote-text">${escHtml(item.content||'')}</div>
+        <div class="quote-meta">
+          <span>${escHtml(item.source||'')} · ${item.time||''}</span>
+          <button class="quote-del del-btn" title="删除">${DEL_SMALL}</button>
+        </div>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_quotes', item.id); div.remove(); });
+      appContent.insertBefore(div, _sentinel);
+    });
+    _quotesPage++;
+  }
+  setupLazyLoad(loadPage);
+  loadPage();
+}
+
+// ── 草稿箱 ───────────────────────────────────────────────
+async function renderDrafts() {
+  const cur  = await getOne('xinye_drafts', 'current');
+  const hist = await getOne('xinye_drafts', 'history');
+  if (!cur && (!hist?.items?.length)) { appContent.innerHTML = empty('没有未寄出的话'); return; }
+
+  if (cur) {
+    const div = document.createElement('div');
+    div.className = 'draft-current';
+    div.innerHTML = `<div class="draft-label">最近没说出口的</div><div class="draft-text">${escHtml(cur.content)}</div><div class="draft-time">${cur.time||''}</div>`;
+    appContent.appendChild(div);
+  }
+
+  const items = hist?.items || [];
+  if (items.length) {
+    const hr = document.createElement('hr'); hr.className = 'draft-divider'; appContent.appendChild(hr);
+    const t = document.createElement('div'); t.className = 'draft-history-title'; t.textContent = '之前没说的'; appContent.appendChild(t);
+    items.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'draft-history-item';
+      div.innerHTML = `<div class="item-body"><div class="draft-history-text">${escHtml(item.content||'')}</div><div class="draft-history-time">${item.time||''}</div></div><button class="del-btn" title="删除">${DEL_SMALL}</button>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => {
+        items.splice(idx, 1);
+        const db2 = await openDB();
+        await new Promise((res,rej)=>{ const r=db2.transaction('xinye_drafts','readwrite').objectStore('xinye_drafts').put({ key:'history', items }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
+        div.remove();
+      });
+      appContent.appendChild(div);
+    });
+  }
+}
+
+// ── 心情 ─────────────────────────────────────────────────
+async function renderMood() {
+  const cur  = await getOne('xinye_mood', 'current');
+  const hist = await getOne('xinye_mood', 'history');
+  if (!cur && (!hist?.items?.length)) { appContent.innerHTML = empty('还没有心情记录'); return; }
+
+  if (cur) {
+    const div = document.createElement('div');
+    div.className = 'mood-current';
+    div.innerHTML = `<div class="mood-label">现在</div><div class="mood-text">${escHtml(cur.content)}</div><div class="mood-time">${cur.time||''}</div>`;
+    appContent.appendChild(div);
+  }
+
+  const items = hist?.items || [];
+  if (items.length) {
+    const tl = document.createElement('div'); tl.className = 'mood-timeline';
+    items.forEach((item, idx) => {
+      const div = document.createElement('div');
+      div.className = 'mood-timeline-item';
+      div.innerHTML = `
+        <div class="mood-dot-col"><div class="mood-dot-el"></div></div>
+        <div class="item-body"><div class="mood-item-text">${escHtml(item.content||'')}</div><div class="mood-item-time">${item.time||''}</div></div>
+        <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => {
+        items.splice(idx, 1);
+        const db2 = await openDB();
+        await new Promise((res,rej)=>{ const r=db2.transaction('xinye_mood','readwrite').objectStore('xinye_mood').put({ key:'history', items }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
+        div.remove();
+      });
+      tl.appendChild(div);
+    });
+    appContent.appendChild(tl);
+  }
+}
+
+// ── 浏览器 ───────────────────────────────────────────────
+async function renderBrowser() {
+  const all = (await getAll('xinye_browser')).reverse();
+  if (!all.length) { appContent.innerHTML = empty('没有浏览记录'); return; }
+  _browserPage = 0;
+  function loadPage() {
+    const chunk = all.slice(_browserPage * PAGE, (_browserPage+1) * PAGE);
+    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
+    chunk.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'browser-item';
+      div.innerHTML = `
+        <div class="browser-body">
+          <div class="browser-title">${escHtml(item.title||item.url||'')}</div>
+          ${item.url ? `<div class="browser-url">${escHtml(item.url)}</div>` : ''}
+          ${item.note ? `<div class="browser-note">${escHtml(item.note)}</div>` : ''}
+          <div class="browser-time">${item.time||''}</div>
+        </div>
+        <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
+      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_browser', item.id); div.remove(); });
+      appContent.insertBefore(div, _sentinel);
+    });
+    _browserPage++;
+  }
+  setupLazyLoad(loadPage);
+  loadPage();
+}
+
+// ── 相册 ─────────────────────────────────────────────────
+async function renderPhotos() {
+  const all = (await getAll('xinye_photos')).reverse();
+  if (!all.length) { appContent.innerHTML = empty('还没有照片'); return; }
+  _photosPage = 0;
+  const grid = document.createElement('div'); grid.className = 'photo-grid';
+  appContent.appendChild(grid);
+
+  const sentinel = document.createElement('div'); sentinel.className = 'load-more-sentinel';
+  appContent.appendChild(sentinel);
+  const obs = new IntersectionObserver(entries => { if (entries[0].isIntersecting) loadPage(); }, { threshold: 0.1 });
+  obs.observe(sentinel);
+
+  const objectUrls = [];
+  function loadPage() {
+    const chunk = all.slice(_photosPage * PAGE, (_photosPage+1) * PAGE);
+    if (!chunk.length) { obs.disconnect(); return; }
+    chunk.forEach(item => {
+      if (item.type === 'memo') {
+        const cell = document.createElement('div');
+        cell.className = 'photo-memo-cell';
+        cell.innerHTML = `<div class="photo-memo-text">${escHtml(item.caption||'')}<br><span style="font-size:11px;color:var(--text3)">${item.time||''}</span></div>`;
+        const delBtn = document.createElement('button');
+        delBtn.className = 'photo-del'; delBtn.innerHTML = DEL_SMALL;
+        delBtn.style.cssText = 'position:absolute;top:6px;right:6px;background:rgba(0,0,0,.3)';
+        delBtn.addEventListener('click', e => { e.stopPropagation(); del('xinye_photos', item.id); cell.remove(); });
+        cell.style.position = 'relative';
+        cell.appendChild(delBtn);
+        grid.appendChild(cell);
+      } else if (item.blob) {
+        const url = URL.createObjectURL(item.blob);
+        objectUrls.push(url);
+        const cell = document.createElement('div'); cell.className = 'photo-cell';
+        cell.innerHTML = `<img src="${url}" alt="${escHtml(item.caption||'')}" loading="lazy">${item.caption ? `<div class="photo-caption">${escHtml(item.caption)}</div>` : ''}<button class="photo-del">${DEL_SMALL}</button>`;
+        cell.querySelector('img').addEventListener('click', () => showPhoto(url));
+        cell.querySelector('.photo-del').addEventListener('click', e => { e.stopPropagation(); del('xinye_photos', item.id); cell.remove(); });
+        grid.appendChild(cell);
+      }
+    });
+    _photosPage++;
+  }
+  loadPage();
+
+  window.addEventListener('beforeunload', () => objectUrls.forEach(u => URL.revokeObjectURL(u)), { once: true });
+}
+
+function showPhoto(url) {
+  const modal = document.getElementById('photoModal');
+  document.getElementById('photoModalImg').src = url;
+  modal.classList.add('show');
+  modal.onclick = () => modal.classList.remove('show');
+}
+
+// ── 工具 ─────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

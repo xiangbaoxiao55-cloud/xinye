@@ -1,0 +1,163 @@
+// XinyePhoneDB — 炘也手机数据库
+const DB_NAME = 'XinyePhoneDB';
+const DB_VER  = 1;
+const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos'];
+
+let _db = null;
+
+export function openPhoneDB() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('xinye_memo')) {
+        const s = db.createObjectStore('xinye_memo', { autoIncrement: true, keyPath: 'id' });
+        s.createIndex('type', 'type', { unique: false });
+        s.createIndex('done', 'done', { unique: false });
+      }
+      for (const name of ['xinye_lyrics','xinye_quotes','xinye_browser','xinye_photos']) {
+        if (!db.objectStoreNames.contains(name)) {
+          const s = db.createObjectStore(name, { autoIncrement: true, keyPath: 'id' });
+          s.createIndex('time', 'time', { unique: false });
+        }
+      }
+      for (const name of ['xinye_drafts','xinye_mood']) {
+        if (!db.objectStoreNames.contains(name)) {
+          db.createObjectStore(name, { keyPath: 'key' });
+        }
+      }
+    };
+    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function tx(store, mode = 'readonly') {
+  return _db.transaction(store, mode).objectStore(store);
+}
+
+export function addRecord(store, data) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').add(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+export function putRecord(store, data) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').put(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+export function getRecord(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+export function deleteRecord(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+export function getAllFromStore(store) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+// 取所有未完成待办（type=todo, done=false），用于注入系统提示词
+export async function getPendingTodos() {
+  await openPhoneDB();
+  const all = await getAllFromStore('xinye_memo');
+  return all.filter(m => m.type === 'todo' && !m.done);
+}
+
+// dataUrl → Blob
+export function dataUrlToBlob(dataUrl) {
+  const [header, b64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const bytes = atob(b64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// 解析 phone_state，写入IDB
+// turnReceivedImgs: dataUrl[] | null，turnGeneratedDataUrl: string | null
+export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGeneratedDataUrl) {
+  const match = rawText.match(/<!--phone_state\s*([\s\S]*?)-->/);
+  if (!match) return rawText;
+
+  let data;
+  try { data = JSON.parse(match[1].trim()); }
+  catch(e) { return rawText.replace(/<!--phone_state[\s\S]*?-->/, '').trimEnd(); }
+
+  await openPhoneDB();
+  const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
+
+  // memo
+  if (data.memo?.items) {
+    for (const item of data.memo.items) {
+      if (item.type === 'todo' && item.done === true) {
+        const all = await getAllFromStore('xinye_memo');
+        const found = all.find(m => m.type === 'todo' && !m.done && m.content === item.content);
+        if (found) await putRecord('xinye_memo', { ...found, done: true, time: now });
+        else await addRecord('xinye_memo', { type: item.type, content: item.content, done: true, time: now });
+      } else {
+        await addRecord('xinye_memo', { type: item.type || 'note', content: item.content, done: false, time: now });
+      }
+    }
+  }
+
+  // lyrics / quotes / browser
+  const _appendMap = { lyrics: 'xinye_lyrics', quotes: 'xinye_quotes', browser: 'xinye_browser' };
+  for (const [key, store] of Object.entries(_appendMap)) {
+    if (data[key]?.items) {
+      for (const item of data[key].items) {
+        await addRecord(store, { ...item, time: now });
+      }
+    }
+  }
+
+  // drafts / mood（current → history → new current）
+  for (const [key, store] of [['drafts','xinye_drafts'],['mood','xinye_mood']]) {
+    if (data[key]?.content) {
+      const cur  = await getRecord(store, 'current');
+      const hist = (await getRecord(store, 'history')) || { key: 'history', items: [] };
+      if (cur?.content) hist.items.unshift({ content: cur.content, time: cur.time });
+      await putRecord(store, { key: 'current', content: data[key].content, time: now });
+      await putRecord(store, hist);
+    }
+  }
+
+  // photos
+  if (data.photos?.items) {
+    for (const item of data.photos.items) {
+      try {
+        if (item.type === 'memo') {
+          await addRecord('xinye_photos', { type: 'memo', caption: item.caption, time: now });
+        } else if (item.source === 'generated' && turnGeneratedDataUrl) {
+          const blob = dataUrlToBlob(turnGeneratedDataUrl);
+          await addRecord('xinye_photos', { type: 'image', source: 'generated', blob, caption: item.caption, time: now });
+        } else if (item.source === 'received' && turnReceivedImgs?.[item.index]) {
+          const blob = dataUrlToBlob(turnReceivedImgs[item.index]);
+          await addRecord('xinye_photos', { type: 'image', source: 'received', blob, caption: item.caption, time: now });
+        }
+      } catch(e) { /* 静默跳过单张图的失败 */ }
+    }
+  }
+
+  return rawText.replace(/<!--phone_state[\s\S]*?-->/, '').trimEnd();
+}

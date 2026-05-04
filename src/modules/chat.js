@@ -5,6 +5,7 @@ import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
+import { parseAndSavePhoneState, getPendingTodos } from './phonedb.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -640,6 +641,8 @@ export async function sendMessage() {
   const text = userInput.value.trim();
   const imgs = [...(window.pendingImages || [])];
   if ((!text && !imgs.length) || window.isRequesting) return;
+  const _turnReceivedImgs = _PFX === '' ? [...imgs] : null;
+  window._currentTurnGeneratedDataUrl = null;
   if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
 
   userInput.value = '';
@@ -713,6 +716,16 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'system', content: '【提示】兔宝刚刚点了亲亲按钮，主动亲了你，要有真实的、属于炘也的反应——不是普通回复，是被亲到了的那种感觉。' });
         _apiMeta.push({ label: 'system · 亲亲提示' });
         localStorage.removeItem(_PFX + 'xinye_kiss_hint');
+      }
+      if (_PFX === '') {
+        try {
+          const _todos = await getPendingTodos();
+          if (_todos.length) {
+            const _todoText = '## 你当前的待办\n' + _todos.map(t => `- ${t.content}`).join('\n');
+            apiMsgs.push({ role: 'system', content: _todoText });
+            _apiMeta.push({ label: `system · 待办(${_todos.length}条)` });
+          }
+        } catch(_e) {}
       }
       if (window._forceSearch && settings.braveKey) {
         apiMsgs.push({ role: 'system', content: '【指令】请务必先使用 web_search 工具搜索相关最新信息，再整合结果回答。' });
@@ -1295,6 +1308,7 @@ export async function sendMessage() {
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true;
           _genMsg.genImageData = _dataUrl;
+          if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
           await dbPut(activeStore(), null, _genMsg);
           const _gi = messages.findIndex(m => m.id === _genMsg.id);
           if (_gi >= 0) messages[_gi] = _genMsg;
@@ -1534,6 +1548,7 @@ export async function sendMessage() {
       async function _finalizeMsg(parsed, loopMsgs) {
         let finalText = parsed.content || '（没有收到回复）';
         finalText = await parseAndSaveSelfMemories(finalText);
+        if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
         if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
@@ -1557,6 +1572,7 @@ export async function sendMessage() {
       if (!settings.streamMode) {
         async function _showNonStream(text, msgList, usage) {
           text = await parseAndSaveSelfMemories(text);
+          if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
           await appendMsgDOM(_nm);
