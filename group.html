@@ -983,8 +983,14 @@ async function sendMessage() {
   let resendTriggered = false;
   let resendPromise = null;
 
-  showTyping('xinye');
-  showTyping('choubao');
+  // 检测用户消息里的 @mention，决定谁来回复
+  const mentionsXinye  = text.includes('@炘也');
+  const mentionsChouba = text.includes('@臭宝');
+  const xinyeShould  = !mentionsChouba || mentionsXinye;  // 没点名臭宝，或者点名了炘也
+  const choubaShould = !mentionsXinye  || mentionsChouba;
+
+  if (xinyeShould)  showTyping('xinye');
+  if (choubaShould) showTyping('choubao');
 
   async function doStream(who, hist, withSkip) {
     const other = who === 'xinye' ? 'choubao' : 'xinye';
@@ -1037,8 +1043,8 @@ async function sendMessage() {
   }
 
   await Promise.allSettled([
-    doStream('xinye', history, false),
-    doStream('choubao', history, false)
+    xinyeShould  ? doStream('xinye',   history, false) : Promise.resolve(),
+    choubaShould ? doStream('choubao', history, false) : Promise.resolve()
   ]);
 
   if (resendPromise) await resendPromise;
