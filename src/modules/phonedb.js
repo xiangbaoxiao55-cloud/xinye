@@ -1,7 +1,7 @@
 // XinyePhoneDB — 炘也手机数据库
 const DB_NAME = 'XinyePhoneDB';
-const DB_VER  = 1;
-const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos'];
+const DB_VER  = 2;
+const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers'];
 
 let _db = null;
 
@@ -22,7 +22,7 @@ export function openPhoneDB() {
           s.createIndex('time', 'time', { unique: false });
         }
       }
-      for (const name of ['xinye_drafts','xinye_mood']) {
+      for (const name of ['xinye_drafts','xinye_mood','xinye_wallpapers']) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: 'key' });
         }
