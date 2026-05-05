@@ -73,16 +73,10 @@ body {
   display: flex;
   flex-direction: column;
 }
-/* PWA全屏模式 */
-@media (display-mode: standalone) {
-  body { background: var(--bg); align-items: stretch; justify-content: stretch; padding: 0; }
-  .phone-shell {
-    width: 100%; height: 100dvh;
-    border-radius: 0; box-shadow: none;
-  }
-  /* 隐藏假状态栏，真机已有系统状态栏 */
-  .status-bar { display: none; }
-}
+/* PWA全屏模式（JS检测加class，兼容鸿蒙Edge） */
+body.standalone { background: var(--bg); align-items: stretch; justify-content: stretch; padding: 0; }
+body.standalone .phone-shell { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+body.standalone .status-bar { display: none; }
 /* 状态栏 */
 .status-bar {
   height: 44px;
@@ -178,39 +172,62 @@ body {
 /* 桌面时钟区 */
 .home-clock {
   text-align: center;
-  padding: 28px 0 24px;
+  padding: 36px 0 32px;
   flex-shrink: 0;
 }
 .home-clock-time {
-  font-size: 48px; font-weight: 200;
-  color: var(--text); letter-spacing: -1px; line-height: 1;
+  font-size: 60px; font-weight: 100;
+  color: var(--text); letter-spacing: -2px; line-height: 1;
 }
 .home-clock-date {
-  font-size: 13px; color: var(--text2); margin-top: 6px; letter-spacing: .3px;
+  font-size: 14px; color: var(--text2); margin-top: 8px; letter-spacing: .4px;
 }
 
 .app-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 22px 8px;
-  padding: 0 4px 24px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px 12px;
+  padding: 8px 12px 40px;
+  justify-items: center;
 }
+/* 第7个图标（最后一行只有1个）居中 */
+.app-icon:last-child:nth-child(3n+1) { grid-column: 2; }
+
 .app-icon {
-  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
+  width: 100%;
+  max-width: 100px;
 }
-.app-icon:active .icon-wrap { transform: scale(.88); }
+.app-icon:active .icon-wrap { transform: scale(.86); }
 .icon-wrap {
-  width: 62px; height: 62px;
+  width: 76px; height: 76px;
   background: var(--surface);
-  border-radius: 18px;
+  border-radius: 22px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
-  transition: transform .15s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 6px 20px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07);
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+  overflow: hidden;
+  position: relative;
 }
-.icon-wrap svg { width: 30px; height: 30px; }
-.app-label { font-size: 11px; color: var(--text2); text-align: center; line-height: 1.2; }
+.icon-wrap svg { width: 34px; height: 34px; }
+.icon-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.app-label { font-size: 12px; color: var(--text2); text-align: center; line-height: 1.3; font-weight: 500; }
+
+/* 长按提示徽章 */
+.icon-edit-badge {
+  display: none;
+  position: absolute; bottom: -4px; right: -4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  pointer-events: none;
+}
+.icon-edit-badge svg { width: 11px; height: 11px; }
+.editing-icons .icon-edit-badge { display: flex; }
 
 /* 夜间模式切换按钮 */
 .theme-toggle {
@@ -654,44 +671,51 @@ body {
       </div>
       <div class="app-grid">
         <div class="app-icon" data-app="memo">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#fff8f0,#ffe0c8)">
+          <div class="icon-wrap" id="icon-memo" style="background:linear-gradient(135deg,#fff8f0,#ffe0c8)">
             <svg viewBox="0 0 28 28" fill="none"><rect x="5" y="4" width="16" height="20" rx="3" fill="#f4a570" opacity=".3"/><rect x="5" y="4" width="16" height="20" rx="3" stroke="#d4784a" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="10" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="19" y2="14" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="18" x2="15" y2="18" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><circle cx="21" cy="21" r="5" fill="#f4a570"/><line x1="19" y1="21" x2="23" y2="21" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="19" x2="21" y2="23" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">备忘录</span>
         </div>
         <div class="app-icon" data-app="lyrics">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#f0f4ff,#d4e0ff)">
+          <div class="icon-wrap" id="icon-lyrics" style="background:linear-gradient(135deg,#f0f4ff,#d4e0ff)">
             <svg viewBox="0 0 28 28" fill="none"><circle cx="10" cy="20" r="4" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><circle cx="20" cy="18" r="3" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><line x1="14" y1="20" x2="14" y2="8" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="8" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="24" y1="18" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">歌单</span>
         </div>
         <div class="app-icon" data-app="quotes">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#f4fff0,#d0f0c0)">
+          <div class="icon-wrap" id="icon-quotes" style="background:linear-gradient(135deg,#f4fff0,#d0f0c0)">
             <svg viewBox="0 0 28 28" fill="none"><path d="M7 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="21" x2="20" y2="21" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round" opacity=".4"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">书摘</span>
         </div>
         <div class="app-icon" data-app="drafts">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#fff0f8,#ffd0e8)">
+          <div class="icon-wrap" id="icon-drafts" style="background:linear-gradient(135deg,#fff0f8,#ffd0e8)">
             <svg viewBox="0 0 28 28" fill="none"><rect x="4" y="7" width="20" height="16" rx="3" stroke="#c05080" stroke-width="1.5" fill="#f8b0d0" opacity=".3"/><polyline points="4,7 14,16 24,7" stroke="#c05080" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">草稿箱</span>
         </div>
         <div class="app-icon" data-app="mood">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#fffff0,#fff0b0)">
+          <div class="icon-wrap" id="icon-mood" style="background:linear-gradient(135deg,#fffff0,#fff0b0)">
             <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="9" stroke="#b09030" stroke-width="1.5"/><path d="M10 17c1 1.5 7 1.5 8 0" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.5" cy="12.5" r="1.5" fill="#b09030"/><circle cx="17.5" cy="12.5" r="1.5" fill="#b09030"/><line x1="14" y1="2" x2="14" y2="5" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="23" x2="14" y2="26" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="14" x2="5" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="14" x2="26" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">心情</span>
         </div>
         <div class="app-icon" data-app="browser">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#f0f8ff,#c8e8ff)">
+          <div class="icon-wrap" id="icon-browser" style="background:linear-gradient(135deg,#f0f8ff,#c8e8ff)">
             <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#3880c0" stroke-width="1.5"/><ellipse cx="14" cy="14" rx="5" ry="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="10" x2="24" y2="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="18" x2="24" y2="18" stroke="#3880c0" stroke-width="1.5"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">浏览器</span>
         </div>
         <div class="app-icon" data-app="photos">
-          <div class="icon-wrap" style="background:linear-gradient(135deg,#f8f0ff,#e0c8ff)">
+          <div class="icon-wrap" id="icon-photos" style="background:linear-gradient(135deg,#f8f0ff,#e0c8ff)">
             <svg viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="18" rx="3" stroke="#8050c0" stroke-width="1.5"/><circle cx="10" cy="13" r="3" stroke="#8050c0" stroke-width="1.5"/><polyline points="3,20 9,14 13,18 17,13 25,20" stroke="#8050c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21" cy="10" r="2" fill="#8050c0" opacity=".5"/></svg>
+            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
           </div>
           <span class="app-label">相册</span>
         </div>
@@ -718,8 +742,9 @@ body {
   <div class="home-bar"><div class="home-bar-line"></div></div>
 </div>
 
-<!-- 壁纸上传 input -->
-<input type="file" id="wpFileInput" accept="image/*" style="display:none">
+<!-- 壁纸/图标上传 input -->
+<input type="file" id="wpFileInput"   accept="image/*" style="display:none">
+<input type="file" id="iconFileInput" accept="image/*" style="display:none">
 
 <!-- 图片预览弹层 -->
 <div id="photoModal">
@@ -761,6 +786,11 @@ function getAll(store) { return new Promise((res,rej)=>{ const r=tx(store).getAl
 function getOne(store, key) { return new Promise((res,rej)=>{ const r=tx(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e.target.error); }); }
 function del(store, key) { return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(key); r.onsuccess=()=>res(); r.onerror=e=>rej(e.target.error); }); }
 
+// ── Standalone 检测（兼容鸿蒙Edge）────────────────────────
+if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+  document.body.classList.add('standalone');
+}
+
 // ── 壁纸 ─────────────────────────────────────────────────
 let _wpUrls = { lock: null, home: null };
 
@@ -780,24 +810,11 @@ async function loadWallpapers() {
 function applyWallpaper(key, url) {
   if (key === 'lock') {
     const el = document.getElementById('lockScreen');
-    if (url) {
-      el.style.backgroundImage = `url(${url})`;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center';
-    } else {
-      el.style.backgroundImage = '';
-    }
+    el.style.background = url ? `url(${url}) center/cover no-repeat` : '';
   } else {
     const el = document.getElementById('homeScreen');
-    if (url) {
-      el.style.backgroundImage = `url(${url})`;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center';
-      el.classList.add('has-wallpaper');
-    } else {
-      el.style.backgroundImage = '';
-      el.classList.remove('has-wallpaper');
-    }
+    el.style.background = url ? `url(${url}) center/cover no-repeat` : '';
+    el.classList.toggle('has-wallpaper', !!url);
   }
 }
 
@@ -841,31 +858,104 @@ document.getElementById('wallpaperToggle').addEventListener('click', () => wallp
 document.getElementById('wpClose').addEventListener('click', () => wallpaperPanel.classList.remove('show'));
 wallpaperPanel.addEventListener('click', e => { if (e.target === wallpaperPanel) wallpaperPanel.classList.remove('show'); });
 
-let _wpTarget = null;
 const wpFileInput = document.getElementById('wpFileInput');
 
 function pickWallpaper(key) {
-  _wpTarget = key;
+  wpFileInput.dataset.target = key;
   wpFileInput.value = '';
   wpFileInput.click();
 }
 
 wpFileInput.addEventListener('change', async () => {
+  const key = wpFileInput.dataset.target;
   const file = wpFileInput.files[0];
-  if (!file || !_wpTarget) return;
-  const blob = file;
-  if (_wpUrls[_wpTarget]) URL.revokeObjectURL(_wpUrls[_wpTarget]);
-  const url = URL.createObjectURL(blob);
-  _wpUrls[_wpTarget] = url;
-  await saveWallpaper(_wpTarget, blob);
-  applyWallpaper(_wpTarget, url);
-  updateWpPreview(_wpTarget, url);
+  if (!file || !key) return;
+  if (_wpUrls[key]) URL.revokeObjectURL(_wpUrls[key]);
+  const url = URL.createObjectURL(file);
+  _wpUrls[key] = url;
+  await saveWallpaper(key, file);
+  applyWallpaper(key, url);
+  updateWpPreview(key, url);
 });
 
 document.getElementById('wpLockChange').addEventListener('click', () => pickWallpaper('lock'));
 document.getElementById('wpHomeChange').addEventListener('click', () => pickWallpaper('home'));
 document.getElementById('wpLockClear').addEventListener('click', () => clearWallpaper('lock'));
 document.getElementById('wpHomeClear').addEventListener('click', () => clearWallpaper('home'));
+
+// ── 图标自定义 ────────────────────────────────────────────
+const _iconUrls = {};
+const iconFileInput = document.getElementById('iconFileInput');
+const appGrid = document.querySelector('.app-grid');
+let _iconEditMode = false;
+
+async function loadIcons() {
+  await openDB();
+  const apps = ['memo','lyrics','quotes','drafts','mood','browser','photos'];
+  for (const app of apps) {
+    const rec = await getOne('xinye_wallpapers', `icon_${app}`);
+    if (rec?.blob) {
+      const url = URL.createObjectURL(rec.blob);
+      _iconUrls[app] = url;
+      applyIcon(app, url);
+    }
+  }
+}
+
+function applyIcon(app, url) {
+  const wrap = document.getElementById(`icon-${app}`);
+  if (!wrap) return;
+  if (url) {
+    wrap.style.background = '';
+    wrap.innerHTML = `<img src="${url}" alt="${app}"><div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>`;
+  }
+}
+
+async function saveIcon(app, blob) {
+  await openDB();
+  await new Promise((res,rej) => {
+    const r = _db.transaction('xinye_wallpapers','readwrite').objectStore('xinye_wallpapers').put({ key:`icon_${app}`, blob });
+    r.onsuccess = res; r.onerror = e => rej(e.target.error);
+  });
+}
+
+// 长按图标进入编辑模式，短按编辑徽章换图
+let _pressTimer = null;
+document.querySelectorAll('.app-icon').forEach(el => {
+  el.addEventListener('touchstart', () => {
+    _pressTimer = setTimeout(() => {
+      _iconEditMode = true;
+      appGrid.classList.add('editing-icons');
+    }, 600);
+  }, { passive: true });
+  el.addEventListener('touchend', () => clearTimeout(_pressTimer));
+  el.addEventListener('touchmove', () => clearTimeout(_pressTimer));
+});
+
+appGrid.addEventListener('click', e => {
+  if (!_iconEditMode) return;
+  const iconEl = e.target.closest('.app-icon');
+  if (!iconEl) { _iconEditMode = false; appGrid.classList.remove('editing-icons'); return; }
+  const app = iconEl.dataset.app;
+  iconFileInput.dataset.target = app;
+  iconFileInput.value = '';
+  iconFileInput.click();
+  _iconEditMode = false;
+  appGrid.classList.remove('editing-icons');
+});
+
+iconFileInput.addEventListener('change', async () => {
+  const app = iconFileInput.dataset.target;
+  const file = iconFileInput.files[0];
+  if (!file || !app) return;
+  if (_iconUrls[app]) URL.revokeObjectURL(_iconUrls[app]);
+  const url = URL.createObjectURL(file);
+  _iconUrls[app] = url;
+  await saveIcon(app, file);
+  applyIcon(app, url);
+});
+
+loadIcons();
 
 loadWallpapers();
 
