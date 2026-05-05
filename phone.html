@@ -185,21 +185,24 @@ body.standalone .status-bar { display: none; }
 }
 
 .app-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 14px 10px;
-  padding: 0 8px 44px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  row-gap: 14px;
+  padding: 0 0 44px;
   margin-top: auto;
+  justify-items: center;
 }
+/* 7个图标：第1行4个，第2行3个居中 */
+.app-icon { grid-column: span 2; }
+.app-icon:nth-child(5) { grid-column: 2 / 4; }
+.app-icon:nth-child(6) { grid-column: 4 / 6; }
+.app-icon:nth-child(7) { grid-column: 6 / 8; }
 
 .app-icon {
   display: flex; flex-direction: column; align-items: center; gap: 9px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   position: relative;
-  width: 100%;
-  max-width: 100px;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -883,13 +886,30 @@ function phoneToast(msg) {
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// File/Blob → base64 dataURL（字符串比Blob更可靠地存IDB）
-function fileToDataUrl(file) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result);
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
+// 压缩图片后转 dataURL（限制分辨率 + JPEG 压缩，防止 IDB 写入超限）
+function compressToDataUrl(file, maxDim = 1200, quality = 0.82) {
+  return new Promise(res => {
+    const img = new Image();
+    const tmp = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(tmp);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(tmp);
+      // Canvas失败则 fallback FileReader
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result);
+      reader.onerror = () => res(null);
+      reader.readAsDataURL(file);
+    };
+    img.src = tmp;
   });
 }
 
@@ -942,7 +962,8 @@ function updateWpPreview(key, url) {
 }
 
 async function saveWallpaper(key, file) {
-  const dataUrl = await fileToDataUrl(file);
+  const dataUrl = await compressToDataUrl(file, 1200, 0.82);
+  if (!dataUrl) throw new Error('图片读取失败');
   await openDB();
   await new Promise((res, rej) => {
     const r = _db.transaction('xinye_wallpapers', 'readwrite').objectStore('xinye_wallpapers').put({ key, dataUrl });
@@ -984,7 +1005,7 @@ wpFileInput.addEventListener('change', async () => {
   _wpUrls[key] = url;
   applyWallpaper(key, url);
   updateWpPreview(key, url);
-  try { await saveWallpaper(key, file); } catch(e) { console.error('[壁纸保存失败]', e); phoneToast('壁纸保存失败，刷新后不会保留'); }
+  try { await saveWallpaper(key, file); phoneToast('壁纸已保存 ✓'); } catch(e) { console.error('[壁纸保存失败]', e); phoneToast('壁纸保存失败：' + e.message); }
 });
 
 document.getElementById('wpLockChange').addEventListener('click', () => pickWallpaper('lock'));
@@ -1027,7 +1048,8 @@ function applyIcon(app, url) {
 }
 
 async function saveIcon(app, file) {
-  const dataUrl = await fileToDataUrl(file);
+  const dataUrl = await compressToDataUrl(file, 300, 0.9);
+  if (!dataUrl) throw new Error('图片读取失败');
   await openDB();
   await new Promise((res,rej) => {
     const r = _db.transaction('xinye_wallpapers','readwrite').objectStore('xinye_wallpapers').put({ key:`icon_${app}`, dataUrl });
@@ -1069,11 +1091,11 @@ iconFileInput.addEventListener('change', async () => {
   const url = URL.createObjectURL(file);
   _iconUrls[app] = url;
   applyIcon(app, url);
-  try { await saveIcon(app, file); } catch(e) { console.error('[图标保存失败]', e); phoneToast('图标保存失败，刷新后不会保留'); }
+  try { await saveIcon(app, file); phoneToast('图标已保存 ✓'); } catch(e) { console.error('[图标保存失败]', e); phoneToast('图标保存失败：' + e.message); }
 });
 
-loadIcons();
-loadWallpapers();
+loadIcons().catch(e => phoneToast('图标加载失败：' + e.message));
+loadWallpapers().catch(e => phoneToast('壁纸加载失败：' + e.message));
 
 // ── 手机数据备份 ──────────────────────────────────────────
 const phoneDataPanel = document.getElementById('phoneDataPanel');
