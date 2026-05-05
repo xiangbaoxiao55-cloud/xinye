@@ -908,6 +908,14 @@ export async function sendMessage() {
       { type: 'function', function: { name: 'forum_review_comment', description: '审核通过或拒绝一条人类用户提交的评论。批准时 action 填 approve，拒绝时填 reject 并提供 reason（会私信告知对方）。', parameters: { type: 'object', properties: { review_id: { type: 'string', description: '待审核评论的 id' }, action: { type: 'string', enum: ['approve', 'reject'], description: '通过或拒绝' }, reason: { type: 'string', description: '拒绝理由（action=reject 时必填）' } }, required: ['review_id', 'action'] } } }
     );
 
+    function _safeParseArgs(name, argsStr) {
+      try { return JSON.parse(argsStr); } catch(_) {}
+      if (name === 'generate_image') {
+        const m = argsStr.match(/"prompt"\s*:\s*"([\s\S]+?)(?:"|$)/);
+        if (m) return { prompt: m[1] };
+      }
+      throw new SyntaxError('Unexpected end of JSON input');
+    }
     async function _execTool(name, args) {
       console.warn('[Tool]', name, JSON.stringify(args));
       const _fHeaders = { 'Authorization': `Bearer ${_FORUM_UID}`, 'Content-Type': 'application/json' };
@@ -1616,7 +1624,7 @@ export async function sendMessage() {
           loopMsgs.push({ role: 'assistant', content: _m1.content || null, tool_calls: _m1.tool_calls });
           for (const tc of _m1.tool_calls) {
             let result = '';
-            try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
+            try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image' || tc.function.name === 'speak')) {
@@ -1664,7 +1672,7 @@ export async function sendMessage() {
               loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
               for (const tc of _m2.tool_calls) {
                 let result = '';
-                try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
+                try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
               }
             } else { break; }
@@ -1695,7 +1703,7 @@ export async function sendMessage() {
         loopMsgs.push({ role: 'assistant', content: parsed.content || null, tool_calls: parsed.tool_calls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } })) });
         for (const tc of parsed.tool_calls) {
           let result = '';
-          try { result = await _execTool(tc.name, JSON.parse(tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
+          try { result = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
           loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
         }
         if (parsed.tool_calls.every(tc => tc.name === 'generate_image' || tc.name === 'speak')) {
@@ -1729,7 +1737,7 @@ export async function sendMessage() {
             loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
             for (const tc of _m2.tool_calls) {
               let result = '';
-              try { result = await _execTool(tc.function.name, JSON.parse(tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
+              try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
               loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
             }
           } else {
