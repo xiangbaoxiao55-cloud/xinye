@@ -1,0 +1,18 @@
+{
+  "name": "炘也的手机",
+  "short_name": "炘也手机",
+  "description": "炘也的私人手机",
+  "start_url": "/phone.html",
+  "display": "standalone",
+  "background_color": "#1a1410",
+  "theme_color": "#1a1410",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/phone-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
