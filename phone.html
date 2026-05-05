@@ -80,6 +80,8 @@ body {
     width: 100%; height: 100dvh;
     border-radius: 0; box-shadow: none;
   }
+  /* 隐藏假状态栏，真机已有系统状态栏 */
+  .status-bar { display: none; }
 }
 /* 状态栏 */
 .status-bar {
@@ -687,6 +689,16 @@ const tabBar      = document.getElementById('tabBar');
 lockScreen.addEventListener('click', () => {
   lockScreen.classList.add('hidden');
   homeScreen.classList.add('show');
+});
+
+// 拦截 Android 实体返回键，防止 PWA 后退到启动画面
+history.pushState({ nav: true }, '');
+window.addEventListener('popstate', () => {
+  history.pushState({ nav: true }, '');
+  if (appScreen.classList.contains('show')) {
+    tabBar.style.display = 'none';
+    animateTransition(appScreen, homeScreen, true);
+  }
 });
 
 function animateTransition(outEl, inEl, isBack = false) {
