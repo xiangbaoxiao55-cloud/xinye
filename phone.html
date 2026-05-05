@@ -73,6 +73,14 @@ body {
   display: flex;
   flex-direction: column;
 }
+/* PWA全屏模式 */
+@media (display-mode: standalone) {
+  body { background: var(--bg); align-items: stretch; justify-content: stretch; padding: 0; }
+  .phone-shell {
+    width: 100%; height: 100dvh;
+    border-radius: 0; box-shadow: none;
+  }
+}
 /* 状态栏 */
 .status-bar {
   height: 44px;
@@ -96,64 +104,132 @@ body {
 /* 锁屏 */
 #lockScreen {
   position: absolute; inset: 0;
-  background: linear-gradient(160deg, #2d1e3a 0%, #1a2d3a 50%, #1e2a1e 100%);
+  background: linear-gradient(160deg, #1e0d30 0%, #0d1a30 45%, #0d2518 100%);
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 8px;
   cursor: pointer;
-  transition: opacity .3s;
+  transition: opacity .4s;
+  overflow: hidden;
 }
 #lockScreen.hidden { opacity: 0; pointer-events: none; }
-.lock-time {
-  font-size: 72px; font-weight: 200; color: #fff;
-  letter-spacing: -2px; line-height: 1;
+
+/* 极光光晕 */
+.lock-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(60px); pointer-events: none;
 }
-.lock-date { font-size: 16px; color: rgba(255,255,255,.7); margin-bottom: 40px; }
-.lock-hint { font-size: 13px; color: rgba(255,255,255,.4); position: absolute; bottom: 50px; }
+.lock-orb-1 {
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(120,60,200,.45) 0%, transparent 70%);
+  top: -60px; left: -60px;
+  animation: orbFloat1 9s ease-in-out infinite;
+}
+.lock-orb-2 {
+  width: 240px; height: 240px;
+  background: radial-gradient(circle, rgba(30,110,180,.35) 0%, transparent 70%);
+  bottom: 80px; right: -40px;
+  animation: orbFloat2 11s ease-in-out infinite;
+}
+.lock-orb-3 {
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(40,150,100,.25) 0%, transparent 70%);
+  top: 40%; left: 30%;
+  animation: orbFloat3 13s ease-in-out infinite;
+}
+@keyframes orbFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,40px)} }
+@keyframes orbFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-25px,-30px)} }
+@keyframes orbFloat3 { 0%,100%{transform:translate(0,0)} 33%{transform:translate(20px,-25px)} 66%{transform:translate(-15px,20px)} }
+
+.lock-time {
+  font-size: 82px; font-weight: 100; color: #fff;
+  letter-spacing: -3px; line-height: 1;
+  text-shadow: 0 0 60px rgba(180,120,255,.4);
+  position: relative; z-index: 1;
+}
+.lock-date {
+  font-size: 15px; color: rgba(255,255,255,.65);
+  margin-bottom: 48px; letter-spacing: .5px;
+  position: relative; z-index: 1;
+}
+.lock-hint {
+  font-size: 12px; color: rgba(255,255,255,.3);
+  position: absolute; bottom: 48px;
+  letter-spacing: 1px;
+  z-index: 1;
+}
 
 /* 桌面 */
 #homeScreen {
   position: absolute; inset: 0;
-  background: var(--bg);
-  padding: 24px 20px;
+  background: linear-gradient(170deg, #f7f2ec 0%, #ede4d8 50%, #f2ebe2 100%);
+  padding: 0 20px 0;
   display: none;
   flex-direction: column;
   gap: 0;
+  overflow-y: auto;
+}
+[data-theme="dark"] #homeScreen {
+  background: linear-gradient(170deg, #1a1620 0%, #141018 50%, #181420 100%);
 }
 #homeScreen.show { display: flex; }
-.home-title {
-  font-size: 13px; color: var(--text2);
-  text-align: center; margin-bottom: 32px;
-  letter-spacing: .5px;
+
+/* 桌面时钟区 */
+.home-clock {
+  text-align: center;
+  padding: 28px 0 24px;
+  flex-shrink: 0;
 }
+.home-clock-time {
+  font-size: 48px; font-weight: 200;
+  color: var(--text); letter-spacing: -1px; line-height: 1;
+}
+.home-clock-date {
+  font-size: 13px; color: var(--text2); margin-top: 6px; letter-spacing: .3px;
+}
+
 .app-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px 8px;
-  padding: 0 4px;
+  gap: 22px 8px;
+  padding: 0 4px 24px;
 }
 .app-icon {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.app-icon:active .icon-wrap { transform: scale(.92); }
+.app-icon:active .icon-wrap { transform: scale(.88); }
 .icon-wrap {
-  width: 60px; height: 60px;
+  width: 62px; height: 62px;
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: 18px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--card-shadow);
-  transition: transform .15s;
+  box-shadow: 0 4px 16px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.06);
+  transition: transform .15s cubic-bezier(.34,1.56,.64,1);
 }
-.icon-wrap svg { width: 28px; height: 28px; }
+.icon-wrap svg { width: 30px; height: 30px; }
 .app-label { font-size: 11px; color: var(--text2); text-align: center; line-height: 1.2; }
 
 /* 夜间模式切换按钮 */
 .theme-toggle {
   position: absolute; top: 16px; right: 20px;
-  background: none; border: none; cursor: pointer;
-  color: var(--text2); padding: 4px;
+  background: rgba(0,0,0,.06); border: none; cursor: pointer;
+  color: var(--text2); padding: 7px; border-radius: 50%;
+  transition: background .2s;
 }
+[data-theme="dark"] .theme-toggle { background: rgba(255,255,255,.08); }
+.theme-toggle:hover { background: rgba(0,0,0,.12); }
+
+/* 页面切换动画 */
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOutLeft  { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(-25%); opacity: 0; } }
+@keyframes slideInLeft   { from { transform: translateX(-25%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOutRight { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+.anim-slide-in  { animation: slideInRight .3s cubic-bezier(.4,0,.2,1) forwards; }
+.anim-slide-out { animation: slideOutLeft  .25s cubic-bezier(.4,0,.2,1) forwards; }
+.anim-back-in   { animation: slideInLeft   .3s cubic-bezier(.4,0,.2,1) forwards; }
+.anim-back-out  { animation: slideOutRight .25s cubic-bezier(.4,0,.2,1) forwards; }
 
 /* APP页面 */
 #appScreen {
@@ -164,12 +240,17 @@ body {
 }
 #appScreen.show { display: flex; }
 .app-header {
-  height: 52px;
+  height: 54px;
   display: flex; align-items: center;
   padding: 0 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--surface);
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+[data-theme="dark"] .app-header {
+  background: rgba(31,27,36,.8);
 }
 .back-btn {
   background: none; border: none; cursor: pointer;
@@ -444,9 +525,12 @@ body {
   <div class="screen">
     <!-- 锁屏 -->
     <div id="lockScreen">
+      <div class="lock-orb lock-orb-1"></div>
+      <div class="lock-orb lock-orb-2"></div>
+      <div class="lock-orb lock-orb-3"></div>
       <div class="lock-time" id="lockTime">9:41</div>
       <div class="lock-date" id="lockDate">5月5日 星期一</div>
-      <div class="lock-hint">点击解锁</div>
+      <div class="lock-hint">轻触解锁</div>
     </div>
 
     <!-- 桌面 -->
@@ -456,7 +540,10 @@ body {
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
-      <div class="home-title">炘也的手机</div>
+      <div class="home-clock">
+        <div class="home-clock-time" id="homeClockTime">9:41</div>
+        <div class="home-clock-date" id="homeClockDate">5月5日 星期一</div>
+      </div>
       <div class="app-grid">
         <div class="app-icon" data-app="memo">
           <div class="icon-wrap" style="background:linear-gradient(135deg,#fff8f0,#ffe0c8)">
@@ -571,6 +658,8 @@ function updateClock() {
   document.getElementById('statusTime').textContent = hm;
   document.getElementById('lockTime').textContent = hm;
   document.getElementById('lockDate').textContent = date;
+  document.getElementById('homeClockTime').textContent = hm;
+  document.getElementById('homeClockDate').textContent = date;
 }
 updateClock();
 setInterval(updateClock, 10000);
@@ -595,16 +684,30 @@ const appTitle    = document.getElementById('appTitle');
 const appContent  = document.getElementById('appContent');
 const tabBar      = document.getElementById('tabBar');
 
-lockScreen.addEventListener('click', () => { lockScreen.classList.add('hidden'); homeScreen.classList.add('show'); });
+lockScreen.addEventListener('click', () => {
+  lockScreen.classList.add('hidden');
+  homeScreen.classList.add('show');
+});
+
+function animateTransition(outEl, inEl, isBack = false) {
+  outEl.classList.add(isBack ? 'anim-back-out' : 'anim-slide-out');
+  inEl.classList.add('show');
+  inEl.classList.add(isBack ? 'anim-back-in' : 'anim-slide-in');
+  outEl.addEventListener('animationend', () => {
+    outEl.classList.remove('show', 'anim-slide-out', 'anim-back-out');
+  }, { once: true });
+  inEl.addEventListener('animationend', () => {
+    inEl.classList.remove('anim-slide-in', 'anim-back-in');
+  }, { once: true });
+}
 
 document.querySelectorAll('.app-icon').forEach(el => {
   el.addEventListener('click', () => openApp(el.dataset.app));
 });
 
 document.getElementById('backBtn').addEventListener('click', () => {
-  appScreen.classList.remove('show');
-  homeScreen.classList.add('show');
   tabBar.style.display = 'none';
+  animateTransition(appScreen, homeScreen, true);
 });
 
 const APP_TITLES = { memo:'备忘录', lyrics:'歌单', quotes:'书摘', drafts:'草稿箱', mood:'心情', browser:'浏览器', photos:'相册' };
@@ -615,11 +718,10 @@ const PAGE = 20;
 async function openApp(app) {
   _currentApp = app;
   appTitle.textContent = APP_TITLES[app] || app;
-  homeScreen.classList.remove('show');
-  appScreen.classList.add('show');
   appContent.innerHTML = '';
   tabBar.style.display = app === 'memo' ? 'flex' : 'none';
   if (app === 'memo') { _currentTab = 'note'; document.getElementById('tabNote').classList.add('active'); document.getElementById('tabTodo').classList.remove('active'); }
+  animateTransition(homeScreen, appScreen);
   await renderApp(app);
 }
 
