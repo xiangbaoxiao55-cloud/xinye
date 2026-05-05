@@ -152,9 +152,9 @@ export async function generateDream() {
     const recent = messages.slice(-30).map(m =>
       `${m.role === 'user' ? userName : aiName}：${m.content.slice(0, 100)}`
     ).join('\n');
-    const staticParts = await getMemoryContextBlocks();
-    if (settings.systemPrompt?.trim()) staticParts.push(settings.systemPrompt.trim());
-    const systemContent = staticParts.join('\n\n---\n\n');
+    const { stable: _sp, dynamic: _dp } = await getMemoryContextBlocks();
+    if (settings.systemPrompt?.trim()) _sp.push(settings.systemPrompt.trim());
+    const systemContent = [..._sp, ..._dp].join('\n\n---\n\n');
     const dreamPrompt = `根据你和${userName}最近的聊天，生成一段你（${aiName}）做的梦的内容。梦境要有画面感，有情绪，和你们之间的关系或近期话题有关联。只输出梦境内容本身，50-100字，不要说"我梦到了"之类的开头，直接描述梦里发生的事。\n\n最近聊天记录：\n${recent}`;
     const msgs = [];
     if (systemContent) msgs.push({ role: 'system', content: systemContent });
@@ -184,12 +184,15 @@ export async function proactiveMsg(type) {
   const apiMsgs = [];
   const _apiMeta = [];
 
-  const _staticParts = await getMemoryContextBlocks();
-  if (settings.systemPrompt && settings.systemPrompt.trim())
-    _staticParts.push(settings.systemPrompt.trim());
-  if (_staticParts.length > 0) {
-    apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _staticParts.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
+  const { stable: _stableBlocks, dynamic: _dynamicBlocks } = await getMemoryContextBlocks();
+  if (settings.systemPrompt?.trim()) _stableBlocks.push(settings.systemPrompt.trim());
+  if (_stableBlocks.length > 0) {
+    apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stableBlocks.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
     _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
+  }
+  if (_dynamicBlocks.length > 0) {
+    apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });
+    _apiMeta.push({ label: `system · RAG召回(${_dynamicBlocks.length}块)` });
   }
 
   const n = Math.max(1, settings.contextCount || 20);

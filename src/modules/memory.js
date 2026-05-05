@@ -261,22 +261,29 @@ export async function parseAndSaveSelfMemories(text, msgTime) {
 }
 
 // ── 记忆上下文块（注入到发消息 system prompt 里） ────────────────────────────
+// 返回 { stable: [...], dynamic: [...] }
+// stable = 档案/钉住记忆/主动记忆提示（内容稳定，用于 cache_control）
+// dynamic = RAG召回结果（每次请求都不同，不缓存）
 export async function getMemoryContextBlocks() {
   const bank = ensureMemoryState();
-  const blocks = [];
+  const stable = [];
+  const dynamic = [];
+
   if (settings.memoryArchiveCore && settings.memoryArchiveExtended?.length) {
     if (settings.memoryArchiveCore.trim())
-      blocks.push(`【记忆档案·核心层】\n${settings.memoryArchiveCore.trim()}`);
+      stable.push(`【记忆档案·核心层】\n${settings.memoryArchiveCore.trim()}`);
     if (settings.memoryArchiveAlways?.trim())
-      blocks.push(`【近况·会过期】\n${settings.memoryArchiveAlways.trim()}`);
+      stable.push(`【近况·会过期】\n${settings.memoryArchiveAlways.trim()}`);
   } else {
     const archive = (settings.memoryArchive || '').trim();
-    if (archive) blocks.push(`【固定记忆档案】\n${archive}`);
+    if (archive) stable.push(`【固定记忆档案】\n${archive}`);
   }
 
   if (bank.pinned.length) {
-    blocks.push(`【钉住记忆】\n${bank.pinned.slice(0, MEMORY_PINNED_LIMIT).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+    stable.push(`【钉住记忆】\n${bank.pinned.slice(0, MEMORY_PINNED_LIMIT).map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
   }
+
+  stable.push(`【主动记忆】如果你觉得某件事此刻值得记住，可以在回复里加 [记住:一句话内容] ，系统会自动存入记忆库，不会显示给涂涂看。`);
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
   let query = lastUserMsg ? lastUserMsg.content.slice(0, 300) : '';
@@ -294,11 +301,9 @@ export async function getMemoryContextBlocks() {
   console.log(`[Memory RAG] 候选池：共${pool.length}条（archived共${bank.archived.length}条，有向量${withVecTotal}条，排除上下文窗口${n}条内的内容），pinned=${bank.pinned.length}条（始终注入）`);
 
   if (pool.length) {
-    // 近期记忆：窗口外时间最新的 N 条（按 createdAt 倒排）
     const recentItems = [...pool].sort((a, b) => (b.createdAt||0) - (a.createdAt||0)).slice(0, MEMORY_RAG_RECENT);
     const recentIds = new Set(recentItems.map(i => i.id));
 
-    // 语义召回：从剩余 pool 中匹配（避免与近期重复）
     const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
     console.log(`[Memory RAG] 检索方式：${method}，query前50字：「${query.slice(0,50)}」`);
     const semanticPool = pool.filter(i => !recentIds.has(i.id));
@@ -335,10 +340,10 @@ export async function getMemoryContextBlocks() {
       });
     }
     if (recentItems.length) {
-      blocks.push(`【近期记忆（上下文窗口外最新）】\n${recentItems.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+      dynamic.push(`【近期记忆（上下文窗口外最新）】\n${recentItems.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
     }
     if (relevant.length) {
-      blocks.push(`【记忆碎片（与当前话题相关）】\n${relevant.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
+      dynamic.push(`【记忆碎片（与当前话题相关）】\n${relevant.map((item, idx) => `${idx + 1}. ${item.content}`).join('\n\n')}`);
     }
   }
 
@@ -355,13 +360,11 @@ export async function getMemoryContextBlocks() {
       recalled = extPool.slice(0, 2);
     }
     if (recalled.length) {
-      blocks.push(`【关于涂涔·背景细节（相关召回）】\n${recalled.map(c => c.content).join('\n\n')}`);
+      dynamic.push(`【关于涂涔·背景细节（相关召回）】\n${recalled.map(c => c.content).join('\n\n')}`);
     }
   }
 
-  blocks.push(`【主动记忆】如果你觉得某件事此刻值得记住，可以在回复里加 [记住:一句话内容] ，系统会自动存入记忆库，不会显示给涂涂看。`);
-
-  return blocks;
+  return { stable, dynamic };
 }
 
 // ── 档案Patch整理 ─────────────────────────────────────────────────────────────

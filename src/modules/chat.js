@@ -682,13 +682,17 @@ export async function sendMessage() {
       apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _rpInject, cache_control: { type: 'ephemeral' } }] });
       _apiMeta.push({ label: 'system · 🎭RP场景 🔒缓存' });
     } else {
-      const _staticParts = await getMemoryContextBlocks();
+      const { stable: _stableBlocks, dynamic: _dynamicBlocks } = await getMemoryContextBlocks();
       if (settings.systemPrompt.trim()) {
-        _staticParts.push(settings.systemPrompt.trim());
+        _stableBlocks.push(settings.systemPrompt.trim());
       }
-      if (_staticParts.length > 0) {
-        apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _staticParts.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
+      if (_stableBlocks.length > 0) {
+        apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stableBlocks.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
         _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
+      }
+      if (_dynamicBlocks.length > 0) {
+        apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });
+        _apiMeta.push({ label: `system · RAG召回(${_dynamicBlocks.length}块)` });
       }
     }
     if (_rpInject) {
