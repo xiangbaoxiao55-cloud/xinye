@@ -1299,7 +1299,7 @@ export async function sendMessage() {
           }
           const _imgData = await _imgRes.json();
           console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
-          const _b64t = (s) => `data:image/png;base64,${s.replace(/[\s\r\n]/g,'')}`;
+          const _b64t = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
           const _pi = (d) => {
             const it = d.data?.[0] || d.images?.[0];
             if (it?.b64_json) return _b64t(it.b64_json);

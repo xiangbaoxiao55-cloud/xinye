@@ -180,7 +180,7 @@ export async function generateImage(userDesc) {
     const imgData = await imgRes.json();
     console.log('[画图v2] API返回类型:', typeof imgData, '键:', typeof imgData==='object'?Object.keys(imgData||{}).join(','):'(string)', '长度:', JSON.stringify(imgData).length);
     let dataUrl;
-    const _b64 = (s) => `data:image/png;base64,${s.replace(/[\s\r\n]/g,'')}`;
+    const _b64 = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
     const _parseImg = (d) => {
       const item = d.data?.[0] || d.images?.[0];
       if (item?.b64_json) return _b64(item.b64_json);
