@@ -185,14 +185,13 @@ body.standalone .status-bar { display: none; }
 }
 
 .app-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px 12px;
-  padding: 8px 12px 40px;
-  justify-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 10px;
+  padding: 0 8px 44px;
+  margin-top: auto;
 }
-/* 第7个图标（最后一行只有1个）居中 */
-.app-icon:last-child:nth-child(3n+1) { grid-column: 2; }
 
 .app-icon {
   display: flex; flex-direction: column; align-items: center; gap: 9px;
@@ -207,9 +206,9 @@ body.standalone .status-bar { display: none; }
 }
 .app-icon:active .icon-wrap { transform: scale(.86); }
 .icon-wrap {
-  width: 76px; height: 76px;
+  width: 68px; height: 68px;
   background: var(--surface);
-  border-radius: 22px;
+  border-radius: 18px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 6px 20px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07);
   transition: transform .18s cubic-bezier(.34,1.56,.64,1);
