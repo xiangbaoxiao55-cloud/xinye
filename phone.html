@@ -843,8 +843,15 @@ function openDB() {
         if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: 'key' });
       }
     };
-    r.onsuccess = e => { _db = e.target.result; res(_db); };
+    r.onsuccess = e => {
+      _db = e.target.result;
+      _db.onversionchange = () => { _db.close(); _db = null; };
+      res(_db);
+    };
     r.onerror = e => rej(e.target.error);
+    r.onblocked = () => {
+      alert('请关闭其他炘也标签页后刷新，否则壁纸/图标无法保存。');
+    };
   });
 }
 
@@ -940,9 +947,9 @@ wpFileInput.addEventListener('change', async () => {
   if (_wpUrls[key]) URL.revokeObjectURL(_wpUrls[key]);
   const url = URL.createObjectURL(file);
   _wpUrls[key] = url;
-  await saveWallpaper(key, file);
   applyWallpaper(key, url);
   updateWpPreview(key, url);
+  try { await saveWallpaper(key, file); } catch(e) { console.error('[壁纸保存失败]', e); }
 });
 
 document.getElementById('wpLockChange').addEventListener('click', () => pickWallpaper('lock'));
@@ -1019,8 +1026,8 @@ iconFileInput.addEventListener('change', async () => {
   if (_iconUrls[app]) URL.revokeObjectURL(_iconUrls[app]);
   const url = URL.createObjectURL(file);
   _iconUrls[app] = url;
-  await saveIcon(app, file);
   applyIcon(app, url);
+  try { await saveIcon(app, file); } catch(e) { console.error('[图标保存失败]', e); }
 });
 
 loadIcons();
