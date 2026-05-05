@@ -950,8 +950,10 @@ async function saveEntry() {
   const isXinye = (sheetTab || currentTab) === 'xinye';
   if (!text) { toast('日记内容不能为空哦'); return; }
   if (!dateStr) { toast('请选择日期'); return; }
+  const dateChanged = editingKey && editingKey !== dateStr;
   if (isXinye) {
     saveXinyeEntry(dateStr, text);
+    if (dateChanged) deleteXinyeEntry(editingKey);
   } else {
     const mood = document.querySelector('.mood-btn.selected')?.dataset.mood || '';
     saveUserEntry(dateStr, text, mood);
@@ -966,6 +968,7 @@ async function saveEntry() {
       const e = getUserEntry(dateStr);
       if (e && e.imgCount) { delete e.imgCount; localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e)); }
     }
+    if (dateChanged) { deleteUserEntry(editingKey); await deleteDiaryImgs(editingKey); }
   }
   closeSheet();
   renderBoth();
