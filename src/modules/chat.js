@@ -1299,11 +1299,20 @@ export async function sendMessage() {
           }
           const _imgData = await _imgRes.json();
           console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
-          const _imgItem = _imgData.data?.[0] || _imgData.images?.[0] || _imgData;
-          let _dataUrl;
-          if (_imgItem?.b64_json) _dataUrl = `data:image/png;base64,${_imgItem.b64_json}`;
-          else if (_imgItem?.url) _dataUrl = _imgItem.url;
-          else return '画图API没返回图片';
+          const _pi = (d) => {
+            const it = d.data?.[0] || d.images?.[0];
+            if (it?.b64_json) return `data:image/png;base64,${it.b64_json}`;
+            if (it?.url) return it.url;
+            if (d.b64_json) return `data:image/png;base64,${d.b64_json}`;
+            if (d.url && typeof d.url === 'string') return d.url;
+            if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : `data:image/png;base64,${v}`; }
+            if (d.artifacts?.[0]?.base64) return `data:image/png;base64,${d.artifacts[0].base64}`;
+            if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : `data:image/png;base64,${d.data}`; }
+            if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : `data:image/png;base64,${d}`; }
+            return null;
+          };
+          let _dataUrl = _pi(_imgData);
+          if (!_dataUrl) return '画图API没返回图片';
           const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true;

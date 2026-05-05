@@ -180,14 +180,20 @@ export async function generateImage(userDesc) {
     const imgData = await imgRes.json();
     console.log('[画图] API返回:', JSON.stringify(imgData).slice(0, 300));
     let dataUrl;
-    const imgItem = imgData.data?.[0] || imgData.images?.[0] || imgData;
-    if (imgItem?.b64_json) {
-      dataUrl = `data:image/png;base64,${imgItem.b64_json}`;
-    } else if (imgItem?.url) {
-      dataUrl = imgItem.url;
-    } else if (typeof imgItem === 'string' && imgItem.startsWith('http')) {
-      dataUrl = imgItem;
-    } else {
+    const _parseImg = (d) => {
+      const item = d.data?.[0] || d.images?.[0];
+      if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+      if (item?.url) return item.url;
+      if (d.b64_json) return `data:image/png;base64,${d.b64_json}`;
+      if (d.url && typeof d.url === 'string') return d.url;
+      if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : `data:image/png;base64,${v}`; }
+      if (d.artifacts?.[0]?.base64) return `data:image/png;base64,${d.artifacts[0].base64}`;
+      if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : `data:image/png;base64,${d.data}`; }
+      if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : `data:image/png;base64,${d}`; }
+      return null;
+    };
+    dataUrl = _parseImg(imgData);
+    if (!dataUrl) {
       console.log('[画图] 完整返回:', JSON.stringify(imgData));
       throw new Error('画图API没返回图片，vConsole查看完整返回');
     }
