@@ -637,6 +637,14 @@ body.standalone .status-bar { display: none; }
   border-radius: 3px;
   opacity: .2;
 }
+/* Toast 提示 */
+#phoneToast {
+  position: absolute; bottom: 72px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.78); color: #fff; padding: 7px 18px; border-radius: 20px;
+  font-size: 13px; white-space: nowrap; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity .3s; max-width: 240px; text-align: center;
+}
+#phoneToast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -651,6 +659,7 @@ body.standalone .status-bar { display: none; }
   </div>
 
   <div class="screen">
+    <div id="phoneToast"></div>
     <!-- 锁屏 -->
     <div id="lockScreen">
       <div class="lock-orb lock-orb-1"></div>
@@ -865,6 +874,26 @@ if (window.matchMedia('(display-mode: standalone)').matches || navigator.standal
   document.body.classList.add('standalone');
 }
 
+// ── Toast ─────────────────────────────────────────────────
+let _toastTimer = null;
+function phoneToast(msg) {
+  const el = document.getElementById('phoneToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// File/Blob → base64 dataURL（字符串比Blob更可靠地存IDB）
+function fileToDataUrl(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── 壁纸 ─────────────────────────────────────────────────
 let _wpUrls = { lock: null, home: null };
 
@@ -872,8 +901,14 @@ async function loadWallpapers() {
   await openDB();
   for (const key of ['lock', 'home']) {
     const rec = await getOne('xinye_wallpapers', key);
-    if (rec?.blob) {
-      const url = URL.createObjectURL(rec.blob);
+    let url = null;
+    if (rec?.dataUrl) {
+      const blob = dataUrlToBlob(rec.dataUrl);
+      url = URL.createObjectURL(blob);
+    } else if (rec?.blob) {
+      url = URL.createObjectURL(rec.blob);
+    }
+    if (url) {
       _wpUrls[key] = url;
       applyWallpaper(key, url);
       updateWpPreview(key, url);
@@ -907,10 +942,11 @@ function updateWpPreview(key, url) {
   }
 }
 
-async function saveWallpaper(key, blob) {
+async function saveWallpaper(key, file) {
+  const dataUrl = await fileToDataUrl(file);
   await openDB();
   await new Promise((res, rej) => {
-    const r = _db.transaction('xinye_wallpapers', 'readwrite').objectStore('xinye_wallpapers').put({ key, blob });
+    const r = _db.transaction('xinye_wallpapers', 'readwrite').objectStore('xinye_wallpapers').put({ key, dataUrl });
     r.onsuccess = res; r.onerror = e => rej(e.target.error);
   });
 }
@@ -949,7 +985,7 @@ wpFileInput.addEventListener('change', async () => {
   _wpUrls[key] = url;
   applyWallpaper(key, url);
   updateWpPreview(key, url);
-  try { await saveWallpaper(key, file); } catch(e) { console.error('[壁纸保存失败]', e); }
+  try { await saveWallpaper(key, file); } catch(e) { console.error('[壁纸保存失败]', e); phoneToast('壁纸保存失败，刷新后不会保留'); }
 });
 
 document.getElementById('wpLockChange').addEventListener('click', () => pickWallpaper('lock'));
@@ -968,8 +1004,14 @@ async function loadIcons() {
   const apps = ['memo','lyrics','quotes','drafts','mood','browser','photos'];
   for (const app of apps) {
     const rec = await getOne('xinye_wallpapers', `icon_${app}`);
-    if (rec?.blob) {
-      const url = URL.createObjectURL(rec.blob);
+    let url = null;
+    if (rec?.dataUrl) {
+      const blob = dataUrlToBlob(rec.dataUrl);
+      url = URL.createObjectURL(blob);
+    } else if (rec?.blob) {
+      url = URL.createObjectURL(rec.blob);
+    }
+    if (url) {
       _iconUrls[app] = url;
       applyIcon(app, url);
     }
@@ -985,10 +1027,11 @@ function applyIcon(app, url) {
   }
 }
 
-async function saveIcon(app, blob) {
+async function saveIcon(app, file) {
+  const dataUrl = await fileToDataUrl(file);
   await openDB();
   await new Promise((res,rej) => {
-    const r = _db.transaction('xinye_wallpapers','readwrite').objectStore('xinye_wallpapers').put({ key:`icon_${app}`, blob });
+    const r = _db.transaction('xinye_wallpapers','readwrite').objectStore('xinye_wallpapers').put({ key:`icon_${app}`, dataUrl });
     r.onsuccess = res; r.onerror = e => rej(e.target.error);
   });
 }
@@ -1027,7 +1070,7 @@ iconFileInput.addEventListener('change', async () => {
   const url = URL.createObjectURL(file);
   _iconUrls[app] = url;
   applyIcon(app, url);
-  try { await saveIcon(app, file); } catch(e) { console.error('[图标保存失败]', e); }
+  try { await saveIcon(app, file); } catch(e) { console.error('[图标保存失败]', e); phoneToast('图标保存失败，刷新后不会保留'); }
 });
 
 loadIcons();
@@ -1081,7 +1124,8 @@ document.getElementById('pdExport').addEventListener('click', async () => {
     data.xinye_wallpapers = [];
     for (const key of wpKeys) {
       const rec = await getOne('xinye_wallpapers', key);
-      if (rec?.blob) { data.xinye_wallpapers.push({ key, dataUrl: await blobToBase64(rec.blob) }); }
+      if (rec?.dataUrl) { data.xinye_wallpapers.push({ key, dataUrl: rec.dataUrl }); }
+      else if (rec?.blob) { data.xinye_wallpapers.push({ key, dataUrl: await blobToBase64(rec.blob) }); }
     }
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -1131,8 +1175,7 @@ phoneImportFile.addEventListener('change', async () => {
     if (data.xinye_wallpapers) {
       for (const wp of data.xinye_wallpapers) {
         if (!wp.dataUrl) continue;
-        const blob = dataUrlToBlob(wp.dataUrl);
-        await new Promise((res,rej)=>{ const r=tx('xinye_wallpapers','readwrite').put({ key:wp.key, blob }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
+        await new Promise((res,rej)=>{ const r=tx('xinye_wallpapers','readwrite').put({ key:wp.key, dataUrl:wp.dataUrl }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
       }
     }
     phoneDataPanel.classList.remove('show');
