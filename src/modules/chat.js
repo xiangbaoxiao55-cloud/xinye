@@ -1452,7 +1452,7 @@ export async function sendMessage() {
           bodyObj.tools = _toolDefs;
           const _lastU = [...msgs].reverse().find(m => m.role === 'user');
           const _lastUText = Array.isArray(_lastU?.content) ? _lastU.content.filter(c => c.type === 'text').map(c => c.text).join('') : (_lastU?.content || '');
-          const _forceImg = _toolDefs.some(t => t.function?.name === 'generate_image') && /画[吧啊呀吗一]|来一张|给我画|帮我画|出图|画图/.test(_lastUText);
+          const _forceImg = _toolDefs.some(t => t.function?.name === 'generate_image') && /画[吧啊呀吗一下]|来一张|给我画|帮我画|出图|画图|[，,]\s*画\s*[！!。.？?]*$|^画\s*[！!。.？?]*$|你画/.test(_lastUText);
           bodyObj.tool_choice = _forceImg ? { type: 'function', function: { name: 'generate_image' } } : 'auto';
         }
         const bodyStr = JSON.stringify(bodyObj);
