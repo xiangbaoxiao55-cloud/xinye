@@ -1259,7 +1259,7 @@ export async function sendMessage() {
         const _imgModel = settings.imageModel;
         try {
           const _ctrl = new AbortController();
-          const _tid = setTimeout(() => _ctrl.abort(), 360000);
+          const _tid = setTimeout(() => _ctrl.abort(), 120000);
           let _imgRes;
           const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           if (_hasRef) {
@@ -1339,7 +1339,7 @@ export async function sendMessage() {
           return '[图已画好并展示给兔宝了]';
         } catch(e) {
           console.error('[画图tool] catch:', e);
-          if (e.name === 'AbortError') return '画图超时了';
+          if (e.name === 'AbortError') return '画图超时（2分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
           return '画图出错：' + e.message;
         }
       }
