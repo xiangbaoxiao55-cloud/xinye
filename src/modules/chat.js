@@ -1259,7 +1259,7 @@ export async function sendMessage() {
         const _imgModel = settings.imageModel;
         try {
           const _ctrl = new AbortController();
-          const _tid = setTimeout(() => _ctrl.abort(), 120000);
+          const _tid = setTimeout(() => _ctrl.abort(), 180000);
           let _imgRes;
           const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           if (_hasRef) {
