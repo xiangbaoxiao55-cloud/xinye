@@ -1269,7 +1269,6 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
-            _form.append('response_format', 'b64_json');
             const _composited = await window.compositeRefImages(imgs);
             _form.append('image', window.base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
