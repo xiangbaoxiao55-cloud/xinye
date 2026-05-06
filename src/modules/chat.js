@@ -1448,7 +1448,13 @@ export async function sendMessage() {
         const cfg = _buildCfg(_allCfgs[pi]);
         const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
         bodyObj.stream_options = { include_usage: true };
-        if (withTools && _toolDefs.length) { bodyObj.tools = _toolDefs; bodyObj.tool_choice = 'auto'; }
+        if (withTools && _toolDefs.length) {
+          bodyObj.tools = _toolDefs;
+          const _lastU = [...msgs].reverse().find(m => m.role === 'user');
+          const _lastUText = Array.isArray(_lastU?.content) ? _lastU.content.filter(c => c.type === 'text').map(c => c.text).join('') : (_lastU?.content || '');
+          const _forceImg = _toolDefs.some(t => t.function?.name === 'generate_image') && /画[吧啊呀吗一]|来一张|给我画|帮我画|出图|画图/.test(_lastUText);
+          bodyObj.tool_choice = _forceImg ? { type: 'function', function: { name: 'generate_image' } } : 'auto';
+        }
         const bodyStr = JSON.stringify(bodyObj);
         for (let _a = 0; _a < 2; _a++) {
           if (_a > 0) { toast('重试中…'); await new Promise(r => setTimeout(r, 4000)); }
