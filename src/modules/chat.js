@@ -1284,7 +1284,7 @@ export async function sendMessage() {
             _imgRes = await fetch(_genEp, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
               signal: _ctrl.signal
             });
           }
@@ -1338,7 +1338,7 @@ export async function sendMessage() {
           return '[图已画好并展示给兔宝了]';
         } catch(e) {
           console.error('[画图tool] catch:', e);
-          if (e.name === 'AbortError') return '画图超时（2分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
+          if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
           return '画图出错：' + e.message;
         }
       }
