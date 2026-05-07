@@ -207,20 +207,24 @@ export async function proactiveMsg(type) {
   _apiMeta.push({ label: 'system · 渲染能力' });
 
   try {
-    const healthRes = await fetch('https://xinye-health.xiangbaoxiao55.workers.dev/');
-    if (healthRes.ok) {
-      const healthData = await healthRes.json();
-      const h = healthData[0];
-      if (h) {
-        const sleepH = h.sleepSecs ? (h.sleepSecs / 3600).toFixed(1) : null;
-        const healthStr = [
-          sleepH ? `昨晚睡眠${sleepH}小时（评分${h.sleepScore ?? '无'}）` : null,
-          h.restingHR ? `静息心率${h.restingHR}bpm` : null,
-          h.steps ? `今日步数${h.steps}步` : null,
-        ].filter(Boolean).join('，');
-        if (healthStr) {
-          apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
-          _apiMeta.push({ label: 'system · 健康数据' });
+    const _hwUrl = settings.healthWorkerUrl;
+    if (_hwUrl) {
+      const _hwHeaders = settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {};
+      const healthRes = await fetch(_hwUrl, { headers: _hwHeaders });
+      if (healthRes.ok) {
+        const healthData = await healthRes.json();
+        const h = healthData[0];
+        if (h) {
+          const sleepH = h.sleepSecs ? (h.sleepSecs / 3600).toFixed(1) : null;
+          const healthStr = [
+            sleepH ? `昨晚睡眠${sleepH}小时（评分${h.sleepScore ?? '无'}）` : null,
+            h.restingHR ? `静息心率${h.restingHR}bpm` : null,
+            h.steps ? `今日步数${h.steps}步` : null,
+          ].filter(Boolean).join('，');
+          if (healthStr) {
+            apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
+            _apiMeta.push({ label: 'system · 健康数据' });
+          }
         }
       }
     }
