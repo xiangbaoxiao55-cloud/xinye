@@ -1273,8 +1273,7 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
-            const _composited = await window.compositeRefImages(imgs);
-            _form.append('image[]', window.base64ToFile(_composited, 'ref.png'));
+            imgs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
