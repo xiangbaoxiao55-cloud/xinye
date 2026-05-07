@@ -644,6 +644,19 @@ export function initSettings() {
     $('#apiPresetName').value = '';
     toast(`💙 预设「${name}」已保存`);
   };
+  $('#btnRenamePreset').onclick = () => {
+    const i = parseInt($('#presetSelect').value);
+    if (isNaN(i)) { toast('请先选择一个预设'); return; }
+    const presets = getApiPresets();
+    const oldName = presets[i]?.name;
+    const newName = prompt(`重命名预设「${oldName}」`, oldName)?.trim();
+    if (!newName || newName === oldName) return;
+    if (presets.some((p, idx) => idx !== i && p.name === newName)) { toast('已有同名预设'); return; }
+    presets[i].name = newName;
+    setApiPresets(presets);
+    renderApiPresets();
+    toast(`✅ 已改名为「${newName}」`);
+  };
   $('#btnDelPreset').onclick = () => {
     const i = parseInt($('#presetSelect').value);
     if (isNaN(i)) { toast('请先选择一个预设'); return; }
