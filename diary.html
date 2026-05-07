@@ -1218,8 +1218,8 @@ async function doXyReview() {
     const model = cfg.model || 'gpt-4o';
     if (!apiKey) { toast('需要先配置 API Key'); return; }
 
-    // 加载近期聊天记录作为上下文
-    const recentMsgs = await loadRecentMessages(20);
+    // 加载日记当天的聊天记录作为上下文
+    const recentMsgs = await loadMessagesByDate(dateStr);
 
     let userContent = `今天是${fmtDateFull(dateStr)}。\n\n兔宝今天记下来的内容：\n`;
     if (note) userContent += `\n【日记】\n${note}\n`;
@@ -1399,6 +1399,30 @@ async function loadRecentMessages(count) {
         const cursor = e.target.result;
         if (cursor && results.length < count) { results.unshift(cursor.value); cursor.continue(); }
         else resolve(results);
+      };
+      req.onerror = e => reject(e.target.error);
+    });
+  } catch { return []; }
+}
+
+async function loadMessagesByDate(dateStr) {
+  try {
+    const db = await openDB();
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const startTs = new Date(y, mo - 1, d, 0, 0, 0, 0).getTime();
+    const endTs   = new Date(y, mo - 1, d, 23, 59, 59, 999).getTime();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction('messages', 'readonly');
+      const results = [];
+      const req = tx.objectStore('messages').openCursor(null, 'prev');
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (!cursor) { resolve(results.reverse()); return; }
+        const t = cursor.value.time || 0;
+        if (t > endTs) { cursor.continue(); return; }
+        if (t < startTs) { resolve(results.reverse()); return; }
+        results.push(cursor.value);
+        cursor.continue();
       };
       req.onerror = e => reject(e.target.error);
     });
