@@ -835,6 +835,7 @@ function renderPanel(tab) {
       <div class="empty-emoji">${isMe ? '📝' : '💙'}</div>
       <div class="empty-text">${isMe ? '还没有日记\n点右下角 ✏️ 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 ✏️\n让${_AINAME}用AI生成一篇`}</div>
     </div>`;
+    if (isMe) { const grid = el.querySelector('.heatmap-grid'); if (grid) grid.scrollLeft = grid.scrollWidth; }
     return;
   }
 
@@ -893,6 +894,10 @@ function renderPanel(tab) {
   // 关闭所有月份 div（简单处理）
   html += '</div>';
   el.innerHTML = html;
+  if (isMe) {
+    const grid = el.querySelector('.heatmap-grid');
+    if (grid) grid.scrollLeft = grid.scrollWidth;
+  }
 }
 
 function renderBoth() {
