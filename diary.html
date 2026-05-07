@@ -1332,7 +1332,7 @@ async function loadCfg() {
     const db = await openDB();
     return await new Promise((resolve, reject) => {
       const tx = db.transaction('settings', 'readonly');
-      const req = tx.objectStore('settings').get('cfg');
+      const req = tx.objectStore('settings').get('main');
       req.onsuccess = () => resolve(req.result || {});
       req.onerror = e => reject(e.target.error);
     });
