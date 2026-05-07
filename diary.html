@@ -393,7 +393,8 @@ html.dark .hm-cell.l4{background:var(--pink)}
   color:var(--text);white-space:pre-wrap;word-break:break-word;display:none;
 }
 .xy-review-bubble.show{display:block}
-.xy-review-meta{font-size:11px;color:var(--text-light);margin-top:6px;text-align:right}
+.xy-review-meta{font-size:11px;color:var(--text-light);margin-top:6px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.btn-xy-clear{font-size:11px;color:var(--text-light);background:none;border:none;cursor:pointer;padding:0;opacity:.6;text-decoration:underline;font-family:inherit}
 html.dark .xy-review-bubble{background:linear-gradient(135deg,rgba(244,143,177,.06),rgba(167,139,250,.06));border-color:rgba(244,143,177,.15)}
 
 /* ---- 日记图片 ---- */
@@ -442,7 +443,10 @@ html.dark .img-thumb{border-color:var(--border)}
       <button class="btn-xy-review" id="btnXyReview" onclick="doXyReview()">💙 让炘也看看</button>
       <div class="xy-review-status" id="xyReviewStatus">💙 炘也正在看…</div>
       <div class="xy-review-bubble" id="xyReviewBubble"></div>
-      <div class="xy-review-meta" id="xyReviewMeta"></div>
+      <div class="xy-review-meta" id="xyReviewMeta">
+        <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none">× 清除重来</button>
+        <span id="xyReviewTime"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -1031,13 +1035,17 @@ async function openDetail(dateStr, tab) {
     }
     // 炘也看看区域
     xySection.style.display = (note || snippets.length) ? 'block' : 'none';
+    const xyClearBtn = document.getElementById('btnXyClear');
+    const xyTimeSpan = document.getElementById('xyReviewTime');
     if (entry && entry.xinyeReview) {
       xyBubble.textContent = entry.xinyeReview.text; xyBubble.classList.add('show');
-      xyMeta.textContent = `炘也 · ${entry.xinyeReview.time}`;
+      xyTimeSpan.textContent = `炘也 · ${entry.xinyeReview.time}`;
+      xyClearBtn.style.display = 'inline';
       xyBtn.textContent = '💙 再让炘也看看';
     } else {
       xyBubble.textContent = ''; xyBubble.classList.remove('show');
-      xyMeta.textContent = ''; xyBtn.textContent = '💙 让炘也看看'; xyBtn.disabled = false;
+      xyTimeSpan.textContent = ''; xyClearBtn.style.display = 'none';
+      xyBtn.textContent = '💙 让炘也看看'; xyBtn.disabled = false;
     }
   } else {
     document.getElementById('detailMood').textContent = '💙';
@@ -1056,6 +1064,22 @@ window.addEventListener('popstate', () => {
     history.pushState({}, '');
   }
 });
+function clearXyReview() {
+  if (!currentDetailKey || currentDetailKey.tab !== 'me') return;
+  const { dateStr } = currentDetailKey;
+  const e = getUserEntry(dateStr);
+  if (!e) return;
+  delete e.xinyeReview;
+  if (_meCache) _meCache[dateStr] = e;
+  _idbPut('userEntries', e).catch(console.error);
+  const bubble = document.getElementById('xyReviewBubble');
+  const btn = document.getElementById('btnXyReview');
+  const clearBtn = document.getElementById('btnXyClear');
+  const timeSpan = document.getElementById('xyReviewTime');
+  bubble.textContent = ''; bubble.classList.remove('show');
+  timeSpan.textContent = ''; clearBtn.style.display = 'none';
+  btn.textContent = '💙 让炘也看看'; btn.disabled = false;
+}
 function editCurrentEntry() {
   if (!currentDetailKey) return;
   const { dateStr, tab } = currentDetailKey; // 先保存，closeDetail会清空currentDetailKey
@@ -1194,11 +1218,22 @@ async function doXyReview() {
     const model = cfg.model || 'gpt-4o';
     if (!apiKey) { toast('需要先配置 API Key'); return; }
 
+    // 加载近期聊天记录作为上下文
+    const recentMsgs = await loadRecentMessages(20);
+
     let userContent = `今天是${fmtDateFull(dateStr)}。\n\n兔宝今天记下来的内容：\n`;
     if (note) userContent += `\n【日记】\n${note}\n`;
     if (snippets.length) {
       userContent += `\n【随手记】\n`;
       snippets.forEach(s => { userContent += `${s.time} ${s.text}\n`; });
+    }
+    if (recentMsgs.length) {
+      userContent += `\n\n【近期聊天记录】\n`;
+      recentMsgs.forEach(m => {
+        const who = m.role === 'user' ? (cfg.userName||'兔宝') : (cfg.aiName||'炘也');
+        const text = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+        userContent += `${who}：${text.slice(0, 300)}\n`;
+      });
     }
     userContent += `\n看完兔宝今天写的这些，给她一段真实的回应。\n不是总结，不是建议，就是你看见了她今天之后想说的话。`;
 
@@ -1211,7 +1246,7 @@ async function doXyReview() {
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, stream: true, max_tokens: 500, messages: [
+      body: JSON.stringify({ model, stream: true, max_tokens: 1000, messages: [
         { role: 'system', content: sysContent },
         { role: 'user', content: userContent },
       ]}),
@@ -1240,7 +1275,10 @@ async function doXyReview() {
       e.xinyeReview = { text: full, time: reviewTime };
       if (_meCache) _meCache[dateStr] = e;
       _idbPut('userEntries', e).catch(console.error);
-      meta.textContent = `炘也 · ${reviewTime}`;
+      const xyTimeSpan2 = document.getElementById('xyReviewTime');
+      const xyClearBtn2 = document.getElementById('btnXyClear');
+      if (xyTimeSpan2) xyTimeSpan2.textContent = `炘也 · ${reviewTime}`;
+      if (xyClearBtn2) xyClearBtn2.style.display = 'inline';
       btn.textContent = '💙 再让炘也看看';
     }
   } catch (e) {
