@@ -359,7 +359,7 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
 /* ---- 热力图 ---- */
 .heatmap-wrap{margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)}
 .heatmap-label{font-size:11px;color:var(--text-light);margin-bottom:8px;letter-spacing:.04em}
-.heatmap-grid{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
+.heatmap-grid{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;touch-action:pan-x;overscroll-behavior-x:contain}
 .heatmap-col{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
 .hm-cell{width:12px;height:12px;border-radius:2px;background:var(--bg2);cursor:pointer;flex-shrink:0;transition:opacity .15s}
 .hm-cell.empty{cursor:default;pointer-events:none}
@@ -1003,6 +1003,7 @@ function renderDetailSnippets(dateStr) {
 }
 async function openDetail(dateStr, tab) {
   currentDetailKey = { dateStr, tab };
+  history.pushState({ diaryDetail: true }, '');
   const isMe = tab === 'me';
   document.getElementById('detailDate').textContent = fmtDateFull(dateStr);
   document.getElementById('detailSnippets').innerHTML = '';
@@ -1049,6 +1050,12 @@ function closeDetail() {
   document.getElementById('detailOverlay').classList.remove('show');
   currentDetailKey = null;
 }
+window.addEventListener('popstate', () => {
+  if (document.getElementById('detailOverlay').classList.contains('show')) {
+    closeDetail();
+    history.pushState({}, '');
+  }
+});
 function editCurrentEntry() {
   if (!currentDetailKey) return;
   const { dateStr, tab } = currentDetailKey; // 先保存，closeDetail会清空currentDetailKey
