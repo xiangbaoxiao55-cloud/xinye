@@ -163,8 +163,8 @@ export async function openSettings() {
   $('#setStandRemind').value = settings.standRemind || 0;
   $('#setDreamEnabled').checked = !!settings.dreamEnabled;
   $('#setDreamSleepHours').value = settings.dreamSleepHours || 6;
-  $('#setHealthWorkerUrl').value = settings.healthWorkerUrl || '';
-  $('#setHealthWorkerToken').value = settings.healthWorkerToken || '';
+  if ($('#setHealthWorkerUrl')) $('#setHealthWorkerUrl').value = settings.healthWorkerUrl || '';
+  if ($('#setHealthWorkerToken')) $('#setHealthWorkerToken').value = settings.healthWorkerToken || '';
   renderTtsPresets();
   renderApiPresets();
   renderVisionPresets();
@@ -727,8 +727,8 @@ export function initSettings() {
     settings.standRemind = parseInt($('#setStandRemind').value) || 0;
     settings.dreamEnabled = $('#setDreamEnabled').checked;
     settings.dreamSleepHours = parseFloat($('#setDreamSleepHours').value) || 6;
-    settings.healthWorkerUrl = $('#setHealthWorkerUrl').value.trim();
-    settings.healthWorkerToken = $('#setHealthWorkerToken').value.trim();
+    if ($('#setHealthWorkerUrl')) settings.healthWorkerUrl = $('#setHealthWorkerUrl').value.trim();
+    if ($('#setHealthWorkerToken')) settings.healthWorkerToken = $('#setHealthWorkerToken').value.trim();
     settings.displayLimit = parseInt($('#setDisplayLimit').value) || 0;
 
     archiveMemoryBank(settings.memoryBank);
