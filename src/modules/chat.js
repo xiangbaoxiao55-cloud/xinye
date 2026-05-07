@@ -1274,7 +1274,7 @@ export async function sendMessage() {
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
             const _composited = await window.compositeRefImages(imgs);
-            _form.append('image', window.base64ToFile(_composited, 'ref.png'));
+            _form.append('image[]', window.base64ToFile(_composited, 'ref.png'));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },

@@ -135,9 +135,8 @@ export async function generateImage(userDesc) {
       form.append('prompt', prompt);
       form.append('n', '1');
       form.append('size', settings.imageSize || '1024x1024');
-      form.append('response_format', 'b64_json');
       const composited = await compositeRefImages(refImgs);
-      form.append('image', base64ToFile(composited, 'ref.png'));
+      form.append('image[]', base64ToFile(composited, 'ref.png'));
       imgRes = await fetch(editsEndpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${imgKey}` },
