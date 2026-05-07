@@ -10,6 +10,66 @@ import { renderMessages } from './chat.js';
 let _isLocalOnline = () => false;
 let _closeSettings = () => {};
 
+// ===== DiaryTextDB helpers =====
+function _openDiaryTextDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('DiaryTextDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('userEntries'))          db.createObjectStore('userEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('xinyeEntries'))         db.createObjectStore('xinyeEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('choubaoXinyeEntries'))  db.createObjectStore('choubaoXinyeEntries', { keyPath: 'dateStr' });
+    };
+    req.onsuccess = e => res(e.target.result); req.onerror = e => rej(e.target.error);
+  });
+}
+
+async function getDiaryBackupData() {
+  const out = {};
+  try {
+    const ddb = await _openDiaryTextDB();
+    const getAll = store => new Promise((res, rej) => {
+      const req = ddb.transaction(store, 'readonly').objectStore(store).getAll();
+      req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+    });
+    const [userRows, xinyeRows, cbRows] = await Promise.all([
+      getAll('userEntries'), getAll('xinyeEntries'), getAll('choubaoXinyeEntries'),
+    ]);
+    userRows.forEach(r => { out['rbdiary_' + r.dateStr] = JSON.stringify(r); });
+    xinyeRows.forEach(r => { out['xinye_diary_' + r.dateStr] = r.text; });
+    cbRows.forEach(r => { out['choubao_xinye_diary_' + r.dateStr] = r.text; });
+  } catch (e) { console.warn('[backup] getDiaryBackupData:', e); }
+  return out;
+}
+
+async function restoreDiaryData(diaryObj) {
+  try {
+    const ddb = await _openDiaryTextDB();
+    const put = (store, val) => new Promise((res, rej) => {
+      const req = ddb.transaction(store, 'readwrite').objectStore(store).put(val);
+      req.onsuccess = () => res(); req.onerror = () => rej(req.error);
+    });
+    for (const [k, v] of Object.entries(diaryObj)) {
+      if (k.startsWith('rbdiary_')) {
+        const dateStr = k.slice('rbdiary_'.length);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+        try {
+          const p = typeof v === 'string' ? JSON.parse(v) : v;
+          await put('userEntries', { dateStr, note: p.note||'', mood: p.mood||'', snippets: Array.isArray(p.snippets)?p.snippets:[], imgCount: p.imgCount||0 });
+        } catch {}
+      } else if (k.startsWith('xinye_diary_')) {
+        const dateStr = k.slice('xinye_diary_'.length);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+        await put('xinyeEntries', { dateStr, text: typeof v === 'string' ? v : (v?.note || '') });
+      } else if (k.startsWith('choubao_xinye_diary_')) {
+        const dateStr = k.slice('choubao_xinye_diary_'.length);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+        await put('choubaoXinyeEntries', { dateStr, text: typeof v === 'string' ? v : (v?.note || '') });
+      }
+    }
+  } catch (e) { console.warn('[backup] restoreDiaryData:', e); }
+}
+
 export function initBackupDeps({ isLocalOnline, closeSettings }) {
   _isLocalOnline = isLocalOnline;
   _closeSettings = closeSettings;
@@ -107,13 +167,7 @@ export async function autoBackupToServer() {
     const allRpMsgs = await dbGetAll('rpMessages');
     allRpMsgs.sort((a, b) => a.time - b.time);
 
-    const diaryData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith('rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) {
-        diaryData[k] = localStorage.getItem(k);
-      }
-    }
+    const diaryData = await getDiaryBackupData();
 
     let readingData = { books: [], chapters: [], annotations: [] };
     try {
@@ -181,11 +235,7 @@ export async function backupToPhone() {
     allMsgs.sort((a, b) => a.time - b.time);
     const allRpMsgs = await dbGetAll('rpMessages');
     allRpMsgs.sort((a, b) => a.time - b.time);
-    const diaryData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith('rbdiary_') || k.startsWith(_PFX + 'xinye_diary_'))) diaryData[k] = localStorage.getItem(k);
-    }
+    const diaryData = await getDiaryBackupData();
     let readingData = { books: [], chapters: [], annotations: [] };
     try {
       readingData = await new Promise((resolve) => {
@@ -466,9 +516,7 @@ export async function doImport(jsonText) {
   }
 
   if (data.diary && typeof data.diary === 'object') {
-    for (const [k, v] of Object.entries(data.diary)) {
-      if (k.startsWith('rbdiary_') || k.startsWith('xinye_diary_') || k.startsWith('choubao_xinye_diary_')) localStorage.setItem(k, v);
-    }
+    await restoreDiaryData(data.diary);
   }
 
   if (data.reading && (data.reading.books?.length || data.reading.chapters?.length || data.reading.annotations?.length)) {

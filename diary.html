@@ -356,6 +356,46 @@ html.dark .ie-sheet{background:#261820}
 html.dark .ie-btn{background:var(--bg2);border-color:var(--border);color:var(--text)}
 html.dark #samedayList [style*="background:var(--pink-light)"]{background:#3a1525!important;color:var(--pink)!important}
 html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!important}
+/* ---- 热力图 ---- */
+.heatmap-wrap{margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)}
+.heatmap-label{font-size:11px;color:var(--text-light);margin-bottom:8px;letter-spacing:.04em}
+.heatmap-grid{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
+.heatmap-col{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.hm-cell{width:12px;height:12px;border-radius:2px;background:var(--bg2);cursor:pointer;flex-shrink:0;transition:opacity .15s}
+.hm-cell.empty{cursor:default;pointer-events:none}
+.hm-cell.l1{background:rgba(233,30,99,.2)}
+.hm-cell.l2{background:rgba(233,30,99,.45)}
+.hm-cell.l3{background:rgba(233,30,99,.75)}
+.hm-cell.l4{background:var(--pink-deep)}
+.hm-cell.today{outline:1.5px solid var(--pink-deep);outline-offset:1px}
+.hm-cell:active{opacity:.6}
+html.dark .hm-cell{background:var(--bg3)}
+html.dark .hm-cell.l1{background:rgba(244,143,177,.2)}
+html.dark .hm-cell.l2{background:rgba(244,143,177,.45)}
+html.dark .hm-cell.l3{background:rgba(244,143,177,.75)}
+html.dark .hm-cell.l4{background:var(--pink)}
+
+/* ---- 炘也看看 ---- */
+.xy-review-section{margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)}
+.btn-xy-review{
+  width:100%;padding:12px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
+  background:var(--pink-light);color:var(--pink-deep);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn-xy-review:active{background:var(--pink);color:#fff}
+.btn-xy-review:disabled{opacity:.45;cursor:not-allowed}
+.xy-review-status{font-size:13px;color:var(--text-light);text-align:center;padding:8px 0;display:none}
+.xy-review-status.show{display:block}
+.xy-review-bubble{
+  background:linear-gradient(135deg,rgba(244,143,177,.1),rgba(167,139,250,.1));
+  border:1px solid rgba(233,30,99,.15);border-radius:var(--radius-sm);
+  padding:14px 16px;margin-top:12px;font-size:15px;line-height:1.85;
+  color:var(--text);white-space:pre-wrap;word-break:break-word;display:none;
+}
+.xy-review-bubble.show{display:block}
+.xy-review-meta{font-size:11px;color:var(--text-light);margin-top:6px;text-align:right}
+html.dark .xy-review-bubble{background:linear-gradient(135deg,rgba(244,143,177,.06),rgba(167,139,250,.06));border-color:rgba(244,143,177,.15)}
+
 /* ---- 日记图片 ---- */
 .img-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0 2px;flex-shrink:0;-webkit-overflow-scrolling:touch;min-height:0}
 .img-strip.has-imgs{min-height:80px}
@@ -398,6 +438,12 @@ html.dark .img-thumb{border-color:var(--border)}
     <div class="detail-mood" id="detailMood"></div>
     <div class="detail-text" id="detailText"></div>
     <div id="detailSnippets"></div>
+    <div class="xy-review-section" id="xyReviewSection" style="display:none">
+      <button class="btn-xy-review" id="btnXyReview" onclick="doXyReview()">💙 让炘也看看</button>
+      <div class="xy-review-status" id="xyReviewStatus">💙 炘也正在看…</div>
+      <div class="xy-review-bubble" id="xyReviewBubble"></div>
+      <div class="xy-review-meta" id="xyReviewMeta"></div>
+    </div>
   </div>
 </div>
 
@@ -547,82 +593,157 @@ const _AINAME = _PFX === 'choubao_' ? '臭宝' : '炘也';
   });
 })();
 
-// ===== 数据读写 =====
-function getUserEntry(dateStr) {
-  const raw = localStorage.getItem('rbdiary_' + dateStr);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') return parsed;
-    return { note: String(parsed || ''), mood: '' };
-  } catch {
-    return { note: raw, mood: '' };
+// ===== DiaryTextDB (IDB) =====
+let _diaryTextDB = null;
+
+function openDiaryTextDB() {
+  if (_diaryTextDB) return Promise.resolve(_diaryTextDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('DiaryTextDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('userEntries'))
+        db.createObjectStore('userEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('xinyeEntries'))
+        db.createObjectStore('xinyeEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('choubaoXinyeEntries'))
+        db.createObjectStore('choubaoXinyeEntries', { keyPath: 'dateStr' });
+    };
+    req.onsuccess = e => { _diaryTextDB = e.target.result; res(_diaryTextDB); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+
+let _meCache = null, _xinyeCache = null, _cbXinyeCache = null;
+
+function _aiStore() { return _PFX === 'choubao_' ? 'choubaoXinyeEntries' : 'xinyeEntries'; }
+
+function _idbGetAll(store) {
+  return openDiaryTextDB().then(db => new Promise((res, rej) => {
+    const req = db.transaction(store, 'readonly').objectStore(store).getAll();
+    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+  }));
+}
+function _idbPut(store, val) {
+  return openDiaryTextDB().then(db => new Promise((res, rej) => {
+    const req = db.transaction(store, 'readwrite').objectStore(store).put(val);
+    req.onsuccess = () => res(); req.onerror = () => rej(req.error);
+  }));
+}
+function _idbDelete(store, key) {
+  return openDiaryTextDB().then(db => new Promise((res, rej) => {
+    const req = db.transaction(store, 'readwrite').objectStore(store).delete(key);
+    req.onsuccess = () => res(); req.onerror = () => rej(req.error);
+  }));
+}
+
+async function initDiaryDB() {
+  const [userRows, xinyeRows, cbRows] = await Promise.all([
+    _idbGetAll('userEntries'), _idbGetAll('xinyeEntries'), _idbGetAll('choubaoXinyeEntries'),
+  ]);
+  _meCache = {};      userRows.forEach(r => { _meCache[r.dateStr] = r; });
+  _xinyeCache = {};   xinyeRows.forEach(r => { _xinyeCache[r.dateStr] = r.text; });
+  _cbXinyeCache = {}; cbRows.forEach(r => { _cbXinyeCache[r.dateStr] = r.text; });
+
+  // 迁移 LS → IDB
+  const lsKeys = [];
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsKeys.push(k); }
+  for (const k of lsKeys) {
+    if (k.startsWith('rbdiary_')) {
+      const dateStr = k.slice('rbdiary_'.length);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+      if (_meCache[dateStr]) { localStorage.removeItem(k); continue; }
+      try {
+        const p = JSON.parse(localStorage.getItem(k));
+        const entry = { dateStr, note: p.note||'', mood: p.mood||'', snippets: Array.isArray(p.snippets)?p.snippets:[], imgCount: p.imgCount||0 };
+        _meCache[dateStr] = entry;
+        await _idbPut('userEntries', entry);
+      } catch {}
+      localStorage.removeItem(k);
+    } else if (k.startsWith('xinye_diary_')) {
+      const dateStr = k.slice('xinye_diary_'.length);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+      if (_xinyeCache[dateStr] !== undefined) { localStorage.removeItem(k); continue; }
+      const text = localStorage.getItem(k) || '';
+      _xinyeCache[dateStr] = text; await _idbPut('xinyeEntries', { dateStr, text });
+      localStorage.removeItem(k);
+    } else if (k.startsWith('choubao_xinye_diary_')) {
+      const dateStr = k.slice('choubao_xinye_diary_'.length);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+      if (_cbXinyeCache[dateStr] !== undefined) { localStorage.removeItem(k); continue; }
+      const text = localStorage.getItem(k) || '';
+      _cbXinyeCache[dateStr] = text; await _idbPut('choubaoXinyeEntries', { dateStr, text });
+      localStorage.removeItem(k);
+    }
   }
 }
-// 从 entry 对象安全提取 note 文本
+
+// ===== 数据读写 =====
+function getUserEntry(dateStr) { return (_meCache && _meCache[dateStr]) || null; }
 function getNote(entry) {
   if (!entry) return '';
   if (typeof entry === 'string') return entry;
   return String(entry.note || '');
 }
-// 从 entry 对象安全提取 mood（只接受 emoji，忽略数字）
 function getMood(entry) {
   if (!entry || typeof entry !== 'object') return '';
   const m = entry.mood;
-  if (!m) return '';
-  // 旧格式存的是数字评分，忽略掉
-  if (!isNaN(Number(m))) return '';
+  if (!m || !isNaN(Number(m))) return '';
   return String(m);
 }
 function saveUserEntry(dateStr, note, mood) {
-  let old = {};
-  try { old = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
-  old.note = note; old.mood = mood;
-  if (!Array.isArray(old.snippets)) old.snippets = [];
-  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(old));
+  const old = (_meCache && _meCache[dateStr]) || {};
+  const entry = { dateStr, note, mood, snippets: Array.isArray(old.snippets)?old.snippets:[], imgCount: old.imgCount||0 };
+  if (_meCache) _meCache[dateStr] = entry;
+  _idbPut('userEntries', entry).catch(console.error);
 }
-function deleteUserEntry(dateStr) { localStorage.removeItem('rbdiary_' + dateStr); }
+function deleteUserEntry(dateStr) {
+  if (_meCache) delete _meCache[dateStr];
+  _idbDelete('userEntries', dateStr).catch(console.error);
+}
 function getSnippets(entry) {
   if (!entry || !Array.isArray(entry.snippets)) return [];
   return entry.snippets;
 }
 function deleteSnippet(dateStr, idx) {
-  let entry = {};
-  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
-  if (!Array.isArray(entry.snippets)) return;
+  const entry = _meCache && _meCache[dateStr];
+  if (!entry || !Array.isArray(entry.snippets)) return;
   entry.snippets.splice(idx, 1);
-  // 如果 snippets 空且 note 也空，删整条
   if (!entry.snippets.length && !entry.note) {
-    localStorage.removeItem('rbdiary_' + dateStr);
+    delete _meCache[dateStr];
+    _idbDelete('userEntries', dateStr).catch(console.error);
   } else {
-    localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
+    _idbPut('userEntries', entry).catch(console.error);
   }
-  // 刷新详情 snippets
-  if (currentDetailKey && currentDetailKey.dateStr === dateStr) {
-    renderDetailSnippets(dateStr);
-  }
+  if (currentDetailKey && currentDetailKey.dateStr === dateStr) renderDetailSnippets(dateStr);
   renderBoth();
   toast('已删除');
 }
 
-function getXinyeEntry(dateStr) { return localStorage.getItem((_PFX+'xinye_diary_') + dateStr) || ''; }
-function saveXinyeEntry(dateStr, text) { localStorage.setItem((_PFX+'xinye_diary_') + dateStr, text); }
-function deleteXinyeEntry(dateStr) { localStorage.removeItem((_PFX+'xinye_diary_') + dateStr); }
-
-function getAllDateKeys(prefix) {
-  const keys = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k.startsWith(prefix)) {
-      const d = k.slice(prefix.length);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) keys.push(d);
-    }
-  }
-  return keys.sort((a, b) => b.localeCompare(a));
+function getXinyeEntry(dateStr) {
+  const cache = _PFX === 'choubao_' ? _cbXinyeCache : _xinyeCache;
+  return (cache && cache[dateStr]) || '';
+}
+function saveXinyeEntry(dateStr, text) {
+  if (_PFX === 'choubao_') { if (_cbXinyeCache) _cbXinyeCache[dateStr] = text; }
+  else { if (_xinyeCache) _xinyeCache[dateStr] = text; }
+  _idbPut(_aiStore(), { dateStr, text }).catch(console.error);
+}
+function deleteXinyeEntry(dateStr) {
+  if (_PFX === 'choubao_') { if (_cbXinyeCache) delete _cbXinyeCache[dateStr]; }
+  else { if (_xinyeCache) delete _xinyeCache[dateStr]; }
+  _idbDelete(_aiStore(), dateStr).catch(console.error);
 }
 
-function getAllMeDates() { return getAllDateKeys('rbdiary_'); }
-function getAllXinyeDates() { return getAllDateKeys((_PFX+'xinye_diary_')); }
+function getAllMeDates() {
+  if (!_meCache) return [];
+  return Object.keys(_meCache).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort((a,b) => b.localeCompare(a));
+}
+function getAllXinyeDates() {
+  const cache = _PFX === 'choubao_' ? _cbXinyeCache : _xinyeCache;
+  if (!cache) return [];
+  return Object.keys(cache).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort((a,b) => b.localeCompare(a));
+}
 
 // ===== 工具 =====
 function toast(msg, dur = 2200) {
@@ -653,6 +774,50 @@ function highlight(text, kw) {
   return escHtml(text).replace(re, m => `<mark style="background:#ffd6e8;border-radius:3px">${m}</mark>`);
 }
 
+// ===== 热力图 =====
+function buildHeatmapHtml() {
+  const today = new Date();
+  const todayDs = todayStr();
+  // 往前推 90 天，找到那周的周日作为起点
+  const start = new Date(today);
+  start.setDate(start.getDate() - 90);
+  while (start.getDay() !== 0) start.setDate(start.getDate() - 1);
+
+  const weeks = [[]];
+  const d = new Date(start);
+  while (d <= today) {
+    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const entry = getUserEntry(ds);
+    const snipCount = entry ? getSnippets(entry).length : 0;
+    const hasNote = entry ? !!getNote(entry) : false;
+    weeks[weeks.length - 1].push({ ds, snipCount, hasNote, day: d.getDay() });
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() === 0 && d <= today) weeks.push([]);
+  }
+
+  let grid = '<div class="heatmap-grid">';
+  weeks.forEach(week => {
+    grid += '<div class="heatmap-col">';
+    const firstDay = week[0]?.day || 0;
+    for (let i = 0; i < firstDay; i++) grid += '<div class="hm-cell empty"></div>';
+    week.forEach(({ ds, snipCount, hasNote }) => {
+      let lv = 0;
+      if (hasNote && snipCount >= 3) lv = 4;
+      else if (snipCount >= 5) lv = 4;
+      else if (hasNote || snipCount >= 3) lv = 3;
+      else if (snipCount >= 2) lv = 2;
+      else if (snipCount >= 1) lv = 1;
+      const isToday = ds === todayDs;
+      grid += `<div class="hm-cell l${lv}${isToday?' today':''}" onclick="calSelectDay('${ds}')" title="${ds}${snipCount?` · ${snipCount}条随手记`:''}${hasNote?' · 有日记':''}"></div>`;
+    });
+    grid += '</div>';
+  });
+  grid += '</div>';
+
+  const total = Object.keys(_meCache||{}).length;
+  return `<div class="heatmap-wrap"><div class="heatmap-label">最近记录 · 共 ${total} 天</div>${grid}</div>`;
+}
+
 // ===== 渲染 =====
 function renderPanel(tab) {
   const isMe = tab === 'me';
@@ -666,14 +831,14 @@ function renderPanel(tab) {
   });
 
   if (!filtered.length) {
-    el.innerHTML = `<div class="empty-state">
+    el.innerHTML = (isMe ? buildHeatmapHtml() : '') + `<div class="empty-state">
       <div class="empty-emoji">${isMe ? '📝' : '💙'}</div>
       <div class="empty-text">${isMe ? '还没有日记\n点右下角 ✏️ 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 ✏️\n让${_AINAME}用AI生成一篇`}</div>
     </div>`;
     return;
   }
 
-  let html = '';
+  let html = isMe ? buildHeatmapHtml() : '';
   let lastMonth = '';
   filtered.forEach(dateStr => {
     const mon = fmtMonthLabel(dateStr);
@@ -758,9 +923,9 @@ function renderSameday() {
   const [mm, dd] = samedayMD.split('-');
   document.getElementById('samedayTitle').textContent = `${parseInt(mm)}月${parseInt(dd)}日`;
   const suffix = `-${mm}-${dd}`;
-  const meKeys = getAllDateKeys('rbdiary_');
-  const xyKeys = getAllDateKeys('xinye_diary_');
-  const cbKeys = getAllDateKeys('choubao_xinye_diary_');
+  const meKeys = getAllMeDates();
+  const xyKeys = Object.keys(_xinyeCache || {}).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const cbKeys = Object.keys(_cbXinyeCache || {}).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
   const years = new Set();
   meKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
   xyKeys.forEach(d => { if (d.endsWith(suffix)) years.add(d.slice(0,4)); });
@@ -776,8 +941,8 @@ function renderSameday() {
     const meEntry = getUserEntry(dateStr);
     const meNote = getNote(meEntry);
     const meMood = getMood(meEntry);
-    const xyNote = localStorage.getItem('xinye_diary_' + dateStr) || '';
-    const cbNote = localStorage.getItem('choubao_xinye_diary_' + dateStr) || '';
+    const xyNote = (_xinyeCache && _xinyeCache[dateStr]) || '';
+    const cbNote = (_cbXinyeCache && _cbXinyeCache[dateStr]) || '';
     let html = `<div style="margin-bottom:16px;border-radius:14px;overflow:hidden;border:1.5px solid var(--border)">
       <div style="padding:10px 14px;background:var(--pink-light);font-weight:700;font-size:14px;color:var(--pink-deep)">${yr}年 ${parseInt(mm)}月${parseInt(dd)}日${meMood?' '+meMood:''}</div>`;
     if (meNote) html += `<div style="padding:10px 14px;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;word-break:break-all;background:var(--card)">${escHtml(meNote)}</div>`;
@@ -838,10 +1003,15 @@ async function openDetail(dateStr, tab) {
   document.getElementById('detailSnippets').innerHTML = '';
   document.getElementById('detailImages').innerHTML = '';
   _detailImgs = [];
+  const xySection = document.getElementById('xyReviewSection');
+  const xyBubble = document.getElementById('xyReviewBubble');
+  const xyMeta = document.getElementById('xyReviewMeta');
+  const xyBtn = document.getElementById('btnXyReview');
   if (isMe) {
     const entry = getUserEntry(dateStr);
     const note = getNote(entry);
     const mood = getMood(entry);
+    const snippets = getSnippets(entry);
     document.getElementById('detailMood').textContent = mood;
     document.getElementById('detailText').textContent = note;
     renderDetailSnippets(dateStr);
@@ -853,9 +1023,20 @@ async function openDetail(dateStr, tab) {
         `<img class="detail-img-item" src="${src}" onclick="openLightbox(${i},'detail')">`
       ).join('');
     }
+    // 炘也看看区域
+    xySection.style.display = (note || snippets.length) ? 'block' : 'none';
+    if (entry && entry.xinyeReview) {
+      xyBubble.textContent = entry.xinyeReview.text; xyBubble.classList.add('show');
+      xyMeta.textContent = `炘也 · ${entry.xinyeReview.time}`;
+      xyBtn.textContent = '💙 再让炘也看看';
+    } else {
+      xyBubble.textContent = ''; xyBubble.classList.remove('show');
+      xyMeta.textContent = ''; xyBtn.textContent = '💙 让炘也看看'; xyBtn.disabled = false;
+    }
   } else {
     document.getElementById('detailMood').textContent = '💙';
     document.getElementById('detailText').textContent = getXinyeEntry(dateStr);
+    xySection.style.display = 'none';
   }
   document.getElementById('detailOverlay').classList.add('show');
 }
@@ -960,19 +1141,101 @@ async function saveEntry() {
     // 保存图片到 IndexedDB，并更新 imgCount
     if (_sheetImgs.length) {
       await setDiaryImgs(dateStr, _sheetImgs);
-      const e = getUserEntry(dateStr) || {};
+      const e = getUserEntry(dateStr) || { dateStr, note: '', mood: '', snippets: [] };
       e.imgCount = _sheetImgs.length;
-      localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e));
+      if (_meCache) _meCache[dateStr] = e;
+      await _idbPut('userEntries', e);
     } else {
       await deleteDiaryImgs(dateStr);
       const e = getUserEntry(dateStr);
-      if (e && e.imgCount) { delete e.imgCount; localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(e)); }
+      if (e && e.imgCount) { delete e.imgCount; if (_meCache) _meCache[dateStr] = e; await _idbPut('userEntries', e); }
     }
     if (dateChanged) { deleteUserEntry(editingKey); await deleteDiaryImgs(editingKey); }
   }
   closeSheet();
   renderBoth();
   toast(isXinye ? `${_AINAME}的日记已保存 💙` : '日记已存好 📝');
+}
+
+// ===== 炘也看看 =====
+let _xyReviewAbort = null;
+
+async function doXyReview() {
+  if (!currentDetailKey || currentDetailKey.tab !== 'me') return;
+  const dateStr = currentDetailKey.dateStr;
+  const entry = getUserEntry(dateStr);
+  const note = getNote(entry);
+  const snippets = getSnippets(entry);
+  if (!note && !snippets.length) { toast('还没有内容哦'); return; }
+
+  const btn = document.getElementById('btnXyReview');
+  const status = document.getElementById('xyReviewStatus');
+  const bubble = document.getElementById('xyReviewBubble');
+  const meta = document.getElementById('xyReviewMeta');
+  btn.disabled = true; status.classList.add('show');
+  bubble.classList.remove('show'); bubble.textContent = '';
+
+  try {
+    const cfg = await loadCfg();
+    const apiKey = cfg.apiKey;
+    const baseUrl = (cfg.baseUrl || '').replace(/\/+$/, '');
+    const model = cfg.model || 'gpt-4o';
+    if (!apiKey) { toast('需要先配置 API Key'); return; }
+
+    let userContent = `今天是${fmtDateFull(dateStr)}。\n\n兔宝今天记下来的内容：\n`;
+    if (note) userContent += `\n【日记】\n${note}\n`;
+    if (snippets.length) {
+      userContent += `\n【随手记】\n`;
+      snippets.forEach(s => { userContent += `${s.time} ${s.text}\n`; });
+    }
+    userContent += `\n看完兔宝今天写的这些，给她一段真实的回应。\n不是总结，不是建议，就是你看见了她今天之后想说的话。`;
+
+    const memoryArchive = cfg.memoryArchive || '';
+    const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'兔宝'}的恋人。`;
+    const sysContent = memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0,3000)}` : sysBase;
+
+    const controller = new AbortController();
+    _xyReviewAbort = controller;
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, stream: true, max_tokens: 500, messages: [
+        { role: 'system', content: sysContent },
+        { role: 'user', content: userContent },
+      ]}),
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`API 错误 ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let full = '';
+    bubble.classList.add('show');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value).split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const d = line.slice(5).trim();
+        if (d === '[DONE]') break;
+        try { const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || ''; if (delta) { full += delta; bubble.textContent = full; } } catch {}
+      }
+    }
+
+    if (full) {
+      const e = getUserEntry(dateStr) || { dateStr, note: '', mood: '', snippets: [] };
+      const reviewTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+      e.xinyeReview = { text: full, time: reviewTime };
+      if (_meCache) _meCache[dateStr] = e;
+      _idbPut('userEntries', e).catch(console.error);
+      meta.textContent = `炘也 · ${reviewTime}`;
+      btn.textContent = '💙 再让炘也看看';
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') { bubble.textContent = '呜……出错了，待会儿再试试'; bubble.classList.add('show'); }
+  } finally {
+    btn.disabled = false; status.classList.remove('show'); _xyReviewAbort = null;
+  }
 }
 
 // ===== AI 生成（炘也写日记） =====
@@ -1395,17 +1658,17 @@ function importDiary() {
       let meCount = 0, xinyeCount = 0;
       // 新格式 version:2
       if (data.me && typeof data.me === 'object') {
-        Object.entries(data.me).forEach(([d, v]) => {
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+        for (const [d, v] of Object.entries(data.me)) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
           if (typeof v === 'string') {
             saveUserEntry(d, v, ''); meCount++;
           } else if (v && typeof v === 'object') {
-            const entry = { note: v.note||'', mood: v.mood||'' };
-            if (Array.isArray(v.snippets) && v.snippets.length) entry.snippets = v.snippets;
-            localStorage.setItem('rbdiary_' + d, JSON.stringify(entry));
+            const entry = { dateStr: d, note: v.note||'', mood: v.mood||'', snippets: Array.isArray(v.snippets)?v.snippets:[], imgCount: 0 };
+            if (_meCache) _meCache[d] = entry;
+            await _idbPut('userEntries', entry);
             meCount++;
           }
-        });
+        }
       }
       if (data.xinye && typeof data.xinye === 'object') {
         Object.entries(data.xinye).forEach(([d, v]) => {
@@ -1430,7 +1693,7 @@ function importDiary() {
           if (Array.isArray(imgs) && imgs.length) {
             await setDiaryImgs(d, imgs);
             const entry = getUserEntry(d);
-            if (entry) { entry.imgCount = imgs.length; localStorage.setItem('rbdiary_' + d, JSON.stringify(entry)); }
+            if (entry) { entry.imgCount = imgs.length; if (_meCache) _meCache[d] = entry; await _idbPut('userEntries', entry); }
             imgCount++;
           }
         }
@@ -1547,7 +1810,7 @@ if (_AINAME !== '炘也') {
     if (el.textContent.includes('炘也的日记')) el.lastChild.textContent = `${_AINAME}的日记`;
   });
 }
-renderBoth();
+initDiaryDB().then(() => renderBoth());
 </script>
 </body>
 </html>
