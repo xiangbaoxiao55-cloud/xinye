@@ -176,14 +176,14 @@ export async function generateImage(userDesc) {
           imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url' }),
             signal: ctrl.signal
           });
         } catch(proxyErr) {
           imgRes = await fetch(genEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-            body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+            body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
             signal: ctrl.signal
           });
         }
@@ -191,7 +191,7 @@ export async function generateImage(userDesc) {
         imgRes = await fetch(genEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-          body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+          body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
           signal: ctrl.signal
         });
       }
@@ -236,6 +236,14 @@ export async function generateImage(userDesc) {
     };
     dataUrl = _parseImg(imgData);
     console.log('[画图v2] 解析结果:', dataUrl ? dataUrl.slice(0,60)+'...' : 'null');
+    if (dataUrl && dataUrl.startsWith('http')) {
+      try {
+        const _ur = await fetch(dataUrl);
+        const _ub = await _ur.blob();
+        dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
+        console.log('[画图v2] URL已转base64存储');
+      } catch(_ue) { console.warn('[画图v2] URL转base64失败，使用原URL:', _ue.message); }
+    }
     if (!dataUrl) {
       console.log('[画图v2] 完整返回:', JSON.stringify(imgData).slice(0, 500));
       throw new Error('画图API没返回图片，vConsole查看完整返回');

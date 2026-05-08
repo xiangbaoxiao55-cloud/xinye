@@ -1393,7 +1393,7 @@ export async function sendMessage() {
                 _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'url' }),
                   signal: _ctrl.signal
                 });
               } catch(proxyErr) {
