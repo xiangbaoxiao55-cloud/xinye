@@ -889,7 +889,7 @@ export async function sendMessage() {
               prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
               ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' },
-              ref_style: { type: 'string', enum: ['anime', 'real'], description: '参考图风格："anime"二次元（默认）、"real"真人' }
+              ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
             },
             required: ['prompt']
           }
@@ -1275,7 +1275,8 @@ export async function sendMessage() {
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
         if (!_refImgs.length && args.ref_characters) {
-          const _style = args.ref_style === 'real' ? 'Real' : 'Anime';
+          const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
+          const _style = _styleMap[args.ref_style] || 'Anime';
           const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
           const _userRef = await dbGet('images', 'userRef' + _style).catch(() => null);
           if ((args.ref_characters === 'ai' || args.ref_characters === 'both') && _aiRef) _refImgs.push(_aiRef);

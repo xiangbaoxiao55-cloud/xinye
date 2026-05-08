@@ -382,7 +382,7 @@ export async function applyUI(skipRender = false) {
   if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
   await applyBg();
   // 加载画图参考图预览
-  for (const key of ['aiRefAnime', 'aiRefReal', 'userRefAnime', 'userRefReal']) {
+  for (const key of ['aiRefAnime', 'aiRefAnime3d', 'aiRefChibi', 'aiRefReal', 'userRefAnime', 'userRefAnime3d', 'userRefChibi', 'userRefReal']) {
     const val = await dbGet('images', key);
     const el = $('#preview' + key.charAt(0).toUpperCase() + key.slice(1));
     if (el) el.src = val || '';
@@ -824,16 +824,24 @@ export function initSettings() {
 
   // ======================== 画图参考图上传 ========================
   const _refSlots = [
-    { btn: 'btnUploadAiRefAnime',   file: 'fileInputAiRefAnime',   prev: 'previewAiRefAnime',   key: 'aiRefAnime',   label: '炘也二次元参考图' },
-    { btn: 'btnUploadAiRefReal',    file: 'fileInputAiRefReal',    prev: 'previewAiRefReal',    key: 'aiRefReal',    label: '炘也真人参考图' },
-    { btn: 'btnUploadUserRefAnime', file: 'fileInputUserRefAnime', prev: 'previewUserRefAnime', key: 'userRefAnime', label: '涂涂二次元参考图' },
-    { btn: 'btnUploadUserRefReal',  file: 'fileInputUserRefReal',  prev: 'previewUserRefReal',  key: 'userRefReal',  label: '涂涂真人参考图' },
+    { btn: 'btnUploadAiRefAnime',    file: 'fileInputAiRefAnime',    prev: 'previewAiRefAnime',    key: 'aiRefAnime',    label: '炘也2D参考图' },
+    { btn: 'btnUploadAiRefAnime3d',  file: 'fileInputAiRefAnime3d',  prev: 'previewAiRefAnime3d',  key: 'aiRefAnime3d',  label: '炘也3D参考图' },
+    { btn: 'btnUploadAiRefChibi',    file: 'fileInputAiRefChibi',    prev: 'previewAiRefChibi',    key: 'aiRefChibi',    label: '炘也Q版参考图' },
+    { btn: 'btnUploadAiRefReal',     file: 'fileInputAiRefReal',     prev: 'previewAiRefReal',     key: 'aiRefReal',     label: '炘也真人参考图' },
+    { btn: 'btnUploadUserRefAnime',  file: 'fileInputUserRefAnime',  prev: 'previewUserRefAnime',  key: 'userRefAnime',  label: '涂涂2D参考图' },
+    { btn: 'btnUploadUserRefAnime3d',file: 'fileInputUserRefAnime3d',prev: 'previewUserRefAnime3d',key: 'userRefAnime3d', label: '涂涂3D参考图' },
+    { btn: 'btnUploadUserRefChibi',  file: 'fileInputUserRefChibi',  prev: 'previewUserRefChibi',  key: 'userRefChibi',  label: '涂涂Q版参考图' },
+    { btn: 'btnUploadUserRefReal',   file: 'fileInputUserRefReal',   prev: 'previewUserRefReal',   key: 'userRefReal',   label: '涂涂真人参考图' },
   ];
   const _clearSlots = [
-    { btn: 'btnClearAiRefAnime',   prev: 'previewAiRefAnime',   key: 'aiRefAnime',   label: '炘也二次元参考图' },
-    { btn: 'btnClearAiRefReal',    prev: 'previewAiRefReal',    key: 'aiRefReal',    label: '炘也真人参考图' },
-    { btn: 'btnClearUserRefAnime', prev: 'previewUserRefAnime', key: 'userRefAnime', label: '涂涂二次元参考图' },
-    { btn: 'btnClearUserRefReal',  prev: 'previewUserRefReal',  key: 'userRefReal',  label: '涂涂真人参考图' },
+    { btn: 'btnClearAiRefAnime',    prev: 'previewAiRefAnime',    key: 'aiRefAnime',    label: '炘也2D参考图' },
+    { btn: 'btnClearAiRefAnime3d',  prev: 'previewAiRefAnime3d',  key: 'aiRefAnime3d',  label: '炘也3D参考图' },
+    { btn: 'btnClearAiRefChibi',    prev: 'previewAiRefChibi',    key: 'aiRefChibi',    label: '炘也Q版参考图' },
+    { btn: 'btnClearAiRefReal',     prev: 'previewAiRefReal',     key: 'aiRefReal',     label: '炘也真人参考图' },
+    { btn: 'btnClearUserRefAnime',  prev: 'previewUserRefAnime',  key: 'userRefAnime',  label: '涂涂2D参考图' },
+    { btn: 'btnClearUserRefAnime3d',prev: 'previewUserRefAnime3d',key: 'userRefAnime3d', label: '涂涂3D参考图' },
+    { btn: 'btnClearUserRefChibi',  prev: 'previewUserRefChibi',  key: 'userRefChibi',  label: '涂涂Q版参考图' },
+    { btn: 'btnClearUserRefReal',   prev: 'previewUserRefReal',   key: 'userRefReal',   label: '涂涂真人参考图' },
   ];
   for (const s of _refSlots) {
     $('#' + s.btn)?.addEventListener('click', () => $('#' + s.file).click());
