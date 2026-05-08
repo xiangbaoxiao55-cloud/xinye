@@ -1042,9 +1042,9 @@ ${chatText}`;
     if (!newMemory) {
       console.warn('[digestMemory] 响应内容为空，原始前200字符：', rawBuf.slice(0, 200));
       toast('整理结果为空，未做修改（可打开控制台查看原始响应）');
-    } else if (/^\[Backend Error\]|^\[Error\]|^error:/i.test(newMemory)) {
-      toast('整理失败：API 返回错误内容，档案未修改');
+    } else if (/^\s*\[Backend Error\]|^\s*\[Error\]|^error:/i.test(newMemory)) {
       console.warn('[digestMemory] 检测到错误内容，拒绝覆写档案：', newMemory.slice(0, 100));
+      throw new Error('API 返回错误：' + newMemory.replace(/^\s*\[Backend Error\]\s*/i, '').slice(0, 150));
     } else {
       const patchResult = applyArchivePatch(settings.memoryArchive || '', newMemory);
       if (!patchResult.ok) {

@@ -1563,6 +1563,10 @@ export async function sendMessage() {
             if (_bubbleEl) _bubbleEl.textContent = _partial;
           }
         }
+        if (/^\s*\[Backend Error\]/i.test(_content)) {
+          if (_aiMsg) await deleteMessage(_aiMsg.id).catch(() => {});
+          throw new Error(_content.replace(/^\s*\[Backend Error\]\s*/i, '').slice(0, 200));
+        }
         let _tcs = Object.values(_toolCallMap).filter(t => t.id && t.name);
         if (!_tcs.length) {
           const _xmlTcs = _parseXmlToolCalls(_content);
@@ -1830,6 +1834,10 @@ export async function sendMessage() {
         }
       } catch(_streamErr) {
         if (fullText) fullText += '\n✂️ （传输中断）';
+      }
+      if (/^\s*\[Backend Error\]/i.test(fullText)) {
+        await deleteMessage(aiMsg.id).catch(() => {});
+        throw new Error(fullText.replace(/^\s*\[Backend Error\]\s*/i, '').slice(0, 200));
       }
       if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
       const idx = messages.findIndex(m => m.id === aiMsg.id);
