@@ -1,6 +1,6 @@
 import { $, toast, escHtml, isDarkMode, readFileAsBase64 } from './utils.js';
 import { settings, saveSettings, ensureMemoryState, messages } from './state.js';
-import { dbPut, dbClear } from './db.js';
+import { dbPut, dbGet, dbClear } from './db.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets } from './api.js';
 import { digestMemory, renderMemoryBankPreview, archiveMemoryBank } from './memory.js';
 import { applyBg, toggleDeco } from './ui.js';
