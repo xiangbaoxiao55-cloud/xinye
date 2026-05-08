@@ -1353,9 +1353,21 @@ export async function sendMessage() {
         };
         const _doEdits = async () => {
           const _c = new AbortController();
-          const _t = setTimeout(() => _c.abort(), 300000);
+          const _t = setTimeout(() => _c.abort(), 360000);
           try {
-            const _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
+            const _localUrl = (settings.solitudeServerUrl || '').trim();
+            let _r;
+            if (_localUrl) {
+              // 通过本地服务器代理，Node.js 维持长连接不受浏览器 TLS 超时影响
+              _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiUrl: _editsUrl, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', refs: _compressedRefs }),
+                signal: _c.signal
+              });
+            } else {
+              _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
+            }
             clearTimeout(_t);
             return _r;
           } catch(e) { clearTimeout(_t); throw e; }
