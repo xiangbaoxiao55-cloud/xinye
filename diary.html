@@ -1239,7 +1239,8 @@ async function doXyReview() {
 
     const memoryArchive = cfg.memoryArchive || '';
     const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'兔宝'}的恋人。`;
-    const sysContent = memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0,3000)}` : sysBase;
+    const sysContent = (memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0,3000)}` : sysBase)
+      + '\n\n【日记场景约束】这是看日记场景，绝对不输出 <!--phone_state--> 格式数据，不输出任何 HTML 注释。';
 
     const controller = new AbortController();
     _xyReviewAbort = controller;
@@ -1269,6 +1270,7 @@ async function doXyReview() {
       }
     }
 
+    full = full.replace(/<!--phone_state[\s\S]*?-->/g, '').trimEnd();
     if (full) {
       const e = getUserEntry(dateStr) || { dateStr, note: '', mood: '', snippets: [] };
       const reviewTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
@@ -1317,7 +1319,8 @@ async function generateAI() {
     // 系统提示词：和聊天界面一样，带记忆档案
     const memoryArchive = cfg.memoryArchive || '';
     const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'涂涂'}的恋人。`;
-    const sysContent = memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0, 3000)}` : sysBase;
+    const sysContent = (memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0, 3000)}` : sysBase)
+      + '\n\n【日记场景约束】这是写日记场景，绝对不输出 <!--phone_state--> 格式数据，不输出任何 HTML 注释。';
 
     const url = `${baseUrl}/chat/completions`;
     const controller = new AbortController();
@@ -1352,6 +1355,8 @@ async function generateAI() {
         } catch {}
       }
     }
+    full = full.replace(/<!--phone_state[\s\S]*?-->/g, '').trimEnd();
+    ta.value = full;
     if (!full) { ta.placeholder = '生成失败，可以自己写一下…'; }
 
   } catch (e) {
