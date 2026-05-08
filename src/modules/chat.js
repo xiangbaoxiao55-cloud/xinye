@@ -1292,12 +1292,27 @@ export async function sendMessage() {
           const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           if (_hasRef) {
             const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
+            // 压缩参考图，避免 FormData 体积过大导致 Windows schannel 连接中断
+            const _compressRef = (b64, maxDim=1024) => new Promise(res => {
+              const im = new Image();
+              im.onload = () => {
+                const sc = Math.min(1, maxDim / Math.max(im.width || 1, im.height || 1));
+                const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
+                const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+                cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
+                res(cv.toDataURL('image/png').replace(/^data:[^,]+,/, ''));
+              };
+              im.onerror = () => res(b64.replace(/^data:[^,]+,/, ''));
+              im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+            });
+            const _compressedRefs = await Promise.all(_refImgs.map(img => _compressRef(img)));
             const _form = new FormData();
             _form.append('model', _imgModel);
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
-            _refImgs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
+            _form.append('response_format', 'url');
+            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
@@ -1352,6 +1367,14 @@ export async function sendMessage() {
           };
           let _dataUrl = _pi(_imgData);
           if (!_dataUrl) return '画图API没返回图片';
+          // 若 API 返回 URL，单独 fetch 转 base64（规避 Windows schannel TLS 关闭问题）
+          if (_dataUrl.startsWith('http')) {
+            try {
+              const _urlResp = await fetch(_dataUrl, { signal: _ctrl.signal });
+              const _blob = await _urlResp.blob();
+              _dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_blob); });
+            } catch(_ue) { /* 保持 URL，至少能显示 */ }
+          }
           const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true;
@@ -1366,6 +1389,7 @@ export async function sendMessage() {
         } catch(e) {
           console.error('[画图tool] catch:', e);
           if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
+          if (e.message?.includes('Failed to fetch')) return '画图网络中断（图可能已在服务端生成并扣费）。\n原因：Windows TLS 连接被服务端提前关闭。请重试，通常第二次能成功。';
           return '画图出错：' + e.message;
         }
       }
