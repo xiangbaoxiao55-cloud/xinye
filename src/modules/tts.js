@@ -167,6 +167,8 @@ export async function generateTTSBlob(text) {
     ref_audio_path: refPath,
     prompt_text: settings.ttsRefText || '',
     prompt_lang: settings.ttsRefLang || 'zh',
+    text_split_method: settings.ttsSplitMethod || 'cut5',
+    fragment_interval: settings.ttsFragmentInterval ?? 0.3,
   });
   const url = `${base}/tts?${params.toString()}`;
   console.log('[TTS] GET', url);
