@@ -1382,12 +1382,22 @@ export async function sendMessage() {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
             }
           } else {
-            _imgRes = await fetch(_genEp, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-              body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
-              signal: _ctrl.signal
-            });
+            const _localGenUrl = (settings.solitudeServerUrl || '').trim();
+            if (_localGenUrl) {
+              _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+                signal: _ctrl.signal
+              });
+            } else {
+              _imgRes = await fetch(_genEp, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+                signal: _ctrl.signal
+              });
+            }
           }
           clearTimeout(_tid);
           if (!_imgRes.ok) {
