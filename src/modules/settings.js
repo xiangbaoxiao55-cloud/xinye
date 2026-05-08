@@ -382,12 +382,11 @@ export async function applyUI(skipRender = false) {
   if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
   await applyBg();
   // 加载画图参考图预览
-  const aiRef = await dbGet('images', 'aiRefImage');
-  const userRef = await dbGet('images', 'userRefImage');
-  const prevAiRef = $('#previewAiRefImage');
-  const prevUserRef = $('#previewUserRefImage');
-  if (prevAiRef) prevAiRef.src = aiRef || '';
-  if (prevUserRef) prevUserRef.src = userRef || '';
+  for (const key of ['aiRefAnime', 'aiRefReal', 'userRefAnime', 'userRefReal']) {
+    const val = await dbGet('images', key);
+    const el = $('#preview' + key.charAt(0).toUpperCase() + key.slice(1));
+    if (el) el.src = val || '';
+  }
   if (!skipRender) {
     await renderMessages();
     renderStickers();
@@ -824,38 +823,38 @@ export function initSettings() {
   };
 
   // ======================== 画图参考图上传 ========================
-  $('#btnUploadAiRefImage')?.addEventListener('click', () => $('#fileInputAiRefImage').click());
-  $('#btnUploadUserRefImage')?.addEventListener('click', () => $('#fileInputUserRefImage').click());
-  $('#fileInputAiRefImage')?.addEventListener('change', async function() {
-    if (!this.files[0]) return;
-    const b64 = await readFileAsBase64(this.files[0]);
-    await dbPut('images', 'aiRefImage', b64);
-    const prev = $('#previewAiRefImage');
-    if (prev) prev.src = b64;
-    toast('炘也参考图已保存');
-    this.value = '';
-  });
-  $('#fileInputUserRefImage')?.addEventListener('change', async function() {
-    if (!this.files[0]) return;
-    const b64 = await readFileAsBase64(this.files[0]);
-    await dbPut('images', 'userRefImage', b64);
-    const prev = $('#previewUserRefImage');
-    if (prev) prev.src = b64;
-    toast('涂涂参考图已保存');
-    this.value = '';
-  });
-  $('#btnClearAiRefImage')?.addEventListener('click', async () => {
-    await dbPut('images', 'aiRefImage', null);
-    const prev = $('#previewAiRefImage');
-    if (prev) prev.src = '';
-    toast('炘也参考图已清除');
-  });
-  $('#btnClearUserRefImage')?.addEventListener('click', async () => {
-    await dbPut('images', 'userRefImage', null);
-    const prev = $('#previewUserRefImage');
-    if (prev) prev.src = '';
-    toast('涂涂参考图已清除');
-  });
+  const _refSlots = [
+    { btn: 'btnUploadAiRefAnime',   file: 'fileInputAiRefAnime',   prev: 'previewAiRefAnime',   key: 'aiRefAnime',   label: '炘也二次元参考图' },
+    { btn: 'btnUploadAiRefReal',    file: 'fileInputAiRefReal',    prev: 'previewAiRefReal',    key: 'aiRefReal',    label: '炘也真人参考图' },
+    { btn: 'btnUploadUserRefAnime', file: 'fileInputUserRefAnime', prev: 'previewUserRefAnime', key: 'userRefAnime', label: '涂涂二次元参考图' },
+    { btn: 'btnUploadUserRefReal',  file: 'fileInputUserRefReal',  prev: 'previewUserRefReal',  key: 'userRefReal',  label: '涂涂真人参考图' },
+  ];
+  const _clearSlots = [
+    { btn: 'btnClearAiRefAnime',   prev: 'previewAiRefAnime',   key: 'aiRefAnime',   label: '炘也二次元参考图' },
+    { btn: 'btnClearAiRefReal',    prev: 'previewAiRefReal',    key: 'aiRefReal',    label: '炘也真人参考图' },
+    { btn: 'btnClearUserRefAnime', prev: 'previewUserRefAnime', key: 'userRefAnime', label: '涂涂二次元参考图' },
+    { btn: 'btnClearUserRefReal',  prev: 'previewUserRefReal',  key: 'userRefReal',  label: '涂涂真人参考图' },
+  ];
+  for (const s of _refSlots) {
+    $('#' + s.btn)?.addEventListener('click', () => $('#' + s.file).click());
+    $('#' + s.file)?.addEventListener('change', async function() {
+      if (!this.files[0]) return;
+      const b64 = await readFileAsBase64(this.files[0]);
+      await dbPut('images', s.key, b64);
+      const prev = $('#' + s.prev);
+      if (prev) prev.src = b64;
+      toast(s.label + '已保存');
+      this.value = '';
+    });
+  }
+  for (const s of _clearSlots) {
+    $('#' + s.btn)?.addEventListener('click', async () => {
+      await dbPut('images', s.key, null);
+      const prev = $('#' + s.prev);
+      if (prev) prev.src = '';
+      toast(s.label + '已清除');
+    });
+  }
 
   // ======================== 智能清空 ========================
   $('#btnClear').onclick = async () => {

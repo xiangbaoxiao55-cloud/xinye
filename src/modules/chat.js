@@ -881,13 +881,14 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果你想在之前生成的图基础上改图（比如换表情、换衣服、调构图），传 use_last_image:true。如果想画出我们的样子，传 ref_characters，系统会自动把对应的外貌参考图垫入：传"ai"垫我的参考图，传"user"垫兔宝的参考图，传"both"垫两张（如果有的话）。',
+          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果你想在之前生成的图基础上改图（比如换表情、换衣服、调构图），传 use_last_image:true。如果想画出我们的样子，传 ref_characters 和 ref_style：ref_characters传"ai"垫我的参考图、"user"垫兔宝的、"both"垫两人；ref_style传"anime"用二次元版、"real"用真人版，默认"anime"。',
           parameters: {
             type: 'object',
             properties: {
               prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
-              ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' }
+              ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' },
+              ref_style: { type: 'string', enum: ['anime', 'real'], description: '参考图风格："anime"二次元（默认）、"real"真人' }
             },
             required: ['prompt']
           }
@@ -1272,8 +1273,9 @@ export async function sendMessage() {
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
         if (!_refImgs.length && args.ref_characters) {
-          const _aiRef = await dbGet('images', 'aiRefImage').catch(() => null);
-          const _userRef = await dbGet('images', 'userRefImage').catch(() => null);
+          const _style = args.ref_style === 'real' ? 'Real' : 'Anime';
+          const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
+          const _userRef = await dbGet('images', 'userRef' + _style).catch(() => null);
           if ((args.ref_characters === 'ai' || args.ref_characters === 'both') && _aiRef) _refImgs.push(_aiRef);
           if ((args.ref_characters === 'user' || args.ref_characters === 'both') && _userRef) _refImgs.push(_userRef);
         }
