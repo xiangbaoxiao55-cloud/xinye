@@ -315,7 +315,15 @@ export async function renderMessages() {
       if (blob) showVoiceBar(msg.id, blob);
     }
   } catch(_){}
-  scrollBottom();
+  // 等聊天气泡里的图片加载完再 scroll，确保 scrollHeight 准确
+  const _bubbleImgs = [...chatArea.querySelectorAll('.bubble-img, .gen-img')];
+  if (_bubbleImgs.length === 0) {
+    scrollBottom();
+  } else {
+    Promise.all(_bubbleImgs.map(img =>
+      img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; })
+    )).then(() => scrollBottom());
+  }
 }
 
 export async function appendMsgDOM(msg) {
