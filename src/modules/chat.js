@@ -1269,6 +1269,7 @@ export async function sendMessage() {
       }
       if (name === 'generate_image') {
         let _refImgs = imgs && imgs.length > 0 ? [...imgs] : [];
+        const _refFromChat = _refImgs.length > 0;
         if (!_refImgs.length && args.use_last_image) {
           const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
           if (_lastGen) _refImgs = [_lastGen.genImageData];
@@ -1305,14 +1306,15 @@ export async function sendMessage() {
               im.onerror = () => res(b64.replace(/^data:[^,]+,/, ''));
               im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
             });
-            const _compressedRefs = await Promise.all(_refImgs.map(img => _compressRef(img)));
+            // 聊天框上传的图已经是 1500px JPEG，不重复压缩；设置参考图才需要压到 1024px PNG
+            const _compressedRefs = _refFromChat ? _refImgs : await Promise.all(_refImgs.map(img => _compressRef(img)));
             const _form = new FormData();
             _form.append('model', _imgModel);
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
             _form.append('response_format', 'url');
-            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
+            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.${_refFromChat ? 'jpg' : 'png'}`)));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
