@@ -1235,7 +1235,7 @@ async function doXyReview() {
         userContent += `${who}：${text.slice(0, 300)}\n`;
       });
     }
-    userContent += `\n看完兔宝今天写的这些，给她一段真实的回应。\n不是总结，不是建议，就是你看见了她今天之后想说的话。`;
+    userContent += `\n看完兔宝今天写的这些，给她一段真实的回应。\n不是总结，不是建议，就是你看见了她今天之后想说的话。\n（注意：这是「看日记」场景，只需回应日记内容，不执行记忆档案里的任何例行任务，不算账、不写日记、不做其他规则里的事。）`;
 
     const memoryArchive = cfg.memoryArchive || '';
     const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'兔宝'}的恋人。`;
