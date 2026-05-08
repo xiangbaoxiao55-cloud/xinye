@@ -123,7 +123,7 @@ export async function generateImage(userDesc) {
     const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const imgModel = settings.imageModel;
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 360000);
+    const tid = setTimeout(() => ctrl.abort(), 600000);
     let imgRes;
 
     const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
