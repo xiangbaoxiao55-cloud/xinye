@@ -881,11 +881,12 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图，prompt里描述想要的效果即可。',
+          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果你想在之前生成的图基础上改图（比如换表情、换衣服、调构图），传 use_last_image:true，会自动把最近一张生成图作为垫图。',
           parameters: {
             type: 'object',
             properties: {
-              prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' }
+              prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' },
+              use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' }
             },
             required: ['prompt']
           }
@@ -1264,7 +1265,12 @@ export async function sendMessage() {
         } catch(e) { return '审核操作失败：' + e.message; }
       }
       if (name === 'generate_image') {
-        const _hasRef = imgs && imgs.length > 0;
+        let _refImgs = imgs && imgs.length > 0 ? [...imgs] : [];
+        if (!_refImgs.length && args.use_last_image) {
+          const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
+          if (_lastGen) _refImgs = [_lastGen.genImageData];
+        }
+        const _hasRef = _refImgs.length > 0;
         toast(_hasRef ? `${settings.aiName||'炘也'}正在改图...` : `${settings.aiName||'炘也'}正在画...`);
         const _imgKey = settings.imageApiKey || settings.apiKey;
         const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
@@ -1281,7 +1287,7 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
-            imgs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
+            _refImgs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.png`)));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
