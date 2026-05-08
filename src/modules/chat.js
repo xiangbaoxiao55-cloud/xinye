@@ -800,7 +800,8 @@ export async function sendMessage() {
       if (role === 'user' && msgDescs) {
         const nums = ['', '①', '②', '③', '④', '⑤'];
         const multi = m.imageDescs.length > 1;
-        const descText = m.imageDescs.map((d, i) => d ? `[图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
+        const _uname = settings.userName || '涂涂';
+        const descText = m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
         const fullText = [descText, m.content].filter(Boolean).join('\n');
         apiMsgs.push({ role: 'user', content: fullText });
       } else if (role === 'user' && msgImgs.length) {
