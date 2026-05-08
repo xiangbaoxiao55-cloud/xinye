@@ -1294,7 +1294,7 @@ export async function sendMessage() {
           if (_hasRef) {
             const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
             // 压缩参考图，避免 FormData 体积过大导致 Windows schannel 连接中断
-            const _compressRef = (b64, maxDim=1024) => new Promise(res => {
+            const _compressRef = (b64, maxDim=1500) => new Promise(res => {
               const im = new Image();
               im.onload = () => {
                 const sc = Math.min(1, maxDim / Math.max(im.width || 1, im.height || 1));
