@@ -467,6 +467,23 @@
         </div>
       </div>
     </div>
+    <div class="setting-group">
+      <label>画图外貌参考图（炘也画图时自动垫入，存入本地数据库）</label>
+      <div class="avatar-setting">
+        <div class="avatar-item">
+          <img id="previewAiRefImage" src="" alt="炘也" style="object-fit:contain;background:#f0f0f0">
+          <span>炘也</span>
+          <button class="btn-upload" id="btnUploadAiRefImage">上传参考图</button>
+          <button class="btn-upload" id="btnClearAiRefImage" style="margin-top:4px;font-size:11px;opacity:0.7">清除</button>
+        </div>
+        <div class="avatar-item">
+          <img id="previewUserRefImage" src="" alt="涂涂" style="object-fit:contain;background:#f0f0f0">
+          <span>涂涂</span>
+          <button class="btn-upload" id="btnUploadUserRefImage">上传参考图</button>
+          <button class="btn-upload" id="btnClearUserRefImage" style="margin-top:4px;font-size:11px;opacity:0.7">清除</button>
+        </div>
+      </div>
+    </div>
     <div class="setting-group-row">
       <div class="setting-group">
         <label>AI 名称</label>
@@ -992,6 +1009,8 @@
 <!-- 隐藏的文件输入 -->
 <input type="file" id="fileInputAiAvatar" accept="image/*" hidden>
 <input type="file" id="fileInputUserAvatar" accept="image/*" hidden>
+<input type="file" id="fileInputAiRefImage" accept="image/*" hidden>
+<input type="file" id="fileInputUserRefImage" accept="image/*" hidden>
 <input type="file" id="fileInputBg" accept="image/*,video/mp4,video/webm" hidden>
 <input type="file" id="fileInputSticker" accept="image/*" hidden>
 <input type="file" id="fileInputImport" accept=".json,application/json,text/plain,*/*" hidden>

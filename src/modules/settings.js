@@ -381,6 +381,13 @@ export async function applyUI(skipRender = false) {
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
   if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
   await applyBg();
+  // 加载画图参考图预览
+  const aiRef = await dbGet('images', 'aiRefImage');
+  const userRef = await dbGet('images', 'userRefImage');
+  const prevAiRef = $('#previewAiRefImage');
+  const prevUserRef = $('#previewUserRefImage');
+  if (prevAiRef) prevAiRef.src = aiRef || '';
+  if (prevUserRef) prevUserRef.src = userRef || '';
   if (!skipRender) {
     await renderMessages();
     renderStickers();
@@ -815,6 +822,40 @@ export function initSettings() {
     toast('我的头像已更新');
     this.value = '';
   };
+
+  // ======================== 画图参考图上传 ========================
+  $('#btnUploadAiRefImage')?.addEventListener('click', () => $('#fileInputAiRefImage').click());
+  $('#btnUploadUserRefImage')?.addEventListener('click', () => $('#fileInputUserRefImage').click());
+  $('#fileInputAiRefImage')?.addEventListener('change', async function() {
+    if (!this.files[0]) return;
+    const b64 = await readFileAsBase64(this.files[0]);
+    await dbPut('images', 'aiRefImage', b64);
+    const prev = $('#previewAiRefImage');
+    if (prev) prev.src = b64;
+    toast('炘也参考图已保存');
+    this.value = '';
+  });
+  $('#fileInputUserRefImage')?.addEventListener('change', async function() {
+    if (!this.files[0]) return;
+    const b64 = await readFileAsBase64(this.files[0]);
+    await dbPut('images', 'userRefImage', b64);
+    const prev = $('#previewUserRefImage');
+    if (prev) prev.src = b64;
+    toast('涂涂参考图已保存');
+    this.value = '';
+  });
+  $('#btnClearAiRefImage')?.addEventListener('click', async () => {
+    await dbPut('images', 'aiRefImage', null);
+    const prev = $('#previewAiRefImage');
+    if (prev) prev.src = '';
+    toast('炘也参考图已清除');
+  });
+  $('#btnClearUserRefImage')?.addEventListener('click', async () => {
+    await dbPut('images', 'userRefImage', null);
+    const prev = $('#previewUserRefImage');
+    if (prev) prev.src = '';
+    toast('涂涂参考图已清除');
+  });
 
   // ======================== 智能清空 ========================
   $('#btnClear').onclick = async () => {
