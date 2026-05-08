@@ -1301,7 +1301,7 @@ export async function sendMessage() {
                 const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
                 const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
                 cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
-                res(cv.toDataURL('image/png'));
+                res(cv.toDataURL('image/jpeg', 0.82));
               };
               im.onerror = () => res(b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`);
               im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
@@ -1314,7 +1314,7 @@ export async function sendMessage() {
             _form.append('n', '1');
             _form.append('size', settings.imageSize || '1024x1024');
             _form.append('response_format', 'url');
-            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.${_refFromChat ? 'jpg' : 'png'}`)));
+            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
             _imgRes = await fetch(`${_baseRaw}/images/edits`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${_imgKey}` },
