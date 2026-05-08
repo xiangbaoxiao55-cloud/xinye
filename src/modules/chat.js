@@ -1286,41 +1286,86 @@ export async function sendMessage() {
         const _imgKey = settings.imageApiKey || settings.apiKey;
         const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         const _imgModel = settings.imageModel;
+        const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
+        const _b64t = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
+        const _pi = (d) => {
+          const it = d.data?.[0] || d.images?.[0];
+          if (it?.b64_json) return _b64t(it.b64_json);
+          if (it?.url) return it.url;
+          if (d.b64_json) return _b64t(d.b64_json);
+          if (d.url && typeof d.url === 'string') return d.url;
+          if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : _b64t(v); }
+          if (d.artifacts?.[0]?.base64) return _b64t(d.artifacts[0].base64);
+          if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : _b64t(d.data); }
+          if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : _b64t(d); }
+          return null;
+        };
+        const _showImg = async (imgData) => {
+          let _dataUrl = _pi(imgData);
+          if (!_dataUrl) return null;
+          if (_dataUrl.startsWith('http')) {
+            try {
+              const _r = await fetch(_dataUrl);
+              const _b = await _r.blob();
+              _dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_b); });
+            } catch(_ue) {}
+          }
+          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
+          const _genMsg = await addMessage('assistant', _ctxDesc);
+          _genMsg.isGenImage = true; _genMsg.genImageData = _dataUrl;
+          if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
+          await dbPut(activeStore(), null, _genMsg);
+          const _gi = messages.findIndex(m => m.id === _genMsg.id);
+          if (_gi >= 0) messages[_gi] = _genMsg;
+          await appendMsgDOM(_genMsg);
+          window.autoSaveGenImage(_dataUrl, _genMsg.id);
+          return '[图已画好并展示给兔宝了]';
+        };
+        // 压缩参考图（聊天框图已是1500px JPEG，设置图压到1500px JPEG）
+        let _compressedRefs = null;
+        let _editsUrl = null;
+        if (_hasRef) {
+          const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
+          _editsUrl = `${_baseRaw}/images/edits`;
+          const _compressRef = (b64, maxDim=1500) => new Promise(res => {
+            const im = new Image();
+            im.onload = () => {
+              const sc = Math.min(1, maxDim / Math.max(im.width || 1, im.height || 1));
+              const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
+              const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+              cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
+              res(cv.toDataURL('image/jpeg', 0.82));
+            };
+            im.onerror = () => res(b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`);
+            im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+          });
+          _compressedRefs = _refFromChat ? _refImgs : await Promise.all(_refImgs.map(img => _compressRef(img)));
+        }
+        const _buildEditsForm = () => {
+          const _form = new FormData();
+          _form.append('model', _imgModel);
+          _form.append('prompt', args.prompt);
+          _form.append('n', '1');
+          _form.append('size', settings.imageSize || '1024x1024');
+          _form.append('response_format', 'url');
+          _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
+          return _form;
+        };
+        const _doEdits = async () => {
+          const _c = new AbortController();
+          const _t = setTimeout(() => _c.abort(), 300000);
+          try {
+            const _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
+            clearTimeout(_t);
+            return _r;
+          } catch(e) { clearTimeout(_t); throw e; }
+        };
         try {
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 300000);
           let _imgRes;
-          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
           if (_hasRef) {
-            const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
-            // 压缩参考图，避免 FormData 体积过大导致 Windows schannel 连接中断
-            const _compressRef = (b64, maxDim=1500) => new Promise(res => {
-              const im = new Image();
-              im.onload = () => {
-                const sc = Math.min(1, maxDim / Math.max(im.width || 1, im.height || 1));
-                const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
-                const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
-                cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
-                res(cv.toDataURL('image/jpeg', 0.82));
-              };
-              im.onerror = () => res(b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`);
-              im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
-            });
-            // 聊天框上传的图已经是 1500px JPEG，不重复压缩；设置参考图才需要压到 1024px PNG
-            const _compressedRefs = _refFromChat ? _refImgs : await Promise.all(_refImgs.map(img => _compressRef(img)));
-            const _form = new FormData();
-            _form.append('model', _imgModel);
-            _form.append('prompt', args.prompt);
-            _form.append('n', '1');
-            _form.append('size', settings.imageSize || '1024x1024');
-            _form.append('response_format', 'url');
-            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
-            _imgRes = await fetch(`${_baseRaw}/images/edits`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${_imgKey}` },
-              body: _form,
-              signal: _ctrl.signal
-            });
+            _imgRes = await _doEdits();
             if (_imgRes.status === 404) {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
             }
@@ -1354,44 +1399,24 @@ export async function sendMessage() {
           }
           const _imgData = await _imgRes.json();
           console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
-          const _b64t = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
-          const _pi = (d) => {
-            const it = d.data?.[0] || d.images?.[0];
-            if (it?.b64_json) return _b64t(it.b64_json);
-            if (it?.url) return it.url;
-            if (d.b64_json) return _b64t(d.b64_json);
-            if (d.url && typeof d.url === 'string') return d.url;
-            if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : _b64t(v); }
-            if (d.artifacts?.[0]?.base64) return _b64t(d.artifacts[0].base64);
-            if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : _b64t(d.data); }
-            if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : _b64t(d); }
-            return null;
-          };
-          let _dataUrl = _pi(_imgData);
-          if (!_dataUrl) return '画图API没返回图片';
-          // 若 API 返回 URL，单独 fetch 转 base64（规避 Windows schannel TLS 关闭问题）
-          if (_dataUrl.startsWith('http')) {
-            try {
-              const _urlResp = await fetch(_dataUrl, { signal: _ctrl.signal });
-              const _blob = await _urlResp.blob();
-              _dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_blob); });
-            } catch(_ue) { /* 保持 URL，至少能显示 */ }
-          }
-          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
-          const _genMsg = await addMessage('assistant', _ctxDesc);
-          _genMsg.isGenImage = true;
-          _genMsg.genImageData = _dataUrl;
-          if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
-          await dbPut(activeStore(), null, _genMsg);
-          const _gi = messages.findIndex(m => m.id === _genMsg.id);
-          if (_gi >= 0) messages[_gi] = _genMsg;
-          await appendMsgDOM(_genMsg);
-          window.autoSaveGenImage(_dataUrl, _genMsg.id);
-          return '[图已画好并展示给兔宝了]';
+          return await _showImg(_imgData) || '画图API没返回图片';
         } catch(e) {
           console.error('[画图tool] catch:', e);
           if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
-          if (e.message?.includes('Failed to fetch')) return '画图网络中断（图可能已在服务端生成并扣费）。\n原因：Windows TLS 连接被服务端提前关闭。请重试，通常第二次能成功。';
+          // 垫图网络失败 → 自动重试一次同样的垫图请求
+          if (e.message?.includes('Failed to fetch') && _hasRef) {
+            toast('垫图网络抖动，自动重试...');
+            try {
+              const _r2 = await _doEdits();
+              if (!_r2.ok) return '画图失败（重试）：' + _r2.status;
+              const _d2 = await _r2.json();
+              return await _showImg(_d2) || '画图API没返回图片';
+            } catch(_e2) {
+              if (_e2.name === 'AbortError') return '画图重试也超时了，请稍后再试。';
+              return '画图两次都网络失败，请稍后再试。';
+            }
+          }
+          if (e.message?.includes('Failed to fetch')) return '画图网络中断，请重试。';
           return '画图出错：' + e.message;
         }
       }
