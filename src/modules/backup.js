@@ -207,6 +207,10 @@ export async function autoBackupToServer() {
         userAvatar: await dbGet('images', 'userAvatar') || null,
         bgImage:    await dbGet('images', 'bgImage')    || null,
         bgType:     await dbGet('images', 'bgType')     || null,
+        aiRefAnime:   await dbGet('images', 'aiRefAnime')   || null,
+        aiRefReal:    await dbGet('images', 'aiRefReal')    || null,
+        userRefAnime: await dbGet('images', 'userRefAnime') || null,
+        userRefReal:  await dbGet('images', 'userRefReal')  || null,
       },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
@@ -272,6 +276,10 @@ export async function backupToPhone() {
         userAvatar: await dbGet('images', 'userAvatar') || null,
         bgImage:    await dbGet('images', 'bgImage')    || null,
         bgType:     await dbGet('images', 'bgType')     || null,
+        aiRefAnime:   await dbGet('images', 'aiRefAnime')   || null,
+        aiRefReal:    await dbGet('images', 'aiRefReal')    || null,
+        userRefAnime: await dbGet('images', 'userRefAnime') || null,
+        userRefReal:  await dbGet('images', 'userRefReal')  || null,
       },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
@@ -347,6 +355,10 @@ export async function exportData(mode) {
       userAvatar: await dbGet('images', 'userAvatar') || null,
       bgImage:    isLite ? null : (bgType === 'image' ? (await dbGet('images', 'bgImage') || null) : null),
       bgType:     isLite ? null : (bgType || null),
+      aiRefAnime:   isLite ? null : (await dbGet('images', 'aiRefAnime')   || null),
+      aiRefReal:    isLite ? null : (await dbGet('images', 'aiRefReal')    || null),
+      userRefAnime: isLite ? null : (await dbGet('images', 'userRefAnime') || null),
+      userRefReal:  isLite ? null : (await dbGet('images', 'userRefReal')  || null),
     },
     stickers: isLite ? [] : getDecoStickers(),
     chatStickers: getChatStickers(),
@@ -481,6 +493,9 @@ export async function doImport(jsonText) {
         await dbDelete('images', 'bgImage');
         await dbDelete('images', 'bgVideo');
         await dbDelete('images', 'bgType');
+      }
+      for (const k of ['aiRefAnime', 'aiRefReal', 'userRefAnime', 'userRefReal']) {
+        if (data.images[k]) await dbPut('images', k, data.images[k]);
       }
     }
   }
