@@ -1357,14 +1357,18 @@ export async function sendMessage() {
           try {
             const _localUrl = (settings.solitudeServerUrl || '').trim();
             let _r;
-            if (_localUrl && window._localServerOnline) {
-              // 通过本地服务器代理，Node.js 维持长连接不受浏览器 TLS 超时影响
-              _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiUrl: _editsUrl, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', refs: _compressedRefs }),
-                signal: _c.signal
-              });
+            if (_localUrl) {
+              try {
+                // 通过本地服务器代理，Node.js 维持长连接不受浏览器 TLS 超时影响
+                _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ apiUrl: _editsUrl, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', refs: _compressedRefs }),
+                  signal: _c.signal
+                });
+              } catch(proxyErr) {
+                _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
+              }
             } else {
               _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
             }
@@ -1383,13 +1387,22 @@ export async function sendMessage() {
             }
           } else {
             const _localGenUrl = (settings.solitudeServerUrl || '').trim();
-            if (_localGenUrl && window._localServerOnline) {
-              _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
-                signal: _ctrl.signal
-              });
+            if (_localGenUrl) {
+              try {
+                _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+                  signal: _ctrl.signal
+                });
+              } catch(proxyErr) {
+                _imgRes = await fetch(_genEp, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+                  signal: _ctrl.signal
+                });
+              }
             } else {
               _imgRes = await fetch(_genEp, {
                 method: 'POST',

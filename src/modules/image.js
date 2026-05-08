@@ -131,13 +131,28 @@ export async function generateImage(userDesc) {
     if (hasRef) {
       const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
       const editsEndpoint = `${baseRaw}/images/edits`;
-      if (localUrl && window._localServerOnline) {
-        imgRes = await fetch(`${localUrl}/api/proxy-image-edits`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiUrl: editsEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', refs: refImgs }),
-          signal: ctrl.signal
-        });
+      if (localUrl) {
+        try {
+          imgRes = await fetch(`${localUrl}/api/proxy-image-edits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiUrl: editsEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', refs: refImgs }),
+            signal: ctrl.signal
+          });
+        } catch(proxyErr) {
+          const form = new FormData();
+          form.append('model', imgModel);
+          form.append('prompt', prompt);
+          form.append('n', '1');
+          form.append('size', settings.imageSize || '1024x1024');
+          refImgs.forEach((img, i) => form.append('image[]', base64ToFile(img, `ref${i}.png`)));
+          imgRes = await fetch(editsEndpoint, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${imgKey}` },
+            body: form,
+            signal: ctrl.signal
+          });
+        }
       } else {
         const form = new FormData();
         form.append('model', imgModel);
@@ -156,13 +171,22 @@ export async function generateImage(userDesc) {
         throw new Error(`当前画图API不支持垫图改图功能（/images/edits ${imgRes.status}）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI），或去掉垫图直接生成`);
       }
     } else {
-      if (localUrl && window._localServerOnline) {
-        imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
-          signal: ctrl.signal
-        });
+      if (localUrl) {
+        try {
+          imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+            signal: ctrl.signal
+          });
+        } catch(proxyErr) {
+          imgRes = await fetch(genEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+            body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'b64_json' }),
+            signal: ctrl.signal
+          });
+        }
       } else {
         imgRes = await fetch(genEndpoint, {
           method: 'POST',
