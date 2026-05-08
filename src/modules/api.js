@@ -50,7 +50,7 @@ export async function mainApiFetch(bodyWithoutModel) {
     return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model };
   }
   let _res;
-  for (let pi = 0; pi < _allCfgs.length; pi++) {
+  mainLoop: for (let pi = 0; pi < _allCfgs.length; pi++) {
     const cfg = _buildCfg(_allCfgs[pi]);
     const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
     for (let _a = 0; _a < 2; _a++) {
@@ -61,6 +61,18 @@ export async function mainApiFetch(bodyWithoutModel) {
         _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
+          if (_res.body) {
+            const [_es1, _es2] = _res.body.tee();
+            const _er = _es1.getReader();
+            const { value: _ev } = await _er.read();
+            _er.cancel();
+            if (/\[Backend Error\]/i.test(new TextDecoder().decode(_ev || new Uint8Array()))) {
+              _es2.cancel().catch(() => {});
+              if (pi + 1 < _allCfgs.length) toast(`主API返回错误，尝试备用${pi+1}「${_fbPresets[pi].name}」…`);
+              _res = null; continue mainLoop;
+            }
+            _res = new Response(_es2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+          }
           if (pi > 0) toast(`🔄 主API已切换到备用${pi}「${_fbPresets[pi-1].name}」`);
           return _res;
         }
@@ -85,7 +97,7 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
     return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: sub.apiKey, model: sub.model || defaultModel };
   }
   let _res;
-  for (let pi = 0; pi < _subAllCfgs.length; pi++) {
+  subLoop: for (let pi = 0; pi < _subAllCfgs.length; pi++) {
     const cfg = _buildSubCfg(_subAllCfgs[pi]);
     const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
     for (let _a = 0; _a < 2; _a++) {
@@ -96,6 +108,18 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
         _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
+          if (_res.body) {
+            const [_ss1, _ss2] = _res.body.tee();
+            const _sr = _ss1.getReader();
+            const { value: _sv } = await _sr.read();
+            _sr.cancel();
+            if (/\[Backend Error\]/i.test(new TextDecoder().decode(_sv || new Uint8Array()))) {
+              _ss2.cancel().catch(() => {});
+              if (pi + 1 < _subAllCfgs.length) toast(`副API返回错误，尝试备用${pi+1}「${_subFbPresets[pi].name}」…`);
+              _res = null; continue subLoop;
+            }
+            _res = new Response(_ss2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+          }
           if (pi > 0) toast(`🔄 副API已切换到备用${pi}「${_subFbPresets[pi-1].name}」`);
           return _res;
         }

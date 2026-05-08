@@ -1447,7 +1447,7 @@ export async function sendMessage() {
     }
     async function _apiFetch(msgs, withTools, streamMode) {
       let _res;
-      for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
+      outerLoop: for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
         const cfg = _buildCfg(_allCfgs[pi]);
         const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
         bodyObj.stream_options = { include_usage: true };
@@ -1467,6 +1467,18 @@ export async function sendMessage() {
             _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}`}, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
             if (_res.ok) {
+              if (_res.body) {
+                const [_cs1, _cs2] = _res.body.tee();
+                const _cr = _cs1.getReader();
+                const { value: _cv } = await _cr.read();
+                _cr.cancel();
+                if (/\[Backend Error\]/i.test(new TextDecoder().decode(_cv || new Uint8Array()))) {
+                  _cs2.cancel().catch(() => {});
+                  if (pi + 1 < _allCfgs.length) toast(`API返回错误，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
+                  _res = null; continue outerLoop;
+                }
+                _res = new Response(_cs2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+              }
               if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
               if (!streamMode) _res = await _bufferStream(_res);
               return _res;

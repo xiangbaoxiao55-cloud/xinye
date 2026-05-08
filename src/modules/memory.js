@@ -998,13 +998,29 @@ ${chatText}`;
       const _pr0 = _allPresets.find(p => p.name === _dp);
       if (!_pr0) throw new Error(`找不到预设「${_dp}」`);
       const _digestCfgs = [_pr0, ..._dfbNames.map(n => _allPresets.find(p => p.name === n)).filter(Boolean)];
-      for (let _pi = 0; _pi < _digestCfgs.length; _pi++) {
+      digestLoop: for (let _pi = 0; _pi < _digestCfgs.length; _pi++) {
         const _pr = _digestCfgs[_pi];
         const _raw = (_pr.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         const _url = /\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`;
         try {
           res = await fetch(_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_pr.apiKey || settings.apiKey}` }, body: JSON.stringify({ ..._digestBody, model: _pr.model || settings.model }) });
-          if (res.ok) { if (_pi > 0) toast(`🔄 整理记忆切换到备用${_pi}「${_pr.name}」`); break; }
+          if (res.ok) {
+            if (res.body) {
+              const [_ds1, _ds2] = res.body.tee();
+              const _dr = _ds1.getReader();
+              const { value: _dv } = await _dr.read();
+              _dr.cancel();
+              if (/\[Backend Error\]/i.test(new TextDecoder().decode(_dv || new Uint8Array()))) {
+                _ds2.cancel().catch(() => {});
+                res = null;
+                if (_pi + 1 < _digestCfgs.length) toast(`整理记忆返回错误，尝试备用${_pi+1}「${_digestCfgs[_pi+1].name}」…`);
+                continue digestLoop;
+              }
+              res = new Response(_ds2, { status: res.status, statusText: res.statusText, headers: res.headers });
+            }
+            if (_pi > 0) toast(`🔄 整理记忆切换到备用${_pi}「${_pr.name}」`);
+            break;
+          }
         } catch(_) { res = null; }
         if (_pi + 1 < _digestCfgs.length) toast(`整理记忆失败，尝试备用${_pi+1}「${_digestCfgs[_pi+1].name}」…`);
       }
