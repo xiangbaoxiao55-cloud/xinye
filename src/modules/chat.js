@@ -1357,7 +1357,7 @@ export async function sendMessage() {
           try {
             const _localUrl = (settings.solitudeServerUrl || '').trim();
             let _r;
-            if (_localUrl) {
+            if (_localUrl && window._localServerOnline) {
               // 通过本地服务器代理，Node.js 维持长连接不受浏览器 TLS 超时影响
               _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
                 method: 'POST',
@@ -1383,7 +1383,7 @@ export async function sendMessage() {
             }
           } else {
             const _localGenUrl = (settings.solitudeServerUrl || '').trim();
-            if (_localGenUrl) {
+            if (_localGenUrl && window._localServerOnline) {
               _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

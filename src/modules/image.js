@@ -131,7 +131,7 @@ export async function generateImage(userDesc) {
     if (hasRef) {
       const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
       const editsEndpoint = `${baseRaw}/images/edits`;
-      if (localUrl) {
+      if (localUrl && window._localServerOnline) {
         imgRes = await fetch(`${localUrl}/api/proxy-image-edits`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,7 +156,7 @@ export async function generateImage(userDesc) {
         throw new Error(`当前画图API不支持垫图改图功能（/images/edits ${imgRes.status}）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI），或去掉垫图直接生成`);
       }
     } else {
-      if (localUrl) {
+      if (localUrl && window._localServerOnline) {
         imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
