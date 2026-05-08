@@ -1301,9 +1301,9 @@ export async function sendMessage() {
                 const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
                 const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
                 cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
-                res(cv.toDataURL('image/png').replace(/^data:[^,]+,/, ''));
+                res(cv.toDataURL('image/png'));
               };
-              im.onerror = () => res(b64.replace(/^data:[^,]+,/, ''));
+              im.onerror = () => res(b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`);
               im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
             });
             // 聊天框上传的图已经是 1500px JPEG，不重复压缩；设置参考图才需要压到 1024px PNG
