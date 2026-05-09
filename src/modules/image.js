@@ -171,6 +171,8 @@ export async function generateImage(userDesc) {
           }
         } catch(proxyErr) {
           if (proxyErr.name === 'AbortError') throw proxyErr;
+          const _isCloudProxy = !!(settings.imageProxyUrl || '').trim();
+          if (!_isCloudProxy) throw new Error('代理连不上（手机不在家庭网络）\n手机垫图请在设置→画图代理填云端代理地址');
           imgRes = await fetch(editsEndpoint, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${imgKey}` },
