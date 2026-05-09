@@ -65,6 +65,7 @@ export async function openSettings() {
   if (_ipEl) _ipEl.value = settings.imageProxyUrl || '';
   const _itEl = $('#setImageProxyToken');
   if (_itEl) _itEl.value = settings.imageProxyToken || '';
+  renderImageProxyPresets();
   const _bkHint = $('#lastBackupHint');
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
   $('#setBaseUrl').value = settings.baseUrl;
@@ -196,6 +197,63 @@ export function renderVisionPresets() {
     sel.appendChild(opt);
   });
   sel.value = cur;
+}
+
+// ======================== 代理快捷预设 ========================
+function renderImageProxyPresets() {
+  const row = document.getElementById('imageProxyPresetRow');
+  if (!row) return;
+  const _defaults = () => [
+    { name: '局域网', url: '', token: '' },
+    { name: '外网',   url: '', token: '' },
+  ];
+  const presets = (settings.imageProxyPresets?.length === 2)
+    ? settings.imageProxyPresets : _defaults();
+
+  row.innerHTML = presets.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:4px;">
+      <input class="pp-name" data-i="${i}" value="${escHtml(p.name)}"
+        style="width:54px;font-size:12px;padding:2px 4px;border:1px solid var(--border-color,#ccc);border-radius:4px;background:var(--input-bg,#fff);color:inherit;">
+      <button class="pp-apply" data-i="${i}"
+        style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#ccc);background:var(--btn-bg,#f5f5f5);color:inherit;cursor:pointer;">
+        ${p.url ? '✓ 应用' : '应用'}
+      </button>
+      <button class="pp-save" data-i="${i}"
+        style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#ccc);background:var(--btn-bg,#f5f5f5);color:inherit;cursor:pointer;">
+        存入
+      </button>
+    </div>
+  `).join('');
+
+  row.querySelectorAll('.pp-apply').forEach(btn => {
+    btn.onclick = async () => {
+      const i = +btn.dataset.i;
+      const p = (settings.imageProxyPresets || _defaults())[i];
+      const urlEl = document.getElementById('setImageProxyUrl');
+      const tokEl = document.getElementById('setImageProxyToken');
+      if (urlEl) urlEl.value = p.url;
+      if (tokEl) tokEl.value = p.token;
+      settings.imageProxyUrl = p.url;
+      settings.imageProxyToken = p.token;
+      await saveSettings();
+      renderImageProxyPresets();
+      toast(`已切换：${p.name}`);
+    };
+  });
+
+  row.querySelectorAll('.pp-save').forEach(btn => {
+    btn.onclick = async () => {
+      const i = +btn.dataset.i;
+      const url   = (document.getElementById('setImageProxyUrl')?.value || '').trim().replace(/\/$/, '');
+      const token = (document.getElementById('setImageProxyToken')?.value || '').trim();
+      const name  = row.querySelector(`.pp-name[data-i="${i}"]`)?.value || `预设${i + 1}`;
+      if (!settings.imageProxyPresets) settings.imageProxyPresets = _defaults();
+      settings.imageProxyPresets[i] = { name, url, token };
+      await saveSettings();
+      renderImageProxyPresets();
+      toast(`已存入"${name}"`);
+    };
+  });
 }
 
 // ======================== 画图预设 ========================
