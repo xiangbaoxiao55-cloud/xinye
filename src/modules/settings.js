@@ -63,6 +63,8 @@ export async function openSettings() {
   if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
   const _ipEl = $('#setImageProxyUrl');
   if (_ipEl) _ipEl.value = settings.imageProxyUrl || '';
+  const _itEl = $('#setImageProxyToken');
+  if (_itEl) _itEl.value = settings.imageProxyToken || '';
   const _bkHint = $('#lastBackupHint');
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
   $('#setBaseUrl').value = settings.baseUrl;
@@ -705,6 +707,7 @@ export function initSettings() {
     settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
     settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
     settings.imageProxyUrl = ($('#setImageProxyUrl')?.value || '').trim().replace(/\/$/, '');
+    settings.imageProxyToken = ($('#setImageProxyToken')?.value || '').trim();
     settings.imageSize = $('#setImageRatio').value || '1024x1024';
     settings.contextCount = parseInt($('#setContextCount').value) || 20;
     settings.memoryArchive = $('#setMemoryArchive').value;

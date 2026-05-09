@@ -1359,15 +1359,17 @@ export async function sendMessage() {
             const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
             let _r;
             if (_localUrl) {
+              const _eh = { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey };
+              if (settings.imageProxyToken) _eh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
               try {
                 _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
-                  method: 'POST',
-                  headers: { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey },
-                  body: _buildEditsForm(),
-                  signal: _c.signal
+                  method: 'POST', headers: _eh, body: _buildEditsForm(), signal: _c.signal
                 });
                 if (!_r.ok) throw new Error(`proxy ${_r.status}`);
               } catch(proxyErr) {
+                if (proxyErr.name === 'AbortError') throw proxyErr;
+                const _isCld = !!(settings.imageProxyUrl || '').trim();
+                if (!_isCld) throw new Error('代理连不上（手机不在家庭网络）');
                 _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
               }
             } else {
@@ -1389,10 +1391,11 @@ export async function sendMessage() {
           } else {
             const _localGenUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
             if (_localGenUrl) {
+              const _gh = { 'Content-Type': 'application/json' };
+              if (settings.imageProxyToken) _gh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
               try {
                 _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  method: 'POST', headers: _gh,
                   body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'url' }),
                   signal: _ctrl.signal
                 });

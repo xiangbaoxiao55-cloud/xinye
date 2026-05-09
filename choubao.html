@@ -317,9 +317,14 @@
       <input type="text" id="setImageModel" placeholder="gpt-image-1">
     </div>
     <div class="setting-group">
-      <label>画图代理地址（CF Worker）</label>
-      <input type="url" id="setImageProxyUrl" placeholder="https://xinye-img-proxy.xxx.workers.dev">
-      <div class="hint">填入后画图优先走此云代理，手机不连电脑也能用。留空则用本地服务器</div>
+      <label>画图代理地址（cpolar/云代理）</label>
+      <input type="url" id="setImageProxyUrl" placeholder="https://xxxx.cpolar.cn">
+      <div class="hint">cpolar 暴露本机 8788 端口后填入，离开家庭网络也能画图。留空则用本地服务器（局域网）</div>
+    </div>
+    <div class="setting-group">
+      <label>画图代理密钥（Token）</label>
+      <input type="password" id="setImageProxyToken" placeholder="与服务器 proxy_token.txt 内容一致">
+      <div class="hint">cpolar 公网暴露时必填，防止他人滥用代理。局域网直连可不填</div>
     </div>
     <div class="setting-group-row">
       <div class="setting-group">
