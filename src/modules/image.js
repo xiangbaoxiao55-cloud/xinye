@@ -141,14 +141,36 @@ export async function generateImage(userDesc) {
       };
       if (localUrl) {
         try {
-          imgRes = await fetch(`${localUrl}/api/proxy-image-edits`, {
+          const _pR = await fetch(`${localUrl}/api/proxy-image-edits`, {
             method: 'POST',
             headers: { 'X-Api-Url': editsEndpoint, 'X-Api-Key': imgKey },
             body: _makeEditsForm(),
             signal: ctrl.signal
           });
-          if (!imgRes.ok) throw new Error(`proxy ${imgRes.status}`);
+          if (!_pR.ok) throw new Error(`proxy ${_pR.status}`);
+          const _pJ = await _pR.json();
+          if (_pJ.jobId) {
+            // CF Worker 异步 job 模式：立刻返回 jobId，轮询等结果
+            const _base = localUrl.replace(/\/+$/, '');
+            let _got = false;
+            for (let _i = 0; _i < 80 && !_got; _i++) {
+              await new Promise(r => setTimeout(r, 5000));
+              const _pr2 = await fetch(`${_base}/api/image-job/${_pJ.jobId}`, { signal: ctrl.signal });
+              const _pj2 = await _pr2.json();
+              if (_pj2.status === 'done') {
+                imgRes = new Response(JSON.stringify(_pj2.data), { headers: { 'Content-Type': 'application/json' } });
+                _got = true;
+              } else if (_pj2.status === 'error') {
+                throw new Error(_pj2.message || '画图代理失败');
+              }
+            }
+            if (!_got) throw new Error('画图轮询超时（6分钟无结果）');
+          } else {
+            // 本地服务器同步响应：_pJ 就是 API 返回的 JSON
+            imgRes = new Response(JSON.stringify(_pJ), { headers: { 'Content-Type': 'application/json' } });
+          }
         } catch(proxyErr) {
+          if (proxyErr.name === 'AbortError') throw proxyErr;
           imgRes = await fetch(editsEndpoint, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${imgKey}` },
