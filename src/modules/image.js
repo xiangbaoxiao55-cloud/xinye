@@ -142,14 +142,16 @@ export async function generateImage(userDesc) {
       if (localUrl) {
         const _editsH = { 'X-Api-Url': editsEndpoint, 'X-Api-Key': imgKey };
         if (settings.imageProxyToken) _editsH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+        let _proxyHttpErr = false;
         try {
           const _pR = await fetch(`${localUrl}/api/proxy-image-edits`, {
             method: 'POST', headers: _editsH, body: _makeEditsForm(), signal: ctrl.signal
           });
-          if (!_pR.ok) throw new Error(`proxy ${_pR.status}`);
+          if (!_pR.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_pR.status}`); }
           imgRes = _pR;
         } catch(proxyErr) {
           if (proxyErr.name === 'AbortError') throw proxyErr;
+          if (_proxyHttpErr) throw proxyErr;
           const _isCloudProxy = !!(settings.imageProxyUrl || '').trim();
           if (!_isCloudProxy) throw new Error('代理连不上（手机不在家庭网络）\n手机垫图请在设置→画图代理地址填 cpolar 地址');
           imgRes = await fetch(editsEndpoint, {

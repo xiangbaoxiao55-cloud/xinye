@@ -1361,13 +1361,15 @@ export async function sendMessage() {
             if (_localUrl) {
               const _eh = { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey };
               if (settings.imageProxyToken) _eh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+              let _proxyHttpErr = false;
               try {
                 _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
                   method: 'POST', headers: _eh, body: _buildEditsForm(), signal: _c.signal
                 });
-                if (!_r.ok) throw new Error(`proxy ${_r.status}`);
+                if (!_r.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_r.status}`); }
               } catch(proxyErr) {
                 if (proxyErr.name === 'AbortError') throw proxyErr;
+                if (_proxyHttpErr) throw proxyErr;
                 const _isCld = !!(settings.imageProxyUrl || '').trim();
                 if (!_isCld) throw new Error('代理连不上（手机不在家庭网络）');
                 _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
