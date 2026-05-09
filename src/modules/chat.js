@@ -887,6 +887,7 @@ export async function sendMessage() {
             type: 'object',
             properties: {
               prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
+              size: { type: 'string', enum: ['1536x2048','2048x1536','1152x2048','2048x1152','2048x2048'], description: '可选。觉得当前尺寸不适合你设计的构图时再传，否则不传沿用设置。1536x2048=3:4竖，2048x1536=4:3横，1152x2048=9:16竖，2048x1152=16:9横，2048x2048=方形' },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
               ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' },
               ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
@@ -1347,7 +1348,7 @@ export async function sendMessage() {
           _form.append('model', _imgModel);
           _form.append('prompt', args.prompt);
           _form.append('n', '1');
-          _form.append('size', settings.imageSize || '1024x1024');
+          _form.append('size', args.size || settings.imageSize || '1024x1024');
           _form.append('response_format', 'url');
           _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
           return _form;
@@ -1398,14 +1399,14 @@ export async function sendMessage() {
               try {
                 _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
                   method: 'POST', headers: _gh,
-                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url' }),
                   signal: _ctrl.signal
                 });
               } catch(proxyErr) {
                 _imgRes = await fetch(_genEp, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: args.size || settings.imageSize || '1024x1024' }),
                   signal: _ctrl.signal
                 });
               }
