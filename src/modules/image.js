@@ -131,25 +131,28 @@ export async function generateImage(userDesc) {
     if (hasRef) {
       const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
       const editsEndpoint = `${baseRaw}/images/edits`;
+      const _makeEditsForm = () => {
+        const f = new FormData();
+        f.append('model', imgModel); f.append('prompt', prompt);
+        f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
+        f.append('response_format', 'url');
+        refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
+        return f;
+      };
       if (localUrl) {
         try {
           imgRes = await fetch(`${localUrl}/api/proxy-image-edits`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiUrl: editsEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', refs: refImgs }),
+            headers: { 'X-Api-Url': editsEndpoint, 'X-Api-Key': imgKey },
+            body: _makeEditsForm(),
             signal: ctrl.signal
           });
+          if (!imgRes.ok) throw new Error(`proxy ${imgRes.status}`);
         } catch(proxyErr) {
-          const form = new FormData();
-          form.append('model', imgModel);
-          form.append('prompt', prompt);
-          form.append('n', '1');
-          form.append('size', settings.imageSize || '1024x1024');
-          refImgs.forEach((img, i) => form.append('image[]', base64ToFile(img, `ref${i}.png`)));
           imgRes = await fetch(editsEndpoint, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${imgKey}` },
-            body: form,
+            body: _makeEditsForm(),
             signal: ctrl.signal
           });
         }

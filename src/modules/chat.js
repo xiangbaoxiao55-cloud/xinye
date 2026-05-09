@@ -1362,10 +1362,11 @@ export async function sendMessage() {
               try {
                 _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ apiUrl: _editsUrl, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: settings.imageSize || '1024x1024', refs: _compressedRefs }),
+                  headers: { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey },
+                  body: _buildEditsForm(),
                   signal: _c.signal
                 });
+                if (!_r.ok) throw new Error(`proxy ${_r.status}`);
               } catch(proxyErr) {
                 _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
               }
