@@ -886,7 +886,7 @@ export async function sendMessage() {
           parameters: {
             type: 'object',
             properties: {
-              prompt: { type: 'string', description: '画面描述，包含内容、风格、色调、构图等，中文英文皆可' },
+              prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
               ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' },
               ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
