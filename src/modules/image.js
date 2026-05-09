@@ -127,7 +127,7 @@ export async function generateImage(userDesc) {
     let imgRes;
 
     const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
-    const localUrl = (settings.solitudeServerUrl || '').trim();
+    const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
     if (hasRef) {
       const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
       const editsEndpoint = `${baseRaw}/images/edits`;

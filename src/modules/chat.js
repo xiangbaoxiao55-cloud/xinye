@@ -1356,11 +1356,10 @@ export async function sendMessage() {
           const _c = new AbortController();
           const _t = setTimeout(() => _c.abort(), 360000);
           try {
-            const _localUrl = (settings.solitudeServerUrl || '').trim();
+            const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
             let _r;
             if (_localUrl) {
               try {
-                // 通过本地服务器代理，Node.js 维持长连接不受浏览器 TLS 超时影响
                 _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1387,7 +1386,7 @@ export async function sendMessage() {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
             }
           } else {
-            const _localGenUrl = (settings.solitudeServerUrl || '').trim();
+            const _localGenUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
             if (_localGenUrl) {
               try {
                 _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
