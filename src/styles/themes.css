@@ -172,3 +172,11 @@
 .qn-save{background:linear-gradient(135deg,var(--pink-deep),#c2185b);color:#fff;border:none;border-radius:14px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
 [data-theme="dark"] #quickNoteSheet{background:#1e1228}
 [data-theme="dark"] #quickNoteTA{background:#261820;color:#f0e0e8;border-color:#3a2e48}
+
+/* ---- 代理快捷预设 ---- */
+.pp-name{width:54px;font-size:12px;padding:2px 5px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit}
+.pp-btn{font-size:12px;padding:2px 9px;border-radius:4px;border:1px solid var(--border);background:var(--warm-bg2);color:var(--text);cursor:pointer;font-family:inherit}
+.pp-btn.pp-active{border-color:var(--pink-deep);color:var(--pink-deep);font-weight:600}
+[data-theme="dark"] .pp-name{background:#241c30;border-color:#4a3a58;color:var(--text)}
+[data-theme="dark"] .pp-btn{background:#241c30;border-color:#4a3a58;color:var(--text)}
+[data-theme="dark"] .pp-btn.pp-active{border-color:var(--pink-deep);color:var(--pink-deep)}

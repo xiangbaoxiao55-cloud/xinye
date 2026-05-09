@@ -210,20 +210,15 @@ function renderImageProxyPresets() {
   const presets = (settings.imageProxyPresets?.length === 2)
     ? settings.imageProxyPresets : _defaults();
 
-  row.innerHTML = presets.map((p, i) => `
+  row.innerHTML = presets.map((p, i) => {
+    const active = settings.imageProxyUrl === p.url && settings.imageProxyToken === p.token;
+    return `
     <div style="display:flex;align-items:center;gap:4px;">
-      <input class="pp-name" data-i="${i}" value="${escHtml(p.name)}"
-        style="width:54px;font-size:12px;padding:2px 4px;border:1px solid var(--border-color,#ccc);border-radius:4px;background:var(--input-bg,#fff);color:inherit;">
-      <button class="pp-apply" data-i="${i}"
-        style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#ccc);background:var(--btn-bg,#f5f5f5);color:inherit;cursor:pointer;">
-        ${p.url ? '✓ 应用' : '应用'}
-      </button>
-      <button class="pp-save" data-i="${i}"
-        style="font-size:12px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-color,#ccc);background:var(--btn-bg,#f5f5f5);color:inherit;cursor:pointer;">
-        存入
-      </button>
-    </div>
-  `).join('');
+      <input class="pp-name" data-i="${i}" value="${escHtml(p.name)}">
+      <button class="pp-apply pp-btn${active ? ' pp-active' : ''}" data-i="${i}">${active ? '✓ 使用中' : '应用'}</button>
+      <button class="pp-save pp-btn" data-i="${i}">存入</button>
+    </div>`;
+  }).join('');
 
   row.querySelectorAll('.pp-apply').forEach(btn => {
     btn.onclick = async () => {
