@@ -1356,6 +1356,7 @@ export async function sendMessage() {
         const _doEdits = async () => {
           const _c = new AbortController();
           const _t = setTimeout(() => _c.abort(), 360000);
+          const _start = Date.now();
           try {
             const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
             let _r;
@@ -1379,8 +1380,9 @@ export async function sendMessage() {
               _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
             }
             clearTimeout(_t);
+            _r._elapsed = Date.now() - _start;
             return _r;
-          } catch(e) { clearTimeout(_t); throw e; }
+          } catch(e) { clearTimeout(_t); e._elapsed = Date.now() - _start; throw e; }
         };
         try {
           const _ctrl = new AbortController();
@@ -1445,8 +1447,11 @@ export async function sendMessage() {
         } catch(e) {
           console.error('[画图tool] catch:', e);
           if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
-          // 垫图网络失败 → 自动重试一次同样的垫图请求
+          // 垫图网络失败 → 自动重试一次（耗时 >250s 说明是连接超时，不重试避免重复扣费）
           if (e.message?.includes('Failed to fetch') && _hasRef) {
+            if ((e._elapsed || 0) > 250000) {
+              return '画图连接超时（图可能已在后台生成但回传失败），请等一分钟再查服务器日志，或直接重试。';
+            }
             toast('垫图网络抖动，自动重试...');
             try {
               const _r2 = await _doEdits();
