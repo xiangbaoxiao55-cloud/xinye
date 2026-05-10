@@ -1269,6 +1269,7 @@ export async function sendMessage() {
         } catch(e) { return '审核操作失败：' + e.message; }
       }
       if (name === 'generate_image') {
+        console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} ref_style=${args.ref_style||'默认anime'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);
         let _refImgs = imgs && imgs.length > 0 ? [...imgs] : [];
         const _refFromChat = _refImgs.length > 0;
         if (!_refImgs.length && args.use_last_image) {
