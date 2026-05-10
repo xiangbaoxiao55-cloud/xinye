@@ -889,10 +889,10 @@ export async function sendMessage() {
               prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
               size: { type: 'string', enum: ['1536x2048','2048x1536','1152x2048','2048x1152','2048x2048'], description: '可选。觉得当前尺寸不适合你设计的构图时再传，否则不传沿用设置。1536x2048=3:4竖，2048x1536=4:3横，1152x2048=9:16竖，2048x1152=16:9横，2048x2048=方形' },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
-              ref_characters: { type: 'string', enum: ['ai', 'user', 'both'], description: '垫入人物外貌参考图："ai"=炘也，"user"=涂涂，"both"=两人都垫' },
+              ref_characters: { type: 'string', enum: ['none', 'ai', 'user', 'both'], description: '必填。画面是否出现角色："none"=不需要垫图（风景/物体/非我们的人物），"ai"=有炘也，"user"=有兔宝，"both"=两人都有。只要画面里有我或兔宝的样子就不能选none' },
               ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
             },
-            required: ['prompt']
+            required: ['prompt', 'ref_characters']
           }
         }
       });
@@ -1275,16 +1275,7 @@ export async function sendMessage() {
           const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
-        // AI没传ref_characters但prompt提到人物时自动补上
-        if (!_refImgs.length && !args.ref_characters && !args.use_last_image) {
-          const _p = args.prompt || '';
-          const _mentAi   = /炘也|xinye|兔耳男|猫耳男|他的外貌|ai character/i.test(_p);
-          const _mentUser = /兔宝|涂涂|tubao|rabbit girl|她的外貌|user character/i.test(_p);
-          if (_mentAi && _mentUser) args.ref_characters = 'both';
-          else if (_mentAi)         args.ref_characters = 'ai';
-          else if (_mentUser)       args.ref_characters = 'user';
-        }
-        if (!_refImgs.length && args.ref_characters) {
+        if (!_refImgs.length && args.ref_characters && args.ref_characters !== 'none') {
           const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
           const _style = _styleMap[args.ref_style] || 'Anime';
           const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
