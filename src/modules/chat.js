@@ -816,7 +816,7 @@ export async function sendMessage() {
           const _userDescMatch = m.content?.match(/你说：(.+?)(?:\n|$)/);
           const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : (_userDescMatch ? _userDescMatch[1].trim() : '');
           const _fakeId = `img_${m.id || Date.now()}`;
-          apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt }) } }] });
+          apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt, ref_characters: 'both' }) } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: '[图已画好并展示给兔宝了]' });
         } else {
           apiMsgs.push({ role, content: m.content });
@@ -889,7 +889,7 @@ export async function sendMessage() {
               prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
               size: { type: 'string', enum: ['1536x2048','2048x1536','1152x2048','2048x1152','2048x2048'], description: '可选。觉得当前尺寸不适合你设计的构图时再传，否则不传沿用设置。1536x2048=3:4竖，2048x1536=4:3横，1152x2048=9:16竖，2048x1152=16:9横，2048x2048=方形' },
               use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
-              ref_characters: { type: 'string', enum: ['none', 'ai', 'user', 'both'], description: '必填。画面是否出现角色："none"=不需要垫图（风景/物体/非我们的人物），"ai"=有炘也，"user"=有兔宝，"both"=两人都有。只要画面里有我或兔宝的样子就不能选none' },
+              ref_characters: { type: 'string', enum: ['ai', 'user', 'both', 'none'], description: '必填。画面里有炘也或兔宝时必须选对应选项来垫图："ai"=只有炘也、"user"=只有兔宝、"both"=两人都有。"none"仅限纯风景/纯物体/完全无关的人物——只要画面里出现炘也或兔宝的形象，绝对不能选none，否则图会画错脸' },
               ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
             },
             required: ['prompt', 'ref_characters']
