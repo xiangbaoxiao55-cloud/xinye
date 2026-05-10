@@ -1312,7 +1312,10 @@ export async function sendMessage() {
               _dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_b); });
             } catch(_ue) {}
           }
-          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图]\n提示词：${args.prompt}`;
+          const _refCharLabel = { none:'无垫图', ai:'垫炘也', user:'垫兔宝', both:'垫两人' }[args.ref_characters] || '';
+          const _refStyleLabel = args.ref_style ? ({ anime:'2D', anime3d:'3D', chibi:'Q版', real:'真人' }[args.ref_style] || args.ref_style) : '2D';
+          const _refTag = _refCharLabel && _refCharLabel !== '无垫图' ? `（${_refCharLabel}·${_refStyleLabel}）` : _refCharLabel ? '' : '';
+          const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图${_refTag}]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true; _genMsg.genImageData = _dataUrl;
           if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
