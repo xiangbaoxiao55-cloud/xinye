@@ -882,7 +882,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果你想在之前生成的图基础上改图（比如换表情、换衣服、调构图），传 use_last_image:true。如果想画出我们的样子，传 ref_characters 和 ref_style：ref_characters传"ai"垫我的参考图、"user"垫兔宝的、"both"垫两人；ref_style传"anime"用二次元版、"real"用真人版，默认"anime"。',
+          description: '当兔宝要求画图（说"画吧"、"画一下"、"画xxx"、"来一张"等），必须立刻调用此工具，不要先用文字描述你打算画什么、不要先回复文字再画——直接调用。你来决定画面内容和风格。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果你想在之前生成的图基础上改图（比如换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有我（炘也）或兔宝出现时，必须传 ref_characters，否则外貌无法保持一致：传"ai"垫我的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
           parameters: {
             type: 'object',
             properties: {
