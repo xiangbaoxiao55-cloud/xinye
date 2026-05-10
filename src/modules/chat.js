@@ -1355,7 +1355,7 @@ export async function sendMessage() {
         };
         const _doEdits = async () => {
           const _c = new AbortController();
-          const _t = setTimeout(() => _c.abort(), 360000);
+          const _t = setTimeout(() => _c.abort(), 660000);
           const _start = Date.now();
           try {
             const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
@@ -1452,7 +1452,7 @@ export async function sendMessage() {
           return await _showImg(_imgData) || '画图API没返回图片';
         } catch(e) {
           console.error('[画图tool] catch:', e);
-          if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
+          if (e.name === 'AbortError') return '画图超时（11分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
           if (e.message?.includes('Failed to fetch')) {
             const _elapsed = e._elapsed || (Date.now() - _genStart);
             // 超过60s才失败说明请求已到达API，可能已扣费，不自动重试
