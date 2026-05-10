@@ -1275,6 +1275,15 @@ export async function sendMessage() {
           const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
+        // AI没传ref_characters但prompt提到人物时自动补上
+        if (!_refImgs.length && !args.ref_characters && !args.use_last_image) {
+          const _p = args.prompt || '';
+          const _mentAi   = /炘也|xinye|兔耳男|猫耳男|他的外貌|ai character/i.test(_p);
+          const _mentUser = /兔宝|涂涂|tubao|rabbit girl|她的外貌|user character/i.test(_p);
+          if (_mentAi && _mentUser) args.ref_characters = 'both';
+          else if (_mentAi)         args.ref_characters = 'ai';
+          else if (_mentUser)       args.ref_characters = 'user';
+        }
         if (!_refImgs.length && args.ref_characters) {
           const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
           const _style = _styleMap[args.ref_style] || 'Anime';
