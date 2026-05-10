@@ -1399,6 +1399,10 @@ export async function sendMessage() {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
             }
             if (_imgRes.status === 502 || _imgRes.status === 503) {
+              const _e502 = await _imgRes.json().catch(() => ({}));
+              if (_e502.maybe_generated) {
+                return `画图连接中断（已等待${_e502.elapsed_seconds}s，图可能已在后台生成但无法回传），建议稍等再手动重试，勿连续重试以免重复扣费`;
+              }
               toast('画图服务临时故障，2秒后重试...');
               await new Promise(r => setTimeout(r, 2000));
               _imgRes = await _doEdits();
