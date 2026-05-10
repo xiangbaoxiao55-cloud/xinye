@@ -1384,6 +1384,7 @@ export async function sendMessage() {
             return _r;
           } catch(e) { clearTimeout(_t); e._elapsed = Date.now() - _start; throw e; }
         };
+        const _genStart = Date.now();
         try {
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 300000);
@@ -1392,6 +1393,11 @@ export async function sendMessage() {
             _imgRes = await _doEdits();
             if (_imgRes.status === 404) {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
+            }
+            if (_imgRes.status === 502 || _imgRes.status === 503) {
+              toast('画图服务临时故障，2秒后重试...');
+              await new Promise(r => setTimeout(r, 2000));
+              _imgRes = await _doEdits();
             }
           } else {
             const _localGenUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
@@ -1447,23 +1453,24 @@ export async function sendMessage() {
         } catch(e) {
           console.error('[画图tool] catch:', e);
           if (e.name === 'AbortError') return '画图超时（5分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
-          // 垫图网络失败 → 自动重试一次（耗时 >250s 说明是连接超时，不重试避免重复扣费）
-          if (e.message?.includes('Failed to fetch') && _hasRef) {
-            if ((e._elapsed || 0) > 250000) {
-              return '画图连接超时（图可能已在后台生成但回传失败），请等一分钟再查服务器日志，或直接重试。';
+          if (e.message?.includes('Failed to fetch')) {
+            const _elapsed = e._elapsed || (Date.now() - _genStart);
+            // 超过60s才失败说明请求已到达API，可能已扣费，不自动重试
+            if (_elapsed > 60000) return '画图连接中断（耗时较长，图可能已在后台生成但回传失败），建议稍等再手动重试';
+            if (_hasRef) {
+              toast('垫图网络抖动，自动重试...');
+              try {
+                const _r2 = await _doEdits();
+                if (!_r2.ok) return '画图失败（重试）：' + _r2.status;
+                const _d2 = await _r2.json();
+                return await _showImg(_d2) || '画图API没返回图片';
+              } catch(_e2) {
+                if (_e2.name === 'AbortError') return '画图重试也超时了，请稍后再试。';
+                return '画图两次都网络失败，请稍后再试。';
+              }
             }
-            toast('垫图网络抖动，自动重试...');
-            try {
-              const _r2 = await _doEdits();
-              if (!_r2.ok) return '画图失败（重试）：' + _r2.status;
-              const _d2 = await _r2.json();
-              return await _showImg(_d2) || '画图API没返回图片';
-            } catch(_e2) {
-              if (_e2.name === 'AbortError') return '画图重试也超时了，请稍后再试。';
-              return '画图两次都网络失败，请稍后再试。';
-            }
+            return '画图网络中断，请重试。';
           }
-          if (e.message?.includes('Failed to fetch')) return '画图网络中断，请重试。';
           return '画图出错：' + e.message;
         }
       }
