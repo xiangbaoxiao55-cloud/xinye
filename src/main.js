@@ -12,6 +12,7 @@ import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quic
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
 import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi } from './modules/settings.js';
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage } from './modules/image.js';
+import { checkMorningWalk } from './modules/walk.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -373,7 +374,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.05.11-1144';
+  if (_verEl) _verEl.textContent = 'v2026.05.11-1250';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -435,6 +436,7 @@ async function checkPendingMessage() {
   // 顶栏状态更新
   updateHeaderStatus();
   if (settings.solitudeServerUrl) { checkLocalServer(); setInterval(checkLocalServer, 90_000); }
+  checkMorningWalk();
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
 })();

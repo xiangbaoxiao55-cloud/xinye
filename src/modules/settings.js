@@ -56,6 +56,8 @@ export function isLocalServerOnline() { return _localServerOnline; }
 export async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
   $('#setBraveKey').value = settings.braveKey || '';
+  const _mwEl = $('#setMorningWalkEnabled');
+  if (_mwEl) _mwEl.checked = !!settings.morningWalkEnabled;
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
   $('#setForumProxy').value = settings.forumProxy || '';
@@ -782,6 +784,7 @@ export function initSettings() {
   $('#btnSaveSettings').onclick = async () => {
     settings.apiKey = $('#setApiKey').value.trim();
     settings.braveKey = $('#setBraveKey').value.trim();
+    settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
     settings.searchDays = parseInt($('#setSearchDays').value) || 3;
     settings.searchCount = parseInt($('#setSearchCount').value) || 5;
     settings.forumProxy = $('#setForumProxy').value.trim();
