@@ -1659,6 +1659,26 @@ export async function sendMessage() {
         return tcs.length ? tcs : null;
       }
 
+      function _parseDSMLToolCalls(content) {
+        if (!content || !content.includes('DSML')) return null;
+        const invokeRe = /<｜｜DSML｜｜invoke name="([^"]+)">([\s\S]*?)<\/｜｜DSML｜｜invoke>/g;
+        const tcs = [];
+        let m;
+        while ((m = invokeRe.exec(content)) !== null) {
+          const name = m[1];
+          const inner = m[2];
+          const args = {};
+          const paramRe = /<｜｜DSML｜｜parameter name="([^"]+)"[^>]*>([\s\S]*?)<\/｜｜DSML｜｜parameter>/g;
+          let a;
+          while ((a = paramRe.exec(inner)) !== null) {
+            args[a[1]] = a[2].trim();
+          }
+          tcs.push({ id: `dsml_tc_${tcs.length}`, name, args: JSON.stringify(args) });
+        }
+        console.warn('[DSMLParse] found', tcs.length, 'tool calls');
+        return tcs.length ? tcs : null;
+      }
+
       async function _liveStream(res) {
         const _reader = res.body.getReader();
         const _dec = new TextDecoder();
@@ -1725,6 +1745,14 @@ export async function sendMessage() {
             if (_bubbleEl) _bubbleEl.textContent = _content;
           }
         }
+        if (!_tcs.length) {
+          const _dsmlTcs = _parseDSMLToolCalls(_content);
+          if (_dsmlTcs) {
+            _tcs = _dsmlTcs;
+            _content = _content.replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, '').trim();
+            if (_bubbleEl) _bubbleEl.textContent = _content;
+          }
+        }
         return { content: _content, think: _think, tool_calls: _tcs.length ? _tcs : null, aiMsg: _aiMsg, bubbleEl: _bubbleEl, usage: _streamUsage2 };
       }
 
@@ -1780,6 +1808,13 @@ export async function sendMessage() {
             _m1.content = (_m1.content || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim() || null;
           }
         }
+        if (_m1 && !_m1.tool_calls?.length) {
+          const _dsmlTcs = _parseDSMLToolCalls(_m1.content || '');
+          if (_dsmlTcs) {
+            _m1.tool_calls = _dsmlTcs.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } }));
+            _m1.content = (_m1.content || '').replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, '').trim() || null;
+          }
+        }
         if (!_m1?.tool_calls?.length) {
           let reply = _m1?.content || '（没有收到回复）';
           const _thk1 = _m1?.reasoning_content || _m1?.thinking || '';
@@ -1831,6 +1866,13 @@ export async function sendMessage() {
               if (_xmlTcs2) {
                 _m2.tool_calls = _xmlTcs2.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } }));
                 _m2.content = (_m2.content || '').replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim() || null;
+              }
+            }
+            if (_m2 && !_m2.tool_calls?.length) {
+              const _dsmlTcs2 = _parseDSMLToolCalls(_m2.content || '');
+              if (_dsmlTcs2) {
+                _m2.tool_calls = _dsmlTcs2.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } }));
+                _m2.content = (_m2.content || '').replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, '').trim() || null;
               }
             }
             if (_m2?.tool_calls?.length) {
