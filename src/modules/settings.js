@@ -66,6 +66,7 @@ export async function openSettings() {
   const _itEl = $('#setImageProxyToken');
   if (_itEl) _itEl.value = settings.imageProxyToken || '';
   renderImageProxyPresets();
+  renderServerUrlPresets();
   const _bkHint = $('#lastBackupHint');
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
   $('#setBaseUrl').value = settings.baseUrl;
@@ -246,6 +247,50 @@ function renderImageProxyPresets() {
       settings.imageProxyPresets[i] = { name, url, token };
       await saveSettings();
       renderImageProxyPresets();
+      toast(`已存入"${name}"`);
+    };
+  });
+}
+
+// ======================== 本地服务器快捷预设 ========================
+function renderServerUrlPresets() {
+  const row = document.getElementById('serverUrlPresetRow');
+  if (!row) return;
+  const _defaults = () => [
+    { name: 'PC',   url: 'http://localhost:8787' },
+    { name: '局域网', url: '' },
+  ];
+  const presets = (settings.serverUrlPresets?.length === 2) ? settings.serverUrlPresets : _defaults();
+  const cur = (settings.solitudeServerUrl || '').trim();
+  row.innerHTML = presets.map((p, i) => {
+    const active = p.url && p.url === cur;
+    return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+      <input class="sup-name" data-i="${i}" value="${escHtml(p.name)}" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);font-size:12px">
+      <button class="sup-apply pp-btn${active ? ' pp-active' : ''}" data-i="${i}">${active ? '✓ 使用中' : '应用'}</button>
+      <button class="sup-save pp-btn" data-i="${i}">存入</button>
+    </div>`;
+  }).join('');
+  row.querySelectorAll('.sup-apply').forEach(btn => {
+    btn.onclick = async () => {
+      const i = +btn.dataset.i;
+      const p = (settings.serverUrlPresets?.length === 2 ? settings.serverUrlPresets : _defaults())[i];
+      const el = document.getElementById('setSolitudeServerUrl');
+      if (el) el.value = p.url;
+      settings.solitudeServerUrl = p.url;
+      await saveSettings();
+      renderServerUrlPresets();
+      toast(`已切换：${p.name}`);
+    };
+  });
+  row.querySelectorAll('.sup-save').forEach(btn => {
+    btn.onclick = async () => {
+      const i = +btn.dataset.i;
+      const url  = (document.getElementById('setSolitudeServerUrl')?.value || '').trim().replace(/\/$/, '');
+      const name = row.querySelector(`.sup-name[data-i="${i}"]`)?.value || `预设${i + 1}`;
+      if (!settings.serverUrlPresets) settings.serverUrlPresets = _defaults();
+      settings.serverUrlPresets[i] = { name, url };
+      await saveSettings();
+      renderServerUrlPresets();
       toast(`已存入"${name}"`);
     };
   });
