@@ -1276,7 +1276,7 @@ export async function sendMessage() {
           const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
-        if (!_refImgs.length && args.ref_characters && args.ref_characters !== 'none') {
+        if (args.ref_characters && args.ref_characters !== 'none') {
           const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
           const _style = _styleMap[args.ref_style] || 'Anime';
           const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
