@@ -85,6 +85,7 @@ export async function openSettings() {
   const _dp = $('#setDigestPreset'); if (_dp) _dp.value = settings.digestPresetName || '';
   [0,1,2].forEach(i => { const el = $(`#setDigestFallback${i}`); if (el) el.value = (settings.digestFallbackPresetNames||[])[i] || ''; });
   $('#setModel').value = settings.model;
+  const _mtEl = $('#setMaxTokens'); if (_mtEl) _mtEl.value = settings.maxTokens || '';
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
   $('#setSubModel').value = settings.subModel || '';
@@ -570,6 +571,8 @@ export function initSettings() {
     settings.apiKey = $('#setApiKey').value.trim() || settings.apiKey;
     settings.baseUrl = $('#setBaseUrl').value.trim() || settings.baseUrl || 'https://api.openai.com';
     settings.model = $('#setModel').value.trim() || settings.model || 'gpt-4o';
+    const _mtVal = parseInt($('#setMaxTokens')?.value || '');
+    settings.maxTokens = _mtVal > 0 ? _mtVal : 0;
     settings.memoryArchive = $('#setMemoryArchive').value;
     ensureMemoryState();
     renderMemoryBankPreview();

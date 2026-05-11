@@ -1587,6 +1587,7 @@ export async function sendMessage() {
       outerLoop: for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
         const cfg = _buildCfg(_allCfgs[pi]);
         const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
+        if (settings.maxTokens) bodyObj.max_tokens = settings.maxTokens;
         bodyObj.stream_options = { include_usage: true };
         if (withTools && _toolDefs.length) {
           bodyObj.tools = _toolDefs;

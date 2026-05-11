@@ -196,6 +196,11 @@
       <select id="modelListMain" style="display:none;width:100%;margin-top:6px;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)" onchange="if(this.value){document.getElementById('setModel').value=this.value;this.style.display='none'}"></select>
     </div>
     <div class="setting-group">
+      <label>最大输出 Token（留空不限制）</label>
+      <input type="number" id="setMaxTokens" min="1" max="32768" step="1" placeholder="留空 = 模型默认">
+      <div class="hint">模型单次回复的 token 上限。写长文被截断可填 16000 试试（能否生效取决于 API 服务商是否允许）</div>
+    </div>
+    <div class="setting-group">
       <label>备用 API 预设（主 API 挂了依次切换）</label>
       <select id="setFallbackPreset0" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用1：不启用 —</option></select>
       <select id="setFallbackPreset1" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);margin-bottom:6px"><option value="">— 备用2：不启用 —</option></select>
