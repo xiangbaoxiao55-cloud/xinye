@@ -1334,18 +1334,20 @@ export async function sendMessage() {
           const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
           _editsUrl = `${_baseRaw}/images/edits`;
           const _compressRef = (b64, maxDim=1500) => new Promise(res => {
+            if (!b64) return res(null);
             const im = new Image();
             im.onload = () => {
               const sc = Math.min(1, maxDim / Math.max(im.width || 1, im.height || 1));
               const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
               const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
               cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
-              res(cv.toDataURL('image/jpeg', 0.82));
+              try { res(cv.toDataURL('image/jpeg', 0.82)); } catch(e) { res(null); }
             };
-            im.onerror = () => res(b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`);
-            im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+            im.onerror = () => res(null);
+            if (b64.startsWith('http')) { im.crossOrigin = 'anonymous'; im.src = b64; }
+            else { im.src = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`; }
           });
-          _compressedRefs = _refFromChat ? _refImgs : await Promise.all(_refImgs.map(img => _compressRef(img)));
+          _compressedRefs = _refFromChat ? _refImgs : (await Promise.all(_refImgs.map(img => _compressRef(img)))).filter(Boolean);
         }
         const _buildEditsForm = () => {
           const _form = new FormData();
@@ -1391,7 +1393,7 @@ export async function sendMessage() {
           const _ctrl = new AbortController();
           const _tid = setTimeout(() => _ctrl.abort(), 300000);
           let _imgRes;
-          if (_hasRef) {
+          if (_hasRef && _compressedRefs && _compressedRefs.length > 0) {
             _imgRes = await _doEdits();
             if (_imgRes.status === 404) {
               return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
