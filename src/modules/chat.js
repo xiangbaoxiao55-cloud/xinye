@@ -1359,7 +1359,7 @@ export async function sendMessage() {
         };
         const _doEdits = async () => {
           const _c = new AbortController();
-          const _t = setTimeout(() => _c.abort(), 660000);
+          const _t = setTimeout(() => _c.abort(), 900000);
           const _start = Date.now();
           try {
             const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
