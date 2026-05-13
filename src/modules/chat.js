@@ -282,10 +282,14 @@ export async function renderMessages() {
     let _bubbleInner;
     if (_stickerName) {
       _bubbleInner = window.renderStickerHTML?.(_stickerName) || escHtml(msg.content);
+    } else if (!isUser && msg.isGenImageError) {
+      const _errTxt = msg.content.replace(/^\[画图失败\]\s*/, '');
+      const _errPr = msg.genImageErrorPrompt || '';
+      _bubbleInner = `<div class="gen-img-error"><span class="gen-img-error-text">${escHtml(_errTxt)}</span>${_errPr ? `<button class="btn-gen-img-retry-err" data-id="${msg.id}">重试</button>` : ''}</div>`;
     } else if (!isUser && msg.isGenImage && msg.genImageData) {
       const _gp = _extractGenPrompt(msg.content);
       const _gpBm = `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-      _bubbleInner = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
+      _bubbleInner = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -346,10 +350,14 @@ export async function appendMsgDOM(msg) {
   let _bi;
   if (_sn) {
     _bi = window.renderStickerHTML?.(_sn) || escHtml(msg.content);
+  } else if (!isUser && msg.isGenImageError) {
+    const _errTxt2 = msg.content.replace(/^\[画图失败\]\s*/, '');
+    const _errPr2 = msg.genImageErrorPrompt || '';
+    _bi = `<div class="gen-img-error"><span class="gen-img-error-text">${escHtml(_errTxt2)}</span>${_errPr2 ? `<button class="btn-gen-img-retry-err" data-id="${msg.id}">重试</button>` : ''}</div>`;
   } else if (!isUser && msg.isGenImage && msg.genImageData) {
     const _gp2 = _extractGenPrompt(msg.content);
     const _gpBm2 = `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-    _bi = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><button class="btn-gen-img-dl" data-id="${msg.id}">⬇ 保存图片</button><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
+    _bi = `<img class="gen-img" src="${escHtml(msg.genImageData)}" alt="炘也画的图" data-src="${escHtml(msg.genImageData)}"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -418,27 +426,69 @@ chatArea.addEventListener('click', e => {
       return;
     }
   }
-  const genImgDlBtn = e.target.closest('.btn-gen-img-dl');
-  if (genImgDlBtn) {
-    const id = Number(genImgDlBtn.dataset.id);
+  const genImgSaveBtn = e.target.closest('.btn-gen-img-save');
+  if (genImgSaveBtn) {
+    const id = Number(genImgSaveBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
     if (msg && msg.genImageData) {
       const src = msg.genImageData;
-      const filename = `${settings.aiName || '炘也'}画的图_${id}.png`;
-      if (src.startsWith('data:')) {
+      const _aiN = settings.aiName || '炘也';
+      const baseName = `${_aiN}画的图_${id}`;
+      const _doDownload = (blob, ext) => {
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = src; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        a.href = url; a.download = baseName + ext;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 2000);
+      };
+      const _gp = _extractGenPrompt(msg.content);
+      const txtBlob = new Blob([`prompt: ${_gp}\nsize: ${settings.imageSize || ''}\ntime: ${new Date(msg.time).toLocaleString()}`], { type: 'text/plain;charset=utf-8' });
+      if (src.startsWith('data:')) {
+        const mime = src.match(/:(.*?);/)?.[1] || 'image/png';
+        const ext = mime.includes('jpeg') ? '.jpg' : '.png';
+        const u8 = Uint8Array.from(atob(src.split(',')[1]), c => c.charCodeAt(0));
+        _doDownload(new Blob([u8], { type: mime }), ext);
+        _doDownload(txtBlob, '.txt');
+        toast('已保存');
       } else {
         fetch(src).then(r => r.blob()).then(blob => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a); URL.revokeObjectURL(url);
-        }).catch(() => { toast('图片链接因跨域无法直接下载，长按图片保存'); });
+          _doDownload(blob, '.jpg');
+          _doDownload(txtBlob, '.txt');
+          toast('已保存');
+        }).catch(() => toast('图片跨域无法下载，长按图片保存'));
       }
     }
+    return;
+  }
+  const genImgRetryBtn = e.target.closest('.btn-gen-img-retry');
+  if (genImgRetryBtn) {
+    const id = Number(genImgRetryBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg) {
+      const prompt = _extractGenPrompt(msg.content);
+      if (prompt && window.generateImage) window.generateImage(prompt);
+    }
+    return;
+  }
+  const genImgRedoBtn = e.target.closest('.btn-gen-img-redo');
+  if (genImgRedoBtn) {
+    const id = Number(genImgRedoBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg) {
+      const prompt = _extractGenPrompt(msg.content);
+      if (prompt) {
+        userInput.value = prompt;
+        userInput.focus();
+        window.autoResize?.(); window.updateSendBtn?.();
+      }
+    }
+    return;
+  }
+  const genImgRetryErrBtn = e.target.closest('.btn-gen-img-retry-err');
+  if (genImgRetryErrBtn) {
+    const id = Number(genImgRetryErrBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg && msg.genImageErrorPrompt && window.generateImage) window.generateImage(msg.genImageErrorPrompt);
     return;
   }
   const bookmarkBtn = e.target.closest('.btn-bookmark');
@@ -1845,12 +1895,20 @@ export async function sendMessage() {
                 }
               }
             } else {
-              // 检查generate_image工具结果，失败时显示错误toast
+              // 检查generate_image工具结果，失败时显示错误气泡+toast
               for (const _gtc of _m1.tool_calls.filter(t => t.function.name === 'generate_image')) {
                 const _gres = loopMsgs.find(m => m.role === 'tool' && m.tool_call_id === _gtc.id)?.content || '';
                 if (_gres && _gres !== '[图已画好并展示给兔宝了]') {
                   console.error('[画图tool] 失败结果:', _gres);
                   toast('画图失败：' + _gres);
+                  const _errArgs = _safeParseArgs('generate_image', _gtc.function.arguments);
+                  const _errMsg = await addMessage('assistant', `[画图失败] ${_gres}`);
+                  _errMsg.isGenImageError = true;
+                  _errMsg.genImageErrorPrompt = _errArgs?.prompt || '';
+                  await dbPut(activeStore(), null, _errMsg);
+                  const _errIdx = messages.findIndex(m => m.id === _errMsg.id);
+                  if (_errIdx >= 0) messages[_errIdx] = _errMsg;
+                  await appendMsgDOM(_errMsg);
                 }
               }
               rememberLatestExchange(); autoDigestMemory(); updateMoodState();
