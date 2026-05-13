@@ -451,11 +451,11 @@ chatArea.addEventListener('click', e => {
         _doDownload(txtBlob, '.txt');
         toast('已保存');
       } else {
+        _doDownload(txtBlob, '.txt');
         fetch(src).then(r => r.blob()).then(blob => {
           _doDownload(blob, '.jpg');
-          _doDownload(txtBlob, '.txt');
-          toast('已保存');
-        }).catch(() => toast('图片跨域无法下载，长按图片保存'));
+          toast('图片已保存，描述已下载');
+        }).catch(() => toast('图片跨域无法直接下载，已下载描述文件，图片请长按保存'));
       }
     }
     return;
