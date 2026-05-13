@@ -1378,6 +1378,8 @@ export async function sendMessage() {
               } catch(proxyErr) {
                 if (proxyErr.name === 'AbortError') throw proxyErr;
                 if (_proxyHttpErr) throw proxyErr;
+                const _isCld = !!(settings.imageProxyUrl || '').trim();
+                if (!_isCld) throw proxyErr;
                 _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
               }
             } else {
