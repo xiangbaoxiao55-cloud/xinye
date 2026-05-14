@@ -58,12 +58,15 @@ export async function generateTTSBlob(text) {
       speed: parseFloat(settings.minimaxSpeed) || 1.0,
       vol: parseFloat(settings.minimaxVol) || 1.0,
       pitch: 0,
+      voice_id: '',
     };
     const timbreWeightsStr = (settings.minimaxTimbreWeights || '').trim();
+    let parsedTimbreWeights = null;
     if (timbreWeightsStr) {
-      try { voiceSetting.timbre_weights = JSON.parse(timbreWeightsStr); }
-      catch(e) { voiceSetting.voice_id = settings.minimaxVoiceId || 'female-shaonv'; }
-    } else {
+      try { parsedTimbreWeights = JSON.parse(timbreWeightsStr); }
+      catch(e) {}
+    }
+    if (!parsedTimbreWeights) {
       voiceSetting.voice_id = settings.minimaxVoiceId || 'female-shaonv';
     }
     const mmBody = {
@@ -72,6 +75,7 @@ export async function generateTTSBlob(text) {
       voice_setting: voiceSetting,
       audio_setting: { audio_sample_rate: 32000, bitrate: 128000, format: 'mp3' },
     };
+    if (parsedTimbreWeights) mmBody.timbre_weights = parsedTimbreWeights;
     const mp = settings.minimaxModifyPitch, mi = settings.minimaxModifyIntensity, mt = settings.minimaxModifyTimbre;
     if (mp !== '' || mi !== '' || mt !== '') {
       mmBody.voice_modify = {};
