@@ -664,13 +664,46 @@
       </div>
       <div class="setting-group-row">
         <div class="setting-group">
-          <label>Voice ID</label>
+          <label>Voice ID（单一音色）</label>
           <input type="text" id="setMinimaxVoiceId" placeholder="female-shaonv">
         </div>
         <div class="setting-group">
           <label>模型</label>
           <input type="text" id="setMinimaxModel" placeholder="speech-01-turbo">
         </div>
+      </div>
+      <div class="setting-group">
+        <label>混合音色 timbre_weights（JSON，填了则忽略 Voice ID）</label>
+        <textarea id="setMinimaxTimbreWeights" rows="4" placeholder='[{"voice_id":"female-chengshu","weight":30},{"voice_id":"female-tianmei","weight":70}]' style="width:100%;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+        <div class="hint">最多 4 种音色，weight 总和建议 100</div>
+      </div>
+      <div class="setting-group-row">
+        <div class="setting-group">
+          <label>语速 speed（0.5-2）</label>
+          <input type="number" id="setMinimaxSpeed" placeholder="1.0" min="0.5" max="2" step="0.1">
+        </div>
+        <div class="setting-group">
+          <label>音量 vol（0-10）</label>
+          <input type="number" id="setMinimaxVol" placeholder="1.0" min="0.1" max="10" step="0.1">
+        </div>
+      </div>
+      <div class="setting-group">
+        <label>效果器 voice_modify（留空不启用）</label>
+        <div class="setting-group-row">
+          <div class="setting-group">
+            <label>pitch 音高（-100~100）</label>
+            <input type="number" id="setMinimaxModifyPitch" placeholder="留空" min="-100" max="100">
+          </div>
+          <div class="setting-group">
+            <label>intensity 力度（-100~100）</label>
+            <input type="number" id="setMinimaxModifyIntensity" placeholder="留空" min="-100" max="100">
+          </div>
+          <div class="setting-group">
+            <label>timbre 音色质感（-100~100）</label>
+            <input type="number" id="setMinimaxModifyTimbre" placeholder="留空" min="-100" max="100">
+          </div>
+        </div>
+        <div class="hint">pitch 负=低沉/正=明亮，intensity 负=刚劲/正=柔和，timbre 负=浑厚/正=清脆</div>
       </div>
       <div class="setting-group">
         <label>代理地址（解决 CORS）</label>

@@ -54,16 +54,35 @@ export async function generateTTSBlob(text) {
       ? settings.minimaxProxy.trim().replace(/\/+$/, '')
       : 'https://api.minimax.chat/v1/t2a_v2';
     const endpoint = _mmBase.includes('GroupId') ? _mmBase : `${_mmBase}?GroupId=${settings.minimaxGroupId}`;
+    const voiceSetting = {
+      speed: parseFloat(settings.minimaxSpeed) || 1.0,
+      vol: parseFloat(settings.minimaxVol) || 1.0,
+      pitch: 0,
+    };
+    const timbreWeightsStr = (settings.minimaxTimbreWeights || '').trim();
+    if (timbreWeightsStr) {
+      try { voiceSetting.timbre_weights = JSON.parse(timbreWeightsStr); }
+      catch(e) { voiceSetting.voice_id = settings.minimaxVoiceId || 'female-shaonv'; }
+    } else {
+      voiceSetting.voice_id = settings.minimaxVoiceId || 'female-shaonv';
+    }
+    const mmBody = {
+      model: settings.minimaxModel || 'speech-01-turbo',
+      text, stream: false,
+      voice_setting: voiceSetting,
+      audio_setting: { audio_sample_rate: 32000, bitrate: 128000, format: 'mp3' },
+    };
+    const mp = settings.minimaxModifyPitch, mi = settings.minimaxModifyIntensity, mt = settings.minimaxModifyTimbre;
+    if (mp !== '' || mi !== '' || mt !== '') {
+      mmBody.voice_modify = {};
+      if (mp !== '') mmBody.voice_modify.pitch = parseInt(mp);
+      if (mi !== '') mmBody.voice_modify.intensity = parseInt(mi);
+      if (mt !== '') mmBody.voice_modify.timbre = parseInt(mt);
+    }
     const res = await fetchWithTimeout(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.minimaxKey}` },
-      body: JSON.stringify({
-        model: settings.minimaxModel || 'speech-01-turbo',
-        text,
-        stream: false,
-        voice_setting: { voice_id: settings.minimaxVoiceId || 'female-shaonv', speed: 1.0, vol: 1.0, pitch: 0 },
-        audio_setting: { audio_sample_rate: 32000, bitrate: 128000, format: 'mp3' }
-      })
+      body: JSON.stringify(mmBody)
     }, 60000);
     if (!res.ok) throw new Error(`MiniMax TTS HTTP ${res.status}`);
     const j = await res.json();

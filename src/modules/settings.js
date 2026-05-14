@@ -166,6 +166,12 @@ export async function openSettings() {
   $('#setMinimaxVoiceId').value = settings.minimaxVoiceId || '';
   $('#setMinimaxModel').value = settings.minimaxModel || '';
   $('#setMinimaxProxy').value = settings.minimaxProxy || '';
+  $('#setMinimaxTimbreWeights').value = settings.minimaxTimbreWeights || '';
+  $('#setMinimaxSpeed').value = settings.minimaxSpeed ?? '';
+  $('#setMinimaxVol').value = settings.minimaxVol ?? '';
+  $('#setMinimaxModifyPitch').value = settings.minimaxModifyPitch ?? '';
+  $('#setMinimaxModifyIntensity').value = settings.minimaxModifyIntensity ?? '';
+  $('#setMinimaxModifyTimbre').value = settings.minimaxModifyTimbre ?? '';
   $('#setDisplayLimit').value = settings.displayLimit || 0;
   $('#setIdleRemind').value = settings.idleRemind || 0;
   $('#setWaterRemind').value = settings.waterRemind || 0;
@@ -442,9 +448,15 @@ export async function activateTtsPreset(i) {
   if (p.mosiVoiceId)     settings.mosiVoiceId       = p.mosiVoiceId;
   if (p.minimaxKey)      settings.minimaxKey         = p.minimaxKey;
   if (p.minimaxGroupId)  settings.minimaxGroupId     = p.minimaxGroupId;
-  settings.minimaxVoiceId  = p.minimaxVoiceId  || '';
-  settings.minimaxModel    = p.minimaxModel    || '';
-  settings.minimaxProxy    = p.minimaxProxy    || '';
+  settings.minimaxVoiceId       = p.minimaxVoiceId       || '';
+  settings.minimaxModel         = p.minimaxModel         || '';
+  settings.minimaxProxy         = p.minimaxProxy         || '';
+  settings.minimaxTimbreWeights = p.minimaxTimbreWeights || '';
+  settings.minimaxSpeed         = p.minimaxSpeed         ?? '';
+  settings.minimaxVol           = p.minimaxVol           ?? '';
+  settings.minimaxModifyPitch     = p.minimaxModifyPitch     ?? '';
+  settings.minimaxModifyIntensity = p.minimaxModifyIntensity ?? '';
+  settings.minimaxModifyTimbre    = p.minimaxModifyTimbre    ?? '';
   await saveSettings();
   // 同步面板显示
   $('#setTtsType').value          = settings.ttsType;
@@ -462,6 +474,12 @@ export async function activateTtsPreset(i) {
   $('#setMinimaxVoiceId').value   = settings.minimaxVoiceId;
   $('#setMinimaxModel').value     = settings.minimaxModel;
   $('#setMinimaxProxy').value     = settings.minimaxProxy;
+  $('#setMinimaxTimbreWeights').value     = settings.minimaxTimbreWeights || '';
+  $('#setMinimaxSpeed').value             = settings.minimaxSpeed ?? '';
+  $('#setMinimaxVol').value               = settings.minimaxVol ?? '';
+  $('#setMinimaxModifyPitch').value       = settings.minimaxModifyPitch ?? '';
+  $('#setMinimaxModifyIntensity').value   = settings.minimaxModifyIntensity ?? '';
+  $('#setMinimaxModifyTimbre').value      = settings.minimaxModifyTimbre ?? '';
   updateTtsTypeUI();
   toast(`✅ 已激活音色预设「${p.name}」`);
 }
@@ -845,9 +863,15 @@ export function initSettings() {
     settings.mosiVoiceId = $('#setMosiVoiceId').value.trim();
     settings.minimaxKey = $('#setMinimaxKey').value.trim();
     settings.minimaxGroupId = $('#setMinimaxGroupId').value.trim();
-    settings.minimaxVoiceId = $('#setMinimaxVoiceId').value.trim();
-    settings.minimaxModel = $('#setMinimaxModel').value.trim();
-    settings.minimaxProxy = $('#setMinimaxProxy').value.trim();
+    settings.minimaxVoiceId         = $('#setMinimaxVoiceId').value.trim();
+    settings.minimaxModel           = $('#setMinimaxModel').value.trim();
+    settings.minimaxProxy           = $('#setMinimaxProxy').value.trim();
+    settings.minimaxTimbreWeights   = $('#setMinimaxTimbreWeights').value.trim();
+    settings.minimaxSpeed           = $('#setMinimaxSpeed').value.trim();
+    settings.minimaxVol             = $('#setMinimaxVol').value.trim();
+    settings.minimaxModifyPitch     = $('#setMinimaxModifyPitch').value.trim();
+    settings.minimaxModifyIntensity = $('#setMinimaxModifyIntensity').value.trim();
+    settings.minimaxModifyTimbre    = $('#setMinimaxModifyTimbre').value.trim();
     settings.omnivoiceUrl = $('#setOmnivoiceUrl').value.trim() || 'https://xinye-omni-tts.cpolar.top';
     settings.omnivoiceXinyeAudio = $('#setOmnivoiceXinyeAudio').value.trim() || '';
     settings.omnivoiceChouAudio = $('#setOmnivoiceChouAudio').value.trim() || '';
@@ -892,9 +916,15 @@ export function initSettings() {
       mosiVoiceId:     $('#setMosiVoiceId').value.trim(),
       minimaxKey:      $('#setMinimaxKey').value.trim(),
       minimaxGroupId:  $('#setMinimaxGroupId').value.trim(),
-      minimaxVoiceId:  $('#setMinimaxVoiceId').value.trim(),
-      minimaxModel:    $('#setMinimaxModel').value.trim(),
-      minimaxProxy:    $('#setMinimaxProxy').value.trim(),
+      minimaxVoiceId:         $('#setMinimaxVoiceId').value.trim(),
+      minimaxModel:           $('#setMinimaxModel').value.trim(),
+      minimaxProxy:           $('#setMinimaxProxy').value.trim(),
+      minimaxTimbreWeights:   $('#setMinimaxTimbreWeights').value.trim(),
+      minimaxSpeed:           $('#setMinimaxSpeed').value.trim(),
+      minimaxVol:             $('#setMinimaxVol').value.trim(),
+      minimaxModifyPitch:     $('#setMinimaxModifyPitch').value.trim(),
+      minimaxModifyIntensity: $('#setMinimaxModifyIntensity').value.trim(),
+      minimaxModifyTimbre:    $('#setMinimaxModifyTimbre').value.trim(),
     };
     settings.ttsPresets.push(p);
     await saveSettings();
