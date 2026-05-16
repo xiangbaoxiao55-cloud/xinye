@@ -1373,7 +1373,7 @@ async function renderTodos() {
       </div>
       <div class="item-body">
         <div class="todo-text${item.done?' done':''}">${escHtml(item.content)}</div>
-        <div class="todo-time">${item.time||''}</div>
+        <div class="todo-time">${item.time||''}${item.trigger_at ? ' · ⏰ ' + item.trigger_at.replace('T',' ').slice(0,16) : ' · 无触发时间'}</div>
       </div>
       <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
     div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_memo', item.id); div.remove(); });
