@@ -77,11 +77,39 @@ export function getAllFromStore(store) {
   });
 }
 
-// 取所有未完成待办（type=todo, done=false），用于注入系统提示词
+// 取到期的未完成待办（有 trigger_at 且已到时间），用于注入系统提示词
 export async function getPendingTodos() {
   await openPhoneDB();
   const all = await getAllFromStore('xinye_memo');
-  return all.filter(m => m.type === 'todo' && !m.done);
+  const now = Date.now();
+  return all.filter(m => m.type === 'todo' && !m.done && m.trigger_at && new Date(m.trigger_at).getTime() <= now);
+}
+
+// 批量标记待办为已完成
+export async function completeTodos(ids) {
+  if (!ids || !ids.length) return;
+  await openPhoneDB();
+  for (const id of ids) {
+    const item = await getRecord('xinye_memo', id);
+    if (item && !item.done) await putRecord('xinye_memo', { ...item, done: true });
+  }
+}
+
+// 添加待办（同一天相同内容去重）
+export async function addTodoWithDedup(content, triggerAt) {
+  await openPhoneDB();
+  const all = await getAllFromStore('xinye_memo');
+  const triggerDay = triggerAt ? triggerAt.slice(0, 10) : null;
+  const dup = all.find(m => {
+    if (m.type !== 'todo' || m.done) return false;
+    if (m.content.slice(0, 15) !== content.slice(0, 15)) return false;
+    if (triggerDay && m.trigger_at) return m.trigger_at.slice(0, 10) === triggerDay;
+    return true;
+  });
+  if (dup) return 'duplicate';
+  const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
+  await addRecord('xinye_memo', { type: 'todo', content, done: false, trigger_at: triggerAt, time: now });
+  return 'ok';
 }
 
 // dataUrl → Blob

@@ -5,7 +5,7 @@ import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
-import { parseAndSavePhoneState, getPendingTodos } from './phonedb.js';
+import { parseAndSavePhoneState, getPendingTodos, completeTodos, addTodoWithDedup } from './phonedb.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -779,13 +779,15 @@ export async function sendMessage() {
         _apiMeta.push({ label: 'system · 亲亲提示' });
         localStorage.removeItem(_PFX + 'xinye_kiss_hint');
       }
+      let _injectedTodoIds = [];
       if (_PFX === '') {
         try {
           const _todos = await getPendingTodos();
           if (_todos.length) {
-            const _todoText = '## 你当前的待办\n' + _todos.map(t => `- ${t.content}`).join('\n');
+            _injectedTodoIds = _todos.map(t => t.id);
+            const _todoText = '【你有以下到期待办，请在本次回复中自然提及，融入对话，不要单独发一条提醒】\n' + _todos.map(t => `- ${t.content}`).join('\n');
             apiMsgs.push({ role: 'system', content: _todoText });
-            _apiMeta.push({ label: `system · 待办(${_todos.length}条)` });
+            _apiMeta.push({ label: `system · 到期待办(${_todos.length}条)` });
           }
         } catch(_e) {}
       }
@@ -927,6 +929,24 @@ export async function sendMessage() {
       }
     });
 
+    if (_PFX === '') {
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'set_reminder',
+          description: '设置一个待办提醒。当你想在某个时间提醒兔宝做某事时调用。trigger_at 必须是绝对 ISO 时间（如 "2026-05-17T23:30:00"）——把"今晚""明天"等相对时间结合当前系统时间自己换算成绝对时间填入。到了触发时间，你会在和兔宝下次对话里自然提及这件事。同一天相同内容只会记一次。',
+          parameters: {
+            type: 'object',
+            properties: {
+              content: { type: 'string', description: '提醒内容，简洁描述要做的事' },
+              trigger_at: { type: 'string', description: '触发时间，ISO格式，如 "2026-05-17T23:30:00"' }
+            },
+            required: ['content', 'trigger_at']
+          }
+        }
+      });
+    }
+
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel)) {
       _toolDefs.push({
         type: 'function',
@@ -991,6 +1011,13 @@ export async function sendMessage() {
         window._speakRequested = true;
         window._speakText = args.text || '';
         return '好，我开口说。';
+      }
+      if (name === 'set_reminder') {
+        try {
+          const _r = await addTodoWithDedup(args.content, args.trigger_at);
+          if (_r === 'duplicate') return '已有相同提醒，不重复添加。';
+          return `好，已记下：${args.content}（${args.trigger_at}）`;
+        } catch(_e) { return '记录失败：' + _e.message; }
       }
       if (name === 'weread_query') {
         toast('📚 查询微信读书…');
@@ -1514,6 +1541,7 @@ export async function sendMessage() {
         let finalText = parsed.content || '（没有收到回复）';
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
+        if (_injectedTodoIds.length) { try { await completeTodos(_injectedTodoIds); } catch(_e) {} _injectedTodoIds = []; }
         if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
@@ -1538,6 +1566,7 @@ export async function sendMessage() {
         async function _showNonStream(text, msgList, usage) {
           text = await parseAndSaveSelfMemories(text);
           if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
+          if (_injectedTodoIds.length) { try { await completeTodos(_injectedTodoIds); } catch(_e) {} _injectedTodoIds = []; }
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
           await appendMsgDOM(_nm);
