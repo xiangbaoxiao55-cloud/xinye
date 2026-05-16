@@ -1007,10 +1007,10 @@ export async function sendMessage() {
               body: JSON.stringify({ apiKey: _wrKey, body: _wrBody })
             });
           } else {
-            _wrRes = await fetch('https://i.weread.qq.com/api/agent/gateway', {
+            _wrRes = await fetch('/api/weread-proxy', {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${_wrKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify(_wrBody)
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey: _wrKey, body: _wrBody })
             });
           }
           if (!_wrRes.ok) return `微信读书接口错误 HTTP ${_wrRes.status}`;
