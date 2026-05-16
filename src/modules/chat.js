@@ -1875,6 +1875,18 @@ export async function sendMessage() {
           await _showNonStream(reply, loopMsgs, _d1.usage);
         } else {
           loopMsgs.push({ role: 'assistant', content: _m1.content || null, tool_calls: _m1.tool_calls });
+          if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
+            typing.classList.remove('show');
+            window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+            const _bgTcs1 = _m1.tool_calls.slice();
+            (async () => {
+              for (const tc of _bgTcs1) {
+                try { await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); }
+              }
+              rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+            })();
+            return;
+          }
           for (const tc of _m1.tool_calls) {
             let result = '';
             try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
@@ -1969,6 +1981,18 @@ export async function sendMessage() {
           try { await updateMessage(parsed.aiMsg.id, parsed.content); } catch(_e) {}
         }
         loopMsgs.push({ role: 'assistant', content: parsed.content || null, tool_calls: parsed.tool_calls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } })) });
+        if (parsed.tool_calls.every(tc => tc.name === 'generate_image')) {
+          typing.classList.remove('show');
+          window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+          const _bgTcs = parsed.tool_calls.slice();
+          (async () => {
+            for (const tc of _bgTcs) {
+              try { await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); }
+            }
+            rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+          })();
+          return;
+        }
         for (const tc of parsed.tool_calls) {
           let result = '';
           try { result = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
