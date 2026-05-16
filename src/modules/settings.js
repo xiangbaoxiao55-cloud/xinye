@@ -60,7 +60,7 @@ export async function openSettings() {
   if (_mwEl) _mwEl.checked = !!settings.morningWalkEnabled;
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
-  $('#setForumProxy').value = settings.forumProxy || '';
+  if ($('#setWereadApiKey')) $('#setWereadApiKey').value = settings.wereadApiKey || '';
   const _ssEl = $('#setSolitudeServerUrl');
   if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
   const _ipEl = $('#setImageProxyUrl');
@@ -808,7 +808,7 @@ export function initSettings() {
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
     settings.searchDays = parseInt($('#setSearchDays').value) || 3;
     settings.searchCount = parseInt($('#setSearchCount').value) || 5;
-    settings.forumProxy = $('#setForumProxy').value.trim();
+    settings.wereadApiKey = ($('#setWereadApiKey') ? $('#setWereadApiKey').value.trim() : '');
     settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
     settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
     settings.fallbackPresetNames = [0,1,2].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);

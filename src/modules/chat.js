@@ -949,6 +949,34 @@ export async function sendMessage() {
     }
 
 
+    if (settings.wereadApiKey) {
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'weread_query',
+          description: '查询兔宝的微信读书数据。兔宝说"看看书架""读了多久""帮我找本书""看看我在XX书的笔记""给我推荐书"时调用。接口（api_name）：/shelf/sync=书架列表；/store/search=搜索书籍(需keyword,scope:0全部/10电子书/16网文/14有声书/6作者)；/book/info=书籍详情(需bookId)；/book/getprogress=阅读进度(需bookId)；/readdata/detail=阅读统计(mode:monthly本月/weekly本周/annually今年/overall总计)；/user/notebooks=笔记概览；/book/bookmarklist=单本书划线(需bookId)；/review/list/mine=单本书想法(需bookid小写)；/book/bestbookmarks=热门划线(需bookId)。所有参数平铺顶层，不要嵌套在params里。',
+          parameters: {
+            type: 'object',
+            properties: {
+              api_name: { type: 'string', description: '接口名，如 /shelf/sync、/store/search、/readdata/detail 等' },
+              keyword: { type: 'string', description: '搜索关键词（/store/search 用）' },
+              scope: { type: 'integer', description: '搜索类型：0=全部,10=电子书,16=网文,14=有声书,6=作者' },
+              bookId: { type: 'string', description: '书籍 ID' },
+              bookid: { type: 'string', description: '书籍 ID 小写（/review/list/mine 用）' },
+              mode: { type: 'string', enum: ['monthly','weekly','annually','overall'], description: '阅读统计维度' },
+              baseTime: { type: 'integer', description: '统计基准时间戳，0=当前周期' },
+              count: { type: 'integer', description: '每页数量' },
+              lastSort: { type: 'integer', description: '翻页游标（/user/notebooks 用）' },
+              maxIdx: { type: 'integer', description: '翻页偏移' },
+              synckey: { type: 'integer', description: '翻页游标（/review/list/mine 用）' },
+              chapterUid: { type: 'integer', description: '章节 UID' }
+            },
+            required: ['api_name']
+          }
+        }
+      });
+    }
+
     function _safeParseArgs(name, argsStr) {
       try { return JSON.parse(argsStr); } catch(_) {}
       if (name === 'generate_image') {
@@ -963,6 +991,33 @@ export async function sendMessage() {
         window._speakRequested = true;
         window._speakText = args.text || '';
         return '好，我开口说。';
+      }
+      if (name === 'weread_query') {
+        toast('📚 查询微信读书…');
+        const _wrKey = settings.wereadApiKey;
+        if (!_wrKey) return '未设置微信读书 API Key，请在设置中填写';
+        const _wrBody = { ...args, skill_version: '1.0.3' };
+        const _wrLocal = (settings.solitudeServerUrl || '').trim();
+        try {
+          let _wrRes;
+          if (_wrLocal) {
+            _wrRes = await fetch(`${_wrLocal}/api/weread-proxy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey: _wrKey, body: _wrBody })
+            });
+          } else {
+            _wrRes = await fetch('https://i.weread.qq.com/api/agent/gateway', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${_wrKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(_wrBody)
+            });
+          }
+          if (!_wrRes.ok) return `微信读书接口错误 HTTP ${_wrRes.status}`;
+          const _wrD = await _wrRes.json();
+          if (_wrD.errcode && _wrD.errcode !== 0) return `微信读书错误：${_wrD.errmsg || _wrD.errcode}`;
+          return JSON.stringify(_wrD);
+        } catch(e) { return '查询微信读书失败：' + e.message; }
       }
       if (name === 'generate_image') {
         console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} ref_style=${args.ref_style||'默认anime'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);
