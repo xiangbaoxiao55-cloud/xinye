@@ -735,6 +735,7 @@ export async function sendMessage() {
   try {
     const apiMsgs = [];
     const _apiMeta = [];
+    let _injectedTodoIds = [];
     const _rpInject = typeof window.getRpInjection === 'function' ? window.getRpInjection() : null;
     if (_rpInject) {
       apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _rpInject, cache_control: { type: 'ephemeral' } }] });
@@ -779,7 +780,6 @@ export async function sendMessage() {
         _apiMeta.push({ label: 'system · 亲亲提示' });
         localStorage.removeItem(_PFX + 'xinye_kiss_hint');
       }
-      let _injectedTodoIds = [];
       if (_PFX === '') {
         try {
           const _todos = await getPendingTodos();
