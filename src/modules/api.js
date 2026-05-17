@@ -47,7 +47,7 @@ export async function mainApiFetch(bodyWithoutModel) {
       return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, useLocalProxy: !!preset.useLocalProxy };
     }
     const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model, useLocalProxy: false };
+    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model, useLocalProxy: !!settings.useLocalProxy };
   }
   function _buildFetchArgs(cfg, bodyStr, signal) {
     if (cfg.useLocalProxy && settings.solitudeServerUrl) {

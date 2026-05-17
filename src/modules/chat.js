@@ -1335,7 +1335,7 @@ export async function sendMessage() {
         const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
         return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o', useLocalProxy: !!preset.useLocalProxy };
       }
-      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: false };
+      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: !!settings.useLocalProxy };
     }
     function _proxyFetchArgs(cfg) {
       if (cfg.useLocalProxy && settings.solitudeServerUrl) {

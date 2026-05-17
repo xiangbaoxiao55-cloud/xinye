@@ -746,6 +746,8 @@ export function initSettings() {
     if ($('#setBackupBaseUrl')) $('#setBackupBaseUrl').value = p.backupBaseUrl || '';
     $('#setModel').value   = p.model   || '';
     if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
+    settings.useLocalProxy = !!p.useLocalProxy;
+    saveSettings();
     toast(`✅ 已填入主预设「${p.name}」，确认后点保存设置`);
   };
   $('#btnLoadSubPreset').onclick = () => {
