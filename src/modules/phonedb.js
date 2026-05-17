@@ -95,16 +95,24 @@ export async function completeTodos(ids) {
   }
 }
 
-// 添加待办（同一天相同内容去重）
+// 添加待办（同一天相似内容去重：有≥5字公共子串即视为重复）
 export async function addTodoWithDedup(content, triggerAt) {
   await openPhoneDB();
   const all = await getAllFromStore('xinye_memo');
   const triggerDay = triggerAt ? triggerAt.slice(0, 10) : null;
+  function hasSimilarContent(a, b) {
+    if (a === b) return true;
+    const minLen = 5;
+    for (let i = 0; i <= a.length - minLen; i++) {
+      if (b.includes(a.slice(i, i + minLen))) return true;
+    }
+    return false;
+  }
   const dup = all.find(m => {
     if (m.type !== 'todo' || m.done) return false;
-    if (m.content.slice(0, 15) !== content.slice(0, 15)) return false;
-    if (triggerDay && m.trigger_at) return m.trigger_at.slice(0, 10) === triggerDay;
-    return true;
+    const mDay = m.trigger_at ? m.trigger_at.slice(0, 10) : null;
+    if (triggerDay !== mDay) return false;
+    return hasSimilarContent(content, m.content);
   });
   if (dup) return 'duplicate';
   const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
@@ -143,6 +151,8 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
         const found = all.find(m => m.type === 'todo' && !m.done && m.content === item.content);
         if (found) await putRecord('xinye_memo', { ...found, done: true, time: now });
         else await addRecord('xinye_memo', { type: item.type, content: item.content, done: true, time: now });
+      } else if (item.type === 'todo') {
+        await addTodoWithDedup(item.content, item.trigger_at || null);
       } else {
         await addRecord('xinye_memo', { type: item.type || 'note', content: item.content, done: false, time: now });
       }
