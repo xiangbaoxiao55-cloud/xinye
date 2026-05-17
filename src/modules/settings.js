@@ -55,6 +55,7 @@ export function isLocalServerOnline() { return _localServerOnline; }
 // ======================== 设置面板 打开/关闭 ========================
 export async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
+  if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!settings.useLocalProxy;
   $('#setBraveKey').value = settings.braveKey || '';
   const _mwEl = $('#setMorningWalkEnabled');
   if (_mwEl) _mwEl.checked = !!settings.morningWalkEnabled;
@@ -808,6 +809,7 @@ export function initSettings() {
   $('#btnSaveSettingsTop').onclick = () => $('#btnSaveSettings').click();
   $('#btnSaveSettings').onclick = async () => {
     settings.apiKey = $('#setApiKey').value.trim();
+    settings.useLocalProxy = !!($('#apiPresetUseProxy')?.checked);
     settings.braveKey = $('#setBraveKey').value.trim();
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
     settings.searchDays = parseInt($('#setSearchDays').value) || 3;
