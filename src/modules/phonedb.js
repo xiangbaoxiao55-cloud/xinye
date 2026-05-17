@@ -85,6 +85,13 @@ export async function getPendingTodos() {
   return all.filter(m => m.type === 'todo' && !m.done && m.trigger_at && new Date(m.trigger_at).getTime() <= now);
 }
 
+// 取全部未完成待办，供炘也调用 set_reminder 前自行判断是否重复
+export async function getAllUndoneTodos() {
+  await openPhoneDB();
+  const all = await getAllFromStore('xinye_memo');
+  return all.filter(m => m.type === 'todo' && !m.done);
+}
+
 // 批量标记待办为已完成
 export async function completeTodos(ids) {
   if (!ids || !ids.length) return;

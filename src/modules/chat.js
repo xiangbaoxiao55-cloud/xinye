@@ -5,7 +5,7 @@ import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
-import { parseAndSavePhoneState, getPendingTodos, completeTodos, addTodoWithDedup } from './phonedb.js';
+import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodos, addTodoWithDedup } from './phonedb.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -789,6 +789,13 @@ export async function sendMessage() {
             apiMsgs.push({ role: 'system', content: _todoText });
             _apiMeta.push({ label: `system · 到期待办(${_todos.length}条)` });
           }
+          const _allTodos = await getAllUndoneTodos();
+          if (_allTodos.length) {
+            const _allTodoText = '【备忘录·当前全部未完成待办（调用 set_reminder 前请先看这里，已有的事不要重复记）】\n' +
+              _allTodos.map(t => `- ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
+            apiMsgs.push({ role: 'system', content: _allTodoText });
+            _apiMeta.push({ label: `system · 全部待办(${_allTodos.length}条)` });
+          }
         } catch(_e) {}
       }
       if (window._forceSearch && settings.braveKey) {
@@ -934,7 +941,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'set_reminder',
-          description: '设置一个待办提醒。当你想在某个时间提醒兔宝做某事时调用。trigger_at 必须是绝对 ISO 时间（如 "2026-05-17T23:30:00"）——把"今晚""明天"等相对时间结合当前系统时间自己换算成绝对时间填入。到了触发时间，你会在和兔宝下次对话里自然提及这件事。同一天相同内容只会记一次。',
+          description: '设置一个待办提醒。调用前请先查看系统消息里的【备忘录·当前全部未完成待办】，如果同一件事已有记录就不要重复调用。trigger_at 必须是绝对 ISO 时间（如 "2026-05-17T23:30:00"）——把"今晚""明天"等相对时间结合当前系统时间自己换算成绝对时间填入。到了触发时间，你会在和兔宝下次对话里自然提及这件事。',
           parameters: {
             type: 'object',
             properties: {
