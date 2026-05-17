@@ -92,14 +92,13 @@ export async function getAllUndoneTodos() {
   return all.filter(m => m.type === 'todo' && !m.done);
 }
 
-// 批量标记待办为已完成
-export async function completeTodos(ids) {
-  if (!ids || !ids.length) return;
+// 单条标记待办为已完成（供 complete_reminder 工具调用）
+export async function completeTodoById(id) {
   await openPhoneDB();
-  for (const id of ids) {
-    const item = await getRecord('xinye_memo', id);
-    if (item && !item.done) await putRecord('xinye_memo', { ...item, done: true });
-  }
+  const item = await getRecord('xinye_memo', id);
+  if (!item || item.done) return 'not_found';
+  await putRecord('xinye_memo', { ...item, done: true });
+  return 'ok';
 }
 
 // 添加待办（同一天相似内容去重：有≥5字公共子串即视为重复）
@@ -150,17 +149,10 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
   await openPhoneDB();
   const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
 
-  // memo
+  // memo（只处理笔记，待办由 set_reminder 工具统一管理）
   if (data.memo?.items) {
     for (const item of data.memo.items) {
-      if (item.type === 'todo' && item.done === true) {
-        const all = await getAllFromStore('xinye_memo');
-        const found = all.find(m => m.type === 'todo' && !m.done && m.content === item.content);
-        if (found) await putRecord('xinye_memo', { ...found, done: true, time: now });
-        else await addRecord('xinye_memo', { type: item.type, content: item.content, done: true, time: now });
-      } else if (item.type === 'todo') {
-        await addTodoWithDedup(item.content, item.trigger_at || null);
-      } else {
+      if (item.type !== 'todo') {
         await addRecord('xinye_memo', { type: item.type || 'note', content: item.content, done: false, time: now });
       }
     }

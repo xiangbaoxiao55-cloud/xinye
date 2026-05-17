@@ -5,7 +5,7 @@ import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
-import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodos, addTodoWithDedup } from './phonedb.js';
+import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -735,7 +735,6 @@ export async function sendMessage() {
   try {
     const apiMsgs = [];
     const _apiMeta = [];
-    let _injectedTodoIds = [];
     const _rpInject = typeof window.getRpInjection === 'function' ? window.getRpInjection() : null;
     if (_rpInject) {
       apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _rpInject, cache_control: { type: 'ephemeral' } }] });
@@ -782,19 +781,14 @@ export async function sendMessage() {
       }
       if (_PFX === '') {
         try {
-          const _todos = await getPendingTodos();
-          if (_todos.length) {
-            _injectedTodoIds = _todos.map(t => t.id);
-            const _todoText = '【你有以下到期待办，请在本次回复中自然提及，融入对话，不要单独发一条提醒】\n' + _todos.map(t => `- ${t.content}`).join('\n');
-            apiMsgs.push({ role: 'system', content: _todoText });
-            _apiMeta.push({ label: `system · 到期待办(${_todos.length}条)` });
-          }
           const _allTodos = await getAllUndoneTodos();
           if (_allTodos.length) {
-            const _allTodoText = '【备忘录·当前全部未完成待办（调用 set_reminder 前请先看这里，已有的事不要重复记）】\n' +
-              _allTodos.map(t => `- ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
-            apiMsgs.push({ role: 'system', content: _allTodoText });
-            _apiMeta.push({ label: `system · 全部待办(${_allTodos.length}条)` });
+            const _due = _allTodos.filter(t => t.trigger_at && new Date(t.trigger_at).getTime() <= Date.now());
+            const _dueBlock = _due.length ? `\n【到期提醒：以下待办已到时间，请在本次回复中自然提及，提完后调用 complete_reminder 勾掉】\n` + _due.map(t => `- [id:${t.id}] ${t.content}`).join('\n') : '';
+            const _allBlock = '【备忘录·全部未完成待办（调用 set_reminder 前先看这里，已有的事不要重复记；complete_reminder 用 id 勾掉）】\n' +
+              _allTodos.map(t => `- [id:${t.id}] ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
+            apiMsgs.push({ role: 'system', content: _allBlock + _dueBlock });
+            _apiMeta.push({ label: `system · 待办(${_allTodos.length}条${_due.length ? `，${_due.length}到期` : ''})` });
           }
         } catch(_e) {}
       }
@@ -952,6 +946,20 @@ export async function sendMessage() {
           }
         }
       });
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'complete_reminder',
+          description: '勾掉一条待办，标记为已完成。在对话中提到某件待办事项后调用，用系统消息里待办列表中的 id。',
+          parameters: {
+            type: 'object',
+            properties: {
+              id: { type: 'number', description: '待办的 id，从系统消息【备忘录·全部未完成待办】列表里取' }
+            },
+            required: ['id']
+          }
+        }
+      });
     }
 
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel)) {
@@ -1025,6 +1033,13 @@ export async function sendMessage() {
           if (_r === 'duplicate') return '已有相同提醒，不重复添加。';
           return `好，已记下：${args.content}（${args.trigger_at}）`;
         } catch(_e) { return '记录失败：' + _e.message; }
+      }
+      if (name === 'complete_reminder') {
+        try {
+          const _r = await completeTodoById(args.id);
+          if (_r === 'not_found') return '找不到该待办，可能已完成。';
+          return `已勾掉。`;
+        } catch(_e) { return '操作失败：' + _e.message; }
       }
       if (name === 'weread_query') {
         toast('📚 查询微信读书…');
@@ -1548,7 +1563,6 @@ export async function sendMessage() {
         let finalText = parsed.content || '（没有收到回复）';
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
-        if (_injectedTodoIds.length) { try { await completeTodos(_injectedTodoIds); } catch(_e) {} _injectedTodoIds = []; }
         if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
@@ -1573,7 +1587,6 @@ export async function sendMessage() {
         async function _showNonStream(text, msgList, usage) {
           text = await parseAndSaveSelfMemories(text);
           if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
-          if (_injectedTodoIds.length) { try { await completeTodos(_injectedTodoIds); } catch(_e) {} _injectedTodoIds = []; }
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
           await appendMsgDOM(_nm);
