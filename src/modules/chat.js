@@ -1333,9 +1333,16 @@ export async function sendMessage() {
     function _buildCfg(preset) {
       if (preset) {
         const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o' };
+        return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o', useLocalProxy: !!preset.useLocalProxy };
       }
-      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o' };
+      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: false };
+    }
+    function _proxyFetchArgs(cfg) {
+      if (cfg.useLocalProxy && settings.solitudeServerUrl) {
+        const base = settings.solitudeServerUrl.replace(/\/+$/, '');
+        return { fetchUrl: `${base}/api/llm-proxy`, headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey } };
+      }
+      return { fetchUrl: cfg.url, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` } };
     }
     async function _bufferStream(res) {
       const reader = res.body.getReader();
@@ -1404,7 +1411,8 @@ export async function sendMessage() {
           try {
             const ctrl = new AbortController();
             const tid = setTimeout(() => ctrl.abort(), 300000);
-            _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}`}, body: bodyStr, signal: ctrl.signal });
+            const _pfa = _proxyFetchArgs(cfg);
+            _res = await fetch(_pfa.fetchUrl, { method: 'POST', headers: _pfa.headers, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
             if (_res.ok) {
               if (_res.body) {

@@ -1078,7 +1078,10 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId, selec
   sel.innerHTML = '<option value="">⏳ 获取中…</option>';
   sel.style.display = 'block';
   try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    const _useProxy = $('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl;
+    const _fetchUrl = _useProxy ? `${settings.solitudeServerUrl.replace(/\/+$/,'')}/api/llm-proxy-get?target=${encodeURIComponent(url)}&key=${encodeURIComponent(apiKey)}` : url;
+    const _fetchOpts = _useProxy ? {} : { headers: { Authorization: `Bearer ${apiKey}` } };
+    const res = await fetch(_fetchUrl, _fetchOpts);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
