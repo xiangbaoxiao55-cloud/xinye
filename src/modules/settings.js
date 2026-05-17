@@ -745,6 +745,7 @@ export function initSettings() {
     $('#setBaseUrl').value = p.baseUrl || '';
     if ($('#setBackupBaseUrl')) $('#setBackupBaseUrl').value = p.backupBaseUrl || '';
     $('#setModel').value   = p.model   || '';
+    if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
     toast(`✅ 已填入主预设「${p.name}」，确认后点保存设置`);
   };
   $('#btnLoadSubPreset').onclick = () => {
@@ -765,11 +766,12 @@ export function initSettings() {
     const baseUrl = $('#setBaseUrl').value.trim();
     const backupBaseUrl = $('#setBackupBaseUrl') ? $('#setBackupBaseUrl').value.trim() : '';
     const model   = $('#setModel').value.trim();
+    const useLocalProxy = !!$('#apiPresetUseProxy')?.checked;
     if (!apiKey) { toast('API Key 不能为空'); return; }
     const presets = getApiPresets();
     const existing = presets.findIndex(p => p.name === name);
-    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model };
-    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model });
+    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy };
+    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy });
     setApiPresets(presets);
     renderApiPresets();
     $('#apiPresetName').value = '';

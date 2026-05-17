@@ -44,10 +44,17 @@ export async function mainApiFetch(bodyWithoutModel) {
   function _buildCfg(preset) {
     if (preset) {
       const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
+      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, useLocalProxy: !!preset.useLocalProxy };
     }
     const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model };
+    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model, useLocalProxy: false };
+  }
+  function _buildFetchArgs(cfg, bodyStr, signal) {
+    if (cfg.useLocalProxy && settings.solitudeServerUrl) {
+      const proxyBase = settings.solitudeServerUrl.replace(/\/+$/, '');
+      return { url: `${proxyBase}/api/llm-proxy`, headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey } };
+    }
+    return { url: cfg.url, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` } };
   }
   let _res;
   mainLoop: for (let pi = 0; pi < _allCfgs.length; pi++) {
@@ -58,7 +65,8 @@ export async function mainApiFetch(bodyWithoutModel) {
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 120000);
-        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
+        const _fa = _buildFetchArgs(cfg, bodyStr, ctrl.signal);
+        _res = await fetch(_fa.url, { method: 'POST', headers: _fa.headers, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
           if (_res.body) {

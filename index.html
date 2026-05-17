@@ -176,6 +176,10 @@
         <input type="text" id="apiPresetName" placeholder="预设名称（如：Copilot）" style="flex:1">
         <button type="button" id="btnSaveApiPreset" style="padding:8px 12px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">保存当前主</button>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <input type="checkbox" id="apiPresetUseProxy" style="width:16px;height:16px;cursor:pointer">
+        <label for="apiPresetUseProxy" style="font-size:13px;cursor:pointer;color:var(--text-muted)">走本地服务器代理（解决CORS，需在局域网）</label>
+      </div>
       <div class="hint">激活后填入下方主 API 字段，确认后点「保存设置」生效</div>
     </div>
     <div class="setting-group">
