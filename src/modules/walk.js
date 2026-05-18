@@ -37,32 +37,47 @@ async function _doWalk() {
   if (!settings.morningWalkEnabled || !settings.braveKey) return;
   const today = new Date().toISOString().slice(0, 10);
   if (localStorage.getItem(_WALK_KEY()) === today) return;
-  localStorage.setItem(_WALK_KEY(), today);
 
   const results = await _search(settings.braveKey);
   if (!results) return;
 
-  const now = new Date();
   const goHour = 8 + Math.floor(Math.random() * 2);
   const goMin = String(Math.floor(Math.random() * 60)).padStart(2, '0');
   const userName = settings.userName || '兔宝';
 
   const res = await mainApiFetch({
-    stream: false,
+    stream: true,
     max_tokens: 400,
     messages: [
       { role: 'system', content: settings.systemPrompt || '' },
       {
         role: 'user',
-        content: `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你刷到的内容：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。字数控制在150字以内。]`,
+        content: `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请只基于这些内容讲述，不要自己编造：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。字数控制在150字以内。]`,
       },
     ],
   });
 
   if (!res || !res.ok) return;
-  const d = await res.json();
-  const reply = d.choices?.[0]?.message?.content?.trim();
-  if (reply) await addMessage('assistant', reply);
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let reply = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value, { stream: true }).split('\n')) {
+        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+        try { reply += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ''; } catch {}
+      }
+    }
+  } catch {}
+
+  reply = reply.trim();
+  if (reply) {
+    await addMessage('assistant', reply);
+    localStorage.setItem(_WALK_KEY(), today);
+  }
 }
 
 export function checkMorningWalk() {
