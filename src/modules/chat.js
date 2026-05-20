@@ -752,6 +752,11 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });
         _apiMeta.push({ label: `system · RAG召回(${_dynamicBlocks.length}块)` });
       }
+      const _pendingImgCount = window._pendingImageCount || 0;
+      if (_pendingImgCount > 0) {
+        apiMsgs.push({ role: 'system', content: `[当前有 ${_pendingImgCount} 张图正在后台生成，尚未返回]` });
+        _apiMeta.push({ label: `system · 画图进行中(${_pendingImgCount}张)` });
+      }
     }
     if (_rpInject) {
       const _rpUserName = typeof window.getRpUserName === 'function' ? window.getRpUserName() : '';
@@ -1639,7 +1644,8 @@ export async function sendMessage() {
             const _bgTcs1 = _m1.tool_calls.slice();
             (async () => {
               for (const tc of _bgTcs1) {
-                try { await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); }
+                window._pendingImageCount = (window._pendingImageCount || 0) + 1;
+                try { await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
               }
               rememberLatestExchange(); autoDigestMemory(); updateMoodState();
             })();
@@ -1745,7 +1751,8 @@ export async function sendMessage() {
           const _bgTcs = parsed.tool_calls.slice();
           (async () => {
             for (const tc of _bgTcs) {
-              try { await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); }
+              window._pendingImageCount = (window._pendingImageCount || 0) + 1;
+              try { await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
             }
             rememberLatestExchange(); autoDigestMemory(); updateMoodState();
           })();
