@@ -972,7 +972,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '【严格限制】只在兔宝这条消息里明确要求画图时才调用——比如说"画吧"、"画一下"、"画xxx"、"来一张"、"帮我画"等。普通聊天、情感互动、讲故事、描述场景，绝对不调用此工具。调用时不要先用文字描述打算画什么，直接调用。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
+          description: '【严格限制】只在兔宝这条消息里明确要求画图时才调用——比如说"画吧"、"画一下"、"画xxx"、"来一张"、"帮我画"等。普通聊天、情感互动、讲故事、描述场景，绝对不调用此工具。调用前必须先在 content 里说一句简短自然的话（10字以内，口语化，比如「等一下~」「我来给你画」「稍等」），让兔宝知道你在做什么，不要沉默直接就调用；但不要描述即将画的内容。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
           parameters: {
             type: 'object',
             properties: {
@@ -1642,7 +1642,15 @@ export async function sendMessage() {
             (async () => {
               for (const tc of _bgTcs1) {
                 window._pendingImageCount = (window._pendingImageCount || 0) + 1;
-                try { await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+                let _imgResult1 = '';
+                try { _imgResult1 = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+                if (_imgResult1 === '[图已画好并展示给兔宝了]' && !window.isRequesting) {
+                  const _afterComments1 = ['给~', '好了~', '你看~', '嗯，画好了~', '给你~'];
+                  const _ac1 = _afterComments1[Math.floor(Math.random() * _afterComments1.length)];
+                  const _acMsg1 = await addMessage('assistant', _ac1);
+                  await dbPut(activeStore(), null, _acMsg1);
+                  await appendMsgDOM(_acMsg1); scrollBottom();
+                }
               }
               rememberLatestExchange(); autoDigestMemory(); updateMoodState();
             })();
@@ -1749,7 +1757,15 @@ export async function sendMessage() {
           (async () => {
             for (const tc of _bgTcs) {
               window._pendingImageCount = (window._pendingImageCount || 0) + 1;
-              try { await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+              let _imgResult = '';
+              try { _imgResult = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+              if (_imgResult === '[图已画好并展示给兔宝了]' && !window.isRequesting) {
+                const _afterComments = ['给~', '好了~', '你看~', '嗯，画好了~', '给你~'];
+                const _ac = _afterComments[Math.floor(Math.random() * _afterComments.length)];
+                const _acMsg = await addMessage('assistant', _ac);
+                await dbPut(activeStore(), null, _acMsg);
+                await appendMsgDOM(_acMsg); scrollBottom();
+              }
             }
             rememberLatestExchange(); autoDigestMemory(); updateMoodState();
           })();
