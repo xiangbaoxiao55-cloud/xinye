@@ -1,6 +1,6 @@
 import { settings } from './state.js';
 import { mainApiFetch } from './api.js';
-import { getDueReminders, completeTodoById } from './phonedb.js';
+import { getPendingTodos, completeTodoById } from './phonedb.js';
 
 const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY = () => _APP() + '_walkDate';
@@ -139,7 +139,7 @@ export function startReminderPoller() {
   _reminderTimer = setInterval(async () => {
     if (window.isRequesting) return;
     try {
-      const due = await getDueReminders();
+      const due = await getPendingTodos();
       if (due.length > 0) await _fireReminder(due[0]);
     } catch {}
   }, 60000);
