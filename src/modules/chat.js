@@ -1405,10 +1405,7 @@ export async function sendMessage() {
         bodyObj.stream_options = { include_usage: true };
         if (withTools && _toolDefs.length) {
           bodyObj.tools = _toolDefs;
-          const _lastU = [...msgs].reverse().find(m => m.role === 'user');
-          const _lastUText = Array.isArray(_lastU?.content) ? _lastU.content.filter(c => c.type === 'text').map(c => c.text).join('') : (_lastU?.content || '');
-          const _forceImg = _toolDefs.some(t => t.function?.name === 'generate_image') && /画[吧啊呀吗一下]|来一张|给我画|帮我画|[，,]\s*画\s*[！!。.？?]*$|^画\s*[！!。.？?]*$/.test(_lastUText);
-          bodyObj.tool_choice = _forceImg ? { type: 'function', function: { name: 'generate_image' } } : 'auto';
+          bodyObj.tool_choice = 'auto';
         }
         const bodyStr = JSON.stringify(bodyObj);
         for (let _a = 0; _a < 2; _a++) {
