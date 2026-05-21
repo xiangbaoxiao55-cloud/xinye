@@ -1573,22 +1573,24 @@ export async function sendMessage() {
         let finalText = parsed.content || '（没有收到回复）';
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
-        if (parsed.bubbleEl && parsed.aiMsg) { try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {} }
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
+          if (!finalText.trim()) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); return; }
           typing.classList.remove('show');
           const aiMsg = await addMessage('assistant', finalText);
           await appendMsgDOM(aiMsg);
           try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, aiMsg.id);
         } else {
-          if (parsed.think) parsed.bubbleEl.textContent = finalText;
-          const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
-          if (idx >= 0) messages[idx].content = finalText;
-          try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
-          try { if (finalText) { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } } catch(_e) {}
-          try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
-          window.maybeTTS?.(finalText, parsed.aiMsg.id);
+          if (finalText.trim()) {
+            if (parsed.think) parsed.bubbleEl.textContent = finalText;
+            const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
+            if (idx >= 0) messages[idx].content = finalText;
+            try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
+            try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
+            try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
+            window.maybeTTS?.(finalText, parsed.aiMsg.id);
+          }
         }
         rememberLatestExchange(); autoDigestMemory(); updateMoodState();
       }
