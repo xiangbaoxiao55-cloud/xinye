@@ -1,6 +1,7 @@
 import { settings } from './state.js';
 import { mainApiFetch } from './api.js';
 import { getPendingTodos, completeTodoById } from './phonedb.js';
+import { addMessage, appendMsgDOM, scrollBottom } from './chat.js';
 
 const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY = () => _APP() + '_walkDate';
@@ -51,9 +52,9 @@ async function _readStream(res) {
 }
 
 async function _addMsgAndShow(reply) {
-  const msg = await window.addMessage('assistant', reply);
-  await window.appendMsgDOM(msg);
-  window.scrollBottom();
+  const msg = await addMessage('assistant', reply);
+  await appendMsgDOM(msg);
+  scrollBottom();
 }
 
 async function _doWalk() {
