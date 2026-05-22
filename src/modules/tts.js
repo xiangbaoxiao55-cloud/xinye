@@ -167,7 +167,7 @@ export async function generateTTSBlob(text) {
   if (!settings.ttsUrl) { toast('请先在设置中配置 TTS API 地址'); return null; }
   // GPT-SoVITS 不支持 <#X#> 停顿标记和 (sighs) 等语气词，剥掉避免念出来
   text = text
-    .replace(/<#[\d.]+#>/g, '')
+    .replace(/<#[\d.]+#?>/g, '')
     .replace(/\((sighs|laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)\)/gi, '')
     .replace(/\s{2,}/g, ' ').trim();
   const refPath = cleanPath(settings.ttsRefPath);

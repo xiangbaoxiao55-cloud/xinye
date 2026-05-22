@@ -572,6 +572,7 @@ if (typeof marked !== 'undefined') {
 }
 
 export function renderMdHtml(text) {
+  text = text.replace(/<#[\d.]+#?>/g, '');
   if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
     const html = marked.parse(text);
     return DOMPurify.sanitize(html, {
