@@ -130,7 +130,7 @@ export async function generateTTSBlob(text) {
     }
   }
   if (settings.ttsType === 'omnivoice') {
-    const base = (settings.omnivoiceUrl || 'https://xinye-omni-tts.cpolar.top').replace(/\/+$/, '');
+    const base = (settings.omnivoiceUrl || '').replace(/\/+$/, '');
     const isXinye = (settings.aiName || '').includes('炘') || (settings.aiName || '').includes('心');
     const role = isXinye ? 'xinye' : 'choubao';
     const url = `${base}/tts?text=${encodeURIComponent(text)}&role=${role}`;

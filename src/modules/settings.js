@@ -878,7 +878,7 @@ export function initSettings() {
     settings.minimaxModifyPitch     = $('#setMinimaxModifyPitch').value.trim();
     settings.minimaxModifyIntensity = $('#setMinimaxModifyIntensity').value.trim();
     settings.minimaxModifyTimbre    = $('#setMinimaxModifyTimbre').value.trim();
-    settings.omnivoiceUrl = $('#setOmnivoiceUrl').value.trim() || 'https://xinye-omni-tts.cpolar.top';
+    settings.omnivoiceUrl = $('#setOmnivoiceUrl').value.trim() || '';
     settings.omnivoiceXinyeAudio = $('#setOmnivoiceXinyeAudio').value.trim() || '';
     settings.omnivoiceChouAudio = $('#setOmnivoiceChouAudio').value.trim() || '';
     settings.idleRemind = parseInt($('#setIdleRemind').value) || 0;
