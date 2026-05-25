@@ -932,6 +932,7 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'user', content: parts });
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
+        const _isGiftCard = m.isGiftCard || (role === 'assistant' && m.content?.startsWith('[🎁'));
         if (_isGenImg) {
           const _promptMatch = m.content?.match(/(?:提示词|描述)：([\s\S]+?)(?:\n你说|$)/);
           const _userDescMatch = m.content?.match(/你说：(.+?)(?:\n|$)/);
@@ -939,6 +940,12 @@ export async function sendMessage() {
           const _fakeId = `img_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt, ref_characters: 'both' }) } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: '[图已画好并展示给兔宝了]' });
+        } else if (_isGiftCard) {
+          const _occasion = m.content?.match(/^\[🎁 (.+?)\]/)?.[1] || '小惊喜';
+          const _giftMsg = (m.content || '').replace(/^\[🎁 .+?\]\n?/, '');
+          const _fakeId = `gift_${m.id || Date.now()}`;
+          apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'send_gift', arguments: JSON.stringify({ message: _giftMsg, occasion: _occasion }) } }] });
+          apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[礼物卡片已送出：${_occasion}]` });
         } else {
           apiMsgs.push({ role, content: m.content });
         }
@@ -1155,6 +1162,10 @@ export async function sendMessage() {
       if (name === 'send_gift') {
         const { showGift } = await import('./gift.js');
         showGift(args.message, null, args.occasion || '');
+        const _giftDesc = `[🎁 ${args.occasion || '小惊喜'}]\n${args.message}`;
+        const _giftMsg = await addMessage('assistant', _giftDesc);
+        _giftMsg.isGiftCard = true;
+        await appendMsgDOM(_giftMsg);
         console.log('[send_gift] 礼物已送出:', args.occasion || '(无场景)');
         return `[礼物卡片已送出：${args.occasion || '小惊喜'}]`;
       }
