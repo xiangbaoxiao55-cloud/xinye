@@ -79,7 +79,7 @@ export async function openSettings() {
   // 兼容旧的单备用字段
   if (!settings.fallbackPresetNames?.length && settings.fallbackPresetName) settings.fallbackPresetNames = [settings.fallbackPresetName];
   if (!settings.subFallbackPresetNames?.length && settings.subFallbackPresetName) settings.subFallbackPresetNames = [settings.subFallbackPresetName];
-  [0,1,2].forEach(i => {
+  [0,1,2,3,4].forEach(i => {
     const el = $(`#setFallbackPreset${i}`); if (el) el.value = (settings.fallbackPresetNames||[])[i] || '';
     const sub = $(`#setSubFallbackPreset${i}`); if (sub) sub.value = (settings.subFallbackPresetNames||[])[i] || '';
   });
@@ -334,8 +334,8 @@ export function renderApiPresets() {
     });
     sel.value = cur;
   });
-  // 渲染主/副备用预设下拉（各3个槽）
-  [0,1,2].forEach(i => {
+  // 渲染主/副备用预设下拉（各5个槽）
+  [0,1,2,3,4].forEach(i => {
     ['setFallbackPreset','setSubFallbackPreset'].forEach(base => {
       const fbSel = $(`#${base}${i}`);
       if (!fbSel) return;
@@ -817,11 +817,11 @@ export function initSettings() {
     settings.wereadApiKey = ($('#setWereadApiKey') ? $('#setWereadApiKey').value.trim() : '');
     settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
     settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
-    settings.fallbackPresetNames = [0,1,2].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
+    settings.fallbackPresetNames = [0,1,2,3,4].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
     settings.model = $('#setModel').value.trim() || 'gpt-4o';
     settings.subApiKey = $('#setSubApiKey').value.trim();
     settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
-    settings.subFallbackPresetNames = [0,1,2].map(i => ($(`#setSubFallbackPreset${i}`)?.value || '')).filter(v=>v);
+    settings.subFallbackPresetNames = [0,1,2,3,4].map(i => ($(`#setSubFallbackPreset${i}`)?.value || '')).filter(v=>v);
     settings.subModel = $('#setSubModel').value.trim();
     settings.digestPresetName = $('#setDigestPreset')?.value || '';
     settings.digestFallbackPresetNames = [0,1,2].map(i => ($(`#setDigestFallback${i}`)?.value || '')).filter(v=>v);
