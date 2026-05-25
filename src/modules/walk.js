@@ -81,16 +81,22 @@ async function _doWalk(isTest = false) {
   const results = settings.braveKey ? await _search(settings.braveKey) : null;
   console.log('[散步] 搜索结果:', results ? '有内容' : '无(走fallback)');
 
+  const memoryCore = (settings.memoryArchiveCore || '').trim();
+  const memoryAlways = (settings.memoryArchiveAlways || '').trim();
+  let sysContent = settings.systemPrompt || '';
+  if (memoryCore) sysContent += `\n\n【记忆档案·核心层】\n${memoryCore}`;
+  if (memoryAlways) sysContent += `\n\n【近况·会过期】\n${memoryAlways}`;
+
   const userContent = results
     ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请严格只基于这些内容讲述，禁止使用你自己的知识编造或补充任何信息：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。必须是上面素材里有的事，不能编。字数控制在150字以内。]`
     : `[系统：你今天早上${goHour}:${goMin}出去溜达了一圈，刚回来。随口和${userName}说一句话，就像刚进门一样，轻松自然，50字以内。]`;
 
-  console.log('[散步] 发送给模型的prompt(前150字):', userContent.slice(0, 150));
+  console.log('[散步] 系统提示词长度:', sysContent.length, '| 含记忆核心层:', !!memoryCore);
   const res = await mainApiFetch({
     stream: true,
     max_tokens: results ? 400 : 150,
     messages: [
-      { role: 'system', content: settings.systemPrompt || '' },
+      { role: 'system', content: sysContent },
       { role: 'user', content: userContent },
     ],
   });
@@ -137,11 +143,14 @@ async function _fireReminder(todo) {
   if (typing) typing.classList.add('show');
   try {
     const userName = settings.userName || '兔宝';
+    let rSys = settings.systemPrompt || '';
+    const rCore = (settings.memoryArchiveCore || '').trim();
+    if (rCore) rSys += `\n\n【记忆档案·核心层】\n${rCore}`;
     const res = await mainApiFetch({
       stream: true,
       max_tokens: 150,
       messages: [
-        { role: 'system', content: settings.systemPrompt || '' },
+        { role: 'system', content: rSys },
         { role: 'user', content: `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了，请自然地提醒她，用你自己的语气，就像随口说起一样，不超过60字。]` },
       ],
     });
