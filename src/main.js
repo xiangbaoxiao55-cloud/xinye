@@ -13,6 +13,7 @@ import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup
 import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi } from './modules/settings.js';
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
 import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
+import { checkGift } from './modules/gift.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -374,7 +375,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.05.25-0902';
+  if (_verEl) _verEl.textContent = 'v2026.05.25-0930';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -437,6 +438,7 @@ async function checkPendingMessage() {
   updateHeaderStatus();
   if (settings.solitudeServerUrl) { checkLocalServer(); setInterval(checkLocalServer, 90_000); }
   checkMorningWalk();
+  checkGift();
   startReminderPoller();
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞

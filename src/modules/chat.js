@@ -1018,6 +1018,22 @@ export async function sendMessage() {
       });
     }
 
+    _toolDefs.push({
+      type: 'function',
+      function: {
+        name: 'send_gift',
+        description: '给兔宝送一份礼物卡片，全屏弹出动画展示。只在想表达特别心意时调用——庆祝、感谢、道歉、安慰、突然想给惊喜。不要频繁调用，一次对话最多一次。调用前先在 content 里说一句话铺垫。',
+        parameters: {
+          type: 'object',
+          properties: {
+            message: { type: 'string', description: '礼物卡片上的文字，真诚温暖私密，像写给恋人的小卡片' },
+            occasion: { type: 'string', description: '送礼场景，如"想你了"、"谢谢你"、"小惊喜"，简短即可' }
+          },
+          required: ['message']
+        }
+      }
+    });
+
     function _safeParseArgs(name, argsStr) {
       try { return JSON.parse(argsStr); } catch(_) {}
       if (name === 'generate_image') {
@@ -1073,6 +1089,12 @@ export async function sendMessage() {
           if (_wrD.errcode && _wrD.errcode !== 0) return `微信读书错误：${_wrD.errmsg || _wrD.errcode}`;
           return JSON.stringify(_wrD);
         } catch(e) { return '查询微信读书失败：' + e.message; }
+      }
+      if (name === 'send_gift') {
+        const { showGift } = await import('./gift.js');
+        showGift(args.message, null, args.occasion || '');
+        console.log('[send_gift] 礼物已送出:', args.occasion || '(无场景)');
+        return `[礼物卡片已送出：${args.occasion || '小惊喜'}]`;
       }
       if (name === 'generate_image') {
         console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} ref_style=${args.ref_style||'默认anime'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);

@@ -1,0 +1,79 @@
+/* ===== 礼物卡片 全屏弹出 ===== */
+
+.gift-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255,182,193,.35) 0%, rgba(30,10,20,.88) 70%);
+  backdrop-filter: blur(10px);
+  animation: giftFadeIn .5s ease;
+  cursor: pointer;
+}
+@keyframes giftFadeIn { from { opacity: 0 } to { opacity: 1 } }
+.gift-overlay.hiding { animation: giftFadeOut .4s ease forwards; pointer-events: none; }
+@keyframes giftFadeOut { to { opacity: 0 } }
+
+.gift-card {
+  background: linear-gradient(145deg, #fff8f0, #fce4ec, #fff0f3);
+  border-radius: 24px;
+  padding: 36px 28px 28px;
+  max-width: 340px; width: 85vw;
+  box-shadow: 0 8px 48px rgba(233,30,99,.25), 0 0 80px rgba(255,182,193,.3);
+  text-align: center;
+  animation: giftCardIn .6s cubic-bezier(.34,1.56,.64,1);
+  position: relative; z-index: 1;
+}
+@keyframes giftCardIn {
+  from { opacity: 0; transform: scale(.6) translateY(40px) }
+  to   { opacity: 1; transform: scale(1)  translateY(0) }
+}
+.gift-card-emoji { font-size: 52px; margin-bottom: 10px; line-height: 1; }
+.gift-card-occasion {
+  font-size: 13px; color: #e91e63; font-weight: 600;
+  margin-bottom: 16px; letter-spacing: .5px;
+}
+.gift-card-message {
+  font-size: 15px; line-height: 1.9; color: #5d4037;
+  white-space: pre-wrap; word-break: break-word;
+}
+.gift-card-image {
+  max-width: 100%; border-radius: 14px;
+  margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,.12);
+}
+.gift-card-hint {
+  font-size: 12px; color: #b0856f; margin-top: 22px; opacity: .6;
+}
+
+/* ----- particles (fall from top) ----- */
+.gift-particle-wrap {
+  position: fixed; pointer-events: none; z-index: 99998;
+  top: -30px;
+  animation: giftDriftX var(--dur, 3s) ease-in-out var(--delay, 0s) both;
+}
+.gift-particle-inner {
+  font-size: var(--size, 18px);
+  animation: giftFallY var(--dur, 3s) linear var(--delay, 0s) both;
+}
+@keyframes giftDriftX {
+  0%   { transform: translateX(0) }
+  25%  { transform: translateX(calc(var(--drift, 30px) * .7)) }
+  50%  { transform: translateX(calc(var(--drift, 30px) * -.3)) }
+  75%  { transform: translateX(calc(var(--drift, 30px) * .5)) }
+  100% { transform: translateX(var(--drift, 30px)) }
+}
+@keyframes giftFallY {
+  0%   { opacity: .9; transform: translateY(0) rotate(0deg) }
+  70%  { opacity: .6 }
+  100% { opacity: 0;  transform: translateY(calc(100vh + 40px)) rotate(var(--rot, 30deg)) }
+}
+
+/* ----- dark theme ----- */
+[data-theme="dark"] .gift-overlay {
+  background: radial-gradient(ellipse at 50% 40%, rgba(160,60,100,.25) 0%, rgba(10,5,15,.92) 70%);
+}
+[data-theme="dark"] .gift-card {
+  background: linear-gradient(145deg, #2a1e36, #3a2050, #2e1a2a);
+  box-shadow: 0 8px 48px rgba(200,100,160,.2), 0 0 60px rgba(100,40,80,.25);
+}
+[data-theme="dark"] .gift-card-occasion { color: #f48fb1; }
+[data-theme="dark"] .gift-card-message  { color: #e8d4e4; }
+[data-theme="dark"] .gift-card-hint     { color: #b090b0; }
