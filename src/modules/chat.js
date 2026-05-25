@@ -2013,7 +2013,7 @@ function _syncPushContext() {
   const serverUrl = settings.solitudeServerUrl;
   if (!serverUrl || window.__APP_ID__ === 'choubao') return;
   const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
-  const apiConfig = { baseUrl: preset.baseUrl, apiKey: preset.apiKey, model: preset.model };
+  const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
   const lastMessages = messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) }));
   fetch(serverUrl + '/api/push-context', {
     method: 'POST',
