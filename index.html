@@ -854,6 +854,10 @@
         <button class="btn-secondary" id="btnImportS" style="flex:1">📤 导入备份</button>
       </div>
       <button class="btn-secondary" id="btnBackupToPhone" style="width:100%;margin-top:8px">💾 一键备份到手机</button>
+      <button class="btn-secondary" id="btnServerRestoreToggle" style="width:100%;margin-top:8px">🔄 从电脑恢复</button>
+      <div id="serverRestorePanel" style="display:none;margin-top:8px;border:1px solid var(--border-color,#e0d6f0);border-radius:10px;padding:10px">
+        <div id="serverRestoreList" style="font-size:13px;color:var(--text-muted,#999)">加载中…</div>
+      </div>
       <button class="btn-secondary" onclick="exportTTSCache()" style="width:100%;margin-top:8px">🎙️ 导出TTS缓存（训练素材）</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         <button class="btn-secondary" id="btnDecoS" style="flex:1">👁️ 装修模式</button>

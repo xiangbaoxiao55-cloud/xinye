@@ -152,6 +152,28 @@ export function loadFromLocal() {
   }
 }
 
+// ======================== 从服务器恢复 ========================
+
+export async function fetchServerBackupList() {
+  const serverUrl = (settings.solitudeServerUrl || '').trim();
+  if (!serverUrl) throw new Error('未配置本地服务器地址');
+  const _appId = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
+  const res = await fetch(`${serverUrl}/api/backup/list?app=${_appId}`);
+  if (!res.ok) throw new Error('服务器无响应');
+  const { files } = await res.json();
+  return files; // [{name, size}]
+}
+
+export async function restoreFromServer(filename) {
+  const serverUrl = (settings.solitudeServerUrl || '').trim();
+  if (!serverUrl) throw new Error('未配置本地服务器地址');
+  const res = await fetch(`${serverUrl}/api/backup/get?filename=${encodeURIComponent(filename)}`);
+  if (!res.ok) throw new Error('备份文件不存在');
+  const text = await res.text();
+  await doImport(text);
+  location.reload();
+}
+
 // ======================== 自动备份到本地服务器 ========================
 let _lastAutoBackupTime = 0;
 

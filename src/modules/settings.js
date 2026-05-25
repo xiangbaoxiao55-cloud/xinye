@@ -6,7 +6,7 @@ import { digestMemory, renderMemoryBankPreview, archiveMemoryBank } from './memo
 import { applyBg, toggleDeco } from './ui.js';
 import { getAiAvatar, getUserAvatar, renderMessages, updateBookmarkBadge } from './chat.js';
 import { setupReminders, resetIdleTimer } from './notifications.js';
-import { saveToLocal, exportData, doImport, doImportPresetsOnly, backupToPhone, autoBackupToServer, initBackupDeps } from './backup.js';
+import { saveToLocal, exportData, doImport, doImportPresetsOnly, backupToPhone, autoBackupToServer, initBackupDeps, fetchServerBackupList, restoreFromServer } from './backup.js';
 import { renderStickers, renderStickerMgr } from './stickers.js';
 
 // ── 画图尺寸映射 ──────────────────────────────────────────────────────────────
@@ -1033,6 +1033,44 @@ export function initSettings() {
 
   // ======================== 备份/导出/导入按钮 ========================
   $('#btnBackupToPhone').onclick = backupToPhone;
+
+  // 从电脑恢复
+  const _restoreToggle = $('#btnServerRestoreToggle');
+  const _restorePanel  = $('#serverRestorePanel');
+  const _restoreList   = $('#serverRestoreList');
+  if (_restoreToggle) {
+    _restoreToggle.onclick = async () => {
+      const isOpen = _restorePanel.style.display !== 'none';
+      if (isOpen) { _restorePanel.style.display = 'none'; return; }
+      _restorePanel.style.display = 'block';
+      _restoreList.textContent = '加载中…';
+      try {
+        const files = await fetchServerBackupList();
+        if (!files.length) { _restoreList.textContent = '暂无备份文件'; return; }
+        _restoreList.innerHTML = '';
+        files.forEach(({ name, size }) => {
+          // xinye_pc_backup_2026-05-25_14-30.json → "2026-05-25 14:30 [PC]"
+          const m = name.match(/_(pc|mobile)_backup_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})/);
+          const label = m ? `${m[2]} ${m[3].replace('-', ':')} [${m[1] === 'mobile' ? '手机' : 'PC'}]` : name;
+          const kb = Math.round(size / 1024);
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color,#e0d6f0)';
+          row.innerHTML = `<span style="font-size:13px">${label} <span style="opacity:.5">${kb}KB</span></span>
+            <button style="font-size:12px;padding:3px 10px;border-radius:6px;border:1px solid var(--primary,#8b5cf6);color:var(--primary,#8b5cf6);background:none;cursor:pointer">恢复</button>`;
+          row.querySelector('button').onclick = async () => {
+            if (!confirm(`恢复"${label}"？当前数据会被覆盖。`)) return;
+            try {
+              row.querySelector('button').textContent = '恢复中…';
+              await restoreFromServer(name);
+            } catch (e) { toast('恢复失败：' + e.message); row.querySelector('button').textContent = '恢复'; }
+          };
+          _restoreList.appendChild(row);
+        });
+      } catch (e) {
+        _restoreList.textContent = '加载失败：' + e.message;
+      }
+    };
+  }
 
   $('#btnExport').onclick = () => exportOverlay.classList.add('show');
   $('#btnExportS').onclick = () => { closeSettings(); exportOverlay.classList.add('show'); };
