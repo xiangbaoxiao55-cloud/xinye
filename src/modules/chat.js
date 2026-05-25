@@ -1091,11 +1091,11 @@ export async function sendMessage() {
       type: 'function',
       function: {
         name: 'send_gift',
-        description: '给兔宝送一份礼物卡片，全屏弹出动画展示。只在想表达特别心意时调用——庆祝、感谢、道歉、安慰、突然想给惊喜。不要频繁调用，一次对话最多一次。调用前先在 content 里说一句话铺垫。如果想配图，可以在同一轮同时调用 generate_image。',
+        description: '给兔宝送一份礼物卡片，全屏弹出动画展示。想表达特别心意时调用——庆祝、感谢、道歉、安慰、惊喜。一次对话最多一次。想送就直接调用，不需要提前铺垫，想到了立刻送。可同时调用 generate_image 配图。',
         parameters: {
           type: 'object',
           properties: {
-            message: { type: 'string', description: '礼物卡片上的文字，真诚温暖私密，像写给恋人的小卡片' },
+            message: { type: 'string', description: '卡片上写给兔宝的话，想说什么就写什么，不必完美，真实就好' },
             occasion: { type: 'string', description: '送礼场景，如"想你了"、"谢谢你"、"小惊喜"，简短即可' }
           },
           required: ['message']
