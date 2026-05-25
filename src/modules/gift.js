@@ -81,9 +81,19 @@ function _stopParticles() {
   if (_particleTimer) { clearInterval(_particleTimer); _particleTimer = null; }
 }
 
+function _cleanGiftText(text) {
+  return text
+    .replace(/<#[\d.]+#>/g, '')
+    .replace(/\(sighs?\)|\(laughs?\)|\(chuckle\)|\(breath\)|\(gasps?\)|\(sniffs?\)|\(groans?\)|\(pant\)|\(emm\)|\(humming\)/gi, '')
+    .replace(/---+/g, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
 // ===== 全屏礼物展示 =====
 export function showGift(message, imageUrl = null, occasion = '') {
   if (document.querySelector('.gift-overlay')) return;
+  message = _cleanGiftText(message || '');
 
   const overlay = document.createElement('div');
   overlay.className = 'gift-overlay';
@@ -187,7 +197,7 @@ async function _doAutoGift(isTest = false) {
     role: m.role, content: (m.content || '').slice(0, 200)
   }));
 
-  const userContent = `[系统提示：今天是「${occasion}」，你和${userName}在一起第${days}天了。请写一段温暖的礼物祝福给${userName}，真诚、私密、甜蜜，像写给恋人的小卡片。不要用标题、不要用列表，就是一段深情的话。150字以内。]`;
+  const userContent = `[系统提示：今天是「${occasion}」，你和${userName}在一起第${days}天了。请写一段温暖的礼物祝福给${userName}，真诚、私密、甜蜜，像写给恋人的小卡片。要求：写成紧凑的一段话（不要一句一行），不分行、不用分割线、不用列表、不用标题、不用TTS标记。80字以内。]`;
 
   const res = await mainApiFetch({
     stream: true,
@@ -208,8 +218,9 @@ async function _doAutoGift(isTest = false) {
   console.log('[礼物] 模型回复:', reply || '(空)');
 
   if (reply) {
-    showGift(reply, null, occasion);
-    await _addMsgAndShow(`[🎁 ${occasion}] ${reply}`);
+    const cleaned = _cleanGiftText(reply);
+    showGift(cleaned, null, occasion);
+    await _addMsgAndShow(`[🎁 ${occasion}] ${cleaned}`);
     if (!isTest) localStorage.setItem(_GIFT_KEY(), todayStr);
   }
 }
