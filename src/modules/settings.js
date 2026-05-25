@@ -1034,6 +1034,35 @@ export function initSettings() {
   // ======================== 备份/导出/导入按钮 ========================
   $('#btnBackupToPhone').onclick = backupToPhone;
 
+  // 推送支持测试
+  const _btnTestPush = $('#btnTestPush');
+  if (_btnTestPush) {
+    _btnTestPush.onclick = async () => {
+      const lines = [];
+      lines.push('ServiceWorker: ' + ('serviceWorker' in navigator ? '✅' : '❌'));
+      lines.push('PushManager: ' + ('PushManager' in window ? '✅' : '❌'));
+      lines.push('Notification API: ' + ('Notification' in window ? '✅' : '❌'));
+      if ('Notification' in window) {
+        const perm = Notification.permission;
+        lines.push(`当前通知权限: ${perm}`);
+        if (perm === 'default') {
+          const req = await Notification.requestPermission();
+          lines.push(`申请后权限: ${req}`);
+        }
+      }
+      if ('PushManager' in window && 'serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          lines.push('现有订阅: ' + (sub ? '✅ 已有\n' + sub.endpoint.slice(0, 60) + '…' : '❌ 无'));
+        } catch(e) {
+          lines.push('订阅检查出错: ' + e.message);
+        }
+      }
+      alert(lines.join('\n'));
+    };
+  }
+
   // 从电脑恢复
   const _restoreToggle = $('#btnServerRestoreToggle');
   const _restorePanel  = $('#serverRestorePanel');
