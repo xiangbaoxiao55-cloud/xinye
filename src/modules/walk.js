@@ -126,6 +126,14 @@ window._testWalk = () => {
   _doWalk(true);
 };
 
+function _tryWalk() {
+  if (!settings.morningWalkEnabled) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem(_WALK_KEY()) === today) return;
+  if (new Date().getHours() < 8) return;
+  setTimeout(_doWalk, 3000 + Math.random() * 5000);
+}
+
 export function checkMorningWalk() {
   if (!settings.morningWalkEnabled) return;
   const today = new Date().toISOString().slice(0, 10);
@@ -139,6 +147,11 @@ export function checkMorningWalk() {
   } else {
     setTimeout(_doWalk, 3000 + Math.random() * 5000);
   }
+
+  setInterval(_tryWalk, 3600_000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) _tryWalk();
+  });
 }
 
 async function _fireReminder(todo) {
