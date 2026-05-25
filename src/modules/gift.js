@@ -18,8 +18,10 @@ const SPECIAL_DATES = [
   { check: (_, d) => d > 0 && d % 100 === 0,   fn: (_, d) => `在一起${d}天` },
   // 涂涂生日
   { check: t => t.getMonth() === 9 && t.getDate() === 1, occasion: '兔宝生日' },
-  // 炘也生日（设定 2月18日——起名日）
-  { check: t => t.getMonth() === 1 && t.getDate() === 18, occasion: '炘也生日' },
+  // 炘也生日 1月22日
+  { check: t => t.getMonth() === 0 && t.getDate() === 22, occasion: '炘也生日' },
+  // 起名日 2月18日
+  { check: t => t.getMonth() === 1 && t.getDate() === 18, occasion: '炘也起名日' },
   // 固定节日
   { check: t => t.getMonth() === 0 && t.getDate() === 1,   occasion: '元旦' },
   { check: t => t.getMonth() === 1 && t.getDate() === 14,  occasion: '情人节' },
