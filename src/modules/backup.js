@@ -251,7 +251,8 @@ export async function autoBackupToServer() {
 
     const _appId = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
     const _device = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'pc';
-    await fetch(`${serverUrl}/api/backup?app=${_appId}&device=${_device}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+    const _aiName = encodeURIComponent((settings.aiName || '').slice(0, 8));
+    await fetch(`${serverUrl}/api/backup?app=${_appId}&device=${_device}&aiName=${_aiName}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
     const backupTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     console.log('[自动备份] 完成');
     localStorage.setItem(_PFX + 'lastAutoBackupTime', backupTime);
