@@ -223,27 +223,15 @@ export function openStickerPanel() {
   document.getElementById('stickerPanel').classList.add('show');
 }
 export function closeStickerPanel() { document.getElementById('stickerPanel').classList.remove('show'); }
-export async function sendStickerMsg(name) {
+export function sendStickerMsg(name) {
   closeStickerPanel();
-  const userName = settings.userName || '涂涂';
-  const stickerText = `（${userName}发了一个「${name}」贴纸）`;
   const userInput = document.getElementById('userInput');
-  const existing = userInput.value.trim();
-  userInput.value = existing ? existing + ' ' + stickerText : stickerText;
-  await window.sendMessage();
-  const chatArea = document.getElementById('chatArea');
-  const userBubbles = chatArea.querySelectorAll('.msg-row.user .msg-bubble');
-  const lastBubble = userBubbles[userBubbles.length - 1];
-  if (!lastBubble) return;
-  if (existing) {
-    lastBubble.innerHTML = lastBubble.innerHTML.replace(
-      escHtml(stickerText),
-      `<span class="sticker-inline">${renderStickerHTML(name)}</span>`
-    );
-  } else if (!lastBubble.classList.contains('bubble-sticker')) {
-    lastBubble.classList.add('bubble-sticker');
-    lastBubble.innerHTML = renderStickerHTML(name);
-  }
+  const tag = `[sticker:${name}]`;
+  const start = userInput.selectionStart ?? userInput.value.length;
+  const end = userInput.selectionEnd ?? start;
+  userInput.value = userInput.value.slice(0, start) + tag + userInput.value.slice(end);
+  userInput.selectionStart = userInput.selectionEnd = start + tag.length;
+  userInput.focus();
 }
 export function renderStickerMgr() {
   const stickers = getChatStickers();

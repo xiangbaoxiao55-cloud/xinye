@@ -302,7 +302,8 @@ export async function renderMessages() {
         <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn}</div>
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
-    if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
+    if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); }
+    if (msg.content && !msg.isGenImage && !_stickerName) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
   try {
@@ -370,7 +371,8 @@ export async function appendMsgDOM(msg) {
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn2}</div>
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
-  if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
+  if (!isUser && msg.content && !msg.isGenImage) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); }
+  if (msg.content && !msg.isGenImage && !_sn) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
   chatArea.appendChild(row);
   scrollBottom();
   window.updateHeaderStatus?.();
