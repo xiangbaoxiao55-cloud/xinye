@@ -7,31 +7,42 @@ const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY = () => _APP() + '_walkDate';
 
 const TOPICS = [
-  'interesting weird news today',
-  'fascinating science discovery this week',
-  'heartwarming viral story today',
-  'unusual strange event happened today',
-  'funny surprising news today',
-  'amazing animal nature discovery recent',
-  'incredible human achievement story today',
-  'bizarre unexplained mystery recent news',
+  '今日趣闻 奇闻异事',
+  '最新科学发现 本周',
+  '暖心故事 感动 今天',
+  '离奇事件 不可思议 最近',
+  '搞笑新闻 意外 今天',
+  '动物 自然 惊人发现 最近',
+  '人类壮举 感人故事 今天',
+  '神秘事件 未解之谜 最新',
 ];
 
 async function _search(key) {
   const query = TOPICS[Math.floor(Math.random() * TOPICS.length)];
+  console.log('[散步] Tavily搜索 query:', query);
   try {
     const r = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: key, query, search_depth: 'basic', topic: 'news', max_results: 5 }),
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.warn('[散步] Tavily HTTP', r.status, r.statusText);
+      return null;
+    }
     const d = await r.json();
-    return (d.results || []).slice(0, 4).map((item, i) => {
+    console.log('[散步] Tavily返回', d.results?.length || 0, '条结果');
+    const out = (d.results || []).slice(0, 4).map((item, i) => {
       const content = (item.content || item.snippet || '').slice(0, 400);
       return `${i + 1}. ${item.title}\n${content}`;
     }).join('\n\n') || null;
-  } catch { return null; }
+    if (out) console.log('[散步] 搜索素材(前200字):', out.slice(0, 200));
+    else console.warn('[散步] 搜索结果为空');
+    return out;
+  } catch (e) {
+    console.error('[散步] Tavily搜索失败:', e.message || e);
+    return null;
+  }
 }
 
 async function _readStream(res) {
@@ -67,8 +78,9 @@ async function _doWalk() {
   const userName = settings.userName || '兔宝';
 
   const results = settings.braveKey ? await _search(settings.braveKey) : null;
+  console.log('[散步] braveKey:', settings.braveKey ? '有值' : '空', '| 搜索结果:', results ? '有' : '无');
   const userContent = results
-    ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请只基于这些内容讲述，不要自己编造：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。字数控制在150字以内。]`
+    ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请严格只基于这些内容讲述，禁止使用你自己的知识编造或补充任何信息：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。必须是上面素材里有的事，不能编。字数控制在150字以内。]`
     : `[系统：你今天早上${goHour}:${goMin}出去溜达了一圈，刚回来。随口和${userName}说一句话，就像刚进门一样，轻松自然，50字以内。]`;
 
   const res = await mainApiFetch({
