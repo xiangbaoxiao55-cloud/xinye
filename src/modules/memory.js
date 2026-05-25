@@ -182,7 +182,7 @@ export async function getRelevantMemoriesAsync(queryVec, query, pool, topK) {
   if (queryVec) {
     const scored = pool.map(mem => {
       const sim = mem.embedding ? cosineSimilarity(queryVec, mem.embedding) : 0;
-      const weightBonus = (mem.weight || 1) * 0.12;
+      const weightBonus = (mem.weight || 1) * 0.04;
       const tagBonus = _queryTagBonus(query, mem.tags);
       const fresh = freshnessBonus(mem.createdAt, mem.arousal);
       const resolvedMult = mem.resolved ? 0.05 : 1;
