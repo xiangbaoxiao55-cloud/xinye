@@ -1740,14 +1740,21 @@ export async function sendMessage() {
             (async () => {
               for (const tc of _bgTcs1) {
                 window._pendingImageCount = (window._pendingImageCount || 0) + 1;
-                let _imgResult1 = '';
-                try { _imgResult1 = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
-                if (_imgResult1 === '[图已画好并展示给兔宝了]' && !window.isRequesting) {
-                  const _afterComments1 = ['给~', '好了~', '你看~', '嗯，画好了~', '给你~'];
-                  const _ac1 = _afterComments1[Math.floor(Math.random() * _afterComments1.length)];
-                  const _acMsg1 = await addMessage('assistant', _ac1);
-                  await dbPut(activeStore(), null, _acMsg1);
-                  await appendMsgDOM(_acMsg1); scrollBottom();
+                let _imgResult1 = '', _imgErrStr1 = '';
+                try { _imgResult1 = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { _imgErrStr1 = e.message; toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+                if (!window.isRequesting) {
+                  const _isOk1 = _imgResult1 === '[图已画好并展示给兔宝了]';
+                  const _tcA1 = _safeParseArgs(tc.function.name, tc.function.arguments); const _ip1 = _tcA1?.prompt || '';
+                  const _uN1 = settings.userName || '兔宝';
+                  const _mc1 = (settings.memoryArchiveCore || '').trim(); const _ma1 = (settings.memoryArchiveAlways || '').trim();
+                  let _rs1 = settings.systemPrompt || ''; if (_mc1) _rs1 += `\n\n【记忆档案·核心层】\n${_mc1}`; if (_ma1) _rs1 += `\n\n【近况·会过期】\n${_ma1}`;
+                  const _rt1 = _isOk1
+                    ? `[系统：你刚给${_uN1}画了一张图（"${_ip1.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
+                    : `[系统：你刚才给${_uN1}画图，但失败了（${(_imgErrStr1 || _imgResult1 || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
+                  try {
+                    const _rr1 = await _apiFetch([{ role: 'system', content: _rs1 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt1 }], false, false);
+                    if (_rr1 && _rr1.ok) { const _rd1 = await _rr1.json(); const _rep1 = _rd1.choices?.[0]?.message?.content?.trim(); if (_rep1) { const _am1 = await addMessage('assistant', _rep1); await dbPut(activeStore(), null, _am1); await appendMsgDOM(_am1); scrollBottom(); } }
+                  } catch (_re1) { console.warn('[画图回应]', _re1.message); }
                 }
               }
               rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
@@ -1855,14 +1862,21 @@ export async function sendMessage() {
           (async () => {
             for (const tc of _bgTcs) {
               window._pendingImageCount = (window._pendingImageCount || 0) + 1;
-              let _imgResult = '';
-              try { _imgResult = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
-              if (_imgResult === '[图已画好并展示给兔宝了]' && !window.isRequesting) {
-                const _afterComments = ['给~', '好了~', '你看~', '嗯，画好了~', '给你~'];
-                const _ac = _afterComments[Math.floor(Math.random() * _afterComments.length)];
-                const _acMsg = await addMessage('assistant', _ac);
-                await dbPut(activeStore(), null, _acMsg);
-                await appendMsgDOM(_acMsg); scrollBottom();
+              let _imgResult = '', _imgErrStr = '';
+              try { _imgResult = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { _imgErrStr = e.message; toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+              if (!window.isRequesting) {
+                const _isOk = _imgResult === '[图已画好并展示给兔宝了]';
+                const _tcA = _safeParseArgs(tc.name, tc.args); const _ip = _tcA?.prompt || '';
+                const _uN = settings.userName || '兔宝';
+                const _mc = (settings.memoryArchiveCore || '').trim(); const _ma = (settings.memoryArchiveAlways || '').trim();
+                let _rs = settings.systemPrompt || ''; if (_mc) _rs += `\n\n【记忆档案·核心层】\n${_mc}`; if (_ma) _rs += `\n\n【近况·会过期】\n${_ma}`;
+                const _rt = _isOk
+                  ? `[系统：你刚给${_uN}画了一张图（"${_ip.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
+                  : `[系统：你刚才给${_uN}画图，但失败了（${(_imgErrStr || _imgResult || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
+                try {
+                  const _rr = await _apiFetch([{ role: 'system', content: _rs }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt }], false, false);
+                  if (_rr && _rr.ok) { const _rd = await _rr.json(); const _rep = _rd.choices?.[0]?.message?.content?.trim(); if (_rep) { const _am = await addMessage('assistant', _rep); await dbPut(activeStore(), null, _am); await appendMsgDOM(_am); scrollBottom(); } }
+                } catch (_re) { console.warn('[画图回应]', _re.message); }
               }
             }
             rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
