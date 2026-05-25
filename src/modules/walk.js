@@ -7,14 +7,14 @@ const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY = () => _APP() + '_walkDate';
 
 const TOPICS = [
-  '今日趣闻 奇闻异事',
-  '最新科学发现 本周',
-  '暖心故事 感动 今天',
-  '离奇事件 不可思议 最近',
-  '搞笑新闻 意外 今天',
-  '动物 自然 惊人发现 最近',
-  '人类壮举 感人故事 今天',
-  '神秘事件 未解之谜 最新',
+  'interesting weird news today',
+  'fascinating science discovery this week',
+  'heartwarming viral story today',
+  'unusual strange event happened today',
+  'funny surprising news today',
+  'amazing animal nature discovery recent',
+  'incredible human achievement story today',
+  'bizarre unexplained mystery recent news',
 ];
 
 async function _search(key) {
@@ -24,7 +24,7 @@ async function _search(key) {
     const r = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: key, query, search_depth: 'basic', topic: 'news', max_results: 5 }),
+      body: JSON.stringify({ api_key: key, query, search_depth: 'basic', topic: 'news', days: 2, max_results: 5 }),
     });
     if (!r.ok) {
       console.warn('[散步] Tavily HTTP', r.status, r.statusText);
@@ -68,21 +68,24 @@ async function _addMsgAndShow(reply) {
   scrollBottom();
 }
 
-async function _doWalk() {
-  if (!settings.morningWalkEnabled) return;
+async function _doWalk(isTest = false) {
+  if (!isTest && !settings.morningWalkEnabled) return;
   const today = new Date().toISOString().slice(0, 10);
-  if (localStorage.getItem(_WALK_KEY()) === today) return;
+  if (!isTest && localStorage.getItem(_WALK_KEY()) === today) return;
 
   const goHour = 8 + Math.floor(Math.random() * 2);
   const goMin = String(Math.floor(Math.random() * 60)).padStart(2, '0');
   const userName = settings.userName || '兔宝';
 
+  console.log('[散步] 开始执行, braveKey:', settings.braveKey ? '有值' : '空', isTest ? '(测试模式)' : '');
   const results = settings.braveKey ? await _search(settings.braveKey) : null;
-  console.log('[散步] braveKey:', settings.braveKey ? '有值' : '空', '| 搜索结果:', results ? '有' : '无');
+  console.log('[散步] 搜索结果:', results ? '有内容' : '无(走fallback)');
+
   const userContent = results
     ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请严格只基于这些内容讲述，禁止使用你自己的知识编造或补充任何信息：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。必须是上面素材里有的事，不能编。字数控制在150字以内。]`
     : `[系统：你今天早上${goHour}:${goMin}出去溜达了一圈，刚回来。随口和${userName}说一句话，就像刚进门一样，轻松自然，50字以内。]`;
 
+  console.log('[散步] 发送给模型的prompt(前150字):', userContent.slice(0, 150));
   const res = await mainApiFetch({
     stream: true,
     max_tokens: results ? 400 : 150,
@@ -92,14 +95,23 @@ async function _doWalk() {
     ],
   });
 
-  if (!res || !res.ok) return;
+  if (!res || !res.ok) {
+    console.error('[散步] API请求失败', res?.status);
+    return;
+  }
 
   const reply = await _readStream(res);
+  console.log('[散步] 模型回复:', reply || '(空)');
   if (reply) {
     await _addMsgAndShow(reply);
-    localStorage.setItem(_WALK_KEY(), today);
+    if (!isTest) localStorage.setItem(_WALK_KEY(), today);
   }
 }
+
+window._testWalk = () => {
+  console.log('[散步] === 手动测试触发 ===');
+  _doWalk(true);
+};
 
 export function checkMorningWalk() {
   if (!settings.morningWalkEnabled) return;
