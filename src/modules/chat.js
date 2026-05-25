@@ -973,7 +973,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '【严格限制】只在兔宝这条消息里明确要求画图时才调用——比如说"画吧"、"画一下"、"画xxx"、"来一张"、"帮我画"等。普通聊天、情感互动、讲故事、描述场景，绝对不调用此工具。调用前必须先在 content 里说一句简短自然的话（10字以内，口语化，比如「等一下~」「我来给你画」「稍等」），让兔宝知道你在做什么，不要沉默直接就调用；但不要描述即将画的内容。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
+          description: '画图工具。调用时机：①兔宝明确要求画图时（"画吧""画一下""来一张"等）；②你主动想送惊喜、表达心意、配合礼物、哄兔宝开心时——可以自主决定画。但不要在普通日常聊天中无缘无故画图。调用前必须先在 content 里说一句简短自然的话（10字以内，口语化，比如「等一下~」「我来给你画」「稍等」），让兔宝知道你在做什么，不要沉默直接就调用；但不要描述即将画的内容。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
           parameters: {
             type: 'object',
             properties: {
@@ -1022,7 +1022,7 @@ export async function sendMessage() {
       type: 'function',
       function: {
         name: 'send_gift',
-        description: '给兔宝送一份礼物卡片，全屏弹出动画展示。只在想表达特别心意时调用——庆祝、感谢、道歉、安慰、突然想给惊喜。不要频繁调用，一次对话最多一次。调用前先在 content 里说一句话铺垫。',
+        description: '给兔宝送一份礼物卡片，全屏弹出动画展示。只在想表达特别心意时调用——庆祝、感谢、道歉、安慰、突然想给惊喜。不要频繁调用，一次对话最多一次。调用前先在 content 里说一句话铺垫。如果想配图，可以在同一轮同时调用 generate_image。',
         parameters: {
           type: 'object',
           properties: {
