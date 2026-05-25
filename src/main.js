@@ -47,6 +47,10 @@ if('serviceWorker' in navigator){
           window.location.reload();
         }
       }
+      // 炘也主动消息：页面已打开时直接刷新
+      if (e.data && e.data.type === 'PUSH_MESSAGE') {
+        window._consumePushInbox?.();
+      }
     });
   });
   // APK切回前台时主动检查SW更新（切回不触发load，需手动check）
@@ -375,7 +379,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.05.25-1127';
+  if (_verEl) _verEl.textContent = 'v2026.05.25-1209';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -442,7 +446,74 @@ async function checkPendingMessage() {
   startReminderPoller();
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
+  _registerPush();
+  _consumePushInbox();
 })();
+
+// ── Web Push 注册 ─────────────────────────────────────────────────────────
+function _urlB64ToU8(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function _registerPush() {
+  if (!('PushManager' in window) || !('serviceWorker' in navigator)) return;
+  const serverUrl = settings.solitudeServerUrl;
+  if (!serverUrl) return;
+  try {
+    const res = await fetch(serverUrl + '/api/push-vapid-public-key', { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return;
+    const { publicKey } = await res.json();
+    if (!publicKey) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+    }
+    await fetch(serverUrl + '/api/push-subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON()), signal: AbortSignal.timeout(4000)
+    });
+    console.log('[Push] 订阅注册成功');
+  } catch(e) { console.log('[Push] 注册跳过:', e.message); }
+}
+
+// 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）
+async function _consumePushInbox() {
+  try {
+    const msgs = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('XinyePushInbox', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('inbox', 'readwrite');
+        const store = tx.objectStore('inbox');
+        const items = [], keys = [];
+        store.openCursor().onsuccess = e => {
+          const cursor = e.target.result;
+          if (cursor) { items.push(cursor.value); keys.push(cursor.key); cursor.continue(); }
+          else {
+            keys.forEach(k => store.delete(k));
+            tx.oncomplete = () => { db.close(); resolve(items); };
+          }
+        };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+    if (!msgs.length) return;
+    const { addMessage, renderMessages } = await import('./modules/chat.js');
+    for (const m of msgs) {
+      await addMessage('assistant', m.content);
+    }
+    renderMessages();
+    console.log(`[Push] 消费了 ${msgs.length} 条主动消息`);
+  } catch(e) { console.log('[Push] inbox消费失败:', e.message); }
+}
+window._consumePushInbox = _consumePushInbox;
 
 // ======================== 启动 ========================
 

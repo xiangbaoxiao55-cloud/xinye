@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260525-1127';
+const CACHE_NAME = 'xinye-20260525-1209';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -100,3 +100,50 @@ async function handleFetch(request, pathname) {
   const fresh = fetch(request).then(r => { if (r.ok) cache.put(request, r.clone()); return r; }).catch(() => null);
   return cached || fresh;
 }
+
+// ── Web Push：收到服务器主动消息 ─────────────────────────────────────────
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  e.waitUntil(_handlePush(e.data.json()));
+});
+
+async function _handlePush(data) {
+  // 存入独立的 PushInbox IDB，前端打开时消费（不直接写主IDB，避免版本耦合）
+  try {
+    await new Promise((resolve, reject) => {
+      const req = indexedDB.open('XinyePushInbox', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('inbox', 'readwrite');
+        tx.objectStore('inbox').add({ role: 'assistant', content: data.content, time: data.time || Date.now() });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+  } catch(e) { console.error('[SW Push] inbox写入失败', e); }
+
+  // 如果页面已打开，通知它立刻刷新
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach(c => c.postMessage({ type: 'PUSH_MESSAGE', content: data.content }));
+
+  return self.registration.showNotification('炘也', {
+    body: data.content,
+    icon: '/xinye-icon.png',
+    badge: '/xinye-icon.png',
+    tag: 'xinye-push',
+    data: { url: '/' }
+  });
+}
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      const c = clients.find(cl => new URL(cl.url).origin === self.registration.scope.replace(/\/$/, ''));
+      if (c) return c.focus();
+      return self.clients.openWindow('/');
+    })
+  );
+});

@@ -1660,7 +1660,7 @@ export async function sendMessage() {
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
         if (!parsed.aiMsg) {
-          if (!finalText.trim()) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); return; }
+          if (!finalText.trim()) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext(); return; }
           typing.classList.remove('show');
           const aiMsg = await addMessage('assistant', finalText);
           await appendMsgDOM(aiMsg);
@@ -1677,7 +1677,7 @@ export async function sendMessage() {
             window.maybeTTS?.(finalText, parsed.aiMsg.id);
           }
         }
-        rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+        rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
       }
 
       if (!settings.streamMode) {
@@ -1691,7 +1691,7 @@ export async function sendMessage() {
           try { linkifyEl(_nb, text); window.applyStickerTags?.(_nb); } catch(_e) {}
           try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(text, _nm.id);
-          rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+          rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         }
         const _r1 = await _apiFetch(loopMsgs, true, false);
         if (!_r1 || !_r1.ok) {
@@ -1739,7 +1739,7 @@ export async function sendMessage() {
                   await appendMsgDOM(_acMsg1); scrollBottom();
                 }
               }
-              rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+              rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
             })();
             return;
           }
@@ -1779,7 +1779,7 @@ export async function sendMessage() {
                   await appendMsgDOM(_errMsg);
                 }
               }
-              rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+              rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
             }
             typing.classList.remove('show');
             window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
@@ -1854,7 +1854,7 @@ export async function sendMessage() {
                 await appendMsgDOM(_acMsg); scrollBottom();
               }
             }
-            rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+            rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
           })();
           return;
         }
@@ -1878,7 +1878,7 @@ export async function sendMessage() {
               }
             }
           } else {
-            rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+            rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
           }
           typing.classList.remove('show');
           window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
@@ -1911,7 +1911,7 @@ export async function sendMessage() {
           try { linkifyEl(_nb, _ft); window.applyStickerTags?.(_nb); } catch(_e) {}
           try { saveTokenLog(_nm.id, loopMsgs, _ft, {}, _apiMeta, settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(_ft, _nm.id);
-          rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+          rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         } else {
           const _rf = await _apiFetch(loopMsgs, false, true);
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
@@ -1937,7 +1937,7 @@ export async function sendMessage() {
       await appendMsgDOM(aiMsg);
       try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, data.model || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(reply, aiMsg.id);
-      rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+      rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
 
     } else {
       const _r = await _apiFetch(apiMsgs, false, true);
@@ -1987,7 +1987,7 @@ export async function sendMessage() {
       try { if (fullText) { linkifyEl(bubbleEl, fullText); window.applyStickerTags?.(bubbleEl); } } catch(_e) {}
       try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(fullText, aiMsg.id);
-      rememberLatestExchange(); autoDigestMemory(); updateMoodState();
+      rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
     }
   } catch(err) {
     typing.classList.remove('show');
@@ -1996,4 +1996,18 @@ export async function sendMessage() {
     window.isRequesting = false;
     window.updateSendBtn?.();
   }
+}
+
+function _syncPushContext() {
+  const serverUrl = settings.solitudeServerUrl;
+  if (!serverUrl || window.__APP_ID__ === 'choubao') return;
+  const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
+  const apiConfig = { baseUrl: preset.baseUrl, apiKey: preset.apiKey, model: preset.model };
+  const lastMessages = messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) }));
+  fetch(serverUrl + '/api/push-context', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lastMessages, memoryCore: settings.memoryArchiveCore || '', apiConfig }),
+    signal: AbortSignal.timeout(5000)
+  }).catch(() => {});
 }
