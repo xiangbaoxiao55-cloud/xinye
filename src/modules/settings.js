@@ -99,6 +99,7 @@ export async function openSettings() {
   $('#setImageApiKey').value = settings.imageApiKey || '';
   $('#setImageBaseUrl').value = settings.imageBaseUrl || '';
   $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
+  $('#setImageApiFormat').value = settings.imageApiFormat || 'images';
   const _imgSize = settings.imageSize || '1024x1024';
   let _imgRes = '1K';
   for (const [res, opts] of Object.entries(_IMAGE_SIZE_MAP)) {
@@ -712,13 +713,14 @@ export function initSettings() {
     $('#setImageApiKey').value = p.apiKey || '';
     $('#setImageBaseUrl').value = p.baseUrl || '';
     $('#setImageModel').value = p.model || '';
+    $('#setImageApiFormat').value = p.apiFormat || 'images';
     toast(`🎨 画图预设「${p.name}」已激活，记得点保存设置`);
   };
   $('#btnSaveImagePreset').onclick = () => {
     const name = $('#imagePresetName').value.trim();
     if (!name) { toast('请先填写预设名称'); return; }
     const presets = getImagePresets();
-    const p = { name, apiKey: $('#setImageApiKey').value.trim(), baseUrl: $('#setImageBaseUrl').value.trim(), model: $('#setImageModel').value.trim() };
+    const p = { name, apiKey: $('#setImageApiKey').value.trim(), baseUrl: $('#setImageBaseUrl').value.trim(), model: $('#setImageModel').value.trim(), apiFormat: $('#setImageApiFormat').value || 'images' };
     const idx = presets.findIndex(x => x.name === name);
     if (idx >= 0) presets[idx] = p; else presets.push(p);
     setImagePresets(presets);
@@ -834,6 +836,7 @@ export function initSettings() {
     settings.imageApiKey = $('#setImageApiKey').value.trim();
     settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
     settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
+    settings.imageApiFormat = $('#setImageApiFormat').value || 'images';
     settings.imageProxyUrl = ($('#setImageProxyUrl')?.value || '').trim().replace(/\/$/, '');
     settings.imageProxyToken = ($('#setImageProxyToken')?.value || '').trim();
     settings.imageSize = $('#setImageRatio').value || '1024x1024';

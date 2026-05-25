@@ -331,6 +331,14 @@
       <input type="text" id="setImageModel" placeholder="gpt-image-1">
     </div>
     <div class="setting-group">
+      <label>画图 API 格式</label>
+      <select id="setImageApiFormat">
+        <option value="images">images（标准，默认）</option>
+        <option value="chat">chat（部分站子专用）</option>
+      </select>
+      <div class="hint">仅走本地服务器时有效。chat 格式适用于不支持 /images/generations 的站子</div>
+    </div>
+    <div class="setting-group">
       <label>画图代理地址（cpolar/云代理）</label>
       <input type="url" id="setImageProxyUrl" placeholder="https://xxxx.cpolar.cn">
       <div class="hint">cpolar 暴露本机 8788 端口后填入，离开家庭网络也能画图。留空则用本地服务器（局域网）</div>
