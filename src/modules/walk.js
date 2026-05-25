@@ -1,4 +1,4 @@
-import { settings } from './state.js';
+import { settings, messages } from './state.js';
 import { mainApiFetch } from './api.js';
 import { getPendingTodos, completeTodoById } from './phonedb.js';
 import { addMessage, appendMsgDOM, scrollBottom } from './chat.js';
@@ -92,11 +92,18 @@ async function _doWalk(isTest = false) {
     : `[系统：你今天早上${goHour}:${goMin}出去溜达了一圈，刚回来。随口和${userName}说一句话，就像刚进门一样，轻松自然，50字以内。]`;
 
   console.log('[散步] 系统提示词长度:', sysContent.length, '| 含记忆核心层:', !!memoryCore);
+
+  const recentMsgs = messages.slice(-6).map(m => ({
+    role: m.role, content: (m.content || '').slice(0, 200)
+  }));
+  console.log('[散步] 携带最近', recentMsgs.length, '条历史消息');
+
   const res = await mainApiFetch({
     stream: true,
     max_tokens: results ? 400 : 150,
     messages: [
       { role: 'system', content: sysContent },
+      ...recentMsgs,
       { role: 'user', content: userContent },
     ],
   });
@@ -146,11 +153,15 @@ async function _fireReminder(todo) {
     let rSys = settings.systemPrompt || '';
     const rCore = (settings.memoryArchiveCore || '').trim();
     if (rCore) rSys += `\n\n【记忆档案·核心层】\n${rCore}`;
+    const rRecent = messages.slice(-6).map(m => ({
+      role: m.role, content: (m.content || '').slice(0, 200)
+    }));
     const res = await mainApiFetch({
       stream: true,
       max_tokens: 150,
       messages: [
         { role: 'system', content: rSys },
+        ...rRecent,
         { role: 'user', content: `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了，请自然地提醒她，用你自己的语气，就像随口说起一样，不超过60字。]` },
       ],
     });
