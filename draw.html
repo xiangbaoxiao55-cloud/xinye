@@ -424,9 +424,17 @@ textarea:focus{border-color:var(--purple)}
           <div class="draw-params">
             <label>尺寸
               <select id="param-size">
+                <option value="512x512">512×512</option>
+                <option value="768x768">768×768</option>
                 <option value="1024x1024">1024×1024</option>
-                <option value="1024x1536">1024×1536 竖</option>
+                <option value="1024x1536" selected>1024×1536 竖</option>
                 <option value="1536x1024">1536×1024 横</option>
+                <option value="720x1280">720×1280 竖16:9</option>
+                <option value="1280x720">1280×720 横16:9</option>
+                <option value="1024x1792">1024×1792 竖长</option>
+                <option value="1792x1024">1792×1024 横长</option>
+                <option value="1152x2048">1152×2048 竖2K</option>
+                <option value="2048x1152">2048×1152 横2K</option>
                 <option value="2048x2048">2048×2048</option>
               </select>
             </label>
@@ -1313,7 +1321,13 @@ function _buildPresetCard(preset,isActive,type){
   hdr.querySelector('.preset-check').onclick=()=>_setActive(preset,type);
   const nameEl=hdr.querySelector('.preset-name');
   nameEl.onclick=()=>_setActive(preset,type);
-  nameEl.ondblclick=()=>{const n=prompt('改名：',preset.name||'');if(n?.trim()){preset.name=n.trim();savePresetsToLS();renderDrawPresets();renderMasterPresets()}};
+  nameEl.ondblclick=()=>{
+    const arr=type==='draw'?S.drawPresets:S.masterPresets;
+    const cur=arr.find(p=>p.id===preset.id);
+    if(!cur) return;
+    const n=prompt('改名：',cur.name||'');
+    if(n?.trim()){cur.name=n.trim();savePresetsToLS();renderDrawPresets();renderMasterPresets()}
+  };
   hdr.querySelector('[data-a="toggle"]').onclick=()=>{
     const body=card.querySelector('.preset-body');
     body.classList.toggle('open');
