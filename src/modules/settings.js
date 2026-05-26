@@ -1041,7 +1041,7 @@ export function initSettings() {
   const _btnSendPushTest = $('#btnSendPushTest');
   if (_btnSendPushTest) {
     _btnSendPushTest.onclick = async () => {
-      const solUrl = (window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
+      const solUrl = ($('#setSolitudeServerUrl')?.value.trim() || window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
       if (!solUrl) { alert('请先填写本地服务器地址'); return; }
       _btnSendPushTest.textContent = '发送中…';
       try {
@@ -1061,7 +1061,7 @@ export function initSettings() {
   const _inputPushProxy = $('#inputPushProxy');
   const _btnSavePushProxy = $('#btnSavePushProxy');
   if (_inputPushProxy && _btnSavePushProxy) {
-    const solUrl = () => (window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
+    const solUrl = () => ($('#setSolitudeServerUrl')?.value.trim() || window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
     // 加载当前代理地址
     const _loadProxy = async () => {
       const url = solUrl(); if (!url) return;
