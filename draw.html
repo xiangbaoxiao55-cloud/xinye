@@ -327,6 +327,25 @@ textarea:focus{border-color:var(--purple)}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #toast.toast-error{border-color:var(--err);color:var(--err)}
 #toast.toast-warn{border-color:var(--warn);color:var(--warn)}
+
+/* ── Preset Cards ── */
+.presets-section-hdr{display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px}
+.presets-section-hdr h4{font-size:13px;color:var(--sub);font-weight:600;margin:0}
+.preset-card{background:var(--card2);border-radius:var(--r);border:2px solid var(--border);margin-bottom:8px;overflow:hidden;transition:.15s}
+.preset-card.preset-active{border-color:var(--purple)}
+.preset-card-hdr{display:flex;align-items:center;gap:6px;padding:9px 12px;cursor:default}
+.preset-check{width:18px;color:var(--purple);font-size:14px;font-weight:700;flex-shrink:0;cursor:pointer}
+.preset-check:hover{color:var(--pink)}
+.preset-name{flex:1;font-size:13px;font-weight:600;cursor:pointer;padding:2px 4px;border-radius:4px}
+.preset-name:hover{background:var(--hover)}
+.preset-meta{font-size:11px;color:var(--sub);padding:0 12px 6px 36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset-body{padding:10px 12px;display:none;border-top:1px solid var(--border)}
+.preset-body.open{display:block}
+.preset-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.preset-row label{font-size:11px;color:var(--sub);white-space:nowrap;min-width:40px;text-align:right}
+.preset-row input,.preset-row select{flex:1;padding:5px 8px;border-radius:var(--rs);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;outline:none}
+.preset-row input:focus,.preset-row select:focus{border-color:var(--purple)}
+.preset-body-actions{display:flex;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -543,27 +562,21 @@ textarea:focus{border-color:var(--purple)}
 
 <!-- 设置 -->
 <div id="modal-settings" class="modal-overlay" style="display:none">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:520px">
     <h3>设置</h3>
-    <h4>画图 API</h4>
-    <div class="form-group"><label>API Key</label><input type="password" id="set-image-key" placeholder="sk-..."></div>
-    <div class="form-group"><label>Base URL</label><input type="text" id="set-image-url" placeholder="https://api.openai.com/v1"></div>
-    <div class="form-group"><label>模型</label><input type="text" id="set-image-model" placeholder="dall-e-3"></div>
-    <div class="form-group">
-      <label>格式</label>
-      <select id="set-image-format">
-        <option value="images">images（标准）</option>
-        <option value="chat">chat（部分站子）</option>
-      </select>
+    <div class="presets-section-hdr">
+      <h4>画图 API 预设</h4>
+      <button id="btn-add-draw-preset" class="btn-tiny">+ 添加</button>
     </div>
-    <button id="btn-import-settings" class="btn-outline" style="margin-bottom:4px">从主App导入配置</button>
-    <h4>大师 API（Claude）</h4>
-    <div class="form-group"><label>API Key</label><input type="password" id="set-master-key" placeholder="sk-..."></div>
-    <div class="form-group"><label>Base URL</label><input type="text" id="set-master-url" placeholder="https://api.anthropic.com/v1 或中转站"></div>
-    <div class="form-group"><label>模型</label><input type="text" id="set-master-model" placeholder="claude-opus-4-7"></div>
-    <div class="modal-actions">
-      <button id="btn-save-settings" class="btn-primary">保存</button>
-      <button id="btn-cancel-settings" class="btn-outline">取消</button>
+    <div id="draw-presets-list"></div>
+    <div class="presets-section-hdr" style="margin-top:16px">
+      <h4>大师 API 预设（Claude）</h4>
+      <button id="btn-add-master-preset" class="btn-tiny">+ 添加</button>
+    </div>
+    <div id="master-presets-list"></div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button id="btn-import-settings" class="btn-outline">从主App导入</button>
+      <button id="btn-close-settings" class="btn-outline">关闭</button>
     </div>
   </div>
 </div>
@@ -657,7 +670,9 @@ const S={
   personas:[],curPersonaId:null,
   selTokens:[],refB64:null,
   curDetail:null,masterHistory:[],
-  drawing:false,masterBusy:false,cfg:{}
+  drawing:false,masterBusy:false,cfg:{},
+  drawPresets:[],curDrawId:null,
+  masterPresets:[],curMasterId:null,
 };
 
 const CAT={
@@ -729,27 +744,23 @@ function buildPrompt(){
 
 // ── API Config ────────────────────────────────────────────────
 function loadCfg(){
-  const g=k=>localStorage.getItem(k)||'';
+  S.drawPresets=JSON.parse(localStorage.getItem('draw_drawPresets')||'[]');
+  S.curDrawId=localStorage.getItem('draw_curDrawId')||S.drawPresets[0]?.id||null;
+  S.masterPresets=JSON.parse(localStorage.getItem('draw_masterPresets')||'[]');
+  S.curMasterId=localStorage.getItem('draw_curMasterId')||S.masterPresets[0]?.id||null;
+  const dp=S.drawPresets.find(p=>p.id===S.curDrawId)||S.drawPresets[0];
+  const mp=S.masterPresets.find(p=>p.id===S.curMasterId)||S.masterPresets[0];
   S.cfg={
-    imgKey:g('draw_imgKey')||g('imageApiKey'),
-    imgUrl:g('draw_imgUrl')||g('imageBaseUrl'),
-    imgModel:g('draw_imgModel')||g('imageModel')||'dall-e-3',
-    imgFmt:g('draw_imgFmt')||g('imageApiFormat')||'images',
-    masterKey:g('draw_masterKey')||g('mainApiKey'),
-    masterUrl:g('draw_masterUrl')||g('mainApiBaseUrl')||'',
-    masterModel:g('draw_masterModel')||'claude-opus-4-7',
+    imgKey:dp?.key||'',imgUrl:dp?.url||'',imgModel:dp?.model||'dall-e-3',imgFmt:dp?.format||'images',
+    masterKey:mp?.key||'',masterUrl:mp?.url||'',masterModel:mp?.model||'claude-opus-4-7',
   };
 }
-function saveCfg(){
-  const v=id=>(document.getElementById(id)||{}).value||'';
-  localStorage.setItem('draw_imgKey',v('set-image-key'));
-  localStorage.setItem('draw_imgUrl',v('set-image-url'));
-  localStorage.setItem('draw_imgModel',v('set-image-model'));
-  localStorage.setItem('draw_imgFmt',v('set-image-format'));
-  localStorage.setItem('draw_masterKey',v('set-master-key'));
-  localStorage.setItem('draw_masterUrl',v('set-master-url'));
-  localStorage.setItem('draw_masterModel',v('set-master-model'));
-  loadCfg();toast('设置已保存 ✓');
+function savePresetsToLS(){
+  localStorage.setItem('draw_drawPresets',JSON.stringify(S.drawPresets));
+  localStorage.setItem('draw_curDrawId',S.curDrawId||'');
+  localStorage.setItem('draw_masterPresets',JSON.stringify(S.masterPresets));
+  localStorage.setItem('draw_curMasterId',S.curMasterId||'');
+  loadCfg();
 }
 
 // ── Draw API ──────────────────────────────────────────────────
@@ -757,8 +768,7 @@ async function doDraw(){
   if(S.drawing) return;
   const prompt=buildPrompt();
   if(!prompt){toast('先构建Prompt','warn');return}
-  const {imgKey,imgUrl,imgModel,imgFmt}=S.cfg;
-  if(!imgKey||!imgUrl){toast('先在设置里配置画图API','warn');return}
+  if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
 
   S.drawing=true;
   const btn=document.getElementById('btn-draw');
@@ -770,15 +780,23 @@ async function doDraw(){
     const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
     const size=document.getElementById('param-size').value||'1024x1024';
     const n=parseInt(document.getElementById('param-count').value||'1');
-    let images;
 
-    if(S.refB64){
-      images=await callEdits(prompt,negPrompt,size,S.refB64,n);
-    } else if(imgFmt==='chat'){
-      images=await callChat(prompt,n);
-    } else {
-      images=await callGenerations(prompt,negPrompt,size,n);
+    // 从当前预设开始，失败时自动切备用
+    const presets=S.drawPresets;
+    let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
+    if(startIdx<0) startIdx=0;
+    let images,lastErr;
+    for(let i=0;i<presets.length;i++){
+      const preset=presets[(startIdx+i)%presets.length];
+      try{
+        if(i>0) toast(`"${preset.name}"失败，切备用"${presets[(startIdx+i)%presets.length].name}"...`,'warn');
+        if(S.refB64) images=await _callEdits(preset,prompt,negPrompt,size,S.refB64,n);
+        else if(preset.format==='chat') images=await _callChat(preset,prompt,n);
+        else images=await _callGenerations(preset,prompt,negPrompt,size,n);
+        break;
+      }catch(err){lastErr=err;if(presets.length>1) console.warn(`预设"${preset.name}"失败:`,err.message)}
     }
+    if(!images) throw lastErr||new Error('所有预设均失败');
 
     res.innerHTML='';
     for(const imgData of images){
@@ -794,9 +812,7 @@ async function doDraw(){
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
       bDl.onclick=()=>dlImg(imgData);
-      acts.append(bSave,bDl);
-      wrap.append(img,acts);
-      res.appendChild(wrap);
+      acts.append(bSave,bDl);wrap.append(img,acts);res.appendChild(wrap);
     }
     toast(`生成了 ${images.length} 张 ✨`);
   }catch(err){
@@ -807,12 +823,13 @@ async function doDraw(){
   }
 }
 
-async function callGenerations(prompt,negPrompt,size,n){
-  const {imgKey,imgUrl,imgModel}=S.cfg;
-  const body={model:imgModel,prompt,n,size,response_format:'b64_json'};
+async function _callGenerations(preset,prompt,negPrompt,size,n){
+  const {key,url,model}=preset;
+  if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
+  const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
   if(negPrompt) body.negative_prompt=negPrompt;
-  const r=await fetch(`${imgUrl}/images/generations`,{
-    method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${imgKey}`},
+  const r=await fetch(`${url}/images/generations`,{
+    method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
     body:JSON.stringify(body)
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
@@ -820,13 +837,14 @@ async function callGenerations(prompt,negPrompt,size,n){
   return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
 }
 
-async function callChat(prompt,n){
-  const {imgKey,imgUrl,imgModel}=S.cfg;
+async function _callChat(preset,prompt,n){
+  const {key,url,model}=preset;
+  if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
   const results=[];
   for(let i=0;i<n;i++){
-    const r=await fetch(`${imgUrl}/chat/completions`,{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${imgKey}`},
-      body:JSON.stringify({model:imgModel,messages:[{role:'user',content:`请画一张图：${prompt}`}],max_tokens:2048})
+    const r=await fetch(`${url}/chat/completions`,{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+      body:JSON.stringify({model:model||'dall-e-3',messages:[{role:'user',content:`请画一张图：${prompt}`}],max_tokens:2048})
     });
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();
@@ -838,29 +856,26 @@ async function callChat(prompt,n){
   return results;
 }
 
-async function callEdits(prompt,negPrompt,size,b64,n){
-  const {imgKey,imgUrl,imgModel}=S.cfg;
+async function _callEdits(preset,prompt,negPrompt,size,b64,n){
+  const {key,url,model}=preset;
+  if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
   const raw=b64.replace(/^data:image\/\w+;base64,/,'');
   const bin=atob(raw);const bytes=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
   const blob=new Blob([bytes],{type:'image/png'});
   const fd=new FormData();
-  fd.append('image',blob,'ref.png');
-  fd.append('model',imgModel);fd.append('prompt',prompt);
-  fd.append('n',n);fd.append('size',size);
+  fd.append('image',blob,'ref.png');fd.append('model',model||'dall-e-3');
+  fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
   if(negPrompt) fd.append('negative_prompt',negPrompt);
-  const r=await fetch(`${imgUrl}/images/edits`,{
-    method:'POST',headers:{'Authorization':`Bearer ${imgKey}`},body:fd
+  const r=await fetch(`${url}/images/edits`,{
+    method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
   if(d.data?.[0]?.url){
     const results=[];
-    for(const i of d.data){
-      const rb=await fetch(i.url);const bl=await rb.blob();
-      results.push(await f2b(new File([bl],'img.png')));
-    }
+    for(const i of d.data){const rb=await fetch(i.url);const bl=await rb.blob();results.push(await f2b(new File([bl],'img.png')))}
     return results;
   }
   throw new Error('edits API返回格式异常');
@@ -878,26 +893,41 @@ const dlImg=url=>{const a=document.createElement('a');a.href=url;a.download=`dra
 
 // ── Master API ────────────────────────────────────────────────
 async function callMaster(messages){
-  const {masterKey,masterUrl,masterModel}=S.cfg;
-  if(!masterKey) throw new Error('请先在设置里配置大师API Key');
-  const base=masterUrl||'https://api.anthropic.com/v1';
+  if(!S.masterPresets.length) throw new Error('请先在设置里添加大师API预设');
+  const presets=S.masterPresets;
+  let startIdx=presets.findIndex(p=>p.id===S.curMasterId);
+  if(startIdx<0) startIdx=0;
+  let lastErr;
+  for(let i=0;i<presets.length;i++){
+    const preset=presets[(startIdx+i)%presets.length];
+    try{
+      if(i>0) toast(`大师切换到"${preset.name}"...`,'warn');
+      return await _callMasterWithPreset(preset,messages);
+    }catch(err){lastErr=err;if(presets.length>1) console.warn(`大师预设"${preset.name}"失败:`,err.message)}
+  }
+  throw lastErr||new Error('所有大师预设均失败');
+}
+
+async function _callMasterWithPreset(preset,messages){
+  const {key,url,model}=preset;
+  if(!key) throw new Error(`预设"${preset.name}"未配置API Key`);
+  const base=(url||'https://api.anthropic.com/v1').replace(/\/$/,'');
   const isAnthropic=base.includes('anthropic.com');
   if(isAnthropic){
     const sys=messages.find(m=>m.role==='system');
     const msgs=messages.filter(m=>m.role!=='system');
     const r=await fetch(`${base}/messages`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':masterKey,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:masterModel,system:sys?.content||'',messages:msgs,max_tokens:1024})
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({model:model||'claude-opus-4-7',system:sys?.content||'',messages:msgs,max_tokens:1024})
     });
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();return d.content?.[0]?.text||'';
   }
-  // OpenAI兼容格式（中转站）
   const r=await fetch(`${base}/chat/completions`,{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':`Bearer ${masterKey}`},
-    body:JSON.stringify({model:masterModel,messages,max_tokens:1024,stream:false})
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+    body:JSON.stringify({model:model||'claude-opus-4-7',messages,max_tokens:1024,stream:false})
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();return d.choices?.[0]?.message?.content||'';
@@ -1244,28 +1274,137 @@ function useDetailPrompt(){
   closeModal('modal-detail');toast('Prompt已载入工作台');
 }
 
-// ── Settings Modal ────────────────────────────────────────────
+// ── Preset Management ─────────────────────────────────────────
 function openSettings(){
   loadCfg();
-  document.getElementById('set-image-key').value=localStorage.getItem('draw_imgKey')||'';
-  document.getElementById('set-image-url').value=localStorage.getItem('draw_imgUrl')||'';
-  document.getElementById('set-image-model').value=localStorage.getItem('draw_imgModel')||'';
-  document.getElementById('set-image-format').value=localStorage.getItem('draw_imgFmt')||'images';
-  document.getElementById('set-master-key').value=localStorage.getItem('draw_masterKey')||'';
-  document.getElementById('set-master-url').value=localStorage.getItem('draw_masterUrl')||'';
-  document.getElementById('set-master-model').value=localStorage.getItem('draw_masterModel')||'';
+  renderDrawPresets();
+  renderMasterPresets();
   document.getElementById('modal-settings').style.display='flex';
 }
+
+function renderDrawPresets(){_renderPresets(S.drawPresets,S.curDrawId,'draw-presets-list','draw')}
+function renderMasterPresets(){_renderPresets(S.masterPresets,S.curMasterId,'master-presets-list','master')}
+
+function _renderPresets(presets,curId,containerId,type){
+  const c=document.getElementById(containerId);
+  c.innerHTML='';
+  if(!presets.length){
+    c.innerHTML='<div style="color:var(--sub);font-size:12px;padding:6px 0">还没有预设，点"+ 添加"创建</div>';
+    return;
+  }
+  presets.forEach(p=>c.appendChild(_buildPresetCard(p,p.id===curId,type)));
+}
+
+function _buildPresetCard(preset,isActive,type){
+  const card=document.createElement('div');
+  card.className='preset-card'+(isActive?' preset-active':'');
+
+  // Header
+  const hdr=document.createElement('div');
+  hdr.className='preset-card-hdr';
+  hdr.innerHTML=`
+    <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
+    <span class="preset-name" title="点击切换，双击改名">${preset.name||'未命名'}</span>
+    <button class="btn-tiny" data-a="toggle">展开</button>
+    <button class="btn-tiny" data-a="del" style="color:var(--err);border-color:var(--err)">删</button>
+  `;
+  hdr.querySelector('.preset-check').onclick=()=>_setActive(preset,type);
+  const nameEl=hdr.querySelector('.preset-name');
+  nameEl.onclick=()=>_setActive(preset,type);
+  nameEl.ondblclick=()=>{const n=prompt('改名：',preset.name||'');if(n?.trim()){preset.name=n.trim();savePresetsToLS();renderDrawPresets();renderMasterPresets()}};
+  hdr.querySelector('[data-a="toggle"]').onclick=()=>{
+    const body=card.querySelector('.preset-body');
+    body.classList.toggle('open');
+    hdr.querySelector('[data-a="toggle"]').textContent=body.classList.contains('open')?'收起':'展开';
+  };
+  hdr.querySelector('[data-a="del"]').onclick=()=>{
+    if(!confirm(`删除预设"${preset.name}"？`)) return;
+    if(type==='draw'){S.drawPresets=S.drawPresets.filter(p=>p.id!==preset.id);if(S.curDrawId===preset.id)S.curDrawId=S.drawPresets[0]?.id||null}
+    else{S.masterPresets=S.masterPresets.filter(p=>p.id!==preset.id);if(S.curMasterId===preset.id)S.curMasterId=S.masterPresets[0]?.id||null}
+    savePresetsToLS();renderDrawPresets();renderMasterPresets();
+  };
+
+  // Meta
+  const meta=document.createElement('div');
+  meta.className='preset-meta';
+  meta.textContent=`${(preset.url||'未配置URL').replace(/^https?:\/\//,'').slice(0,34)} · ${preset.model||'未配置模型'}`;
+
+  // Body
+  const body=document.createElement('div');
+  body.className='preset-body';
+  const fmtRow=type==='draw'?`
+    <div class="preset-row"><label>格式</label>
+      <select data-f="format">
+        <option value="images" ${preset.format!=='chat'?'selected':''}>images（标准）</option>
+        <option value="chat" ${preset.format==='chat'?'selected':''}>chat（部分站子）</option>
+      </select>
+    </div>`:'' ;
+  body.innerHTML=`
+    <div class="preset-row"><label>Key</label><input type="password" data-f="key" value="${preset.key||''}" placeholder="sk-..."></div>
+    <div class="preset-row"><label>URL</label><input type="text" data-f="url" value="${preset.url||''}" placeholder="https://api.xxx.com/v1"></div>
+    <div class="preset-row"><label>模型</label><input type="text" data-f="model" value="${preset.model||''}" placeholder="${type==='draw'?'dall-e-3':'claude-opus-4-7'}"></div>
+    ${fmtRow}
+    <div class="preset-body-actions">
+      <button class="btn-primary btn-sm" data-a="save">保存</button>
+      <button class="btn-outline btn-sm" data-a="use">保存并切换</button>
+    </div>
+  `;
+  const doSave=()=>{
+    body.querySelectorAll('[data-f]').forEach(el=>{preset[el.dataset.f]=el.value.trim()});
+    savePresetsToLS();renderDrawPresets();renderMasterPresets();toast('预设已保存 ✓');
+  };
+  body.querySelector('[data-a="save"]').onclick=doSave;
+  body.querySelector('[data-a="use"]').onclick=()=>{doSave();_setActive(preset,type)};
+
+  card.append(hdr,meta,body);
+  return card;
+}
+
+function _setActive(preset,type){
+  if(type==='draw') S.curDrawId=preset.id;
+  else S.curMasterId=preset.id;
+  savePresetsToLS();
+  renderDrawPresets();renderMasterPresets();
+  toast(`已切换到"${preset.name}" ✓`);
+}
+
+function addDrawPreset(){
+  const p={id:uid(),name:'新画图预设',key:'',url:'',model:'dall-e-3',format:'images'};
+  S.drawPresets.push(p);if(!S.curDrawId) S.curDrawId=p.id;
+  savePresetsToLS();renderDrawPresets();
+  setTimeout(()=>card_expand(p.id),50);
+}
+function addMasterPreset(){
+  const p={id:uid(),name:'新大师预设',key:'',url:'',model:'claude-opus-4-7'};
+  S.masterPresets.push(p);if(!S.curMasterId) S.curMasterId=p.id;
+  savePresetsToLS();renderMasterPresets();
+  setTimeout(()=>card_expand(p.id),50);
+}
+function card_expand(pid){
+  // 找到新增的body展开
+  const all=document.querySelectorAll('.preset-body');
+  all.forEach(b=>{if(b.closest('.preset-card')?.querySelector(`[data-pid="${pid}"]`)) b.classList.add('open')});
+}
+
 function importFromApp(){
   const g=k=>localStorage.getItem(k)||'';
-  document.getElementById('set-image-key').value=g('imageApiKey');
-  document.getElementById('set-image-url').value=g('imageBaseUrl');
-  document.getElementById('set-image-model').value=g('imageModel');
-  document.getElementById('set-image-format').value=g('imageApiFormat')||'images';
-  document.getElementById('set-master-key').value=g('mainApiKey');
-  document.getElementById('set-master-url').value=g('mainApiBaseUrl');
-  document.getElementById('set-master-model').value='claude-opus-4-7';
-  toast('已从主App导入配置 ✓');
+  let added=0;
+  // 画图：读主App单一配置
+  const imgKey=g('imageApiKey'),imgUrl=g('imageBaseUrl'),imgModel=g('imageModel');
+  if(imgKey&&imgUrl&&!S.drawPresets.find(p=>p.key===imgKey)){
+    S.drawPresets.push({id:uid(),name:'主App画图',key:imgKey,url:imgUrl,model:imgModel||'dall-e-3',format:g('imageApiFormat')||'images'});
+    if(!S.curDrawId) S.curDrawId=S.drawPresets[0].id;
+    added++;
+  }
+  // 大师：读主App主API
+  const masterKey=g('mainApiKey'),masterUrl=g('mainApiBaseUrl');
+  if(masterKey&&!S.masterPresets.find(p=>p.key===masterKey)){
+    S.masterPresets.push({id:uid(),name:'主API（Claude）',key:masterKey,url:masterUrl,model:'claude-opus-4-7'});
+    if(!S.curMasterId) S.curMasterId=S.masterPresets[0].id;
+    added++;
+  }
+  if(added){savePresetsToLS();renderDrawPresets();renderMasterPresets();toast(`已导入 ${added} 个预设 ✓`);}
+  else toast('未检测到新的配置（或已存在）','warn');
 }
 
 // ── Tab & Modal ───────────────────────────────────────────────
@@ -1350,9 +1489,10 @@ function bindEvents(){
   document.getElementById('btn-delete-image').onclick=deleteDetail;
   // Settings
   document.getElementById('btn-settings').onclick=openSettings;
-  document.getElementById('btn-save-settings').onclick=()=>{saveCfg();closeModal('modal-settings')};
-  document.getElementById('btn-cancel-settings').onclick=()=>closeModal('modal-settings');
+  document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
   document.getElementById('btn-import-settings').onclick=importFromApp;
+  document.getElementById('btn-add-draw-preset').onclick=addDrawPreset;
+  document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
   // Master
   document.getElementById('btn-analyze').onclick=async()=>{
     const btn=document.getElementById('btn-analyze');
