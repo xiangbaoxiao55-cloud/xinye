@@ -329,6 +329,8 @@ export async function renderMessages() {
       img.complete ? Promise.resolve() : new Promise(r => { img.onload = img.onerror = r; })
     )).then(() => scrollBottom());
   }
+  // 兜底：字体/布局未稳定时 scrollBottom 可能失效，200ms 后强制一次
+  setTimeout(scrollBottom, 200);
 }
 
 export async function appendMsgDOM(msg) {
@@ -379,7 +381,11 @@ export async function appendMsgDOM(msg) {
 }
 
 export function scrollBottom() {
-  requestAnimationFrame(() => chatArea.scrollTop = chatArea.scrollHeight);
+  requestAnimationFrame(() => {
+    chatArea.style.scrollBehavior = 'auto';
+    chatArea.scrollTop = chatArea.scrollHeight;
+    requestAnimationFrame(() => { chatArea.style.scrollBehavior = ''; });
+  });
 }
 
 // ======================== 删除消息 & 编辑 & 点击 ========================
