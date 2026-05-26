@@ -243,12 +243,27 @@ export async function generateImage(userDesc) {
     dataUrl = _parseImg(imgData);
     console.log('[画图v2] 解析结果:', dataUrl ? dataUrl.slice(0,60)+'...' : 'null');
     if (dataUrl && dataUrl.startsWith('http')) {
-      try {
-        const _ur = await fetch(dataUrl);
+      const _urlToB64 = async (fetchUrl) => {
+        const _ur = await fetch(fetchUrl);
         const _ub = await _ur.blob();
-        dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
+        return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
+      };
+      try {
+        dataUrl = await _urlToB64(dataUrl);
         console.log('[画图v2] URL已转base64存储');
-      } catch(_ue) { console.warn('[画图v2] URL转base64失败，使用原URL:', _ue.message); }
+      } catch(_ue) {
+        console.warn('[画图v2] 直接fetch失败，尝试代理下载:', _ue.message);
+        const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        if (_lUrl) {
+          try {
+            const _proxyUrl = `${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(dataUrl)}`;
+            dataUrl = await _urlToB64(_proxyUrl);
+            console.log('[画图v2] 代理URL已转base64存储');
+          } catch(_pe) { console.warn('[画图v2] 代理下载也失败，使用原URL:', _pe.message); }
+        } else {
+          console.warn('[画图v2] 无代理服务器，使用原URL');
+        }
+      }
     }
     if (!dataUrl) {
       console.log('[画图v2] 完整返回:', JSON.stringify(imgData).slice(0, 500));
