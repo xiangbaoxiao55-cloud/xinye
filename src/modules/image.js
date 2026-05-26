@@ -254,14 +254,21 @@ export async function generateImage(userDesc) {
       } catch(_ue) {
         console.warn('[画图v2] 直接fetch失败，尝试代理下载:', _ue.message);
         const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        let _proxyOk = false;
         if (_lUrl) {
           try {
             const _proxyUrl = `${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(dataUrl)}`;
             dataUrl = await _urlToB64(_proxyUrl);
             console.log('[画图v2] 代理URL已转base64存储');
-          } catch(_pe) { console.warn('[画图v2] 代理下载也失败，使用原URL:', _pe.message); }
-        } else {
-          console.warn('[画图v2] 无代理服务器，使用原URL');
+            _proxyOk = true;
+          } catch(_pe) { console.warn('[画图v2] 本地代理失败，尝试Vercel代理:', _pe.message); }
+        }
+        if (!_proxyOk) {
+          try {
+            const _vercelProxy = `/api/img-proxy?url=${encodeURIComponent(dataUrl)}`;
+            dataUrl = await _urlToB64(_vercelProxy);
+            console.log('[画图v2] Vercel代理已转base64存储');
+          } catch(_ve) { console.warn('[画图v2] Vercel代理也失败，使用原URL:', _ve.message); }
         }
       }
     }
