@@ -245,6 +245,7 @@ export async function generateImage(userDesc) {
     if (dataUrl && dataUrl.startsWith('http')) {
       const _urlToB64 = async (fetchUrl) => {
         const _ur = await fetch(fetchUrl);
+        if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
         const _ub = await _ur.blob();
         return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
       };
@@ -268,7 +269,10 @@ export async function generateImage(userDesc) {
             const _vercelProxy = `/api/img-proxy?url=${encodeURIComponent(dataUrl)}`;
             dataUrl = await _urlToB64(_vercelProxy);
             console.log('[画图v2] Vercel代理已转base64存储');
-          } catch(_ve) { console.warn('[画图v2] Vercel代理也失败，使用原URL:', _ve.message); }
+          } catch(_ve) {
+            console.warn('[画图v2] 所有代理均失败，原URL无法在HTTPS页面显示:', _ve.message);
+            throw new Error('图片URL为HTTP，无法在HTTPS页面加载（小鸡站子返回的链接Vercel也无法中转），建议开cpolar后填imageProxyUrl再试');
+          }
         }
       }
     }
