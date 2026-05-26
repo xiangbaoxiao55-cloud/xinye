@@ -270,8 +270,9 @@ export async function generateImage(userDesc) {
             dataUrl = await _urlToB64(_vercelProxy);
             console.log('[画图v2] Vercel代理已转base64存储');
           } catch(_ve) {
-            console.warn('[画图v2] 所有代理均失败，原URL无法在HTTPS页面显示:', _ve.message);
-            throw new Error('图片URL为HTTP，无法在HTTPS页面加载（小鸡站子返回的链接Vercel也无法中转），建议开cpolar后填imageProxyUrl再试');
+            console.warn('[画图v2] 所有代理均失败，改存origUrl供手动打开:', _ve.message);
+            toast('图片无法内嵌显示，气泡里有链接可点击打开');
+            dataUrl = '__HTTP_URL__:' + dataUrl;
           }
         }
       }
