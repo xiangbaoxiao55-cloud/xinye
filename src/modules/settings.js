@@ -1037,6 +1037,56 @@ export function initSettings() {
   // ======================== 备份/导出/导入按钮 ========================
   $('#btnBackupToPhone').onclick = backupToPhone;
 
+  // 立即发推送测试
+  const _btnSendPushTest = $('#btnSendPushTest');
+  if (_btnSendPushTest) {
+    _btnSendPushTest.onclick = async () => {
+      const solUrl = (window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
+      if (!solUrl) { alert('请先填写本地服务器地址'); return; }
+      _btnSendPushTest.textContent = '发送中…';
+      try {
+        const r = await fetch(`${solUrl}/api/push-test`, { method: 'POST' });
+        const d = await r.json();
+        _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
+        if (d.ok) alert(`推送已发送（${d.sent}个订阅，代理：${d.proxyUsed ? '✅' : '❌'}）`);
+        else alert('发送失败：' + (d.reason || '未知'));
+      } catch(e) {
+        _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
+        alert('请求失败：' + e.message);
+      }
+    };
+  }
+
+  // 推送代理配置
+  const _inputPushProxy = $('#inputPushProxy');
+  const _btnSavePushProxy = $('#btnSavePushProxy');
+  if (_inputPushProxy && _btnSavePushProxy) {
+    const solUrl = () => (window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
+    // 加载当前代理地址
+    const _loadProxy = async () => {
+      const url = solUrl(); if (!url) return;
+      try {
+        const r = await fetch(`${url}/api/push-proxy`);
+        const d = await r.json();
+        _inputPushProxy.value = d.proxyUrl || '';
+        _inputPushProxy.placeholder = d.hasAgent ? '推送代理地址（如 http://127.0.0.1:7890）' : '代理模块未就绪';
+      } catch {}
+    };
+    _loadProxy();
+    _btnSavePushProxy.onclick = async () => {
+      const url = solUrl(); if (!url) { alert('请先填写本地服务器地址'); return; }
+      _btnSavePushProxy.textContent = '保存中…';
+      try {
+        await fetch(`${url}/api/push-proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proxyUrl: _inputPushProxy.value.trim() }) });
+        _btnSavePushProxy.textContent = '✓';
+        setTimeout(() => { _btnSavePushProxy.textContent = '保存'; }, 2000);
+      } catch(e) {
+        _btnSavePushProxy.textContent = '保存';
+        alert('保存失败：' + e.message);
+      }
+    };
+  }
+
   // 推送支持测试
   const _btnTestPush = $('#btnTestPush');
   if (_btnTestPush) {

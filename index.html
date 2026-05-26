@@ -872,6 +872,12 @@
       </div>
       <button class="btn-secondary" onclick="exportTTSCache()" style="width:100%;margin-top:8px">🎙️ 导出TTS缓存（训练素材）</button>
       <button class="btn-secondary" id="btnTestPush" style="width:100%;margin-top:8px">🔔 测试推送支持</button>
+      <button class="btn-secondary" id="btnSendPushTest" style="width:100%;margin-top:8px">📨 立即发一条推送（测试）</button>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+        <input type="text" id="inputPushProxy" placeholder="推送代理地址（如 http://127.0.0.1:7890）" style="flex:1;font-size:12px">
+        <button class="btn-secondary" id="btnSavePushProxy" style="white-space:nowrap;font-size:12px">保存</button>
+      </div>
+      <div class="hint" style="margin-top:4px">PC 发推送需连 Google FCM，被墙时填梯子代理地址</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         <button class="btn-secondary" id="btnDecoS" style="flex:1">👁️ 装修模式</button>
         <button class="btn-secondary" id="btnStickerS" style="flex:1">🩹 添加贴纸</button>
