@@ -574,9 +574,11 @@ textarea:focus{border-color:var(--purple)}
       <button id="btn-add-master-preset" class="btn-tiny">+ 添加</button>
     </div>
     <div id="master-presets-list"></div>
-    <div style="margin-top:16px;display:flex;gap:8px">
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="btn-import-settings" class="btn-outline">从主App导入</button>
-      <button id="btn-close-settings" class="btn-outline">关闭</button>
+      <button id="btn-export-config" class="btn-outline">导出配置</button>
+      <label class="btn-outline" style="cursor:pointer">导入配置<input type="file" id="input-import-config" accept=".json" style="display:none"></label>
+      <button id="btn-close-settings" class="btn-outline" style="margin-left:auto">关闭</button>
     </div>
   </div>
 </div>
@@ -1387,24 +1389,72 @@ function card_expand(pid){
 }
 
 function importFromApp(){
-  const g=k=>localStorage.getItem(k)||'';
+  // 主App画图预设：xinye_image_presets，字段{name,apiKey,baseUrl,model,apiFormat}
   let added=0;
-  // 画图：读主App单一配置
-  const imgKey=g('imageApiKey'),imgUrl=g('imageBaseUrl'),imgModel=g('imageModel');
-  if(imgKey&&imgUrl&&!S.drawPresets.find(p=>p.key===imgKey)){
-    S.drawPresets.push({id:uid(),name:'主App画图',key:imgKey,url:imgUrl,model:imgModel||'dall-e-3',format:g('imageApiFormat')||'images'});
-    if(!S.curDrawId) S.curDrawId=S.drawPresets[0].id;
-    added++;
-  }
-  // 大师：读主App主API
-  const masterKey=g('mainApiKey'),masterUrl=g('mainApiBaseUrl');
-  if(masterKey&&!S.masterPresets.find(p=>p.key===masterKey)){
-    S.masterPresets.push({id:uid(),name:'主API（Claude）',key:masterKey,url:masterUrl,model:'claude-opus-4-7'});
-    if(!S.curMasterId) S.curMasterId=S.masterPresets[0].id;
-    added++;
-  }
+  try{
+    const imgPresets=JSON.parse(localStorage.getItem('xinye_image_presets')||'[]');
+    for(const p of imgPresets){
+      if(!p.apiKey||!p.baseUrl) continue;
+      if(S.drawPresets.find(x=>x.key===p.apiKey&&x.url===p.baseUrl)) continue;
+      S.drawPresets.push({id:uid(),name:p.name||'画图预设',key:p.apiKey,url:p.baseUrl,model:p.model||'dall-e-3',format:p.apiFormat||'images'});
+      if(!S.curDrawId) S.curDrawId=S.drawPresets[S.drawPresets.length-1].id;
+      added++;
+    }
+  }catch(e){}
+  // 主App主API预设：xinye_api_presets，字段{name,apiKey,baseUrl,model}
+  try{
+    const apiPresets=JSON.parse(localStorage.getItem('xinye_api_presets')||'[]');
+    for(const p of apiPresets){
+      if(!p.apiKey) continue;
+      if(S.masterPresets.find(x=>x.key===p.apiKey)) continue;
+      S.masterPresets.push({id:uid(),name:p.name||'主API',key:p.apiKey,url:p.baseUrl||'',model:p.model||'claude-opus-4-7'});
+      if(!S.curMasterId) S.curMasterId=S.masterPresets[S.masterPresets.length-1].id;
+      added++;
+    }
+  }catch(e){}
   if(added){savePresetsToLS();renderDrawPresets();renderMasterPresets();toast(`已导入 ${added} 个预设 ✓`);}
-  else toast('未检测到新的配置（或已存在）','warn');
+  else toast('未找到主App预设，请先在主App设置里保存预设','warn');
+}
+
+async function exportConfig(){
+  const personas=await db.all('personas');
+  const allTokens=await db.all('tokens');
+  const templates=await db.all('templates');
+  // 只导出非默认词条（有createdAt且不在INIT_TOKENS里的）
+  const defaultIds=new Set(INIT_TOKENS.map(t=>t.id));
+  const customTokens=allTokens.filter(t=>!defaultIds.has(t.id));
+  const cfg={
+    _v:1,_app:'draw',_date:new Date().toISOString().slice(0,16).replace('T',' '),
+    drawPresets:S.drawPresets,curDrawId:S.curDrawId,
+    masterPresets:S.masterPresets,curMasterId:S.curMasterId,
+    personas,curPersonaId:S.curPersonaId,
+    customTokens,templates,
+  };
+  const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`draw_config_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+  toast('配置已导出 ✓（包含预设/人设/词条/模版，不含图库）');
+}
+
+async function importConfig(file){
+  try{
+    const text=await file.text();
+    const cfg=JSON.parse(text);
+    if(cfg._app!=='draw') throw new Error('不是画图台的配置文件');
+    if(cfg.drawPresets?.length){S.drawPresets=cfg.drawPresets;S.curDrawId=cfg.curDrawId||cfg.drawPresets[0]?.id}
+    if(cfg.masterPresets?.length){S.masterPresets=cfg.masterPresets;S.curMasterId=cfg.curMasterId||cfg.masterPresets[0]?.id}
+    if(cfg.personas?.length) for(const p of cfg.personas) await db.put('personas',p);
+    if(cfg.customTokens?.length) for(const t of cfg.customTokens) await db.put('tokens',t);
+    if(cfg.templates?.length) for(const t of cfg.templates) await db.put('templates',t);
+    savePresetsToLS();
+    loadCfg();
+    await loadPersonas();
+    await renderTokens();
+    renderDrawPresets();renderMasterPresets();
+    toast(`配置已导入 ✓（${cfg._date||''}）`);
+  }catch(e){toast('导入失败：'+e.message,'error')}
 }
 
 // ── Tab & Modal ───────────────────────────────────────────────
@@ -1491,6 +1541,8 @@ function bindEvents(){
   document.getElementById('btn-settings').onclick=openSettings;
   document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
   document.getElementById('btn-import-settings').onclick=importFromApp;
+  document.getElementById('btn-export-config').onclick=exportConfig;
+  document.getElementById('input-import-config').onchange=e=>{const f=e.target.files[0];if(f){importConfig(f);e.target.value=''}};
   document.getElementById('btn-add-draw-preset').onclick=addDrawPreset;
   document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
   // Master
