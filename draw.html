@@ -74,23 +74,8 @@ body{
 .tab-pane.active{display:flex;flex-direction:column}
 
 /* ── Studio ── */
-#tab-studio{flex-direction:row!important}
-#tokens-panel{
-  width:270px;min-width:270px;background:var(--sidebar);
-  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
-}
-.tokens-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;
-}
-.tokens-header span{font-weight:600;font-size:14px}
-#tokens-search{padding:8px 12px;flex-shrink:0}
-#tokens-search input{
-  width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);
-  background:var(--card);color:var(--text);font-size:13px;outline:none;
-}
-#tokens-search input:focus{border-color:var(--purple)}
-#tokens-categories{flex:1;overflow-y:auto;padding:4px 8px 12px}
+#tab-studio{flex-direction:column!important}
+#tokens-categories{padding:4px 0 4px}
 .token-section{margin-bottom:4px}
 .token-section-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -110,6 +95,16 @@ body{
 }
 .token-tag:hover{border-color:var(--purple);color:var(--text)}
 .token-tag.selected{background:var(--purple);border-color:var(--purple);color:#fff}
+
+/* ── Character chips ── */
+.char-chip{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+  border-radius:20px;background:var(--card2);color:var(--sub);font-size:13px;
+  cursor:pointer;border:2px solid var(--border);transition:.12s;user-select:none;
+}
+.char-chip.selected{background:var(--purple);border-color:var(--purple);color:#fff}
+.char-chip:hover:not(.selected){border-color:var(--purple);color:var(--text)}
+.char-chips-row{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
 
 /* ── Prompt Panel ── */
 #prompt-panel{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:12px;gap:10px}
@@ -354,7 +349,7 @@ textarea:focus{border-color:var(--purple)}
   <div id="sidebar">
     <div class="sidebar-brand">🎨</div>
     <div id="persona-list"></div>
-    <button id="btn-new-persona" class="sidebar-add" title="新建人设">＋</button>
+    <button id="btn-new-persona" class="sidebar-add" title="新建模板">＋</button>
     <div class="sidebar-footer">
       <button id="btn-settings" title="设置">⚙</button>
     </div>
@@ -370,56 +365,66 @@ textarea:focus{border-color:var(--purple)}
 
     <!-- 工作台 -->
     <div id="tab-studio" class="tab-pane active">
-      <!-- 词条库 -->
-      <div id="tokens-panel">
-        <div class="tokens-header">
-          <span>词条库</span>
-          <button id="btn-add-token" class="btn-tiny">+ 添加</button>
-        </div>
-        <div id="tokens-search">
-          <input type="text" id="token-search-input" placeholder="搜索词条...">
-        </div>
-        <div id="tokens-categories"></div>
-      </div>
-
-      <!-- Prompt构建区 -->
       <div id="prompt-panel">
+        <!-- 当前模板指示器 -->
         <div class="prompt-section">
           <div class="section-header">
-            <span>人设基础</span>
-            <span class="text-sub" id="current-persona-name">未选择人设</span>
+            <span>Prompt 模板</span>
+            <span class="text-sub" id="current-persona-name">未选择模板</span>
             <button id="btn-edit-persona-quick" class="btn-tiny" style="display:none">编辑</button>
           </div>
-          <div id="persona-base-prompt" class="prompt-base-display">在左侧选择或新建一个人设</div>
+          <div id="persona-base-prompt" class="prompt-base-display" style="font-size:11px;max-height:52px;overflow:hidden">在左侧选择或新建一个Prompt模板</div>
         </div>
 
+        <!-- 角色 chips (多选) -->
         <div class="prompt-section">
           <div class="section-header">
-            <span>组合词条</span>
-            <button id="btn-clear-tokens" class="btn-tiny">清空</button>
+            <span>角色</span>
+            <button id="btn-manage-chars" class="btn-tiny">管理角色</button>
           </div>
-          <div id="selected-tokens" class="selected-tokens-area"></div>
+          <div id="character-chips" class="char-chips-row"></div>
         </div>
 
+        <!-- 想画什么 + AI生成 -->
         <div class="prompt-section">
-          <div class="section-header"><span>补充描述</span></div>
-          <textarea id="extra-prompt" placeholder="手动输入额外描述..." rows="2"></textarea>
+          <div class="section-header"><span>想画什么？</span></div>
+          <textarea id="user-desc" placeholder="一句话描述你想要的画面..." rows="2"></textarea>
+          <div style="margin-top:8px">
+            <button id="btn-ai-gen" class="btn-primary">✨ AI 生成 Prompt</button>
+          </div>
         </div>
 
+        <!-- 正向 Prompt (可编辑) -->
         <div class="prompt-section">
           <div class="section-header">
-            <span>完整 Prompt</span>
+            <span>正向 Prompt</span>
             <button id="btn-copy-prompt" class="btn-tiny">复制</button>
-            <button id="btn-save-template" class="btn-tiny">存模版</button>
           </div>
-          <div id="final-prompt-preview" class="final-prompt">（空）</div>
+          <textarea id="final-prompt-edit" placeholder="AI生成的Prompt会出现在这里，也可以直接编辑..." rows="4"></textarea>
         </div>
 
+        <!-- 负向 Prompt -->
         <div class="prompt-section">
           <div class="section-header"><span>负向 Prompt</span></div>
           <textarea id="neg-prompt" placeholder="lowres, bad anatomy, watermark..." rows="2"></textarea>
         </div>
 
+        <!-- 词条库 (可折叠) -->
+        <div class="prompt-section">
+          <div class="section-header" id="tokens-toggle-hdr" style="cursor:pointer">
+            <span>词条库（可选附加）</span>
+            <button id="btn-add-token" class="btn-tiny" onclick="event.stopPropagation();openAddToken()">+ 添加</button>
+            <button id="btn-clear-tokens" class="btn-tiny" onclick="event.stopPropagation();clearTokens()">清空</button>
+            <span id="tokens-toggle-icon" style="color:var(--sub);font-size:11px;margin-left:2px">▶</span>
+          </div>
+          <div id="tokens-collapsible" style="display:none">
+            <input type="text" id="token-search-input" placeholder="搜索词条..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-bottom:6px">
+            <div id="tokens-categories"></div>
+            <div id="selected-tokens" class="selected-tokens-area" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <!-- 参数 + 生成 -->
         <div class="prompt-section">
           <div class="draw-params">
             <label>尺寸
@@ -434,7 +439,9 @@ textarea:focus{border-color:var(--purple)}
                 <option value="1024x1792">1024×1792 竖长</option>
                 <option value="1792x1024">1792×1024 横长</option>
                 <option value="1152x2048">1152×2048 竖2K</option>
+                <option value="1536x2048">1536×2048 竖2K</option>
                 <option value="2048x1152">2048×1152 横2K</option>
+                <option value="2048x1536">2048×1536 横2K</option>
                 <option value="2048x2048">2048×2048</option>
               </select>
             </label>
@@ -451,8 +458,9 @@ textarea:focus{border-color:var(--purple)}
               <button id="btn-clear-ref" class="btn-tiny" style="display:none">✕清除</button>
             </label>
           </div>
-          <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button id="btn-draw" class="btn-primary">✦ 生成图片</button>
+            <button id="btn-save-template" class="btn-outline">存模版</button>
             <button id="btn-load-template" class="btn-outline">读模版</button>
           </div>
         </div>
@@ -465,7 +473,7 @@ textarea:focus{border-color:var(--purple)}
     <div id="tab-gallery" class="tab-pane">
       <div id="gallery-toolbar">
         <div id="gallery-filters">
-          <select id="filter-persona"><option value="">全部人设</option></select>
+          <select id="filter-persona"><option value="">全部模板</option></select>
           <select id="filter-rating">
             <option value="">全部评分</option>
             <option value="5">5星</option>
@@ -475,6 +483,8 @@ textarea:focus{border-color:var(--purple)}
           <input type="text" id="filter-tag" placeholder="标签...">
         </div>
         <span class="gallery-stats" id="gallery-stats"></span>
+        <button id="btn-gallery-import" class="btn-outline" style="white-space:nowrap">📥 存入图库</button>
+        <button id="btn-analyze-aesthetic" class="btn-tiny" style="white-space:nowrap">✨ 分析偏好</button>
       </div>
       <div id="gallery-grid"></div>
     </div>
@@ -486,7 +496,7 @@ textarea:focus{border-color:var(--purple)}
           <span>✦ 审美洞察</span>
           <button id="btn-analyze" class="btn-tiny">分析我的偏好</button>
         </div>
-        <div id="master-insight-content" class="insight-content">给图片打分积累够了，我会帮你分析喜好 ✨</div>
+        <div id="master-insight-content" class="insight-content">把喜欢的图存入图库，点「分析我的偏好」→ AI帮你看图读出审美偏好 ✨</div>
       </div>
       <div id="master-chat"></div>
       <div id="master-input-area">
@@ -498,26 +508,21 @@ textarea:focus{border-color:var(--purple)}
   </div>
 </div>
 
-<!-- 人设弹窗 -->
+<!-- Prompt模板弹窗 -->
 <div id="modal-persona" class="modal-overlay" style="display:none">
   <div class="modal-box">
-    <h3 id="modal-persona-title">新建人设</h3>
+    <h3 id="modal-persona-title">新建 Prompt 模板</h3>
     <div class="form-group">
-      <label>名字</label>
-      <input type="text" id="persona-name-input" placeholder="人设名称">
+      <label>名称</label>
+      <input type="text" id="persona-name-input" placeholder="如：写真大师、动漫风格...">
     </div>
     <div class="form-group">
-      <label>头像</label>
-      <div class="avatar-picker">
-        <div id="persona-avatar-preview" class="avatar-preview">🎭</div>
-        <input type="file" id="persona-avatar-input" accept="image/*" style="display:none">
-        <button id="btn-pick-avatar" class="btn-tiny">选图</button>
-        <button id="btn-clear-avatar" class="btn-tiny">清除</button>
-      </div>
+      <label>图标（emoji）</label>
+      <input type="text" id="persona-icon-input" placeholder="🎨" maxlength="2" style="font-size:20px;width:60px;text-align:center">
     </div>
     <div class="form-group">
-      <label>基础 Prompt（外形描述）</label>
-      <textarea id="persona-base-input" placeholder="1girl, long silver hair, purple eyes, ..." rows="4" style="width:100%"></textarea>
+      <label>生成指导（告诉AI用什么风格写Prompt）</label>
+      <textarea id="persona-base-input" placeholder="你是专业AI绘画prompt工程师，擅长写真实感人像。收到角色描述和用户想法后，写出高质量英文prompt，突出光影、构图、氛围..." rows="5" style="width:100%"></textarea>
     </div>
     <div class="form-group">
       <label>默认负向 Prompt</label>
@@ -525,12 +530,55 @@ textarea:focus{border-color:var(--purple)}
     </div>
     <div class="form-group">
       <label>备注</label>
-      <textarea id="persona-notes-input" placeholder="关于这个人设的说明..." rows="2" style="width:100%"></textarea>
+      <textarea id="persona-notes-input" placeholder="关于这个模板的说明..." rows="2" style="width:100%"></textarea>
     </div>
     <div class="modal-actions">
       <button id="btn-save-persona" class="btn-primary">保存</button>
-      <button id="btn-delete-persona" class="btn-danger" style="display:none">删除人设</button>
+      <button id="btn-delete-persona" class="btn-danger" style="display:none">删除模板</button>
       <button id="btn-cancel-persona" class="btn-outline">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 角色管理弹窗 -->
+<div id="modal-chars" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <h3>角色管理</h3>
+    <div id="chars-list"></div>
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+      <h4 style="font-size:12px;color:var(--sub);margin-bottom:8px" id="char-form-title">添加角色</h4>
+      <div class="form-group"><label>名字</label><input type="text" id="char-name-input" placeholder="炘也、涂涂、臭宝..."></div>
+      <div class="form-group"><label>外形 Prompt</label><textarea id="char-prompt-input" placeholder="1girl, long black hair, golden eyes, ..." rows="3" style="width:100%"></textarea></div>
+      <div class="modal-actions" style="margin-top:8px">
+        <button id="btn-save-char" class="btn-primary btn-sm">保存角色</button>
+        <button id="btn-cancel-char-edit" class="btn-outline btn-sm" style="display:none">取消编辑</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:8px">
+      <button id="btn-close-chars" class="btn-outline">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 图库导入弹窗 -->
+<div id="modal-gallery-import" class="modal-overlay" style="display:none">
+  <div class="modal-box modal-sm">
+    <h3>存入图库</h3>
+    <div class="form-group">
+      <label>图片</label>
+      <input type="file" id="gallery-import-file" accept="image/*">
+    </div>
+    <div class="form-group">
+      <label>Prompt / 描述（可选）</label>
+      <textarea id="gallery-import-prompt" placeholder="这张图的描述或来源prompt..." rows="3" style="width:100%"></textarea>
+    </div>
+    <div class="form-group">
+      <label>来源备注（可选）</label>
+      <input type="text" id="gallery-import-source" placeholder="Twitter / 某某画师 / 本地...">
+    </div>
+    <div class="modal-actions">
+      <button id="btn-confirm-gallery-import" class="btn-primary">存入图库</button>
+      <button id="btn-cancel-gallery-import" class="btn-outline">取消</button>
     </div>
   </div>
 </div>
@@ -678,9 +726,11 @@ class DrawDB {
 const db=new DrawDB();
 const S={
   personas:[],curPersonaId:null,
+  characters:[],selCharIds:[],
+  aestheticProfile:'',
   selTokens:[],refB64:null,
   curDetail:null,masterHistory:[],
-  drawing:false,masterBusy:false,cfg:{},
+  drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
   drawPresets:[],curDrawId:null,
   masterPresets:[],curMasterId:null,
 };
@@ -743,13 +793,9 @@ function toast(msg,type='info'){
 const f2b=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
 
 function buildPrompt(){
-  const p=S.personas.find(x=>x.id===S.curPersonaId);
-  const parts=[];
-  if(p?.basePrompt) parts.push(p.basePrompt.trim());
-  if(S.selTokens.length) parts.push(S.selTokens.map(t=>t.text).join(', '));
-  const ex=(document.getElementById('extra-prompt')?.value||'').trim();
-  if(ex) parts.push(ex);
-  return parts.filter(Boolean).join(', ');
+  const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
+  const tokenPart=S.selTokens.map(t=>t.text).join(', ');
+  return [base,tokenPart].filter(Boolean).join(', ');
 }
 
 // ── API Config ────────────────────────────────────────────────
@@ -777,7 +823,7 @@ function savePresetsToLS(){
 async function doDraw(){
   if(S.drawing) return;
   const prompt=buildPrompt();
-  if(!prompt){toast('先构建Prompt','warn');return}
+  if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
   if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
 
   S.drawing=true;
@@ -899,6 +945,34 @@ async function saveToGallery(imageData,prompt,negPrompt,size){
   });
   toast('已存入图库 ✨');
 }
+
+function openGalleryImport(){
+  document.getElementById('gallery-import-file').value='';
+  document.getElementById('gallery-import-prompt').value='';
+  document.getElementById('gallery-import-source').value='';
+  document.getElementById('modal-gallery-import').style.display='flex';
+}
+async function confirmGalleryImport(){
+  const file=document.getElementById('gallery-import-file').files[0];
+  if(!file){toast('请选择图片','warn');return}
+  const imageData=await f2b(file);
+  const prompt=document.getElementById('gallery-import-prompt').value.trim();
+  const source=document.getElementById('gallery-import-source').value.trim();
+  await db.put('gallery',{
+    id:uid(),personaId:null,personaName:source||'外部导入',
+    imageData,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
+  });
+  closeModal('modal-gallery-import');
+  toast('图片已存入图库 ✨');
+  if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
+}
+
+function clearTokens(){
+  S.selTokens=[];
+  document.querySelectorAll('.token-tag.selected').forEach(el=>el.classList.remove('selected'));
+  renderSelectedTokens();
+}
+
 const dlImg=url=>{const a=document.createElement('a');a.href=url;a.download=`draw_${Date.now()}.png`;a.click()};
 
 // ── Master API ────────────────────────────────────────────────
@@ -943,26 +1017,177 @@ async function _callMasterWithPreset(preset,messages){
   const d=await r.json();return d.choices?.[0]?.message?.content||'';
 }
 
+// ── Character Presets ────────────────────────────────────────
+async function loadCharacters(){
+  S.characters=await db.getSetting('characters',[]);
+  renderCharacterChips();
+}
+async function saveCharacters(){
+  await db.setSetting('characters',S.characters);
+  renderCharacterChips();
+}
+function renderCharacterChips(){
+  const c=document.getElementById('character-chips');
+  if(!c) return;
+  c.innerHTML='';
+  if(!S.characters.length){
+    c.innerHTML='<span style="color:var(--sub);font-size:12px">还没有角色，点「管理角色」添加</span>';
+    return;
+  }
+  for(const ch of S.characters){
+    const chip=document.createElement('span');
+    chip.className='char-chip'+(S.selCharIds.includes(ch.id)?' selected':'');
+    chip.textContent=(ch.icon||'👤')+' '+ch.name;
+    chip.title='点击选中/取消';
+    chip.onclick=()=>{
+      const idx=S.selCharIds.indexOf(ch.id);
+      if(idx>=0) S.selCharIds.splice(idx,1);
+      else S.selCharIds.push(ch.id);
+      renderCharacterChips();
+    };
+    c.appendChild(chip);
+  }
+}
+
+let editingCharId=null;
+function openCharModal(){
+  editingCharId=null;
+  document.getElementById('char-form-title').textContent='添加角色';
+  document.getElementById('char-name-input').value='';
+  document.getElementById('char-prompt-input').value='';
+  document.getElementById('btn-cancel-char-edit').style.display='none';
+  renderCharList();
+  document.getElementById('modal-chars').style.display='flex';
+}
+function renderCharList(){
+  const list=document.getElementById('chars-list');
+  list.innerHTML='';
+  if(!S.characters.length){list.innerHTML='<div style="color:var(--sub);font-size:12px;padding:4px 0">还没有角色</div>';return}
+  for(const ch of S.characters){
+    const el=document.createElement('div');
+    el.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)';
+    el.innerHTML=`<span style="font-size:16px">${ch.icon||'👤'}</span><span style="flex:1;font-size:13px">${ch.name}</span>`;
+    const bEdit=document.createElement('button');bEdit.className='btn-tiny';bEdit.textContent='编辑';
+    bEdit.onclick=()=>{
+      editingCharId=ch.id;
+      document.getElementById('char-form-title').textContent='编辑角色：'+ch.name;
+      document.getElementById('char-name-input').value=ch.name;
+      document.getElementById('char-prompt-input').value=ch.prompt||'';
+      document.getElementById('btn-cancel-char-edit').style.display='';
+    };
+    const bDel=document.createElement('button');bDel.className='btn-tiny';bDel.style.color='var(--err)';bDel.textContent='删';
+    bDel.onclick=async()=>{
+      if(!confirm(`删除角色"${ch.name}"？`)) return;
+      S.characters=S.characters.filter(c=>c.id!==ch.id);
+      S.selCharIds=S.selCharIds.filter(id=>id!==ch.id);
+      await saveCharacters();renderCharList();
+    };
+    el.append(bEdit,bDel);list.appendChild(el);
+  }
+}
+async function saveChar(){
+  const name=document.getElementById('char-name-input').value.trim();
+  const prompt=document.getElementById('char-prompt-input').value.trim();
+  if(!name){toast('请输入角色名','warn');return}
+  if(editingCharId){
+    const ch=S.characters.find(c=>c.id===editingCharId);
+    if(ch){ch.name=name;ch.prompt=prompt;}
+  }else{
+    S.characters.push({id:uid(),name,prompt,icon:'👤'});
+  }
+  await saveCharacters();
+  editingCharId=null;
+  document.getElementById('char-form-title').textContent='添加角色';
+  document.getElementById('char-name-input').value='';
+  document.getElementById('char-prompt-input').value='';
+  document.getElementById('btn-cancel-char-edit').style.display='none';
+  renderCharList();
+  toast('角色已保存 ✓');
+}
+
+// ── Aesthetic Profile ────────────────────────────────────────
+async function loadAestheticProfile(){
+  S.aestheticProfile=await db.getSetting('aestheticProfile','')||'';
+  const el=document.getElementById('master-insight-content');
+  if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
+}
+
 async function analyzePreference(){
   const all=await db.all('gallery');
-  const hi=all.filter(g=>g.rating>=4);
-  if(hi.length<3){toast('需要至少3张4星以上的图片','warn');return}
-  const prompts=hi.slice(0,20).map(g=>`[${g.rating}★] ${g.prompt.slice(0,100)}`).join('\n');
+  if(all.length<3){toast('需要至少3张图片','warn');return}
+  // 优先取高分图，没有评分的也用，最多10张
+  const sorted=[...all].sort((a,b)=>(b.rating||0)-(a.rating||0));
+  const sample=sorted.slice(0,10);
+  // 构建视觉消息：每张图作为image block
+  const imgBlocks=sample.map(g=>({
+    type:'image',
+    source:{type:'base64',media_type:'image/png',data:g.imageData.replace(/^data:image\/\w+;base64,/,'')}
+  }));
+  const textBlock={type:'text',text:`这是用户存入图库的${sample.length}张图片。请分析她的审美偏好，写一份简洁的「审美档案」，100-200字，包括：风格偏好、色调/光影倾向、角色特征偏好、构图习惯。只输出档案正文，不要标题和分析过程。`};
   const msgs=[
-    {role:'system',content:'你是AI绘画审美顾问，分析用户图片偏好并给出风格总结和创作建议。中文回答，简洁有力。'},
-    {role:'user',content:`以下是用户${hi.length}张高分图的prompt：\n\n${prompts}\n\n请分析：\n1. 偏好的关键词和风格特征\n2. 构图/光影/情绪倾向\n3. 3条提升建议\n\n三部分，简洁。`}
+    {role:'system',content:'你是AI视觉审美分析师，善于从图片中读取用户的审美偏好。'},
+    {role:'user',content:[...imgBlocks,textBlock]}
   ];
   const result=await callMaster(msgs);
+  S.aestheticProfile=result;
+  await db.setSetting('aestheticProfile',result);
   document.getElementById('master-insight-content').innerHTML=miniMd(result);
+  toast('审美档案已更新 ✨');
+}
+
+// ── AI Generate Prompt ───────────────────────────────────────
+async function generatePromptWithAI(){
+  if(S.aiGenBusy) return;
+  const userDesc=(document.getElementById('user-desc')?.value||'').trim();
+  if(!userDesc){toast('请先输入想画什么','warn');return}
+  if(!S.masterPresets.length){toast('请先在设置里添加大师API预设','warn');return}
+
+  const template=S.personas.find(p=>p.id===S.curPersonaId);
+  const sysPrompt=template?.basePrompt?.trim()||
+    '你是专业AI绘画prompt工程师。根据角色描述、审美偏好和用户想法，写出精炼的英文prompt，直接输出prompt文本，不要解释。';
+
+  const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean)
+    .map(c=>`[角色：${c.name}] ${c.prompt||''}`)
+    .join('\n');
+
+  const parts=[];
+  if(charDesc) parts.push('角色描述：\n'+charDesc);
+  if(S.aestheticProfile) parts.push('用户审美档案：\n'+S.aestheticProfile);
+  parts.push('用户想要画的内容：'+userDesc);
+
+  S.aiGenBusy=true;
+  const btn=document.getElementById('btn-ai-gen');
+  btn.disabled=true;btn.textContent='✨ 生成中...';
+  const ta=document.getElementById('final-prompt-edit');
+  ta.value='';ta.placeholder='AI正在生成...';
+
+  try{
+    const msgs=[
+      {role:'system',content:sysPrompt},
+      {role:'user',content:parts.join('\n\n')}
+    ];
+    const result=await callMaster(msgs);
+    ta.value=result.trim();
+    // 填入模板的默认负向
+    if(template?.defaultNeg){
+      const neg=document.getElementById('neg-prompt');
+      if(!neg.value) neg.value=template.defaultNeg;
+    }
+    toast('Prompt已生成 ✨');
+  }catch(e){
+    toast('生成失败：'+e.message,'error');
+  }finally{
+    S.aiGenBusy=false;
+    btn.disabled=false;btn.textContent='✨ AI 生成 Prompt';
+    ta.placeholder='AI生成的Prompt会出现在这里，也可以直接编辑...';
+  }
 }
 
 async function masterSuggest(userInput){
-  const all=await db.all('gallery');
-  const hi=all.filter(g=>g.rating>=4).slice(0,8);
-  const p=S.personas.find(x=>x.id===S.curPersonaId);
   const ctx=[];
-  if(p) ctx.push(`当前人设：${p.name}，外形：${p.basePrompt?.slice(0,80)}`);
-  if(hi.length) ctx.push(`用户高分图prompt参考：\n${hi.slice(0,4).map(g=>'・'+g.prompt.slice(0,70)).join('\n')}`);
+  if(S.aestheticProfile) ctx.push('用户审美偏好：'+S.aestheticProfile.slice(0,200));
+  const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
+  if(charDesc) ctx.push('当前选中角色：'+charDesc);
   const msgs=[
     {role:'system',content:'你是AI绘画prompt大师。根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议'},
     ...S.masterHistory.slice(-6),
@@ -976,11 +1201,10 @@ async function masterSuggest(userInput){
 async function masterInspire(){
   const themes=['春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林'];
   const theme=themes[Math.floor(Math.random()*themes.length)];
-  const p=S.personas.find(x=>x.id===S.curPersonaId);
-  const pCtx=p?`（人设：${p.name}，${p.basePrompt?.slice(0,40)}）`:'';
+  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile.slice(0,100)}`:'';
   const msgs=[
     {role:'system',content:'你是AI绘画创意灵感师，善于创造充满诗意美感的画面。'},
-    {role:'user',content:`主题「${theme}」，给一个有创意的AI绘画方向${pCtx}。包括：场景氛围、构图想法、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
   return callMaster(msgs);
 }
@@ -1006,10 +1230,8 @@ function renderSidebar(){
     const el=document.createElement('div');
     el.className='persona-card'+(p.id===S.curPersonaId?' active':'');
     el.title=p.name+' (双击编辑)';
-    const av=p.avatar
-      ?`<img src="${p.avatar}" class="persona-avatar-img">`
-      :`<div class="persona-avatar-placeholder">${p.name.charAt(0)}</div>`;
-    el.innerHTML=`${av}<span class="persona-name">${p.name}</span>`;
+    const icon=p.icon||p.name.charAt(0);
+    el.innerHTML=`<div class="persona-avatar-placeholder" style="font-size:${p.icon?'22px':'18px'}">${icon}</div><span class="persona-name">${p.name}</span>`;
     el.addEventListener('click',()=>selectPersona(p.id));
     el.addEventListener('dblclick',()=>openPersonaModal(p.id));
     list.appendChild(el);
@@ -1065,10 +1287,7 @@ function renderSelectedTokens(){
   updateFinalPrompt();
 }
 
-function updateFinalPrompt(){
-  const el=document.getElementById('final-prompt-preview');
-  if(el) el.textContent=buildPrompt()||'（空）';
-}
+function updateFinalPrompt(){}
 
 async function renderGallery(){
   const grid=document.getElementById('gallery-grid');
@@ -1091,10 +1310,10 @@ async function renderGallery(){
     el.addEventListener('click',()=>openDetail(item));
     grid.appendChild(el);
   }
-  // 更新人设筛选
+  // 更新模板筛选
   const sel=document.getElementById('filter-persona');
   const cur=sel.value;
-  sel.innerHTML='<option value="">全部人设</option>';
+  sel.innerHTML='<option value="">全部模板</option>';
   S.personas.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o)});
   sel.value=cur;
 }
@@ -1104,12 +1323,14 @@ function selectPersona(id){
   S.curPersonaId=id;
   renderSidebar();
   const p=S.personas.find(x=>x.id===id);
-  document.getElementById('current-persona-name').textContent=p?.name||'未选择';
-  document.getElementById('persona-base-prompt').textContent=p?.basePrompt||'（暂无基础描述）';
-  if(p?.defaultNeg) document.getElementById('neg-prompt').value=p.defaultNeg;
+  document.getElementById('current-persona-name').textContent=p?.name||'未选择模板';
+  document.getElementById('persona-base-prompt').textContent=p?.basePrompt||'（暂无生成指导）';
+  if(p?.defaultNeg){
+    const neg=document.getElementById('neg-prompt');
+    if(!neg.value) neg.value=p.defaultNeg;
+  }
   const qBtn=document.getElementById('btn-edit-persona-quick');
   qBtn.style.display=id?'':'none';
-  updateFinalPrompt();
 }
 
 function toggleToken(token){
@@ -1130,26 +1351,23 @@ let editingPid=null;
 function openPersonaModal(id=null){
   editingPid=id;
   const p=id?S.personas.find(x=>x.id===id):null;
-  document.getElementById('modal-persona-title').textContent=id?'编辑人设':'新建人设';
+  document.getElementById('modal-persona-title').textContent=id?'编辑 Prompt 模板':'新建 Prompt 模板';
   document.getElementById('persona-name-input').value=p?.name||'';
+  document.getElementById('persona-icon-input').value=p?.icon||'';
   document.getElementById('persona-base-input').value=p?.basePrompt||'';
   document.getElementById('persona-neg-input').value=p?.defaultNeg||'';
   document.getElementById('persona-notes-input').value=p?.notes||'';
   document.getElementById('btn-delete-persona').style.display=id?'':'none';
-  const prev=document.getElementById('persona-avatar-preview');
-  prev.innerHTML=p?.avatar?`<img src="${p.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:'🎭';
   document.getElementById('modal-persona').style.display='flex';
   setTimeout(()=>document.getElementById('persona-name-input').focus(),100);
 }
 async function savePersona(){
   const name=document.getElementById('persona-name-input').value.trim();
-  if(!name){toast('请输入人设名字','warn');return}
-  const prev=document.getElementById('persona-avatar-preview');
-  const img=prev.querySelector('img');
-  const avatar=img?.src||'';
+  if(!name){toast('请输入模板名称','warn');return}
   const existing=editingPid?S.personas.find(p=>p.id===editingPid):null;
   const obj={
-    id:editingPid||uid(),name,avatar,
+    id:editingPid||uid(),name,
+    icon:document.getElementById('persona-icon-input').value.trim()||'🎨',
     basePrompt:document.getElementById('persona-base-input').value.trim(),
     defaultNeg:document.getElementById('persona-neg-input').value.trim(),
     notes:document.getElementById('persona-notes-input').value.trim(),
@@ -1159,17 +1377,17 @@ async function savePersona(){
   await loadPersonas();
   closeModal('modal-persona');
   selectPersona(obj.id);
-  toast(editingPid?'人设已更新 ✓':'人设已创建 ✨');
+  toast(editingPid?'模板已更新 ✓':'模板已创建 ✨');
 }
 async function deletePersona(){
   if(!editingPid) return;
   const p=S.personas.find(x=>x.id===editingPid);
-  if(!confirm(`确定删除人设"${p?.name}"？图库里的图片不会删除。`)) return;
+  if(!confirm(`确定删除模板"${p?.name}"？`)) return;
   await db.del('personas',editingPid);
   if(S.curPersonaId===editingPid) S.curPersonaId=null;
   await loadPersonas();
   closeModal('modal-persona');
-  toast('人设已删除');
+  toast('模板已删除');
 }
 
 // ── Token Modal ───────────────────────────────────────────────
@@ -1195,8 +1413,8 @@ async function saveTemplate(){
   await db.put('templates',{
     id:uid(),name:name.trim(),personaId:S.curPersonaId,
     tokens:[...S.selTokens],
+    prompt:document.getElementById('final-prompt-edit').value||'',
     negPrompt:document.getElementById('neg-prompt').value||'',
-    extraPrompt:document.getElementById('extra-prompt').value||'',
     size:document.getElementById('param-size').value||'1024x1024',
     createdAt:Date.now()
   });
@@ -1216,9 +1434,10 @@ async function openTemplates(){
       bLoad.className='btn-primary btn-sm';bLoad.textContent='载入';
       bLoad.onclick=()=>{
         S.selTokens=t.tokens?[...t.tokens]:[];
+        if(t.prompt) document.getElementById('final-prompt-edit').value=t.prompt;
         if(t.negPrompt) document.getElementById('neg-prompt').value=t.negPrompt;
-        if(t.extraPrompt) document.getElementById('extra-prompt').value=t.extraPrompt;
         if(t.size) document.getElementById('param-size').value=t.size;
+        if(t.personaId) selectPersona(t.personaId);
         renderSelectedTokens();
         document.querySelectorAll('.token-tag').forEach(el=>el.classList.toggle('selected',S.selTokens.some(s=>s.id===el.dataset.id)));
         closeModal('modal-templates');toast('模版已载入 ✨');
@@ -1278,7 +1497,7 @@ async function deleteDetail(){
 function useDetailPrompt(){
   if(!S.curDetail) return;
   switchTab('studio');
-  document.getElementById('extra-prompt').value=S.curDetail.prompt||'';
+  document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
   document.getElementById('neg-prompt').value=S.curDetail.negPrompt||'';
   S.selTokens=[];renderSelectedTokens();
   closeModal('modal-detail');toast('Prompt已载入工作台');
@@ -1495,32 +1714,40 @@ async function seedTokens(){
 function bindEvents(){
   // Tab
   document.querySelectorAll('.nav-tab').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
-  // Persona
+  // Template (persona)
   document.getElementById('btn-new-persona').onclick=()=>openPersonaModal();
   document.getElementById('btn-edit-persona-quick').onclick=()=>openPersonaModal(S.curPersonaId);
   document.getElementById('btn-save-persona').onclick=savePersona;
   document.getElementById('btn-delete-persona').onclick=deletePersona;
   document.getElementById('btn-cancel-persona').onclick=()=>closeModal('modal-persona');
-  document.getElementById('btn-pick-avatar').onclick=()=>document.getElementById('persona-avatar-input').click();
-  document.getElementById('btn-clear-avatar').onclick=()=>document.getElementById('persona-avatar-preview').innerHTML='🎭';
-  document.getElementById('persona-avatar-input').onchange=async e=>{
-    const f=e.target.files[0];if(!f) return;
-    document.getElementById('persona-avatar-preview').innerHTML=`<img src="${await f2b(f)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  // Characters
+  document.getElementById('btn-manage-chars').onclick=openCharModal;
+  document.getElementById('btn-save-char').onclick=saveChar;
+  document.getElementById('btn-cancel-char-edit').onclick=()=>{
+    editingCharId=null;
+    document.getElementById('char-form-title').textContent='添加角色';
+    document.getElementById('char-name-input').value='';
+    document.getElementById('char-prompt-input').value='';
+    document.getElementById('btn-cancel-char-edit').style.display='none';
+  };
+  document.getElementById('btn-close-chars').onclick=()=>closeModal('modal-chars');
+  // AI gen prompt
+  document.getElementById('btn-ai-gen').onclick=generatePromptWithAI;
+  // Tokens collapsible
+  document.getElementById('tokens-toggle-hdr').onclick=()=>{
+    const col=document.getElementById('tokens-collapsible');
+    const icon=document.getElementById('tokens-toggle-icon');
+    const open=col.style.display==='none';
+    col.style.display=open?'':'none';
+    icon.textContent=open?'▼':'▶';
+    if(open) renderTokens(document.getElementById('token-search-input').value);
   };
   // Tokens
-  document.getElementById('btn-add-token').onclick=openAddToken;
   document.getElementById('btn-save-token').onclick=saveToken;
   document.getElementById('btn-cancel-token').onclick=()=>closeModal('modal-token');
   document.getElementById('token-search-input').oninput=e=>renderTokens(e.target.value);
   document.getElementById('token-text-input').onkeydown=e=>{if(e.key==='Enter') saveToken()};
-  // Prompt
-  document.getElementById('extra-prompt').oninput=updateFinalPrompt;
-  document.getElementById('neg-prompt').oninput=()=>{};
-  document.getElementById('btn-clear-tokens').onclick=()=>{
-    S.selTokens=[];
-    document.querySelectorAll('.token-tag.selected').forEach(el=>el.classList.remove('selected'));
-    renderSelectedTokens();
-  };
+  // Prompt copy
   document.getElementById('btn-copy-prompt').onclick=()=>navigator.clipboard.writeText(buildPrompt()).then(()=>toast('已复制'));
   document.getElementById('btn-save-template').onclick=saveTemplate;
   document.getElementById('btn-load-template').onclick=openTemplates;
@@ -1540,11 +1767,14 @@ function bindEvents(){
   };
   // Draw
   document.getElementById('btn-draw').onclick=doDraw;
-  // Gallery filters
+  // Gallery
   ['filter-persona','filter-rating','filter-tag'].forEach(id=>{
     const el=document.getElementById(id);
     el.addEventListener(el.tagName==='INPUT'?'input':'change',renderGallery);
   });
+  document.getElementById('btn-gallery-import').onclick=openGalleryImport;
+  document.getElementById('btn-confirm-gallery-import').onclick=confirmGalleryImport;
+  document.getElementById('btn-cancel-gallery-import').onclick=()=>closeModal('modal-gallery-import');
   // Detail
   document.getElementById('btn-close-detail').onclick=()=>closeModal('modal-detail');
   document.getElementById('btn-use-prompt').onclick=useDetailPrompt;
@@ -1559,12 +1789,19 @@ function bindEvents(){
   document.getElementById('input-import-config').onchange=e=>{const f=e.target.files[0];if(f){importConfig(f);e.target.value=''}};
   document.getElementById('btn-add-draw-preset').onclick=addDrawPreset;
   document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
-  // Master
+  // Master tab - analyze
   document.getElementById('btn-analyze').onclick=async()=>{
     const btn=document.getElementById('btn-analyze');
     btn.disabled=true;btn.textContent='分析中...';
     try{await analyzePreference()}catch(e){toast(e.message,'error')}
     finally{btn.disabled=false;btn.textContent='分析我的偏好'}
+  };
+  // Gallery aesthetic analyze button
+  document.getElementById('btn-analyze-aesthetic').onclick=async()=>{
+    const btn=document.getElementById('btn-analyze-aesthetic');
+    btn.disabled=true;btn.textContent='分析中...';
+    try{await analyzePreference();switchTab('master')}catch(e){toast(e.message,'error')}
+    finally{btn.disabled=false;btn.textContent='✨ 分析偏好'}
   };
   document.getElementById('btn-master-send').onclick=async()=>{
     const input=document.getElementById('master-input');
@@ -1596,7 +1833,8 @@ async function init(){
   await seedTokens();
   loadCfg();
   await loadPersonas();
-  await renderTokens();
+  await loadCharacters();
+  await loadAestheticProfile();
   bindEvents();
 }
 init().catch(console.error);
