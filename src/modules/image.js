@@ -135,7 +135,7 @@ export async function generateImage(userDesc) {
         const f = new FormData();
         f.append('model', imgModel); f.append('prompt', prompt);
         f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
-        f.append('response_format', 'url');
+        f.append('response_format', 'b64_json');
         refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
         return f;
       };
