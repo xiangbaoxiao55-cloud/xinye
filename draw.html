@@ -900,6 +900,7 @@ async function doDraw(){
     let images,lastErr;
     for(let i=0;i<presets.length;i++){
       const preset=presets[(startIdx+i)%presets.length];
+      if(i>0 && preset.skipFallback) continue; // 跳过备用标记
       try{
         if(i>0) toast(`"${preset.name}"失败，切备用"${presets[(startIdx+i)%presets.length].name}"...`,'warn');
         const _refs=getAllRefs();
@@ -1052,6 +1053,7 @@ async function callMaster(messages){
   let lastErr;
   for(let i=0;i<presets.length;i++){
     const preset=presets[(startIdx+i)%presets.length];
+    if(i>0 && preset.skipFallback) continue; // 跳过备用标记
     try{
       if(i>0) toast(`大师切换到"${preset.name}"...`,'warn');
       return await _callMasterWithPreset(preset,messages);
@@ -1738,6 +1740,8 @@ function _buildPresetCard(preset,isActive,type){
   hdr.innerHTML=`
     <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
     <span class="preset-name" title="点击切换，双击改名">${preset.name||'未命名'}</span>
+    <button class="btn-tiny" data-a="up" title="上移" style="padding:2px 5px">▲</button>
+    <button class="btn-tiny" data-a="dn" title="下移" style="padding:2px 5px">▼</button>
     <button class="btn-tiny" data-a="toggle">展开</button>
     <button class="btn-tiny" data-a="del" style="color:var(--err);border-color:var(--err)">删</button>
   `;
@@ -1751,6 +1755,16 @@ function _buildPresetCard(preset,isActive,type){
     const n=prompt('改名：',cur.name||'');
     if(n?.trim()){cur.name=n.trim();savePresetsToLS();renderDrawPresets();renderMasterPresets()}
   };
+  const _movePreset=(delta)=>{
+    const arr=type==='draw'?S.drawPresets:S.masterPresets;
+    const idx=arr.findIndex(p=>p.id===preset.id);
+    const to=idx+delta;
+    if(to<0||to>=arr.length) return;
+    [arr[idx],arr[to]]=[arr[to],arr[idx]];
+    savePresetsToLS();renderDrawPresets();renderMasterPresets();
+  };
+  hdr.querySelector('[data-a="up"]').onclick=()=>_movePreset(-1);
+  hdr.querySelector('[data-a="dn"]').onclick=()=>_movePreset(1);
   hdr.querySelector('[data-a="toggle"]').onclick=()=>{
     const body=card.querySelector('.preset-body');
     body.classList.toggle('open');
@@ -1783,13 +1797,23 @@ function _buildPresetCard(preset,isActive,type){
     <div class="preset-row"><label>URL</label><input type="text" data-f="url" value="${preset.url||''}" placeholder="https://api.xxx.com/v1"></div>
     <div class="preset-row"><label>模型</label><input type="text" data-f="model" value="${preset.model||''}" placeholder="${type==='draw'?'dall-e-3':'claude-opus-4-7'}"></div>
     ${fmtRow}
+    <div class="preset-row" style="gap:8px;align-items:center">
+      <label style="min-width:40px;text-align:right">备用</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
+        <input type="checkbox" data-f="skipFallback" ${preset.skipFallback?'checked':''} style="width:auto;flex:none">
+        跳过自动备用（保留在列表但失败时不轮询）
+      </label>
+    </div>
     <div class="preset-body-actions">
       <button class="btn-primary btn-sm" data-a="save">保存</button>
       <button class="btn-outline btn-sm" data-a="use">保存并切换</button>
     </div>
   `;
   const doSave=()=>{
-    body.querySelectorAll('[data-f]').forEach(el=>{preset[el.dataset.f]=el.value.trim()});
+    body.querySelectorAll('[data-f]').forEach(el=>{
+      if(el.type==='checkbox') preset[el.dataset.f]=el.checked;
+      else preset[el.dataset.f]=el.value.trim();
+    });
     savePresetsToLS();renderDrawPresets();renderMasterPresets();toast('预设已保存 ✓');
   };
   body.querySelector('[data-a="save"]').onclick=doSave;
