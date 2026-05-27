@@ -779,7 +779,8 @@ const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],
-  selTokens:[],refB64:null,
+  selTokens:[],
+  refB64:null,selRefCharIds:[],customRefB64:null,
   curDetail:null,masterHistory:[],
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
   drawPresets:[],curDrawId:null,
@@ -1088,6 +1089,50 @@ async function saveCharacters(){
   renderCharacterChips();
   renderRefQuickSelect();
 }
+async function computeCompositeRef(){
+  const sources=[];
+  for(const id of S.selRefCharIds){
+    const ch=S.characters.find(c=>c.id===id);
+    if(ch?.refImage) sources.push({label:ch.name,b64:ch.refImage});
+  }
+  if(S.customRefB64) sources.push({label:'自选',b64:S.customRefB64});
+
+  if(!sources.length){S.refB64=null;_updateRefLabel();return}
+  if(sources.length===1){S.refB64=sources[0].b64;_updateRefLabel();return}
+
+  // 多张：Canvas 横拼，统一高度512px
+  const H=512;
+  const imgs=await Promise.all(sources.map(s=>new Promise(res=>{
+    const img=new Image();img.onload=()=>res(img);img.src=s.b64;
+  })));
+  const totalW=imgs.reduce((sum,img)=>sum+img.naturalWidth*(H/img.naturalHeight),0);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(totalW);canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  let x=0;
+  for(const img of imgs){
+    const w=img.naturalWidth*(H/img.naturalHeight);
+    ctx.drawImage(img,x,0,w,H);x+=w;
+  }
+  S.refB64=canvas.toDataURL('image/png');
+  _updateRefLabel();
+}
+
+function _updateRefLabel(){
+  const total=(S.selRefCharIds.length)+(S.customRefB64?1:0);
+  const pickBtn=document.getElementById('btn-pick-ref');
+  const clearBtn=document.getElementById('btn-clear-ref');
+  if(!pickBtn) return;
+  if(total===0){pickBtn.textContent='选图';clearBtn.style.display='none';}
+  else if(total===1&&S.customRefB64&&!S.selRefCharIds.length){pickBtn.textContent='自选图';clearBtn.style.display='';}
+  else{
+    const names=S.selRefCharIds.map(id=>S.characters.find(c=>c.id===id)?.name||'').filter(Boolean);
+    if(S.customRefB64) names.push('自选');
+    pickBtn.textContent=names.join('+')+' ×'+total;
+    clearBtn.style.display='';
+  }
+}
+
 function renderRefQuickSelect(){
   const row=document.getElementById('ref-char-row');
   if(!row) return;
@@ -1096,23 +1141,17 @@ function renderRefQuickSelect(){
   if(!charsWithRef.length) return;
   for(const ch of charsWithRef){
     const btn=document.createElement('button');
-    btn.className='ref-char-btn'+(S.refB64===ch.refImage?' active':'');
-    btn.title=`用${ch.name}的参考图垫图`;
+    const active=S.selRefCharIds.includes(ch.id);
+    btn.className='ref-char-btn'+(active?' active':'');
+    btn.title=active?`取消${ch.name}参考图`:`添加${ch.name}参考图`;
     const img=document.createElement('img');
     img.src=ch.refImage;img.className='ref-char-thumb';
     btn.append(img,document.createTextNode(ch.name));
-    btn.onclick=()=>{
-      if(S.refB64===ch.refImage){
-        // 再点取消
-        S.refB64=null;
-        document.getElementById('ref-image-input').value='';
-        document.getElementById('btn-pick-ref').textContent='选图';
-        document.getElementById('btn-clear-ref').style.display='none';
-      }else{
-        S.refB64=ch.refImage;
-        document.getElementById('btn-pick-ref').textContent=ch.name+'参考图';
-        document.getElementById('btn-clear-ref').style.display='';
-      }
+    btn.onclick=async()=>{
+      const idx=S.selRefCharIds.indexOf(ch.id);
+      if(idx>=0) S.selRefCharIds.splice(idx,1);
+      else S.selRefCharIds.push(ch.id);
+      await computeCompositeRef();
       renderRefQuickSelect();
     };
     row.appendChild(btn);
@@ -1209,8 +1248,24 @@ async function saveChar(){
 async function loadAestheticProfile(){
   S.aestheticProfile=await db.getSetting('aestheticProfile','')||'';
   S.lastAnalyzedIds=await db.getSetting('lastAnalyzedIds',[])||[];
+  S.masterHistory=await db.getSetting('masterHistory',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
+  // 恢复历史对话气泡（只显示，不重新添加到history）
+  const chat=document.getElementById('master-chat');
+  if(chat&&S.masterHistory.length){
+    for(const m of S.masterHistory){
+      const div=document.createElement('div');
+      div.className=`master-msg master-msg-${m.role}`;
+      div.innerHTML=miniMd(m.content);
+      const del=document.createElement('button');
+      del.className='msg-del';del.textContent='✕';del.title='删除这条';
+      del.onclick=e=>{e.stopPropagation();div.remove()};
+      div.appendChild(del);
+      chat.appendChild(div);
+    }
+    chat.scrollTop=chat.scrollHeight;
+  }
 }
 
 async function analyzePreference(){
@@ -1313,11 +1368,14 @@ async function masterSuggest(userInput){
   if(charDesc) ctx.push('当前选中角色：'+charDesc);
   const msgs=[
     {role:'system',content:'你是AI绘画prompt大师。根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议'},
-    ...S.masterHistory.slice(-6),
+    ...S.masterHistory.slice(-10),
     {role:'user',content:`${ctx.join('\n')}\n\n用户想法：${userInput}`}
   ];
   const result=await callMaster(msgs);
   S.masterHistory.push({role:'user',content:userInput},{role:'assistant',content:result});
+  // 只保留最近20条，存IDB
+  if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
+  db.setSetting('masterHistory',S.masterHistory);
   return result;
 }
 
@@ -1920,14 +1978,16 @@ function bindEvents(){
   document.getElementById('btn-pick-ref').onclick=()=>document.getElementById('ref-image-input').click();
   document.getElementById('ref-image-input').onchange=async e=>{
     const f=e.target.files[0];if(!f) return;
-    S.refB64=await f2b(f);
-    document.getElementById('btn-pick-ref').textContent=f.name.slice(0,12)+'…';
-    document.getElementById('btn-clear-ref').style.display='';
+    S.customRefB64=await f2b(f);
+    e.target.value='';
+    await computeCompositeRef();
+    renderRefQuickSelect();
   };
-  document.getElementById('btn-clear-ref').onclick=()=>{
-    S.refB64=null;document.getElementById('ref-image-input').value='';
-    document.getElementById('btn-pick-ref').textContent='选图';
-    document.getElementById('btn-clear-ref').style.display='none';
+  document.getElementById('btn-clear-ref').onclick=async()=>{
+    S.refB64=null;S.customRefB64=null;S.selRefCharIds=[];
+    document.getElementById('ref-image-input').value='';
+    _updateRefLabel();
+    renderRefQuickSelect();
   };
   // Draw
   document.getElementById('btn-draw').onclick=doDraw;
@@ -1962,7 +2022,11 @@ function bindEvents(){
   document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
   // Master tab
   document.getElementById('btn-clear-master-chat').onclick=()=>{
-    if(confirm('清空大师对话？')) {document.getElementById('master-chat').innerHTML='';S.masterHistory=[];}
+    if(confirm('清空大师对话？')) {
+      document.getElementById('master-chat').innerHTML='';
+      S.masterHistory=[];
+      db.setSetting('masterHistory',[]);
+    }
   };
   document.getElementById('btn-analyze').onclick=async()=>{
     const btn=document.getElementById('btn-analyze');
