@@ -619,6 +619,7 @@
         <option value="mosi">MOSI-TTS 云端（音色克隆）</option>
         <option value="minimax">MiniMax TTS 云端</option>
         <option value="omnivoice">OmniVoice 本地（音色克隆）</option>
+        <option value="mimo">Mimo TTS 云端（音色克隆·免代理）</option>
       </select>
     </div>
     <div class="setting-group">
@@ -737,6 +738,27 @@
       <div class="setting-group">
         <label>Voice ID（克隆音色的ID）</label>
         <input type="text" id="setMosiVoiceId" placeholder="2035277427344674816">
+      </div>
+    </div>
+    <!-- Mimo TTS 字段 -->
+    <div id="mimoFields">
+      <div class="setting-group">
+        <label>Mimo API Key</label>
+        <input type="password" id="setMimoKey" placeholder="sk-...">
+      </div>
+      <div class="setting-group">
+        <label>参考音频（声音克隆样本）</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" onclick="document.getElementById('mimoRefAudioInput').click()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:13px">上传参考音频</button>
+          <span id="mimoRefAudioStatus" style="font-size:13px;opacity:0.7">未上传</span>
+        </div>
+        <input type="file" id="mimoRefAudioInput" accept="audio/*" style="display:none">
+        <div class="hint">建议5~10秒清晰录音，WAV / MP3 均可，上传后缓存在本地</div>
+      </div>
+      <div class="setting-group">
+        <label>风格指令（可选）</label>
+        <input type="text" id="setMimoStylePrompt" placeholder="例：用温柔慵懒的语气说">
+        <div class="hint">留空使用默认风格；改变情绪时修改此处</div>
       </div>
     </div>
     <!-- 本地 TTS 字段 -->

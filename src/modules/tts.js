@@ -4,6 +4,8 @@ import { dbGet, dbPut, dbGetAll, dbGetAllKeys } from './db.js';
 
 let currentAudio = null;
 let _ttsGenerating = new Map();
+let _mimoRefBase64 = null;
+export function clearMimoRefCache() { _mimoRefBase64 = null; }
 const _ttsQueue = [];
 let _ttsQueueRunning = false;
 
@@ -163,6 +165,38 @@ export async function generateTTSBlob(text) {
     const bin = atob(b64); const arr = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
     return new Blob([arr], { type: 'audio/mpeg' });
+  }
+  if (settings.ttsType === 'mimo') {
+    if (!settings.mimoKey) { toast('请先填写 Mimo API Key'); return null; }
+    if (!_mimoRefBase64) {
+      const refBlob = await dbGet('images', 'mimoRefAudio');
+      if (!refBlob) { toast('请先在设置中上传 Mimo 参考音频'); return null; }
+      _mimoRefBase64 = await new Promise(resolve => {
+        const r = new FileReader();
+        r.onload = e => resolve(e.target.result);
+        r.readAsDataURL(refBlob);
+      });
+    }
+    const res = await fetchWithTimeout('https://api.xiaomimimo.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'api-key': settings.mimoKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'mimo-v2.5-tts-voiceclone',
+        messages: [
+          { role: 'user', content: settings.mimoStylePrompt || '' },
+          { role: 'assistant', content: text }
+        ],
+        audio: { format: 'wav', voice: _mimoRefBase64 }
+      })
+    }, 60000);
+    if (!res.ok) throw new Error(`Mimo TTS HTTP ${res.status}`);
+    const j = await res.json();
+    const audioData = j.choices?.[0]?.message?.audio?.data;
+    if (!audioData) throw new Error('Mimo TTS 未返回音频，请检查 API Key 和参考音频');
+    const bin = atob(audioData);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'audio/wav' });
   }
   if (!settings.ttsUrl) { toast('请先在设置中配置 TTS API 地址'); return null; }
   // GPT-SoVITS 不支持 <#X#> 停顿标记和 (sighs) 等语气词，剥掉避免念出来

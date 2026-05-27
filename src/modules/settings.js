@@ -163,6 +163,12 @@ export async function openSettings() {
   $('#setDoubaoProxy').value = settings.doubaoProxy || '';
   $('#setMosiKey').value = settings.mosiKey || '';
   $('#setMosiVoiceId').value = settings.mosiVoiceId || '';
+  $('#setMimoKey').value = settings.mimoKey || '';
+  $('#setMimoStylePrompt').value = settings.mimoStylePrompt || '';
+  dbGet('images', 'mimoRefAudio').then(b => {
+    const el = document.getElementById('mimoRefAudioStatus');
+    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
+  });
   $('#setMinimaxKey').value = settings.minimaxKey || '';
   $('#setMinimaxGroupId').value = settings.minimaxGroupId || '';
   $('#setMinimaxVoiceId').value = settings.minimaxVoiceId || '';
@@ -399,11 +405,13 @@ export function updateTtsTypeUI() {
   const mosi = $('#mosiFields');
   const omnivoice = $('#omnivoiceFields');
   const minimax = $('#minimaxFields');
+  const mimo = $('#mimoFields');
   if (doubao) doubao.style.display = type === 'doubao' ? '' : 'none';
   if (local) local.style.display = type === 'local' ? '' : 'none';
   if (mosi) mosi.style.display = type === 'mosi' ? '' : 'none';
   if (omnivoice) omnivoice.style.display = type === 'omnivoice' ? '' : 'none';
   if (minimax) minimax.style.display = type === 'minimax' ? '' : 'none';
+  if (mimo) mimo.style.display = type === 'mimo' ? '' : 'none';
 }
 
 // ======================== 音色预设管理 ========================
@@ -870,6 +878,8 @@ export function initSettings() {
     settings.doubaoProxy = $('#setDoubaoProxy').value.trim();
     settings.mosiKey = $('#setMosiKey').value.trim();
     settings.mosiVoiceId = $('#setMosiVoiceId').value.trim();
+    settings.mimoKey = $('#setMimoKey').value.trim();
+    settings.mimoStylePrompt = $('#setMimoStylePrompt').value.trim();
     settings.minimaxKey = $('#setMinimaxKey').value.trim();
     settings.minimaxGroupId = $('#setMinimaxGroupId').value.trim();
     settings.minimaxVoiceId         = $('#setMinimaxVoiceId').value.trim();
@@ -1012,6 +1022,19 @@ export function initSettings() {
       toast(s.label + '已清除');
     });
   }
+
+  // Mimo 参考音频上传
+  document.getElementById('mimoRefAudioInput')?.addEventListener('change', async function() {
+    const file = this.files[0];
+    if (!file) return;
+    await dbPut('images', 'mimoRefAudio', file);
+    const { clearMimoRefCache } = await import('./tts.js');
+    clearMimoRefCache();
+    const el = document.getElementById('mimoRefAudioStatus');
+    if (el) el.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(0)}KB)`;
+    toast('Mimo 参考音频已保存');
+    this.value = '';
+  });
 
   // ======================== 智能清空 ========================
   $('#btnClear').onclick = async () => {
