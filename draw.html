@@ -244,6 +244,9 @@ textarea:focus{border-color:var(--purple)}
 .ref-char-btn.active{border-color:var(--purple);background:rgba(139,92,246,.15);color:var(--text)}
 .ref-char-thumb{width:20px;height:20px;border-radius:50%;object-fit:cover}
 .ref-char-icon{width:20px;height:20px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12px}
+.custom-ref-wrap{position:relative;display:inline-flex}
+.custom-ref-thumb{width:40px;height:40px;object-fit:cover;border-radius:var(--rs);border:1px solid var(--border)}
+.custom-ref-del{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--err);border:none;color:#fff;font-size:10px;cursor:pointer;padding:0;line-height:1;display:flex;align-items:center;justify-content:center}
 
 /* ── Buttons ── */
 .btn-primary{
@@ -481,12 +484,13 @@ textarea:focus{border-color:var(--purple)}
               </select>
             </label>
             <label>垫图
-              <input type="file" id="ref-image-input" accept="image/*" style="display:none">
-              <button id="btn-pick-ref" class="btn-tiny">选图</button>
-              <button id="btn-clear-ref" class="btn-tiny" style="display:none">✕清除</button>
+              <input type="file" id="ref-image-input" accept="image/*" style="display:none" multiple>
+              <button id="btn-pick-ref" class="btn-tiny">＋ 追加图</button>
+              <button id="btn-clear-ref" class="btn-tiny" style="display:none">✕ 全清</button>
             </label>
           </div>
           <div id="ref-char-row"></div>
+          <div id="custom-ref-strip" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button id="btn-draw" class="btn-primary">✦ 生成图片</button>
             <button id="btn-save-template" class="btn-outline">存模版</button>
@@ -780,7 +784,7 @@ const S={
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],
   selTokens:[],
-  refB64:null,selRefCharIds:[],customRefB64:null,
+  selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
   drawPresets:[],curDrawId:null,
@@ -898,7 +902,8 @@ async function doDraw(){
       const preset=presets[(startIdx+i)%presets.length];
       try{
         if(i>0) toast(`"${preset.name}"失败，切备用"${presets[(startIdx+i)%presets.length].name}"...`,'warn');
-        if(S.refB64) images=await _callEdits(preset,prompt,negPrompt,size,S.refB64,n);
+        const _refs=getAllRefs();
+        if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,n);
         else if(preset.format==='chat') images=await _callChat(preset,prompt,n);
         else images=await _callGenerations(preset,prompt,negPrompt,size,n);
         break;
@@ -964,15 +969,17 @@ async function _callChat(preset,prompt,n){
   return results;
 }
 
-async function _callEdits(preset,prompt,negPrompt,size,b64,n){
+async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
-  const raw=b64.replace(/^data:image\/\w+;base64,/,'');
-  const bin=atob(raw);const bytes=new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-  const blob=new Blob([bytes],{type:'image/png'});
   const fd=new FormData();
-  fd.append('image',blob,'ref.png');fd.append('model',model||'dall-e-3');
+  for(let i=0;i<refB64s.length;i++){
+    const raw=refB64s[i].replace(/^data:image\/\w+;base64,/,'');
+    const bin=atob(raw);const bytes=new Uint8Array(bin.length);
+    for(let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
+    fd.append('image[]',new Blob([bytes],{type:'image/png'}),`ref${i}.png`);
+  }
+  fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
   if(negPrompt) fd.append('negative_prompt',negPrompt);
   const r=await fetch(`${url}/images/edits`,{
@@ -1082,80 +1089,67 @@ async function _callMasterWithPreset(preset,messages){
 async function loadCharacters(){
   S.characters=await db.getSetting('characters',[]);
   renderCharacterChips();
-  renderRefQuickSelect();
+  renderRefArea();
 }
 async function saveCharacters(){
   await db.setSetting('characters',S.characters);
   renderCharacterChips();
-  renderRefQuickSelect();
+  renderRefArea();
 }
-async function computeCompositeRef(){
-  const sources=[];
+function getAllRefs(){
+  const refs=[];
   for(const id of S.selRefCharIds){
     const ch=S.characters.find(c=>c.id===id);
-    if(ch?.refImage) sources.push({label:ch.name,b64:ch.refImage});
+    if(ch?.refImage) refs.push(ch.refImage);
   }
-  if(S.customRefB64) sources.push({label:'自选',b64:S.customRefB64});
-
-  if(!sources.length){S.refB64=null;_updateRefLabel();return}
-  if(sources.length===1){S.refB64=sources[0].b64;_updateRefLabel();return}
-
-  // 多张：Canvas 横拼，统一高度512px
-  const H=512;
-  const imgs=await Promise.all(sources.map(s=>new Promise(res=>{
-    const img=new Image();img.onload=()=>res(img);img.src=s.b64;
-  })));
-  const totalW=imgs.reduce((sum,img)=>sum+img.naturalWidth*(H/img.naturalHeight),0);
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.round(totalW);canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  let x=0;
-  for(const img of imgs){
-    const w=img.naturalWidth*(H/img.naturalHeight);
-    ctx.drawImage(img,x,0,w,H);x+=w;
-  }
-  S.refB64=canvas.toDataURL('image/png');
-  _updateRefLabel();
+  refs.push(...S.customRefB64s);
+  return refs;
 }
 
-function _updateRefLabel(){
-  const total=(S.selRefCharIds.length)+(S.customRefB64?1:0);
-  const pickBtn=document.getElementById('btn-pick-ref');
-  const clearBtn=document.getElementById('btn-clear-ref');
-  if(!pickBtn) return;
-  if(total===0){pickBtn.textContent='选图';clearBtn.style.display='none';}
-  else if(total===1&&S.customRefB64&&!S.selRefCharIds.length){pickBtn.textContent='自选图';clearBtn.style.display='';}
-  else{
-    const names=S.selRefCharIds.map(id=>S.characters.find(c=>c.id===id)?.name||'').filter(Boolean);
-    if(S.customRefB64) names.push('自选');
-    pickBtn.textContent=names.join('+')+' ×'+total;
-    clearBtn.style.display='';
-  }
-}
-
-function renderRefQuickSelect(){
+function renderRefArea(){
+  // 角色参考图chips
   const row=document.getElementById('ref-char-row');
-  if(!row) return;
-  const charsWithRef=S.characters.filter(ch=>ch.refImage);
-  row.innerHTML='';
-  if(!charsWithRef.length) return;
-  for(const ch of charsWithRef){
-    const btn=document.createElement('button');
-    const active=S.selRefCharIds.includes(ch.id);
-    btn.className='ref-char-btn'+(active?' active':'');
-    btn.title=active?`取消${ch.name}参考图`:`添加${ch.name}参考图`;
-    const img=document.createElement('img');
-    img.src=ch.refImage;img.className='ref-char-thumb';
-    btn.append(img,document.createTextNode(ch.name));
-    btn.onclick=async()=>{
-      const idx=S.selRefCharIds.indexOf(ch.id);
-      if(idx>=0) S.selRefCharIds.splice(idx,1);
-      else S.selRefCharIds.push(ch.id);
-      await computeCompositeRef();
-      renderRefQuickSelect();
-    };
-    row.appendChild(btn);
+  if(row){
+    const charsWithRef=S.characters.filter(ch=>ch.refImage);
+    row.innerHTML='';
+    for(const ch of charsWithRef){
+      const btn=document.createElement('button');
+      const active=S.selRefCharIds.includes(ch.id);
+      btn.className='ref-char-btn'+(active?' active':'');
+      btn.title=active?`取消${ch.name}参考图`:`添加${ch.name}参考图`;
+      const img=document.createElement('img');
+      img.src=ch.refImage;img.className='ref-char-thumb';
+      btn.append(img,document.createTextNode(ch.name));
+      btn.onclick=()=>{
+        const idx=S.selRefCharIds.indexOf(ch.id);
+        if(idx>=0) S.selRefCharIds.splice(idx,1);
+        else S.selRefCharIds.push(ch.id);
+        renderRefArea();
+      };
+      row.appendChild(btn);
+    }
   }
+  // 自定义追加图缩略图列表
+  const strip=document.getElementById('custom-ref-strip');
+  if(strip){
+    strip.innerHTML='';
+    S.customRefB64s.forEach((b64,i)=>{
+      const wrap=document.createElement('div');
+      wrap.className='custom-ref-wrap';
+      const thumb=document.createElement('img');
+      thumb.src=b64;thumb.className='custom-ref-thumb';
+      const del=document.createElement('button');
+      del.textContent='✕';del.className='custom-ref-del';
+      del.title='移除这张';
+      del.onclick=()=>{S.customRefB64s.splice(i,1);renderRefArea();};
+      wrap.append(thumb,del);
+      strip.appendChild(wrap);
+    });
+  }
+  // 全清按钮
+  const total=S.selRefCharIds.length+S.customRefB64s.length;
+  const clearBtn=document.getElementById('btn-clear-ref');
+  if(clearBtn) clearBtn.style.display=total>0?'':'none';
 }
 
 function renderCharacterChips(){
@@ -1218,7 +1212,7 @@ function renderCharList(){
       if(!confirm(`删除角色"${ch.name}"？`)) return;
       S.characters=S.characters.filter(c=>c.id!==ch.id);
       S.selCharIds=S.selCharIds.filter(id=>id!==ch.id);
-      await saveCharacters();renderCharList();renderRefQuickSelect();
+      await saveCharacters();renderCharList();renderRefArea();
     };
     el.append(bEdit,bDel);list.appendChild(el);
   }
@@ -1240,7 +1234,7 @@ async function saveChar(){
   document.getElementById('char-prompt-input').value='';
   document.getElementById('char-ref-preview').innerHTML='🖼️';
   document.getElementById('btn-cancel-char-edit').style.display='none';
-  renderCharList();renderRefQuickSelect();
+  renderCharList();renderRefArea();
   toast('角色已保存 ✓');
 }
 
@@ -1977,17 +1971,15 @@ function bindEvents(){
   // Ref image
   document.getElementById('btn-pick-ref').onclick=()=>document.getElementById('ref-image-input').click();
   document.getElementById('ref-image-input').onchange=async e=>{
-    const f=e.target.files[0];if(!f) return;
-    S.customRefB64=await f2b(f);
+    const files=[...e.target.files];if(!files.length) return;
+    for(const f of files) S.customRefB64s.push(await f2b(f));
     e.target.value='';
-    await computeCompositeRef();
-    renderRefQuickSelect();
+    renderRefArea();
   };
-  document.getElementById('btn-clear-ref').onclick=async()=>{
-    S.refB64=null;S.customRefB64=null;S.selRefCharIds=[];
+  document.getElementById('btn-clear-ref').onclick=()=>{
+    S.selRefCharIds=[];S.customRefB64s=[];
     document.getElementById('ref-image-input').value='';
-    _updateRefLabel();
-    renderRefQuickSelect();
+    renderRefArea();
   };
   // Draw
   document.getElementById('btn-draw').onclick=doDraw;
