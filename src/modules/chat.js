@@ -759,6 +759,16 @@ export async function sendMessage() {
       if (settings.systemPrompt.trim()) {
         _stableBlocks.push(settings.systemPrompt.trim());
       }
+      if (settings.ttsType === 'mimo') {
+        _stableBlocks.push(`## TTS 语音标签（Mimo）
+当前使用 Mimo 声音合成。回复中可嵌入以下标签控制语音效果，标签放在受影响文字**前面**：
+- 呼吸节奏：[吸气] [叹气] [长叹一口气] [喘息] [屏息]
+- 情绪：[紧张] [害怕] [激动] [疲惫] [委屈] [撒娇] [心虚] [震惊] [不耐烦]
+- 声音质感：[颤抖] [声音颤抖] [破音] [鼻音] [气声] [沙哑]
+- 笑/哭：[轻笑] [大笑] [冷笑] [抽泣] [呜咽] [哽咽]
+示例：「[叹气]今天好累……[轻笑]不过看到你就好了。」
+自然融入语气，不要堆砌标签。`);
+      }
       if (_PFX === '') {
         _stableBlocks.push(`## 炘也手机状态更新指令
 

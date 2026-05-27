@@ -131,19 +131,6 @@ export async function generateTTSBlob(text) {
       return new Blob([buf], { type: ct || 'audio/mpeg' });
     }
   }
-  if (settings.ttsType === 'omnivoice') {
-    const base = (settings.omnivoiceUrl || '').replace(/\/+$/, '');
-    const isXinye = (settings.aiName || '').includes('炘') || (settings.aiName || '').includes('心');
-    const role = isXinye ? 'xinye' : 'choubao';
-    const url = `${base}/tts?text=${encodeURIComponent(text)}&role=${role}`;
-    console.log('[TTS] OmniVoice', url);
-    const res = await fetchWithTimeout(url, {}, 300000);
-    if (!res.ok) {
-      const err = await res.text().catch(() => '');
-      throw new Error(`OmniVoice 错误 (${res.status}) ${err.slice(0, 100)}`);
-    }
-    return await res.blob();
-  }
   if (settings.ttsType === 'doubao') {
     if (!settings.doubaoAppId || !settings.doubaoToken) { toast('请先填写豆包 TTS 的 AppID 和 Token'); return null; }
     const endpoint = (settings.doubaoProxy || '').trim()

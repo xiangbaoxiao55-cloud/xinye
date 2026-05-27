@@ -403,13 +403,11 @@ export function updateTtsTypeUI() {
   const doubao = $('#doubaoFields');
   const local = $('#localTtsFields');
   const mosi = $('#mosiFields');
-  const omnivoice = $('#omnivoiceFields');
   const minimax = $('#minimaxFields');
   const mimo = $('#mimoFields');
   if (doubao) doubao.style.display = type === 'doubao' ? '' : 'none';
   if (local) local.style.display = type === 'local' ? '' : 'none';
   if (mosi) mosi.style.display = type === 'mosi' ? '' : 'none';
-  if (omnivoice) omnivoice.style.display = type === 'omnivoice' ? '' : 'none';
   if (minimax) minimax.style.display = type === 'minimax' ? '' : 'none';
   if (mimo) mimo.style.display = type === 'mimo' ? '' : 'none';
 }
@@ -891,9 +889,6 @@ export function initSettings() {
     settings.minimaxModifyPitch     = $('#setMinimaxModifyPitch').value.trim();
     settings.minimaxModifyIntensity = $('#setMinimaxModifyIntensity').value.trim();
     settings.minimaxModifyTimbre    = $('#setMinimaxModifyTimbre').value.trim();
-    settings.omnivoiceUrl = $('#setOmnivoiceUrl').value.trim() || '';
-    settings.omnivoiceXinyeAudio = $('#setOmnivoiceXinyeAudio').value.trim() || '';
-    settings.omnivoiceChouAudio = $('#setOmnivoiceChouAudio').value.trim() || '';
     settings.idleRemind = parseInt($('#setIdleRemind').value) || 0;
     settings.waterRemind = parseInt($('#setWaterRemind').value) || 0;
     settings.standRemind = parseInt($('#setStandRemind').value) || 0;
