@@ -621,12 +621,19 @@ export function linkifyEl(el, text) {
       thinkHtml += `<div class="thinking-block" onclick="this.classList.toggle('open')"><div class="thinking-header">💭 思考过程</div><div class="thinking-body">${esc(body)}</div></div>`;
     }
   }
-  const cleaned = text
+  let cleaned = text
     .replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '')
     .replace(/[＜〈《<]#[\d.]+#[＞〉》>]/g, '')
     .replace(/\((sighs|laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)\)/gi, '')
     .replace(/[^\S\n]{2,}/g, ' ')
     .trim();
+  if (settings.ttsType === 'mimo') {
+    // 过滤 Mimo 风格标签：[叹气] / (撒娇 委屈) / （轻柔）等，只含中文+空格的短标签
+    cleaned = cleaned
+      .replace(/\[[一-龥]{1,10}\]/g, '')
+      .replace(/[（(][一-龥][一-鿿\s]{0,12}[）)]/g, '')
+      .replace(/\s{2,}/g, ' ').trim();
+  }
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
   if (typeof renderMathInElement !== 'undefined') {
     try {
