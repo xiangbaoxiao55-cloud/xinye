@@ -182,6 +182,13 @@ textarea:focus{border-color:var(--purple)}
   break-inside:avoid;margin-bottom:10px;border-radius:var(--r);overflow:hidden;
   cursor:pointer;position:relative;background:var(--card2);
 }
+.gallery-badge{
+  position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;
+  padding:2px 6px;border-radius:8px;line-height:1.4;pointer-events:none;
+  backdrop-filter:blur(4px);
+}
+.gallery-badge.analyzed{background:rgba(16,185,129,.85);color:#fff}
+.gallery-badge.new-img{background:rgba(245,158,11,.9);color:#fff}
 .gallery-item img{display:block;width:100%;transition:.2s}
 .gallery-item:hover img{transform:scale(1.02)}
 .gallery-item-overlay{
@@ -483,6 +490,7 @@ textarea:focus{border-color:var(--purple)}
           <input type="text" id="filter-tag" placeholder="标签...">
         </div>
         <span class="gallery-stats" id="gallery-stats"></span>
+        <span id="gallery-pending-label" style="color:var(--warn);font-size:12px;white-space:nowrap"></span>
         <button id="btn-gallery-import" class="btn-outline" style="white-space:nowrap">📥 存入图库</button>
         <button id="btn-analyze-aesthetic" class="btn-tiny" style="white-space:nowrap">✨ 分析偏好</button>
       </div>
@@ -727,7 +735,7 @@ const db=new DrawDB();
 const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
-  aestheticProfile:'',
+  aestheticProfile:'',lastAnalyzedIds:[],
   selTokens:[],refB64:null,
   curDetail:null,masterHistory:[],
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
@@ -944,6 +952,7 @@ async function saveToGallery(imageData,prompt,negPrompt,size){
     imageData,prompt,negPrompt,params:{size},rating:0,tags:[],createdAt:Date.now()
   });
   toast('已存入图库 ✨');
+  _refreshPendingCount();
 }
 
 function openGalleryImport(){
@@ -964,6 +973,7 @@ async function confirmGalleryImport(){
   });
   closeModal('modal-gallery-import');
   toast('图片已存入图库 ✨');
+  _refreshPendingCount();
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
 }
 
@@ -971,6 +981,13 @@ function clearTokens(){
   S.selTokens=[];
   document.querySelectorAll('.token-tag.selected').forEach(el=>el.classList.remove('selected'));
   renderSelectedTokens();
+}
+
+async function _refreshPendingCount(){
+  const allItems=await db.all('gallery');
+  const pending=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
+  const el=document.getElementById('gallery-pending-label');
+  if(el) el.textContent=pending>0?`${pending} 张待分析`:'';
 }
 
 const dlImg=url=>{const a=document.createElement('a');a.href=url;a.download=`draw_${Date.now()}.png`;a.click()};
@@ -1108,6 +1125,7 @@ async function saveChar(){
 // ── Aesthetic Profile ────────────────────────────────────────
 async function loadAestheticProfile(){
   S.aestheticProfile=await db.getSetting('aestheticProfile','')||'';
+  S.lastAnalyzedIds=await db.getSetting('lastAnalyzedIds',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
 }
@@ -1126,7 +1144,9 @@ async function analyzePreference(){
   // 记录本次分析的图片ID，供下次做参考（实际不限制，只用于提示）
   const prevIds=(await db.getSetting('lastAnalyzedIds',[]))||[];
   const newCount=sample.filter(g=>!prevIds.includes(g.id)).length;
-  await db.setSetting('lastAnalyzedIds',sample.map(g=>g.id));
+  const newIds=sample.map(g=>g.id);
+  await db.setSetting('lastAnalyzedIds',newIds);
+  S.lastAnalyzedIds=newIds;
 
   // 构建视觉消息
   const imgBlocks=sample.map(g=>{
@@ -1144,6 +1164,15 @@ async function analyzePreference(){
   await db.setSetting('aestheticProfile',result);
   document.getElementById('master-insight-content').innerHTML=miniMd(result);
   toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
+  // 刷新图库角标和待分析计数
+  if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
+  else{
+    // 图库不在前台，只更新工具栏计数
+    const allItems=await db.all('gallery');
+    const remaining=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
+    const pendingEl=document.getElementById('gallery-pending-label');
+    if(pendingEl) pendingEl.textContent=remaining>0?`${remaining} 张待分析`:'';
+  }
 }
 
 // ── AI Generate Prompt ───────────────────────────────────────
@@ -1311,13 +1340,24 @@ async function renderGallery(){
   if(fr) items=items.filter(i=>(i.rating||0)>=fr);
   if(ft) items=items.filter(i=>(i.tags||[]).some(t=>t.toLowerCase().includes(ft)));
   items.sort((a,b)=>b.createdAt-a.createdAt);
+  // 全库统计（不受筛选影响的总数，用于待分析计数）
+  const allItems=await db.all('gallery');
+  const pendingCount=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
+  const pendingEl=document.getElementById('gallery-pending-label');
+  if(pendingEl) pendingEl.textContent=pendingCount>0?`${pendingCount} 张待分析`:'';
+
   document.getElementById('gallery-stats').textContent=`共 ${items.length} 张`;
   grid.innerHTML='';
   if(!items.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';return}
+  const analyzedSet=new Set(S.lastAnalyzedIds);
   for(const item of items){
     const el=document.createElement('div');
     el.className='gallery-item';
-    el.innerHTML=`<img src="${item.imageData}" loading="lazy" alt=""><div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    const badge=analyzedSet.size===0?''
+      :analyzedSet.has(item.id)
+        ?'<div class="gallery-badge analyzed">✓</div>'
+        :'<div class="gallery-badge new-img">NEW</div>';
+    el.innerHTML=`<img src="${item.imageData}" loading="lazy" alt="">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
     el.addEventListener('click',()=>openDetail(item));
     grid.appendChild(el);
   }
