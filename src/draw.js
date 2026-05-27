@@ -979,13 +979,13 @@ function _renderPresets(presets,curId,containerId,type){
 
 function _buildPresetCard(preset,isActive,type){
   const card=document.createElement('div');
-  card.className='preset-card'+(isActive?' preset-active':'');
+  card.className='preset-card'+(isActive?' preset-active':'')+(preset.skipFallback?' preset-skip':'');
 
   const hdr=document.createElement('div');
   hdr.className='preset-card-hdr';
   hdr.innerHTML=`
     <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
-    <span class="preset-name" title="点击切换，双击改名">${preset.name||'未命名'}</span>
+    <span class="preset-name" title="点击切换，双击改名">${preset.name||'未命名'}${preset.skipFallback?'<span class="preset-skip-badge">跳过</span>':''}</span>
     <button class="btn-tiny" data-a="up" title="上移" style="padding:2px 5px">▲</button>
     <button class="btn-tiny" data-a="dn" title="下移" style="padding:2px 5px">▼</button>
     <button class="btn-tiny" data-a="toggle">展开</button>

@@ -352,6 +352,9 @@ textarea:focus{border-color:var(--purple)}
 .presets-section-hdr h4{font-size:13px;color:var(--sub);font-weight:600;margin:0}
 .preset-card{background:var(--card2);border-radius:var(--r);border:2px solid var(--border);margin-bottom:8px;overflow:hidden;transition:.15s}
 .preset-card.preset-active{border-color:var(--purple)}
+.preset-card.preset-skip{border-style:dashed;opacity:.6}
+.preset-card.preset-skip.preset-active{border-style:dashed;opacity:.8}
+.preset-skip-badge{font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;background:var(--sub);color:var(--bg);margin-left:5px;vertical-align:middle;opacity:.7}
 .preset-card-hdr{display:flex;align-items:center;gap:6px;padding:9px 12px;cursor:default}
 .preset-check{width:18px;color:var(--purple);font-size:14px;font-weight:700;flex-shrink:0;cursor:pointer}
 .preset-check:hover{color:var(--pink)}
