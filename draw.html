@@ -610,8 +610,17 @@ textarea:focus{border-color:var(--purple)}
           <span class="detail-label">标签</span>
           <div id="detail-tags" class="tag-list"></div>
         </div>
-        <div class="detail-row"><span class="detail-label">正向</span><div id="detail-prompt" class="detail-prompt-text"></div></div>
-        <div class="detail-row"><span class="detail-label">负向</span><div id="detail-neg" class="detail-prompt-text"></div></div>
+        <div class="detail-row" style="flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="detail-label">正向</span>
+            <button id="btn-save-detail-prompt" class="btn-tiny" style="display:none">保存</button>
+          </div>
+          <textarea id="detail-prompt" rows="4" style="width:100%;font-size:12px;color:var(--text);line-height:1.6;resize:vertical"></textarea>
+        </div>
+        <div class="detail-row" style="flex-direction:column;gap:4px">
+          <span class="detail-label">负向</span>
+          <textarea id="detail-neg" rows="2" style="width:100%;font-size:12px;color:var(--text);line-height:1.6;resize:vertical"></textarea>
+        </div>
         <div class="detail-row"><span class="detail-label">参数</span><div id="detail-params" class="detail-prompt-text"></div></div>
       </div>
       <div class="detail-actions">
@@ -1507,11 +1516,12 @@ async function openTemplates(){
 function openDetail(item){
   S.curDetail=item;
   document.getElementById('detail-image').src=item.imageData;
-  document.getElementById('detail-persona').textContent=item.personaName||'无人设';
+  document.getElementById('detail-persona').textContent=item.personaName||'无模板';
   document.getElementById('detail-date').textContent=fmt(item.createdAt);
-  document.getElementById('detail-prompt').textContent=item.prompt||'';
-  document.getElementById('detail-neg').textContent=item.negPrompt||'（无）';
+  document.getElementById('detail-prompt').value=item.prompt||'';
+  document.getElementById('detail-neg').value=item.negPrompt||'';
   document.getElementById('detail-params').textContent=`尺寸：${item.params?.size||'—'}`;
+  document.getElementById('btn-save-detail-prompt').style.display='none';
   renderStars(item.rating||0);
   renderDetailTags(item.tags||[]);
   document.getElementById('modal-detail').style.display='flex';
@@ -1545,8 +1555,19 @@ async function deleteDetail(){
   await db.del('gallery',S.curDetail.id);
   S.curDetail=null;closeModal('modal-detail');renderGallery();toast('已删除');
 }
+async function saveDetailPrompt(){
+  if(!S.curDetail) return;
+  S.curDetail.prompt=document.getElementById('detail-prompt').value.trim();
+  S.curDetail.negPrompt=document.getElementById('detail-neg').value.trim();
+  await db.put('gallery',S.curDetail);
+  document.getElementById('btn-save-detail-prompt').style.display='none';
+  toast('已保存 ✓');
+}
 function useDetailPrompt(){
   if(!S.curDetail) return;
+  // 读取当前textarea内容（可能已被编辑）
+  S.curDetail.prompt=document.getElementById('detail-prompt').value.trim();
+  S.curDetail.negPrompt=document.getElementById('detail-neg').value.trim();
   switchTab('studio');
   document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
   document.getElementById('neg-prompt').value=S.curDetail.negPrompt||'';
@@ -1832,6 +1853,13 @@ function bindEvents(){
   document.getElementById('btn-add-tag').onclick=addDetailTag;
   document.getElementById('btn-download-detail').onclick=()=>{if(S.curDetail) dlImg(S.curDetail.imageData)};
   document.getElementById('btn-delete-image').onclick=deleteDetail;
+  document.getElementById('btn-save-detail-prompt').onclick=saveDetailPrompt;
+  // 编辑prompt/neg时显示保存按钮
+  ['detail-prompt','detail-neg'].forEach(id=>{
+    document.getElementById(id).oninput=()=>{
+      document.getElementById('btn-save-detail-prompt').style.display='';
+    };
+  });
   // Settings
   document.getElementById('btn-settings').onclick=openSettings;
   document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
