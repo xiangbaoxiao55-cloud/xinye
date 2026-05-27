@@ -221,8 +221,29 @@ textarea:focus{border-color:var(--purple)}
   align-self:flex-start;background:var(--card);border-radius:var(--r) var(--r) var(--r) 4px;
 }
 .master-msg.temp{opacity:.6}
+.master-msg{position:relative}
+.master-msg .msg-del{
+  position:absolute;top:4px;right:4px;background:transparent;border:none;
+  color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:2px 4px;border-radius:4px;
+  opacity:0;transition:.15s;line-height:1;
+}
+.master-msg-assistant .msg-del{color:rgba(255,255,255,.3)}
+.master-msg:hover .msg-del{opacity:1}
+.master-msg .msg-del:hover{color:var(--err)!important;opacity:1}
 #master-input-area{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
 #master-input{flex:1;padding:10px 12px;border-radius:var(--r)}
+
+/* ── Char ref quick-select ── */
+#ref-char-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ref-char-btn{
+  display:flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;
+  border-radius:20px;border:1px solid var(--border);background:var(--card2);
+  color:var(--sub);font-size:12px;cursor:pointer;transition:.12s;
+}
+.ref-char-btn:hover{border-color:var(--purple);color:var(--text)}
+.ref-char-btn.active{border-color:var(--purple);background:rgba(139,92,246,.15);color:var(--text)}
+.ref-char-thumb{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.ref-char-icon{width:20px;height:20px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12px}
 
 /* ── Buttons ── */
 .btn-primary{
@@ -465,6 +486,7 @@ textarea:focus{border-color:var(--purple)}
               <button id="btn-clear-ref" class="btn-tiny" style="display:none">✕清除</button>
             </label>
           </div>
+          <div id="ref-char-row"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button id="btn-draw" class="btn-primary">✦ 生成图片</button>
             <button id="btn-save-template" class="btn-outline">存模版</button>
@@ -502,7 +524,10 @@ textarea:focus{border-color:var(--purple)}
       <div id="master-insight-card">
         <div class="insight-header">
           <span>✦ 审美洞察</span>
-          <button id="btn-analyze" class="btn-tiny">分析我的偏好</button>
+          <div style="display:flex;gap:6px">
+            <button id="btn-clear-master-chat" class="btn-tiny">清空对话</button>
+            <button id="btn-analyze" class="btn-tiny">分析我的偏好</button>
+          </div>
         </div>
         <div id="master-insight-content" class="insight-content">把喜欢的图存入图库，点「分析我的偏好」→ AI帮你看图读出审美偏好 ✨</div>
       </div>
@@ -557,6 +582,15 @@ textarea:focus{border-color:var(--purple)}
       <h4 style="font-size:12px;color:var(--sub);margin-bottom:8px" id="char-form-title">添加角色</h4>
       <div class="form-group"><label>名字</label><input type="text" id="char-name-input" placeholder="炘也、涂涂、臭宝..."></div>
       <div class="form-group"><label>外形 Prompt</label><textarea id="char-prompt-input" placeholder="1girl, long black hair, golden eyes, ..." rows="3" style="width:100%"></textarea></div>
+      <div class="form-group">
+        <label>参考图（垫图用）</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="char-ref-preview" style="width:48px;height:48px;border-radius:var(--rs);background:var(--card2);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🖼️</div>
+          <input type="file" id="char-ref-input" accept="image/*" style="display:none">
+          <button id="btn-pick-char-ref" class="btn-tiny">选图</button>
+          <button id="btn-clear-char-ref" class="btn-tiny">清除</button>
+        </div>
+      </div>
       <div class="modal-actions" style="margin-top:8px">
         <button id="btn-save-char" class="btn-primary btn-sm">保存角色</button>
         <button id="btn-cancel-char-edit" class="btn-outline btn-sm" style="display:none">取消编辑</button>
@@ -880,7 +914,7 @@ async function doDraw(){
       const acts=document.createElement('div');
       acts.className='result-actions';
       const bSave=document.createElement('button');
-      bSave.className='btn-primary btn-sm';bSave.textContent='存档';
+      bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
       bSave.onclick=()=>saveToGallery(imgData,prompt,negPrompt,size);
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
@@ -1047,11 +1081,44 @@ async function _callMasterWithPreset(preset,messages){
 async function loadCharacters(){
   S.characters=await db.getSetting('characters',[]);
   renderCharacterChips();
+  renderRefQuickSelect();
 }
 async function saveCharacters(){
   await db.setSetting('characters',S.characters);
   renderCharacterChips();
+  renderRefQuickSelect();
 }
+function renderRefQuickSelect(){
+  const row=document.getElementById('ref-char-row');
+  if(!row) return;
+  const charsWithRef=S.characters.filter(ch=>ch.refImage);
+  row.innerHTML='';
+  if(!charsWithRef.length) return;
+  for(const ch of charsWithRef){
+    const btn=document.createElement('button');
+    btn.className='ref-char-btn'+(S.refB64===ch.refImage?' active':'');
+    btn.title=`用${ch.name}的参考图垫图`;
+    const img=document.createElement('img');
+    img.src=ch.refImage;img.className='ref-char-thumb';
+    btn.append(img,document.createTextNode(ch.name));
+    btn.onclick=()=>{
+      if(S.refB64===ch.refImage){
+        // 再点取消
+        S.refB64=null;
+        document.getElementById('ref-image-input').value='';
+        document.getElementById('btn-pick-ref').textContent='选图';
+        document.getElementById('btn-clear-ref').style.display='none';
+      }else{
+        S.refB64=ch.refImage;
+        document.getElementById('btn-pick-ref').textContent=ch.name+'参考图';
+        document.getElementById('btn-clear-ref').style.display='';
+      }
+      renderRefQuickSelect();
+    };
+    row.appendChild(btn);
+  }
+}
+
 function renderCharacterChips(){
   const c=document.getElementById('character-chips');
   if(!c) return;
@@ -1075,12 +1142,13 @@ function renderCharacterChips(){
   }
 }
 
-let editingCharId=null;
+let editingCharId=null,editingCharRefB64=null;
 function openCharModal(){
-  editingCharId=null;
+  editingCharId=null;editingCharRefB64=null;
   document.getElementById('char-form-title').textContent='添加角色';
   document.getElementById('char-name-input').value='';
   document.getElementById('char-prompt-input').value='';
+  document.getElementById('char-ref-preview').innerHTML='🖼️';
   document.getElementById('btn-cancel-char-edit').style.display='none';
   renderCharList();
   document.getElementById('modal-chars').style.display='flex';
@@ -1091,14 +1159,19 @@ function renderCharList(){
   if(!S.characters.length){list.innerHTML='<div style="color:var(--sub);font-size:12px;padding:4px 0">还没有角色</div>';return}
   for(const ch of S.characters){
     const el=document.createElement('div');
-    el.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)';
-    el.innerHTML=`<span style="font-size:16px">${ch.icon||'👤'}</span><span style="flex:1;font-size:13px">${ch.name}</span>`;
+    el.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)';
+    const thumb=ch.refImage
+      ?`<img src="${ch.refImage}" style="width:32px;height:32px;border-radius:var(--rs);object-fit:cover;flex-shrink:0">`
+      :`<div style="width:32px;height:32px;border-radius:var(--rs);background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${ch.icon||'👤'}</div>`;
+    el.innerHTML=`${thumb}<span style="flex:1;font-size:13px">${ch.name}</span>`;
     const bEdit=document.createElement('button');bEdit.className='btn-tiny';bEdit.textContent='编辑';
     bEdit.onclick=()=>{
-      editingCharId=ch.id;
+      editingCharId=ch.id;editingCharRefB64=ch.refImage||null;
       document.getElementById('char-form-title').textContent='编辑角色：'+ch.name;
       document.getElementById('char-name-input').value=ch.name;
       document.getElementById('char-prompt-input').value=ch.prompt||'';
+      const prev=document.getElementById('char-ref-preview');
+      prev.innerHTML=ch.refImage?`<img src="${ch.refImage}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--rs)">`:'🖼️';
       document.getElementById('btn-cancel-char-edit').style.display='';
     };
     const bDel=document.createElement('button');bDel.className='btn-tiny';bDel.style.color='var(--err)';bDel.textContent='删';
@@ -1106,7 +1179,7 @@ function renderCharList(){
       if(!confirm(`删除角色"${ch.name}"？`)) return;
       S.characters=S.characters.filter(c=>c.id!==ch.id);
       S.selCharIds=S.selCharIds.filter(id=>id!==ch.id);
-      await saveCharacters();renderCharList();
+      await saveCharacters();renderCharList();renderRefQuickSelect();
     };
     el.append(bEdit,bDel);list.appendChild(el);
   }
@@ -1117,17 +1190,18 @@ async function saveChar(){
   if(!name){toast('请输入角色名','warn');return}
   if(editingCharId){
     const ch=S.characters.find(c=>c.id===editingCharId);
-    if(ch){ch.name=name;ch.prompt=prompt;}
+    if(ch){ch.name=name;ch.prompt=prompt;ch.refImage=editingCharRefB64||ch.refImage||null;}
   }else{
-    S.characters.push({id:uid(),name,prompt,icon:'👤'});
+    S.characters.push({id:uid(),name,prompt,icon:'👤',refImage:editingCharRefB64||null});
   }
   await saveCharacters();
-  editingCharId=null;
+  editingCharId=null;editingCharRefB64=null;
   document.getElementById('char-form-title').textContent='添加角色';
   document.getElementById('char-name-input').value='';
   document.getElementById('char-prompt-input').value='';
+  document.getElementById('char-ref-preview').innerHTML='🖼️';
   document.getElementById('btn-cancel-char-edit').style.display='none';
-  renderCharList();
+  renderCharList();renderRefQuickSelect();
   toast('角色已保存 ✓');
 }
 
@@ -1266,6 +1340,12 @@ function addMasterMsg(role,text,isTemp=false){
   const el=document.createElement('div');
   el.className=`master-msg master-msg-${role}${isTemp?' temp':''}`;
   el.innerHTML=miniMd(text);
+  if(!isTemp){
+    const del=document.createElement('button');
+    del.className='msg-del';del.textContent='✕';del.title='删除这条';
+    del.onclick=e=>{e.stopPropagation();el.remove()};
+    el.appendChild(del);
+  }
   chat.appendChild(el);
   chat.scrollTop=chat.scrollHeight;
   return el;
@@ -1796,11 +1876,23 @@ function bindEvents(){
   document.getElementById('btn-manage-chars').onclick=openCharModal;
   document.getElementById('btn-save-char').onclick=saveChar;
   document.getElementById('btn-cancel-char-edit').onclick=()=>{
-    editingCharId=null;
+    editingCharId=null;editingCharRefB64=null;
     document.getElementById('char-form-title').textContent='添加角色';
     document.getElementById('char-name-input').value='';
     document.getElementById('char-prompt-input').value='';
+    document.getElementById('char-ref-preview').innerHTML='🖼️';
     document.getElementById('btn-cancel-char-edit').style.display='none';
+  };
+  document.getElementById('btn-pick-char-ref').onclick=()=>document.getElementById('char-ref-input').click();
+  document.getElementById('btn-clear-char-ref').onclick=()=>{
+    editingCharRefB64=null;
+    document.getElementById('char-ref-preview').innerHTML='🖼️';
+  };
+  document.getElementById('char-ref-input').onchange=async e=>{
+    const f=e.target.files[0];if(!f) return;
+    editingCharRefB64=await f2b(f);
+    document.getElementById('char-ref-preview').innerHTML=`<img src="${editingCharRefB64}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--rs)">`;
+    e.target.value='';
   };
   document.getElementById('btn-close-chars').onclick=()=>closeModal('modal-chars');
   // AI gen prompt
@@ -1868,7 +1960,10 @@ function bindEvents(){
   document.getElementById('input-import-config').onchange=e=>{const f=e.target.files[0];if(f){importConfig(f);e.target.value=''}};
   document.getElementById('btn-add-draw-preset').onclick=addDrawPreset;
   document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
-  // Master tab - analyze
+  // Master tab
+  document.getElementById('btn-clear-master-chat').onclick=()=>{
+    if(confirm('清空大师对话？')) {document.getElementById('master-chat').innerHTML='';S.masterHistory=[];}
+  };
   document.getElementById('btn-analyze').onclick=async()=>{
     const btn=document.getElementById('btn-analyze');
     btn.disabled=true;btn.textContent='分析中...';
