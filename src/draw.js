@@ -577,9 +577,9 @@ async function analyzePreference(){
     return{type:'image',source:{type:'base64',media_type:mtype,data:g.imageData.replace(/^data:image\/\w+;base64,/,'')}};
   });
   const hint=newCount>0?`（其中${newCount}张是新图）`:'（均为已分析过的图，可继续更新档案）';
-  const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请分析她的审美偏好，写一份简洁的「审美档案」，100-180字，包括：风格偏好、色调/光影倾向、角色特征偏好、构图习惯。只输出档案正文。`};
+  const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`};
   const msgs=[
-    {role:'system',content:'你是AI视觉审美分析师，善于从图片中读取用户的审美偏好。'},
+    {role:'system',content:'你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。'},
     {role:'user',content:[...imgBlocks,textBlock]}
   ];
   const result=await callMaster(msgs);
@@ -646,7 +646,7 @@ async function generatePromptWithAI(){
 
 async function masterSuggest(userInput){
   const ctx=[];
-  if(S.aestheticProfile) ctx.push('用户审美偏好：'+S.aestheticProfile.slice(0,200));
+  if(S.aestheticProfile) ctx.push('用户审美偏好：'+S.aestheticProfile);
   const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
   if(charDesc) ctx.push('当前选中角色：'+charDesc);
   const msgs=[
@@ -664,7 +664,7 @@ async function masterSuggest(userInput){
 async function masterInspire(){
   const themes=['春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林'];
   const theme=themes[Math.floor(Math.random()*themes.length)];
-  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile.slice(0,100)}`:'';
+  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const msgs=[
     {role:'system',content:'你是AI绘画创意灵感师，善于创造充满诗意美感的画面。'},
     {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
