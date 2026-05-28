@@ -126,6 +126,7 @@ function loadCfg(){
   S.masterPresets=JSON.parse(localStorage.getItem('draw_masterPresets')||'[]');
   S.curMasterId=localStorage.getItem('draw_curMasterId')||S.masterPresets[0]?.id||null;
   S.localServer=localStorage.getItem('draw_localServer')||'';
+  S.masterPersona=localStorage.getItem('draw_masterPersona')||'';
   const dp=S.drawPresets.find(p=>p.id===S.curDrawId)||S.drawPresets[0];
   const mp=S.masterPresets.find(p=>p.id===S.curMasterId)||S.masterPresets[0];
   S.cfg={
@@ -578,8 +579,9 @@ async function analyzePreference(){
   });
   const hint=newCount>0?`（其中${newCount}张是新图）`:'（均为已分析过的图，可继续更新档案）';
   const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`};
+  const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
   const msgs=[
-    {role:'system',content:'你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。'},
+    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_baseSys}`:_baseSys},
     {role:'user',content:[...imgBlocks,textBlock]}
   ];
   const result=await callMaster(msgs);
@@ -649,8 +651,9 @@ async function masterSuggest(userInput){
   if(S.aestheticProfile) ctx.push('用户审美偏好：'+S.aestheticProfile);
   const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
   if(charDesc) ctx.push('当前选中角色：'+charDesc);
+  const _suggestBase='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
   const msgs=[
-    {role:'system',content:'你是AI绘画prompt大师。根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议'},
+    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_suggestBase}`:_suggestBase},
     ...S.masterHistory.slice(-10),
     {role:'user',content:`${ctx.join('\n')}\n\n用户想法：${userInput}`}
   ];
@@ -665,8 +668,9 @@ async function masterInspire(){
   const themes=['春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林'];
   const theme=themes[Math.floor(Math.random()*themes.length)];
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
+  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。';
   const msgs=[
-    {role:'system',content:'你是AI绘画创意灵感师，善于创造充满诗意美感的画面。'},
+    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
     {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
   return callMaster(msgs);
@@ -1005,6 +1009,8 @@ function openSettings(){
   loadCfg();
   const lsEl=document.getElementById('input-local-server');
   if(lsEl) lsEl.value=S.localServer||'';
+  const mpEl=document.getElementById('input-master-persona');
+  if(mpEl) mpEl.value=S.masterPersona||'';
   renderDrawPresets();
   renderMasterPresets();
   document.getElementById('modal-settings').style.display='flex';
@@ -1307,6 +1313,10 @@ function bindEvents(){
   document.getElementById('btn-save-local-server').onclick=()=>{
     const v=(document.getElementById('input-local-server').value||'').trim().replace(/\/$/,'');
     localStorage.setItem('draw_localServer',v);S.localServer=v;toast(v?`已保存：${v}`:'已清除本地服务器地址');
+  };
+  document.getElementById('btn-save-master-persona').onclick=()=>{
+    const v=(document.getElementById('input-master-persona').value||'').trim();
+    localStorage.setItem('draw_masterPersona',v);S.masterPersona=v;toast(v?'人设已保存 ✓':'人设已清除');
   };
   document.getElementById('btn-import-settings').onclick=importFromApp;
   document.getElementById('btn-export-config').onclick=exportConfig;
