@@ -106,6 +106,7 @@ const fmt=ts=>{const d=new Date(ts);return`${d.getFullYear()}-${p2(d.getMonth()+
 const p2=n=>String(n).padStart(2,'0');
 const ts=()=>new Date().toTimeString().slice(0,8);
 function toast(msg,type='info'){
+  console.log(`[toast:${type}] ${msg}`);
   const el=document.getElementById('toast');
   el.textContent=msg;el.className=`show${type==='error'?' toast-error':type==='warn'?' toast-warn':''}`;
   clearTimeout(el._t);el._t=setTimeout(()=>el.className='',3000);
@@ -559,6 +560,7 @@ async function analyzePreference(){
   S.aestheticProfile=result;
   await db.setSetting('aestheticProfile',result);
   document.getElementById('master-insight-content').innerHTML=miniMd(result);
+  console.log('[审美档案] 已更新:\n'+result);
   toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
   else{
@@ -770,6 +772,14 @@ async function renderGallery(){
 
 // ── Actions ───────────────────────────────────────────────────
 function selectPersona(id){
+  if(S.curPersonaId===id){
+    S.curPersonaId=null;
+    renderSidebar();
+    document.getElementById('current-persona-name').textContent='未选择模板';
+    document.getElementById('persona-base-prompt').textContent='（暂无生成指导）';
+    document.getElementById('btn-edit-persona-quick').style.display='none';
+    return;
+  }
   S.curPersonaId=id;
   renderSidebar();
   const p=S.personas.find(x=>x.id===id);
