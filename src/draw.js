@@ -349,10 +349,18 @@ async function _callMasterWithPreset(preset,messages){
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();return d.content?.[0]?.text||'';
   }
+  // convert Anthropic-format image blocks → OpenAI image_url format
+  const toOAI=content=>{
+    if(!Array.isArray(content)) return content;
+    return content.map(b=>b.type==='image'&&b.source?.type==='base64'
+      ?{type:'image_url',image_url:{url:`data:${b.source.media_type};base64,${b.source.data}`}}
+      :b);
+  };
+  const oaiMsgs=messages.map(m=>({...m,content:toOAI(m.content)}));
   const r=await fetch(`${base}/chat/completions`,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-    body:JSON.stringify({model:model||'claude-opus-4-7',messages,max_tokens:1024,stream:false})
+    body:JSON.stringify({model:model||'claude-opus-4-7',messages:oaiMsgs,max_tokens:1024,stream:false})
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();return d.choices?.[0]?.message?.content||'';
