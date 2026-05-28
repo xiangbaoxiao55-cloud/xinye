@@ -169,12 +169,22 @@ textarea:focus{border-color:var(--purple)}
 .gallery-stats{color:var(--sub);font-size:12px;white-space:nowrap}
 #gallery-grid{
   flex:1;overflow-y:auto;padding:12px;
-  columns:220px;column-gap:10px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+  gap:10px;
+  align-content:start;
 }
 .gallery-item{
-  break-inside:avoid;margin-bottom:10px;border-radius:var(--r);overflow:hidden;
+  border-radius:var(--r);overflow:hidden;
   cursor:pointer;position:relative;background:var(--card2);
 }
+.gallery-load-more{
+  grid-column:1/-1;width:100%;padding:9px;
+  font-size:13px;color:var(--sub);
+  background:var(--card);border:1px dashed var(--border);
+  border-radius:var(--r);cursor:pointer;transition:.15s;
+}
+.gallery-load-more:hover{color:var(--text);border-color:var(--purple)}
 .gallery-badge{
   position:absolute;top:6px;right:6px;font-size:10px;font-weight:700;
   padding:2px 6px;border-radius:8px;line-height:1.4;pointer-events:none;

@@ -54,6 +54,10 @@ const S={
   masterPresets:[],curMasterId:null,
 };
 
+let _galItems=[];
+let _galShown=30;
+const GAL_PAGE=30;
+
 const CAT={
   quality:'质量/风格',character:'人物外形',outfit:'服装',
   scene:'场景',action:'动作/姿态',expression:'表情/情绪',
@@ -768,36 +772,53 @@ async function renderGallery(){
   const fp=document.getElementById('filter-persona')?.value||'';
   const fr=parseInt(document.getElementById('filter-rating')?.value||'0');
   const ft=(document.getElementById('filter-tag')?.value||'').trim().toLowerCase();
-  let items=await db.all('gallery');
+  const allItems=await db.all('gallery');
+  let items=[...allItems];
   if(fp) items=items.filter(i=>i.personaId===fp);
   if(fr) items=items.filter(i=>(i.rating||0)>=fr);
   if(ft) items=items.filter(i=>(i.tags||[]).some(t=>t.toLowerCase().includes(ft)));
   items.sort((a,b)=>b.createdAt-a.createdAt);
-  const allItems=await db.all('gallery');
+
   const pendingCount=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
   const pendingEl=document.getElementById('gallery-pending-label');
   if(pendingEl) pendingEl.textContent=pendingCount>0?`${pendingCount} 张待分析`:'';
-
   document.getElementById('gallery-stats').textContent=`共 ${items.length} 张`;
+
+  const sel=document.getElementById('filter-persona');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">全部模板</option>';
+  S.personas.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o)});
+  sel.value=cur;
+
+  _galItems=items;
+  _galShown=GAL_PAGE;
+  _paintGallery();
+}
+
+function _paintGallery(){
+  const grid=document.getElementById('gallery-grid');
   grid.innerHTML='';
-  if(!items.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';return}
+  if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';return}
   const analyzedSet=new Set(S.lastAnalyzedIds);
-  for(const item of items){
+  for(const item of _galItems.slice(0,_galShown)){
     const el=document.createElement('div');
     el.className='gallery-item';
     const badge=analyzedSet.size===0?''
       :analyzedSet.has(item.id)
         ?'<div class="gallery-badge analyzed">✓</div>'
         :'<div class="gallery-badge new-img">NEW</div>';
-    el.innerHTML=`<img src="${item.imageData}" loading="lazy" alt="">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    el.innerHTML=`<img src="${item.imageData}" alt="">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
     el.addEventListener('click',()=>openDetail(item));
     grid.appendChild(el);
   }
-  const sel=document.getElementById('filter-persona');
-  const cur=sel.value;
-  sel.innerHTML='<option value="">全部模板</option>';
-  S.personas.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o)});
-  sel.value=cur;
+  if(_galItems.length>_galShown){
+    const remaining=_galItems.length-_galShown;
+    const btn=document.createElement('button');
+    btn.className='gallery-load-more';
+    btn.textContent=`加载更多（还有 ${remaining} 张）`;
+    btn.onclick=()=>{_galShown+=GAL_PAGE;_paintGallery()};
+    grid.appendChild(btn);
+  }
 }
 
 // ── Actions ───────────────────────────────────────────────────
