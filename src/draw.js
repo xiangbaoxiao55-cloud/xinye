@@ -211,6 +211,7 @@ async function doDraw(){
 async function _callGenerations(preset,prompt,negPrompt,size,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
+  console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
   if(negPrompt) body.negative_prompt=negPrompt;
   const r=await fetch(`${url}/images/generations`,{
@@ -244,6 +245,7 @@ async function _fetchWithProxy(url){
 async function _callChat(preset,prompt,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
+  console.log(`[${ts()}] → chat | ${preset.name} | n=${n} | ${url}/chat/completions\n         prompt: ${prompt.slice(0,80)}`);
   const results=[];
   for(let i=0;i<n;i++){
     const r=await fetch(`${url}/chat/completions`,{
@@ -263,6 +265,7 @@ async function _callChat(preset,prompt,n){
 async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
+  console.log(`[${ts()}] → edits | ${preset.name} | ${size} | refs=${refB64s.length} | n=${n} | ${url}/images/edits\n         prompt: ${prompt.slice(0,80)}`);
   const fd=new FormData();
   for(let i=0;i<refB64s.length;i++){
     const raw=refB64s[i].replace(/^data:image\/\w+;base64,/,'');
