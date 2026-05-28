@@ -214,7 +214,26 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
-  return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
+  if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
+  if(d.data?.[0]?.url){
+    const results=[];
+    for(const i of d.data){
+      console.log(`[${ts()}] 图片URL: ${i.url}`);
+      const rb=await _fetchWithProxy(i.url);
+      results.push(await f2b(new File([await rb.blob()],'img.png')));
+    }
+    return results;
+  }
+  throw new Error('generations API返回格式异常');
+}
+
+async function _fetchWithProxy(url){
+  if(S.localServer){
+    const r=await fetch(`${S.localServer}/proxy-fetch?url=${encodeURIComponent(url)}`);
+    if(r.ok) return r;
+    console.warn(`[${ts()}] proxy-fetch失败(${r.status})，直接获取: ${url}`);
+  }
+  return fetch(url);
 }
 
 async function _callChat(preset,prompt,n){
@@ -258,10 +277,9 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   if(d.data?.[0]?.url){
     const results=[];
     for(const i of d.data){
-      const fetchUrl=S.localServer
-        ?`${S.localServer}/proxy-fetch?url=${encodeURIComponent(i.url)}`
-        :i.url;
-      const rb=await fetch(fetchUrl);const bl=await rb.blob();results.push(await f2b(new File([bl],'img.png')));
+      console.log(`[${ts()}] 图片URL: ${i.url}`);
+      const rb=await _fetchWithProxy(i.url);
+      results.push(await f2b(new File([await rb.blob()],'img.png')));
     }
     return results;
   }
