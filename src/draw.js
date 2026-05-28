@@ -104,6 +104,7 @@ const INIT_TOKENS=[
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const fmt=ts=>{const d=new Date(ts);return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
 const p2=n=>String(n).padStart(2,'0');
+const ts=()=>new Date().toTimeString().slice(0,8);
 function toast(msg,type='info'){
   const el=document.getElementById('toast');
   el.textContent=msg;el.className=`show${type==='error'?' toast-error':type==='warn'?' toast-warn':''}`;
@@ -159,7 +160,7 @@ async function doDraw(){
     const presets=S.drawPresets;
     let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
     if(startIdx<0) startIdx=0;
-    let images,lastErr;
+    let images,lastErr,successPreset;
     for(let i=0;i<presets.length;i++){
       const preset=presets[(startIdx+i)%presets.length];
       if(i>0 && preset.skipFallback) continue;
@@ -169,10 +170,11 @@ async function doDraw(){
         if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,n);
         else if(preset.format==='chat') images=await _callChat(preset,prompt,n);
         else images=await _callGenerations(preset,prompt,negPrompt,size,n);
-        break;
-      }catch(err){lastErr=err;if(presets.length>1) console.warn(`预设"${preset.name}"失败:`,err.message)}
+        successPreset=preset;break;
+      }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 预设"${preset.name}"失败:`,err.message)}
     }
     if(!images) throw lastErr||new Error('所有预设均失败');
+    console.log(`[${ts()}] ✅ 出图成功 → "${successPreset?.name}" (${images.length}张)`);
 
     res.innerHTML='';
     for(const imgData of images){
@@ -190,7 +192,7 @@ async function doDraw(){
       bDl.onclick=()=>dlImg(imgData);
       acts.append(bSave,bDl);wrap.append(img,acts);res.appendChild(wrap);
     }
-    toast(`生成了 ${images.length} 张 ✨`);
+    toast(`生成了 ${images.length} 张（${successPreset?.name}）✨`);
   }catch(err){
     res.innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
     toast(err.message,'error');
@@ -319,7 +321,7 @@ async function callMaster(messages){
     try{
       if(i>0) toast(`大师切换到"${preset.name}"...`,'warn');
       return await _callMasterWithPreset(preset,messages);
-    }catch(err){lastErr=err;if(presets.length>1) console.warn(`大师预设"${preset.name}"失败:`,err.message)}
+    }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 大师预设"${preset.name}"失败:`,err.message)}
   }
   throw lastErr||new Error('所有大师预设均失败');
 }
