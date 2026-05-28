@@ -28,6 +28,12 @@ export function setImagePresets(arr) {
   localStorage.setItem(_PFX + 'xinye_image_presets', _v);
   lsBackup(_PFX + 'xinye_image_presets', _v);
 }
+export function getImageCurPresetIdx() {
+  return parseInt(localStorage.getItem(_PFX + 'xinye_image_cur_preset') || '0') || 0;
+}
+export function setImageCurPresetIdx(idx) {
+  localStorage.setItem(_PFX + 'xinye_image_cur_preset', String(idx));
+}
 
 export function getSubApiCfg() {
   return {

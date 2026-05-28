@@ -303,19 +303,10 @@
     </div>
     <div class="setting-divider">🎨 画图 API</div>
     <div class="setting-group">
-      <label>预设</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select id="imagePresetSelect" style="flex:1;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)">
-          <option value="">— 选择预设 —</option>
-        </select>
-        <button type="button" id="btnLoadImagePreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活</button>
-        <button type="button" id="btnDelImagePreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <input type="text" id="imagePresetName" placeholder="预设名称（如：兔子家 / 另一家）" style="flex:1">
-        <button type="button" id="btnSaveImagePreset" style="padding:8px 12px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">保存当前</button>
-      </div>
-      <div class="hint">激活后填入下方字段，点「保存设置」生效</div>
+      <label>画图预设（最多5个，失败自动切换）</label>
+      <div id="imagePresetList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+      <button type="button" id="btnAddImagePreset" style="width:100%;padding:8px;background:transparent;color:var(--text);border:1.5px dashed var(--pink);border-radius:var(--radius-sm);cursor:pointer;font-size:13px">+ 添加预设</button>
+      <div class="hint">点 ○ 切换当前用的预设；失败时自动轮询未跳过的其他预设</div>
     </div>
     <div class="setting-group">
       <label>画图 API Key</label>

@@ -3,6 +3,7 @@ import { settings, messages } from './state.js';
 import { dbPut } from './db.js';
 import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
+import { getImagePresets, getImageCurPresetIdx } from './api.js';
 
 export async function autoSaveGenImage(dataUrl, msgId) {
   const _imgLabel = window.__APP_ID__ === 'choubao' ? '臭宝画的图' : '炘也画的图';
@@ -112,6 +113,8 @@ export async function generateImage(userDesc) {
   scrollBottom();
 
   const hasRef = refImgs.length > 0;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 600000);
 
   try {
     const prompt = userDesc;
@@ -119,168 +122,201 @@ export async function generateImage(userDesc) {
 
     const _aiN = settings.aiName || '炘也';
     toast(hasRef ? `${_aiN}正在改图...` : `${_aiN}正在画...`);
-    const imgKey = settings.imageApiKey || settings.apiKey;
-    const raw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const imgModel = settings.imageModel;
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 600000);
-    let imgRes;
 
-    const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
-    const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
-    if (hasRef) {
-      const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
-      const editsEndpoint = `${baseRaw}/images/edits`;
-      const _makeEditsForm = () => {
-        const f = new FormData();
-        f.append('model', imgModel); f.append('prompt', prompt);
-        f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
-        f.append('response_format', 'url');
-        refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
-        return f;
-      };
-      if (localUrl) {
-        const _editsH = { 'X-Api-Url': editsEndpoint, 'X-Api-Key': imgKey };
-        if (settings.imageProxyToken) _editsH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
-        let _proxyHttpErr = false;
-        try {
-          const _pR = await fetch(`${localUrl}/api/proxy-image-edits`, {
-            method: 'POST', headers: _editsH, body: _makeEditsForm(), signal: ctrl.signal
-          });
-          if (!_pR.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_pR.status}`); }
-          imgRes = _pR;
-        } catch(proxyErr) {
-          if (proxyErr.name === 'AbortError') throw proxyErr;
-          if (_proxyHttpErr) throw proxyErr;
-          const _isCloudProxy = !!(settings.imageProxyUrl || '').trim();
-          if (!_isCloudProxy) throw new Error('代理连不上（手机不在家庭网络）\n手机垫图请在设置→画图代理地址填 cpolar 地址');
-          imgRes = await fetch(editsEndpoint, {
-            method: 'POST', headers: { 'Authorization': `Bearer ${imgKey}` },
-            body: _makeEditsForm(), signal: ctrl.signal
-          });
-        }
-      } else {
-        const form = new FormData();
-        form.append('model', imgModel);
-        form.append('prompt', prompt);
-        form.append('n', '1');
-        form.append('size', settings.imageSize || '1024x1024');
-        refImgs.forEach((img, i) => form.append('image[]', base64ToFile(img, `ref${i}.png`)));
-        imgRes = await fetch(editsEndpoint, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${imgKey}` },
-          body: form,
-          signal: ctrl.signal
-        });
+    // 构建预设列表，失败时自动轮询
+    const _rawPresets = getImagePresets();
+    const _activeIdx = getImageCurPresetIdx();
+    let _cfgs;
+    if (_rawPresets.length > 0) {
+      _cfgs = [];
+      for (let _i = 0; _i < _rawPresets.length; _i++) {
+        const _p = _rawPresets[(_activeIdx + _i) % _rawPresets.length];
+        if (!_p.skip) _cfgs.push(_p);
       }
-      if (imgRes.status === 404 || imgRes.status === 502 || imgRes.status >= 500) {
-        throw new Error(`当前画图API不支持垫图改图功能（/images/edits ${imgRes.status}）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI），或去掉垫图直接生成`);
-      }
+      if (_cfgs.length === 0) throw new Error('所有画图预设都标为跳过，请在设置里取消至少一个');
     } else {
-      if (localUrl) {
-        const _genH = { 'Content-Type': 'application/json' };
-        if (settings.imageProxyToken) _genH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
-        try {
-          imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
-            method: 'POST', headers: _genH,
-            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: settings.imageApiFormat || 'images' }),
-            signal: ctrl.signal
-          });
-        } catch(proxyErr) {
-          imgRes = await fetch(genEndpoint, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-            body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
-            signal: ctrl.signal
-          });
-        }
-      } else {
-        imgRes = await fetch(genEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-          body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
-          signal: ctrl.signal
-        });
-      }
-    }
-    clearTimeout(tid);
-
-    if (!imgRes.ok) {
-      const errData = await imgRes.json().catch(() => ({}));
-      const errMsg = errData.error?.message || '';
-      if (!hasRef && (imgRes.status === 502 || /size/i.test(errMsg))) {
-        toast('此API不支持该尺寸，用默认尺寸重试...');
-        imgRes = await fetch(genEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-          body: JSON.stringify({ model: imgModel, prompt, n: 1 }),
-          signal: ctrl.signal
-        });
-        if (!imgRes.ok) {
-          const e2 = await imgRes.json().catch(() => ({}));
-          throw new Error(e2.error?.message || `画图失败 (${imgRes.status})`);
-        }
-      } else {
-        throw new Error(errMsg || `画图失败 (${imgRes.status})`);
-      }
+      _cfgs = [null]; // 无预设时用 settings 全局配置
     }
 
-    const imgData = await imgRes.json();
-    console.log('[画图v2] API返回类型:', typeof imgData, '键:', typeof imgData==='object'?Object.keys(imgData||{}).join(','):'(string)', '长度:', JSON.stringify(imgData).length);
-    let dataUrl;
-    const _b64 = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
-    const _parseImg = (d) => {
-      const item = d.data?.[0] || d.images?.[0];
-      if (item?.b64_json) return _b64(item.b64_json);
-      if (item?.url) return item.url;
-      if (d.b64_json) return _b64(d.b64_json);
-      if (d.url && typeof d.url === 'string') return d.url;
-      if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : _b64(v); }
-      if (d.artifacts?.[0]?.base64) return _b64(d.artifacts[0].base64);
-      if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : _b64(d.data); }
-      if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : _b64(d); }
-      return null;
-    };
-    dataUrl = _parseImg(imgData);
-    console.log('[画图v2] 解析结果:', dataUrl ? dataUrl.slice(0,60)+'...' : 'null');
-    if (dataUrl && dataUrl.startsWith('http')) {
-      const _urlToB64 = async (fetchUrl) => {
-        const _ur = await fetch(fetchUrl);
-        if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
-        const _ub = await _ur.blob();
-        return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
-      };
+    let dataUrl = null;
+    let _lastErr;
+
+    presetLoop: for (let _pi = 0; _pi < _cfgs.length; _pi++) {
+      const _preset = _cfgs[_pi];
+      const imgKey = _preset?.apiKey || settings.imageApiKey || settings.apiKey;
+      const raw = (_preset?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+      const imgModel = _preset?.model || settings.imageModel || 'gpt-image-1';
+      const imgFmt = _preset?.apiFormat || settings.imageApiFormat || 'images';
+
       try {
-        dataUrl = await _urlToB64(dataUrl);
-        console.log('[画图v2] URL已转base64存储');
-      } catch(_ue) {
-        console.warn('[画图v2] 直接fetch失败，尝试代理下载:', _ue.message);
-        const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
-        let _proxyOk = false;
-        if (_lUrl) {
-          try {
-            const _proxyUrl = `${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(dataUrl)}`;
-            dataUrl = await _urlToB64(_proxyUrl);
-            console.log('[画图v2] 代理URL已转base64存储');
-            _proxyOk = true;
-          } catch(_pe) { console.warn('[画图v2] 本地代理失败，尝试Vercel代理:', _pe.message); }
-        }
-        if (!_proxyOk) {
-          try {
-            const _vercelProxy = `/api/img-proxy?url=${encodeURIComponent(dataUrl)}`;
-            dataUrl = await _urlToB64(_vercelProxy);
-            console.log('[画图v2] Vercel代理已转base64存储');
-          } catch(_ve) {
-            console.warn('[画图v2] 所有代理均失败，改存origUrl供手动打开:', _ve.message);
-            toast('图片无法内嵌显示，气泡里有链接可点击打开');
-            dataUrl = '__HTTP_URL__:' + dataUrl;
+        let imgRes;
+        const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
+        const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        if (hasRef) {
+          const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
+          const editsEndpoint = `${baseRaw}/images/edits`;
+          const _makeEditsForm = () => {
+            const f = new FormData();
+            f.append('model', imgModel); f.append('prompt', prompt);
+            f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
+            f.append('response_format', 'url');
+            refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
+            return f;
+          };
+          if (localUrl) {
+            const _editsH = { 'X-Api-Url': editsEndpoint, 'X-Api-Key': imgKey };
+            if (settings.imageProxyToken) _editsH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+            let _proxyHttpErr = false;
+            try {
+              const _pR = await fetch(`${localUrl}/api/proxy-image-edits`, {
+                method: 'POST', headers: _editsH, body: _makeEditsForm(), signal: ctrl.signal
+              });
+              if (!_pR.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_pR.status}`); }
+              imgRes = _pR;
+            } catch(proxyErr) {
+              if (proxyErr.name === 'AbortError') throw proxyErr;
+              if (_proxyHttpErr) throw proxyErr;
+              const _isCloudProxy = !!(settings.imageProxyUrl || '').trim();
+              if (!_isCloudProxy) throw new Error('代理连不上（手机不在家庭网络）\n手机垫图请在设置→画图代理地址填 cpolar 地址');
+              imgRes = await fetch(editsEndpoint, {
+                method: 'POST', headers: { 'Authorization': `Bearer ${imgKey}` },
+                body: _makeEditsForm(), signal: ctrl.signal
+              });
+            }
+          } else {
+            const form = new FormData();
+            form.append('model', imgModel);
+            form.append('prompt', prompt);
+            form.append('n', '1');
+            form.append('size', settings.imageSize || '1024x1024');
+            refImgs.forEach((img, i) => form.append('image[]', base64ToFile(img, `ref${i}.png`)));
+            imgRes = await fetch(editsEndpoint, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${imgKey}` },
+              body: form,
+              signal: ctrl.signal
+            });
+          }
+          if (imgRes.status === 404 || imgRes.status === 502 || imgRes.status >= 500) {
+            throw new Error(`当前画图API不支持垫图改图功能（/images/edits ${imgRes.status}）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI），或去掉垫图直接生成`);
+          }
+        } else {
+          if (localUrl) {
+            const _genH = { 'Content-Type': 'application/json' };
+            if (settings.imageProxyToken) _genH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+            try {
+              imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
+                method: 'POST', headers: _genH,
+                body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: imgFmt }),
+                signal: ctrl.signal
+              });
+            } catch(proxyErr) {
+              imgRes = await fetch(genEndpoint, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+                body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+                signal: ctrl.signal
+              });
+            }
+          } else {
+            imgRes = await fetch(genEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+              body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+              signal: ctrl.signal
+            });
           }
         }
+
+        if (!imgRes.ok) {
+          const errData = await imgRes.json().catch(() => ({}));
+          const errMsg = errData.error?.message || '';
+          if (!hasRef && (imgRes.status === 502 || /size/i.test(errMsg))) {
+            toast('此API不支持该尺寸，用默认尺寸重试...');
+            imgRes = await fetch(genEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+              body: JSON.stringify({ model: imgModel, prompt, n: 1 }),
+              signal: ctrl.signal
+            });
+            if (!imgRes.ok) {
+              const e2 = await imgRes.json().catch(() => ({}));
+              throw new Error(e2.error?.message || `画图失败 (${imgRes.status})`);
+            }
+          } else {
+            throw new Error(errMsg || `画图失败 (${imgRes.status})`);
+          }
+        }
+
+        const imgData = await imgRes.json();
+        console.log('[画图v2] API返回类型:', typeof imgData, '键:', typeof imgData==='object'?Object.keys(imgData||{}).join(','):'(string)', '长度:', JSON.stringify(imgData).length);
+        const _b64 = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
+        const _parseImg = (d) => {
+          const item = d.data?.[0] || d.images?.[0];
+          if (item?.b64_json) return _b64(item.b64_json);
+          if (item?.url) return item.url;
+          if (d.b64_json) return _b64(d.b64_json);
+          if (d.url && typeof d.url === 'string') return d.url;
+          if (d.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : _b64(v); }
+          if (d.artifacts?.[0]?.base64) return _b64(d.artifacts[0].base64);
+          if (typeof d.data === 'string' && d.data.length > 100) { return /^(data:|https?:)/.test(d.data) ? d.data : _b64(d.data); }
+          if (typeof d === 'string' && d.length > 100) { return /^(data:|https?:)/.test(d) ? d : _b64(d); }
+          return null;
+        };
+        let _parsedUrl = _parseImg(imgData);
+        console.log('[画图v2] 解析结果:', _parsedUrl ? _parsedUrl.slice(0,60)+'...' : 'null');
+        if (_parsedUrl && _parsedUrl.startsWith('http')) {
+          const _urlToB64 = async (fetchUrl) => {
+            const _ur = await fetch(fetchUrl);
+            if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
+            const _ub = await _ur.blob();
+            return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
+          };
+          try {
+            _parsedUrl = await _urlToB64(_parsedUrl);
+            console.log('[画图v2] URL已转base64存储');
+          } catch(_ue) {
+            console.warn('[画图v2] 直接fetch失败，尝试代理下载:', _ue.message);
+            const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+            let _proxyOk = false;
+            if (_lUrl) {
+              try {
+                const _proxyUrl = `${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(_parsedUrl)}`;
+                _parsedUrl = await _urlToB64(_proxyUrl);
+                console.log('[画图v2] 代理URL已转base64存储');
+                _proxyOk = true;
+              } catch(_pe) { console.warn('[画图v2] 本地代理失败，尝试Vercel代理:', _pe.message); }
+            }
+            if (!_proxyOk) {
+              try {
+                const _vercelProxy = `/api/img-proxy?url=${encodeURIComponent(_parsedUrl)}`;
+                _parsedUrl = await _urlToB64(_vercelProxy);
+                console.log('[画图v2] Vercel代理已转base64存储');
+              } catch(_ve) {
+                console.warn('[画图v2] 所有代理均失败，改存origUrl供手动打开:', _ve.message);
+                toast('图片无法内嵌显示，气泡里有链接可点击打开');
+                _parsedUrl = '__HTTP_URL__:' + _parsedUrl;
+              }
+            }
+          }
+        }
+        if (!_parsedUrl) {
+          console.log('[画图v2] 完整返回:', JSON.stringify(imgData).slice(0, 500));
+          throw new Error('画图API没返回图片，vConsole查看完整返回');
+        }
+        dataUrl = _parsedUrl;
+        break presetLoop;
+
+      } catch(e) {
+        if (e.name === 'AbortError') throw e;
+        _lastErr = e;
+        if (_pi < _cfgs.length - 1) {
+          const _nextName = _cfgs[_pi + 1]?.name;
+          toast(`${_preset?.name || '当前配置'}失败，切换${_nextName ? '「' + _nextName + '」' : '下一个'}...`);
+        }
       }
-    }
-    if (!dataUrl) {
-      console.log('[画图v2] 完整返回:', JSON.stringify(imgData).slice(0, 500));
-      throw new Error('画图API没返回图片，vConsole查看完整返回');
-    }
+    } // end presetLoop
+
+    if (!dataUrl) throw _lastErr || new Error('所有画图预设均失败');
 
     const ctxDesc = `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
     const aiMsg = await addMessage('assistant', ctxDesc);
@@ -301,6 +337,7 @@ export async function generateImage(userDesc) {
       console.error('[画图] 失败', e);
     }
   } finally {
+    clearTimeout(tid);
     if (typing) typing.classList.remove('show');
     window.isRequesting = false;
     if (btnSend && userInput) btnSend.disabled = userInput.value.trim() === '';

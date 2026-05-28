@@ -1,7 +1,7 @@
 import { $, toast, escHtml, isDarkMode, readFileAsBase64 } from './utils.js';
 import { settings, saveSettings, ensureMemoryState, messages } from './state.js';
 import { dbPut, dbGet, dbClear } from './db.js';
-import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets } from './api.js';
+import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getImageCurPresetIdx, setImageCurPresetIdx } from './api.js';
 import { digestMemory, renderMemoryBankPreview, archiveMemoryBank } from './memory.js';
 import { applyBg, toggleDeco } from './ui.js';
 import { getAiAvatar, getUserAvatar, renderMessages, updateBookmarkBadge } from './chat.js';
@@ -315,16 +315,135 @@ function renderServerUrlPresets() {
 
 // ======================== 画图预设 ========================
 export function renderImagePresets() {
+  const list = $('#imagePresetList');
+  if (!list) return;
   const presets = getImagePresets();
-  const sel = $('#imagePresetSelect');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— 选择预设 —</option>';
-  presets.forEach((p, i) => {
-    const opt = document.createElement('option');
-    opt.value = i; opt.textContent = p.name;
-    sel.appendChild(opt);
-  });
-  sel.value = cur;
+  const activeIdx = getImageCurPresetIdx();
+  const dark = isDarkMode();
+  const cardBg = dark ? 'rgba(46,28,58,.7)' : 'rgba(255,255,255,.6)';
+  const cardBorder = dark ? 'rgba(80,60,100,.9)' : 'var(--pink-light)';
+  list.innerHTML = '';
+  if (presets.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--sub,#999);text-align:center;padding:6px 0">还没有预设，点下方按钮添加（最多5个）</div>';
+  }
+  presets.forEach((p, i) => list.appendChild(_buildImagePresetCard(p, i, i === activeIdx, cardBg, cardBorder)));
+  const addBtn = $('#btnAddImagePreset');
+  if (addBtn) addBtn.style.display = presets.length >= 5 ? 'none' : '';
+}
+
+function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
+  const card = document.createElement('div');
+  card.style.cssText = `background:${cardBg};border:1.5px solid ${isActive ? 'var(--pink)' : cardBorder};border-radius:10px;overflow:hidden`;
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 10px';
+  const skipBadge = p.skip ? ' <span style="font-size:10px;background:#ffcdd2;color:#c62828;border-radius:4px;padding:1px 5px;flex-shrink:0">跳过</span>' : '';
+  hdr.innerHTML = `
+    <span data-a="check" style="font-size:15px;min-width:18px;color:var(--pink-deep);cursor:pointer;user-select:none" title="切换为当前使用">${isActive ? '✓' : '○'}</span>
+    <span style="flex:1;font-size:13px;font-weight:${isActive ? '600' : '400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name || '未命名'}${skipBadge}</span>
+    <button data-a="up" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▲</button>
+    <button data-a="dn" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▼</button>
+    <button data-a="toggle" style="padding:2px 8px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">展开</button>
+    <button data-a="del" style="padding:2px 8px;font-size:11px;background:none;border:1px solid #ffcdd2;border-radius:4px;cursor:pointer;color:#e57373">删</button>
+  `;
+
+  const meta = document.createElement('div');
+  meta.style.cssText = 'padding:0 10px 6px;font-size:11px;color:var(--sub,#999)';
+  meta.textContent = `${(p.baseUrl || '未配置URL').replace(/^https?:\/\//, '').slice(0, 36)} · ${p.model || '未配置模型'}`;
+
+  const body = document.createElement('div');
+  body.style.cssText = 'padding:8px 10px 4px;border-top:1px solid var(--border,#eee);flex-direction:column;gap:6px;display:none';
+  const apiFormatOpt = (v) => v === 'chat' ? 'selected' : '';
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="min-width:40px;font-size:12px">Key</label>
+      <input type="password" data-f="apiKey" value="${p.apiKey || ''}" placeholder="sk-... 留空复用主API Key" style="flex:1;font-size:12px;padding:5px 8px">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="min-width:40px;font-size:12px">URL</label>
+      <input type="text" data-f="baseUrl" value="${p.baseUrl || ''}" placeholder="https://api.xxx.com/v1" style="flex:1;font-size:12px;padding:5px 8px">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="min-width:40px;font-size:12px">模型</label>
+      <input type="text" data-f="model" value="${p.model || ''}" placeholder="gpt-image-1" style="flex:1;font-size:12px;padding:5px 8px">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="min-width:40px;font-size:12px">格式</label>
+      <select data-f="apiFormat" style="flex:1;font-size:12px;padding:5px 8px">
+        <option value="images" ${(p.apiFormat||'images')!=='chat'?'selected':''}>images（标准）</option>
+        <option value="chat" ${apiFormatOpt(p.apiFormat)}>chat（部分站子）</option>
+      </select>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:2px 0">
+      <input type="checkbox" data-f="skip" ${p.skip ? 'checked' : ''} style="width:auto">
+      跳过自动轮询（保留但失败时不尝试此预设）
+    </label>
+    <div style="display:flex;gap:8px;margin-top:4px;padding-bottom:4px">
+      <button data-a="save" style="flex:1;padding:6px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm,8px);cursor:pointer;font-size:12px">保存</button>
+      <button data-a="use" style="flex:1;padding:6px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm,8px);cursor:pointer;font-size:12px">保存并切换</button>
+    </div>
+  `;
+
+  hdr.querySelector('[data-a="check"]').onclick = () => {
+    setImageCurPresetIdx(idx);
+    renderImagePresets();
+    toast(`🎨 已切换到画图预设「${p.name}」`);
+  };
+  hdr.querySelector('[data-a="up"]').onclick = () => {
+    const presets = getImagePresets();
+    if (idx === 0) return;
+    [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
+    const cur = getImageCurPresetIdx();
+    if (cur === idx) setImageCurPresetIdx(idx - 1);
+    else if (cur === idx - 1) setImageCurPresetIdx(idx);
+    setImagePresets(presets);
+    renderImagePresets();
+  };
+  hdr.querySelector('[data-a="dn"]').onclick = () => {
+    const presets = getImagePresets();
+    if (idx === presets.length - 1) return;
+    [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
+    const cur = getImageCurPresetIdx();
+    if (cur === idx) setImageCurPresetIdx(idx + 1);
+    else if (cur === idx + 1) setImageCurPresetIdx(idx);
+    setImagePresets(presets);
+    renderImagePresets();
+  };
+  hdr.querySelector('[data-a="toggle"]').onclick = (e) => {
+    const isOpen = body.style.display === 'flex';
+    body.style.display = isOpen ? 'none' : 'flex';
+    e.target.textContent = isOpen ? '展开' : '收起';
+  };
+  hdr.querySelector('[data-a="del"]').onclick = () => {
+    const presets = getImagePresets();
+    presets.splice(idx, 1);
+    const cur = getImageCurPresetIdx();
+    if (cur >= presets.length) setImageCurPresetIdx(Math.max(0, presets.length - 1));
+    setImagePresets(presets);
+    renderImagePresets();
+    toast(`已删除画图预设「${p.name}」`);
+  };
+
+  const doSave = () => {
+    const presets = getImagePresets();
+    body.querySelectorAll('[data-f]').forEach(el => {
+      if (el.type === 'checkbox') presets[idx][el.dataset.f] = el.checked;
+      else presets[idx][el.dataset.f] = el.value.trim();
+    });
+    setImagePresets(presets);
+    renderImagePresets();
+    toast('画图预设已保存 ✓');
+  };
+  body.querySelector('[data-a="save"]').onclick = doSave;
+  body.querySelector('[data-a="use"]').onclick = () => {
+    doSave();
+    setImageCurPresetIdx(idx);
+    renderImagePresets();
+    toast(`🎨 已切换到画图预设「${p.name}」`);
+  };
+
+  card.append(hdr, meta, body);
+  return card;
 }
 
 // ======================== API 预设 ========================
@@ -711,38 +830,24 @@ export function initSettings() {
   };
 
   // ======================== 画图预设按钮 ========================
-  $('#btnLoadImagePreset').onclick = () => {
-    const i = parseInt($('#imagePresetSelect').value);
-    if (isNaN(i)) { toast('请先选择一个预设'); return; }
-    const p = getImagePresets()[i];
-    if (!p) return;
-    $('#setImageApiKey').value = p.apiKey || '';
-    $('#setImageBaseUrl').value = p.baseUrl || '';
-    $('#setImageModel').value = p.model || '';
-    $('#setImageApiFormat').value = p.apiFormat || 'images';
-    toast(`🎨 画图预设「${p.name}」已激活，记得点保存设置`);
-  };
-  $('#btnSaveImagePreset').onclick = () => {
-    const name = $('#imagePresetName').value.trim();
-    if (!name) { toast('请先填写预设名称'); return; }
-    const presets = getImagePresets();
-    const p = { name, apiKey: $('#setImageApiKey').value.trim(), baseUrl: $('#setImageBaseUrl').value.trim(), model: $('#setImageModel').value.trim(), apiFormat: $('#setImageApiFormat').value || 'images' };
-    const idx = presets.findIndex(x => x.name === name);
-    if (idx >= 0) presets[idx] = p; else presets.push(p);
-    setImagePresets(presets);
-    renderImagePresets();
-    toast(`🎨 画图预设「${name}」已保存`);
-  };
-  $('#btnDelImagePreset').onclick = () => {
-    const i = parseInt($('#imagePresetSelect').value);
-    if (isNaN(i)) { toast('请先选择一个预设'); return; }
-    const presets = getImagePresets();
-    const name = presets[i]?.name;
-    presets.splice(i, 1);
-    setImagePresets(presets);
-    renderImagePresets();
-    toast(`已删除画图预设「${name}」`);
-  };
+  const _addImgPresetBtn = $('#btnAddImagePreset');
+  if (_addImgPresetBtn) {
+    _addImgPresetBtn.onclick = () => {
+      const presets = getImagePresets();
+      if (presets.length >= 5) { toast('最多5个画图预设'); return; }
+      presets.push({ name: `画图预设${presets.length + 1}`, apiKey: '', baseUrl: '', model: 'gpt-image-1', apiFormat: 'images', skip: false });
+      setImagePresets(presets);
+      renderImagePresets();
+      // 自动展开最后一张卡片（children: hdr/meta/body）
+      const list = $('#imagePresetList');
+      if (list && list.children.length > 0) {
+        const lastCard = list.children[list.children.length - 1];
+        const body = lastCard.children[2];
+        const toggleBtn = lastCard.querySelector('[data-a="toggle"]');
+        if (body && toggleBtn) { body.style.display = 'flex'; toggleBtn.textContent = '收起'; }
+      }
+    };
+  }
 
   // ======================== API 预设按钮 ========================
   $('#btnLoadPreset').onclick = () => {
