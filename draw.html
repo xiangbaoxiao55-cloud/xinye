@@ -310,7 +310,15 @@
       <button id="btn-add-master-preset" class="btn-tiny">+ 添加</button>
     </div>
     <div id="master-presets-list"></div>
-    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+    <div style="margin-top:16px">
+      <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:4px">本地服务器地址（用于图片代理，解决CORS）</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="input-local-server" placeholder="http://localhost:8787" style="flex:1;font-size:12px">
+        <button id="btn-save-local-server" class="btn-primary" style="flex:none">保存</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">填了之后，API返回URL格式图片时会走代理，避免CORS失败</div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="btn-import-settings" class="btn-outline">从主App导入</button>
       <button id="btn-export-config" class="btn-outline">导出配置</button>
       <label class="btn-outline" style="cursor:pointer">导入配置<input type="file" id="input-import-config" accept=".json" style="display:none"></label>

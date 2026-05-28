@@ -124,6 +124,7 @@ function loadCfg(){
   S.curDrawId=localStorage.getItem('draw_curDrawId')||S.drawPresets[0]?.id||null;
   S.masterPresets=JSON.parse(localStorage.getItem('draw_masterPresets')||'[]');
   S.curMasterId=localStorage.getItem('draw_curMasterId')||S.masterPresets[0]?.id||null;
+  S.localServer=localStorage.getItem('draw_localServer')||'';
   const dp=S.drawPresets.find(p=>p.id===S.curDrawId)||S.drawPresets[0];
   const mp=S.masterPresets.find(p=>p.id===S.curMasterId)||S.masterPresets[0];
   S.cfg={
@@ -255,7 +256,12 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
   if(d.data?.[0]?.url){
     const results=[];
-    for(const i of d.data){const rb=await fetch(i.url);const bl=await rb.blob();results.push(await f2b(new File([bl],'img.png')))}
+    for(const i of d.data){
+      const fetchUrl=S.localServer
+        ?`${S.localServer}/proxy-fetch?url=${encodeURIComponent(i.url)}`
+        :i.url;
+      const rb=await fetch(fetchUrl);const bl=await rb.blob();results.push(await f2b(new File([bl],'img.png')));
+    }
     return results;
   }
   throw new Error('edits API返回格式异常');
@@ -961,6 +967,8 @@ function useDetailPrompt(){
 // ── Preset Management ─────────────────────────────────────────
 function openSettings(){
   loadCfg();
+  const lsEl=document.getElementById('input-local-server');
+  if(lsEl) lsEl.value=S.localServer||'';
   renderDrawPresets();
   renderMasterPresets();
   document.getElementById('modal-settings').style.display='flex';
@@ -1260,6 +1268,10 @@ function bindEvents(){
   });
   document.getElementById('btn-settings').onclick=openSettings;
   document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
+  document.getElementById('btn-save-local-server').onclick=()=>{
+    const v=(document.getElementById('input-local-server').value||'').trim().replace(/\/$/,'');
+    localStorage.setItem('draw_localServer',v);S.localServer=v;toast(v?`已保存：${v}`:'已清除本地服务器地址');
+  };
   document.getElementById('btn-import-settings').onclick=importFromApp;
   document.getElementById('btn-export-config').onclick=exportConfig;
   document.getElementById('input-import-config').onchange=e=>{const f=e.target.files[0];if(f){importConfig(f);e.target.value=''}};
