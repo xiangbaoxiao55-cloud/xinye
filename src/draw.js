@@ -229,7 +229,7 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
 
 async function _fetchWithProxy(url){
   if(S.localServer){
-    const r=await fetch(`${S.localServer}/proxy-fetch?url=${encodeURIComponent(url)}`);
+    const r=await fetch(`${S.localServer}/api/proxy-fetch?url=${encodeURIComponent(url)}`);
     if(r.ok) return r;
     console.warn(`[${ts()}] proxy-fetch失败(${r.status})，直接获取: ${url}`);
   }
