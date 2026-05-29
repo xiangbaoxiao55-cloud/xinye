@@ -79,8 +79,10 @@ export async function openSettings() {
   // 兼容旧的单备用字段
   if (!settings.fallbackPresetNames?.length && settings.fallbackPresetName) settings.fallbackPresetNames = [settings.fallbackPresetName];
   if (!settings.subFallbackPresetNames?.length && settings.subFallbackPresetName) settings.subFallbackPresetNames = [settings.subFallbackPresetName];
-  [0,1,2,3,4].forEach(i => {
+  [0,1,2,3,4,5,6,7,8,9].forEach(i => {
     const el = $(`#setFallbackPreset${i}`); if (el) el.value = (settings.fallbackPresetNames||[])[i] || '';
+  });
+  [0,1,2,3,4].forEach(i => {
     const sub = $(`#setSubFallbackPreset${i}`); if (sub) sub.value = (settings.subFallbackPresetNames||[])[i] || '';
   });
   const _dp = $('#setDigestPreset'); if (_dp) _dp.value = settings.digestPresetName || '';
@@ -466,20 +468,23 @@ export function renderApiPresets() {
     });
     sel.value = cur;
   });
-  // 渲染主/副备用预设下拉（各5个槽）
+  // 渲染主备用预设下拉（10个槽）
+  [0,1,2,3,4,5,6,7,8,9].forEach(i => {
+    const fbSel = $(`#setFallbackPreset${i}`);
+    if (!fbSel) return;
+    const cur = fbSel.value;
+    fbSel.innerHTML = `<option value="">— 备用${i+1}：不启用 —</option>`;
+    presets.forEach(p => { const opt = document.createElement('option'); opt.value = p.name; opt.textContent = p.name; fbSel.appendChild(opt); });
+    fbSel.value = cur;
+  });
+  // 渲染副备用预设下拉（5个槽）
   [0,1,2,3,4].forEach(i => {
-    ['setFallbackPreset','setSubFallbackPreset'].forEach(base => {
-      const fbSel = $(`#${base}${i}`);
-      if (!fbSel) return;
-      const cur = fbSel.value;
-      fbSel.innerHTML = `<option value="">— 备用${i+1}：不启用 —</option>`;
-      presets.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.name; opt.textContent = p.name;
-        fbSel.appendChild(opt);
-      });
-      fbSel.value = cur;
-    });
+    const fbSel = $(`#setSubFallbackPreset${i}`);
+    if (!fbSel) return;
+    const cur = fbSel.value;
+    fbSel.innerHTML = `<option value="">— 备用${i+1}：不启用 —</option>`;
+    presets.forEach(p => { const opt = document.createElement('option'); opt.value = p.name; opt.textContent = p.name; fbSel.appendChild(opt); });
+    fbSel.value = cur;
   });
   // 整理记忆用API
   const digestSel = $('#setDigestPreset');
@@ -976,7 +981,7 @@ export function initSettings() {
     settings.wereadApiKey = ($('#setWereadApiKey') ? $('#setWereadApiKey').value.trim() : '');
     settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
     settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
-    settings.fallbackPresetNames = [0,1,2,3,4].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
+    settings.fallbackPresetNames = [0,1,2,3,4,5,6,7,8,9].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
     settings.model = $('#setModel').value.trim() || 'gpt-4o';
     settings.subApiKey = $('#setSubApiKey').value.trim();
     settings.subBaseUrl = $('#setSubBaseUrl').value.trim();
