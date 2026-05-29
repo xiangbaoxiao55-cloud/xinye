@@ -864,6 +864,7 @@ export function initSettings() {
     if (isNaN(i)) { toast('请先选择一个预设'); return; }
     const p = getApiPresets()[i];
     if (!p) return;
+    $('#apiPresetName').value = p.name;
     $('#setApiKey').value  = p.apiKey  || '';
     $('#setBaseUrl').value = p.baseUrl || '';
     if ($('#setBackupBaseUrl')) $('#setBackupBaseUrl').value = p.backupBaseUrl || '';
