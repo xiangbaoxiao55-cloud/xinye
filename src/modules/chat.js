@@ -1717,15 +1717,14 @@ export async function sendMessage() {
           try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, aiMsg.id);
         } else {
-          if (finalText.trim()) {
-            if (parsed.think) parsed.bubbleEl.textContent = finalText;
-            const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
-            if (idx >= 0) messages[idx].content = finalText;
-            try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
-            try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
-            try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
-            window.maybeTTS?.(finalText, parsed.aiMsg.id);
-          }
+          if (!finalText.trim()) finalText = '（没有收到回复）';
+          if (parsed.think) parsed.bubbleEl.textContent = finalText;
+          const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
+          if (idx >= 0) messages[idx].content = finalText;
+          try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
+          try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
+          try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
+          window.maybeTTS?.(finalText, parsed.aiMsg.id);
         }
         rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
       }
