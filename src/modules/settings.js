@@ -927,6 +927,26 @@ export function initSettings() {
     renderApiPresets();
     toast('预设已删除');
   };
+  $('#btnMovePresetUp').onclick = () => {
+    const i = parseInt($('#presetSelect').value);
+    if (isNaN(i) || i <= 0) return;
+    const presets = getApiPresets();
+    [presets[i - 1], presets[i]] = [presets[i], presets[i - 1]];
+    setApiPresets(presets);
+    renderApiPresets();
+    $('#presetSelect').value = i - 1;
+    $('#apiPresetName').value = presets[i - 1].name;
+  };
+  $('#btnMovePresetDown').onclick = () => {
+    const i = parseInt($('#presetSelect').value);
+    const presets = getApiPresets();
+    if (isNaN(i) || i >= presets.length - 1) return;
+    [presets[i], presets[i + 1]] = [presets[i + 1], presets[i]];
+    setApiPresets(presets);
+    renderApiPresets();
+    $('#presetSelect').value = i + 1;
+    $('#apiPresetName').value = presets[i + 1].name;
+  };
 
   // ======================== 保存设置 ========================
   $('#btnSaveSettingsTop').onclick = () => $('#btnSaveSettings').click();
