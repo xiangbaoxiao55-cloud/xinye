@@ -172,7 +172,7 @@ async function doDraw(){
       const preset=presets[(startIdx+i)%presets.length];
       if(i>0 && preset.skipFallback) continue;
       try{
-        if(i>0) toast(`"${preset.name}"失败，切备用"${presets[(startIdx+i)%presets.length].name}"...`,'warn');
+        if(i>0) toast(`"${presets[(startIdx+i-1)%presets.length].name}"失败，切备用"${preset.name}"...`,'warn');
         const _refs=getAllRefs();
         if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,n);
         else if(preset.format==='chat') images=await _callChat(preset,prompt,n);
