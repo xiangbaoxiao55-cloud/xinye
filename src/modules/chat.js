@@ -1925,11 +1925,16 @@ export async function sendMessage() {
         if (!parsed.tool_calls) {
           await _finalizeMsg(parsed, loopMsgs); return;
         }
-        if (parsed.aiMsg && parsed.content) {
+        const _onlyImgTool = parsed.tool_calls.every(tc => tc.name === 'generate_image');
+        if (parsed.aiMsg && parsed.content && !_onlyImgTool) {
           try { await updateMessage(parsed.aiMsg.id, parsed.content); } catch(_e) {}
         }
         loopMsgs.push({ role: 'assistant', content: parsed.content || null, tool_calls: parsed.tool_calls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } })) });
-        if (parsed.tool_calls.every(tc => tc.name === 'generate_image')) {
+        if (_onlyImgTool) {
+          if (parsed.aiMsg) {
+            await deleteMessage(parsed.aiMsg.id).catch(() => {});
+            chatArea.querySelector(`.msg-del-btn[data-id="${parsed.aiMsg.id}"]`)?.closest('.msg-row')?.remove();
+          }
           typing.classList.remove('show');
           window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
           const _bgTcs = parsed.tool_calls.slice();
