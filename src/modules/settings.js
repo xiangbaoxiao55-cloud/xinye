@@ -929,23 +929,27 @@ export function initSettings() {
   };
   $('#btnMovePresetUp').onclick = () => {
     const i = parseInt($('#presetSelect').value);
-    if (isNaN(i) || i <= 0) return;
+    if (isNaN(i)) { toast('请先在下拉里选中一个预设'); return; }
+    if (i <= 0) { toast('已经是第一个了'); return; }
     const presets = getApiPresets();
     [presets[i - 1], presets[i]] = [presets[i], presets[i - 1]];
     setApiPresets(presets);
     renderApiPresets();
     $('#presetSelect').value = i - 1;
     $('#apiPresetName').value = presets[i - 1].name;
+    toast(`▲ 「${presets[i - 1].name}」上移到第 ${i} 位（共 ${presets.length} 个）`);
   };
   $('#btnMovePresetDown').onclick = () => {
     const i = parseInt($('#presetSelect').value);
+    if (isNaN(i)) { toast('请先在下拉里选中一个预设'); return; }
     const presets = getApiPresets();
-    if (isNaN(i) || i >= presets.length - 1) return;
+    if (i >= presets.length - 1) { toast('已经是最后一个了'); return; }
     [presets[i], presets[i + 1]] = [presets[i + 1], presets[i]];
     setApiPresets(presets);
     renderApiPresets();
     $('#presetSelect').value = i + 1;
     $('#apiPresetName').value = presets[i + 1].name;
+    toast(`▼ 「${presets[i + 1].name}」下移到第 ${i + 2} 位（共 ${presets.length} 个）`);
   };
 
   // ======================== 保存设置 ========================
