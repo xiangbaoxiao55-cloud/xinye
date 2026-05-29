@@ -1061,7 +1061,8 @@ function _buildPresetCard(preset,isActive,type){
   hdr.className='preset-card-hdr';
   hdr.innerHTML=`
     <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
-    <span class="preset-name" title="点击切换，双击改名">${preset.name||'未命名'}${preset.skipFallback?'<span class="preset-skip-badge">跳过</span>':''}</span>
+    <span class="preset-name" title="点击切换">${preset.name||'未命名'}</span>
+    <button class="btn-tiny" data-a="rename" title="改名" style="padding:2px 5px">✏</button>
     <button class="btn-tiny" data-a="up" title="上移" style="padding:2px 5px">▲</button>
     <button class="btn-tiny" data-a="dn" title="下移" style="padding:2px 5px">▼</button>
     <button class="btn-tiny" data-a="toggle">展开</button>
@@ -1070,7 +1071,7 @@ function _buildPresetCard(preset,isActive,type){
   hdr.querySelector('.preset-check').onclick=()=>_setActive(preset,type);
   const nameEl=hdr.querySelector('.preset-name');
   nameEl.onclick=()=>_setActive(preset,type);
-  nameEl.ondblclick=()=>{
+  hdr.querySelector('[data-a="rename"]').onclick=()=>{
     const arr=type==='draw'?S.drawPresets:S.masterPresets;
     const cur=arr.find(p=>p.id===preset.id);
     if(!cur) return;

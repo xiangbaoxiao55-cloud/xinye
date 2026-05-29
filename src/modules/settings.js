@@ -548,15 +548,18 @@ export function renderTtsPresets() {
   presets.forEach((p, i) => {
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:' + cardBg + ';border-radius:10px;border:1px solid ' + cardBorder;
-    const pathTip = p.gptWeights ? `🔀 ${p.gptWeights.split(/[\/]/).pop()}` : (p.ttsRefPath ? `🎤 ${p.ttsRefPath.split(/[\/]/).pop()}` : '无参考音频');
     div.innerHTML = `
       <span style="flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</span>
-      <span style="font-size:11px;color:var(--text-light);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(pathTip)}">${escHtml(pathTip)}</span>
+      <button class="btn-secondary" style="padding:4px 8px;font-size:12px;white-space:nowrap;flex-shrink:0">✏</button>
       <button class="btn-secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;flex-shrink:0">激活</button>
       <button class="btn-danger" style="padding:4px 8px;font-size:12px;flex-shrink:0">✕</button>`;
     list.appendChild(div);
-    div.querySelectorAll('button')[0].onclick = () => activateTtsPreset(i);
-    div.querySelectorAll('button')[1].onclick = () => deleteTtsPreset(i);
+    div.querySelectorAll('button')[0].onclick = () => {
+      const n = prompt('改名：', p.name || '');
+      if (n?.trim()) { (settings.ttsPresets || [])[i].name = n.trim(); saveSettings(); renderTtsPresets(); }
+    };
+    div.querySelectorAll('button')[1].onclick = () => activateTtsPreset(i);
+    div.querySelectorAll('button')[2].onclick = () => deleteTtsPreset(i);
   });
 }
 
