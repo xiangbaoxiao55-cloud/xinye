@@ -927,30 +927,42 @@ export function initSettings() {
     renderApiPresets();
     toast('预设已删除');
   };
-  $('#btnMovePresetUp').onclick = () => {
-    const i = parseInt($('#presetSelect').value);
-    if (isNaN(i)) { toast('请先在下拉里选中一个预设'); return; }
-    if (i <= 0) { toast('已经是第一个了'); return; }
+  function renderPresetSortList() {
     const presets = getApiPresets();
-    [presets[i - 1], presets[i]] = [presets[i], presets[i - 1]];
+    const list = document.getElementById('presetSortList');
+    if (!list) return;
+    const btnStyle = 'padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;font-size:14px;flex-shrink:0';
+    list.innerHTML = presets.map((p, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border-radius:12px;border:1.5px solid var(--border);cursor:pointer" onclick="window._selectPresetFromSort(${i})">
+        <div style="flex:1;min-width:0;font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</div>
+        <button style="${btnStyle}" onclick="event.stopPropagation();window._movePresetInSort(${i},-1)">▲</button>
+        <button style="${btnStyle}" onclick="event.stopPropagation();window._movePresetInSort(${i},1)">▼</button>
+      </div>`).join('');
+  }
+  window._selectPresetFromSort = (i) => {
+    const p = getApiPresets()[i];
+    if (!p) return;
+    $('#presetSelect').value = i;
+    $('#apiPresetName').value = p.name;
+    document.getElementById('presetSortOverlay').style.display = 'none';
+    toast(`✅ 已选中「${p.name}」，改完字段后点激活主或保存设置`);
+  };
+  window._movePresetInSort = (i, dir) => {
+    const presets = getApiPresets();
+    const j = i + dir;
+    if (j < 0 || j >= presets.length) return;
+    [presets[i], presets[j]] = [presets[j], presets[i]];
     setApiPresets(presets);
     renderApiPresets();
-    $('#presetSelect').value = i - 1;
-    $('#apiPresetName').value = presets[i - 1].name;
-    toast(`▲ 「${presets[i - 1].name}」上移到第 ${i} 位（共 ${presets.length} 个）`);
+    renderPresetSortList();
   };
-  $('#btnMovePresetDown').onclick = () => {
-    const i = parseInt($('#presetSelect').value);
-    if (isNaN(i)) { toast('请先在下拉里选中一个预设'); return; }
+  $('#btnOpenPresetSort').onclick = () => {
     const presets = getApiPresets();
-    if (i >= presets.length - 1) { toast('已经是最后一个了'); return; }
-    [presets[i], presets[i + 1]] = [presets[i + 1], presets[i]];
-    setApiPresets(presets);
-    renderApiPresets();
-    $('#presetSelect').value = i + 1;
-    $('#apiPresetName').value = presets[i + 1].name;
-    toast(`▼ 「${presets[i + 1].name}」下移到第 ${i + 2} 位（共 ${presets.length} 个）`);
+    if (!presets.length) { toast('还没有保存任何预设'); return; }
+    renderPresetSortList();
+    document.getElementById('presetSortOverlay').style.display = 'flex';
   };
+  $('#btnClosePresetSort').onclick = () => { document.getElementById('presetSortOverlay').style.display = 'none'; };
 
   // ======================== 保存设置 ========================
   $('#btnSaveSettingsTop').onclick = () => $('#btnSaveSettings').click();

@@ -173,8 +173,7 @@
         <button type="button" id="btnLoadPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活主</button>
         <button type="button" id="btnRenamePreset" style="padding:8px 12px;background:#fff8e1;color:#f57c00;border:1.5px solid #ffe082;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">改名</button>
         <button type="button" id="btnDelPreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
-        <button type="button" id="btnMovePresetUp" style="padding:8px 10px;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">▲</button>
-        <button type="button" id="btnMovePresetDown" style="padding:8px 10px;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">▼</button>
+        <button type="button" id="btnOpenPresetSort" style="padding:8px 10px;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">列表↕</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <input type="text" id="apiPresetName" placeholder="预设名称（如：Copilot）" style="flex:1">
@@ -897,6 +896,17 @@
   </div>
 </div>
 
+
+<!-- 预设排序浮层 -->
+<div class="modal-overlay" id="presetSortOverlay" style="display:none;z-index:9600">
+  <div class="modal" style="max-width:420px;width:92%;max-height:75vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <span>📋 预设列表（点选 / ▲▼ 排序）</span>
+      <button class="btn-close" id="btnClosePresetSort">✕</button>
+    </div>
+    <div id="presetSortList" style="overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;flex:1"></div>
+  </div>
+</div>
 
 <!-- 站子检测面板 -->
 <div class="modal-overlay" id="checkerOverlay" style="display:none;z-index:9500">
