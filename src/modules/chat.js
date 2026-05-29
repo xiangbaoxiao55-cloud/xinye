@@ -2,7 +2,7 @@ import { toast, fallbackCopy, escHtml, fmtTime, nowStr, $ } from './utils.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
-import { getApiPresets } from './api.js';
+import { getApiPresets, getImagePresets, getImageCurPresetIdx } from './api.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
@@ -1226,10 +1226,6 @@ export async function sendMessage() {
         }
         const _hasRef = _refImgs.length > 0;
         toast(_hasRef ? `${settings.aiName||'炘也'}正在改图...` : `${settings.aiName||'炘也'}正在画...`);
-        const _imgKey = settings.imageApiKey || settings.apiKey;
-        const _imgRaw = (settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        const _imgModel = settings.imageModel;
-        const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
         const _b64t = (s) => { s = s.replace(/[\s\r\n]/g,''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
         const _pi = (d) => {
           const it = d.data?.[0] || d.images?.[0];
@@ -1269,10 +1265,7 @@ export async function sendMessage() {
         };
         // 压缩参考图（聊天框图已是1500px JPEG，设置图压到1500px JPEG）
         let _compressedRefs = null;
-        let _editsUrl = null;
         if (_hasRef) {
-          const _baseRaw = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`;
-          _editsUrl = `${_baseRaw}/images/edits`;
           const _compressRef = (b64, maxDim=1500) => new Promise(res => {
             if (!b64) return res(null);
             const im = new Image();
@@ -1289,140 +1282,183 @@ export async function sendMessage() {
           });
           _compressedRefs = _refFromChat ? _refImgs : (await Promise.all(_refImgs.map(img => _compressRef(img)))).filter(Boolean);
         }
-        const _buildEditsForm = () => {
-          const _form = new FormData();
-          _form.append('model', _imgModel);
-          _form.append('prompt', args.prompt);
-          _form.append('n', '1');
-          _form.append('size', args.size || settings.imageSize || '1024x1024');
-          _form.append('response_format', 'url');
-          _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
-          return _form;
-        };
-        const _doEdits = async () => {
-          const _c = new AbortController();
-          const _t = setTimeout(() => _c.abort(), 1500000);
-          const _start = Date.now();
+        // 画图预设轮询（与画图台 image.js 一致）
+        const _rawImgPresets = getImagePresets();
+        const _activeImgIdx = getImageCurPresetIdx();
+        let _imgCfgs;
+        if (_rawImgPresets.length > 0) {
+          _imgCfgs = [];
+          for (let _i = 0; _i < _rawImgPresets.length; _i++) {
+            const _p = _rawImgPresets[(_activeImgIdx + _i) % _rawImgPresets.length];
+            if (!_p.skip) _imgCfgs.push(_p);
+          }
+          if (_imgCfgs.length === 0) _imgCfgs = [null];
+        } else {
+          _imgCfgs = [null];
+        }
+        const _imgTs = () => new Date().toTimeString().slice(0,8);
+        const _genStart = Date.now();
+        let _lastImgErr;
+        imgPresetLoop: for (let _pIdx = 0; _pIdx < _imgCfgs.length; _pIdx++) {
+          const _pCfg = _imgCfgs[_pIdx];
+          const _pName = _pCfg?.name || '默认配置';
+          const _imgKey = _pCfg?.apiKey || settings.imageApiKey || settings.apiKey;
+          const _imgRaw = (_pCfg?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+          const _imgModel = _pCfg?.model || settings.imageModel || 'gpt-image-1';
+          const _imgFmt = _pCfg?.apiFormat || settings.imageApiFormat || 'images';
+          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
+          const _editsUrl = (() => { const _b = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`; return `${_b}/images/edits`; })();
+          const _buildEditsForm = (mdl) => {
+            const _form = new FormData();
+            _form.append('model', mdl);
+            _form.append('prompt', args.prompt);
+            _form.append('n', '1');
+            _form.append('size', args.size || settings.imageSize || '1024x1024');
+            _form.append('response_format', 'url');
+            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
+            return _form;
+          };
+          const _doEdits = async () => {
+            const _c = new AbortController();
+            const _t = setTimeout(() => _c.abort(), 1500000);
+            const _start = Date.now();
+            try {
+              const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+              let _r;
+              if (_localUrl) {
+                const _eh = { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey };
+                if (settings.imageProxyToken) _eh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+                let _proxyHttpErr = false;
+                try {
+                  _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
+                    method: 'POST', headers: _eh, body: _buildEditsForm(_imgModel), signal: _c.signal
+                  });
+                  if (!_r.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_r.status}`); }
+                } catch(proxyErr) {
+                  if (proxyErr.name === 'AbortError') throw proxyErr;
+                  if (_proxyHttpErr) throw proxyErr;
+                  const _isCld = !!(settings.imageProxyUrl || '').trim();
+                  if (!_isCld) throw proxyErr;
+                  _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(_imgModel), signal: _c.signal });
+                }
+              } else {
+                _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(_imgModel), signal: _c.signal });
+              }
+              clearTimeout(_t);
+              _r._elapsed = Date.now() - _start;
+              return _r;
+            } catch(e) { clearTimeout(_t); e._elapsed = Date.now() - _start; throw e; }
+          };
+          console.log(`[${_imgTs()}][画图tool] → ${_hasRef ? 'edits' : (_imgFmt==='chat'?'chat':'generations')} | ${_pName} | prompt: ${(args.prompt||'').slice(0,60)}…`);
           try {
-            const _localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
-            let _r;
-            if (_localUrl) {
-              const _eh = { 'X-Api-Url': _editsUrl, 'X-Api-Key': _imgKey };
-              if (settings.imageProxyToken) _eh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
-              let _proxyHttpErr = false;
-              try {
-                _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
-                  method: 'POST', headers: _eh, body: _buildEditsForm(), signal: _c.signal
-                });
-                if (!_r.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_r.status}`); }
-              } catch(proxyErr) {
-                if (proxyErr.name === 'AbortError') throw proxyErr;
-                if (_proxyHttpErr) throw proxyErr;
-                const _isCld = !!(settings.imageProxyUrl || '').trim();
-                if (!_isCld) throw proxyErr;
-                _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
+            const _ctrl = new AbortController();
+            const _tid = setTimeout(() => _ctrl.abort(), 300000);
+            let _imgRes;
+            if (_hasRef && _compressedRefs && _compressedRefs.length > 0) {
+              _imgRes = await _doEdits();
+              if (_imgRes.status === 404) {
+                return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
+              }
+              if (_imgRes.status === 502 || _imgRes.status === 503) {
+                const _e502 = await _imgRes.json().catch(() => ({}));
+                if (_e502.maybe_generated) {
+                  return `画图连接中断（已等待${_e502.elapsed_seconds}s，图可能已在后台生成但无法回传），建议稍等再手动重试，勿连续重试以免重复扣费`;
+                }
+                toast('画图服务临时故障，2秒后重试...');
+                await new Promise(r => setTimeout(r, 2000));
+                _imgRes = await _doEdits();
               }
             } else {
-              _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(), signal: _c.signal });
-            }
-            clearTimeout(_t);
-            _r._elapsed = Date.now() - _start;
-            return _r;
-          } catch(e) { clearTimeout(_t); e._elapsed = Date.now() - _start; throw e; }
-        };
-        const _genStart = Date.now();
-        try {
-          const _ctrl = new AbortController();
-          const _tid = setTimeout(() => _ctrl.abort(), 300000);
-          let _imgRes;
-          if (_hasRef && _compressedRefs && _compressedRefs.length > 0) {
-            _imgRes = await _doEdits();
-            if (_imgRes.status === 404) {
-              return '画图失败：当前画图API不支持垫图功能（/images/edits 404）\n可在设置→画图API中配置支持edits的接口（如直连OpenAI）';
-            }
-            if (_imgRes.status === 502 || _imgRes.status === 503) {
-              const _e502 = await _imgRes.json().catch(() => ({}));
-              if (_e502.maybe_generated) {
-                return `画图连接中断（已等待${_e502.elapsed_seconds}s，图可能已在后台生成但无法回传），建议稍等再手动重试，勿连续重试以免重复扣费`;
-              }
-              toast('画图服务临时故障，2秒后重试...');
-              await new Promise(r => setTimeout(r, 2000));
-              _imgRes = await _doEdits();
-            }
-          } else {
-            const _localGenUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
-            if (_localGenUrl) {
-              const _gh = { 'Content-Type': 'application/json' };
-              if (settings.imageProxyToken) _gh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
-              try {
-                _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
-                  method: 'POST', headers: _gh,
-                  body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url' }),
-                  signal: _ctrl.signal
-                });
-              } catch(proxyErr) {
+              const _localGenUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+              if (_localGenUrl) {
+                const _gh = { 'Content-Type': 'application/json' };
+                if (settings.imageProxyToken) _gh['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+                try {
+                  _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
+                    method: 'POST', headers: _gh,
+                    body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url' }),
+                    signal: _ctrl.signal
+                  });
+                } catch(proxyErr) {
+                  _imgRes = await fetch(_genEp, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                    body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: args.size || settings.imageSize || '1024x1024' }),
+                    signal: _ctrl.signal
+                  });
+                }
+              } else {
                 _imgRes = await fetch(_genEp, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: args.size || settings.imageSize || '1024x1024' }),
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
                   signal: _ctrl.signal
                 });
               }
-            } else {
-              _imgRes = await fetch(_genEp, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
-                signal: _ctrl.signal
-              });
             }
-          }
-          clearTimeout(_tid);
-          if (!_imgRes.ok) {
-            const _ed = await _imgRes.json().catch(() => ({}));
-            const _em = _ed.error?.message || '';
-            if (!_hasRef && (_imgRes.status === 502 || /size/i.test(_em))) {
-              toast('此API不支持该尺寸，用默认尺寸重试...');
-              _imgRes = await fetch(_genEp, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1 }),
-                signal: _ctrl.signal
-              });
-              if (!_imgRes.ok) {
-                const _e2 = await _imgRes.json().catch(() => ({}));
-                return '画图失败：' + (_e2.error?.message || _imgRes.status);
-              }
-            } else {
-              return '画图失败：' + (_em || _imgRes.status);
-            }
-          }
-          const _imgData = await _imgRes.json();
-          console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
-          return await _showImg(_imgData) || '画图API没返回图片';
-        } catch(e) {
-          console.error('[画图tool] catch:', e);
-          if (e.name === 'AbortError') return '画图超时（11分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
-          if (e.message?.includes('Failed to fetch')) {
-            const _elapsed = e._elapsed || (Date.now() - _genStart);
-            // 超过60s才失败说明请求已到达API，可能已扣费，不自动重试
-            if (_elapsed > 60000) return '画图连接中断（耗时较长，图可能已在后台生成但回传失败），建议稍等再手动重试';
-            if (_hasRef) {
-              toast('垫图网络抖动，自动重试...');
-              try {
-                const _r2 = await _doEdits();
-                if (!_r2.ok) return '画图失败（重试）：' + _r2.status;
-                const _d2 = await _r2.json();
-                return await _showImg(_d2) || '画图API没返回图片';
-              } catch(_e2) {
-                if (_e2.name === 'AbortError') return '画图重试也超时了，请稍后再试。';
-                return '画图两次都网络失败，请稍后再试。';
+            clearTimeout(_tid);
+            if (!_imgRes.ok) {
+              const _ed = await _imgRes.json().catch(() => ({}));
+              const _em = _ed.error?.message || '';
+              if (!_hasRef && (_imgRes.status === 502 || /size/i.test(_em))) {
+                toast('此API不支持该尺寸，用默认尺寸重试...');
+                _imgRes = await fetch(_genEp, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1 }),
+                  signal: _ctrl.signal
+                });
+                if (!_imgRes.ok) {
+                  const _e2 = await _imgRes.json().catch(() => ({}));
+                  _lastImgErr = '画图失败：' + (_e2.error?.message || _imgRes.status);
+                  if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」失败，切换下一个预设...`); continue imgPresetLoop; }
+                  return _lastImgErr;
+                }
+              } else {
+                _lastImgErr = '画图失败：' + (_em || _imgRes.status);
+                if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」失败，切换下一个预设...`); continue imgPresetLoop; }
+                return _lastImgErr;
               }
             }
-            return '画图网络中断，请重试。';
+            const _imgData = await _imgRes.json();
+            console.log(`[${_imgTs()}][画图tool] ✓ 出图 | ${_pName}`);
+            console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
+            return await _showImg(_imgData) || '画图API没返回图片';
+          } catch(e) {
+            console.error(`[画图tool] ✗ 失败 | ${_pName} |`, e.message);
+            if (e.name === 'AbortError') return '画图超时（11分钟无响应）。\n请检查设置→画图API的地址和密钥是否正确，或画图服务暂时不可用。';
+            if (e.message?.includes('Failed to fetch')) {
+              const _elapsed = e._elapsed || (Date.now() - _genStart);
+              if (_elapsed > 60000) return '画图连接中断（耗时较长，图可能已在后台生成但回传失败），建议稍等再手动重试';
+              if (_hasRef) {
+                toast('垫图网络抖动，自动重试...');
+                try {
+                  const _r2 = await _doEdits();
+                  if (!_r2.ok) {
+                    _lastImgErr = '画图失败（重试）：' + _r2.status;
+                    if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」重试也失败，切换下一个预设...`); continue imgPresetLoop; }
+                    return _lastImgErr;
+                  }
+                  const _d2 = await _r2.json();
+                  console.log(`[${_imgTs()}][画图tool] ✓ 出图(重试) | ${_pName}`);
+                  return await _showImg(_d2) || '画图API没返回图片';
+                } catch(_e2) {
+                  if (_e2.name === 'AbortError') return '画图重试也超时了，请稍后再试。';
+                  _lastImgErr = '画图两次都网络失败';
+                  if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」两次失败，切换下一个预设...`); continue imgPresetLoop; }
+                  return '画图两次都网络失败，请稍后再试。';
+                }
+              }
+              _lastImgErr = '画图网络中断';
+              if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」失败，切换下一个预设...`); continue imgPresetLoop; }
+              return '画图网络中断，请重试。';
+            }
+            _lastImgErr = '画图出错：' + e.message;
+            if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」失败，切换下一个预设...`); continue imgPresetLoop; }
+            return _lastImgErr;
           }
-          return '画图出错：' + e.message;
-        }
+        } // end imgPresetLoop
+        return _lastImgErr || '画图失败（未知原因）';
       }
       if (name === 'web_search') {
         const reqBody = {
