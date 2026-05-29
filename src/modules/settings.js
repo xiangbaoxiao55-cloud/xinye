@@ -335,12 +335,13 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
   const card = document.createElement('div');
   card.style.cssText = `background:${cardBg};border:1.5px solid ${isActive ? 'var(--pink)' : cardBorder};border-radius:10px;overflow:hidden`;
 
+  if (p.skip) card.style.opacity = '0.55';
   const hdr = document.createElement('div');
   hdr.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 10px';
-  const skipBadge = p.skip ? ' <span style="font-size:10px;background:#ffcdd2;color:#c62828;border-radius:4px;padding:1px 5px;flex-shrink:0">跳过</span>' : '';
   hdr.innerHTML = `
     <span data-a="check" style="font-size:15px;min-width:18px;color:var(--pink-deep);cursor:pointer;user-select:none" title="切换为当前使用">${isActive ? '✓' : '○'}</span>
-    <span style="flex:1;font-size:13px;font-weight:${isActive ? '600' : '400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name || '未命名'}${skipBadge}</span>
+    <span style="flex:1;font-size:13px;font-weight:${isActive ? '600' : '400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name || '未命名'}</span>
+    <button data-a="rename" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">✏</button>
     <button data-a="up" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▲</button>
     <button data-a="dn" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▼</button>
     <button data-a="toggle" style="padding:2px 8px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">展开</button>
@@ -388,6 +389,11 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     setImageCurPresetIdx(idx);
     renderImagePresets();
     toast(`🎨 已切换到画图预设「${p.name}」`);
+  };
+  hdr.querySelector('[data-a="rename"]').onclick = () => {
+    const presets = getImagePresets();
+    const n = prompt('改名：', presets[idx]?.name || '');
+    if (n?.trim()) { presets[idx].name = n.trim(); setImagePresets(presets); renderImagePresets(); }
   };
   hdr.querySelector('[data-a="up"]').onclick = () => {
     const presets = getImagePresets();
