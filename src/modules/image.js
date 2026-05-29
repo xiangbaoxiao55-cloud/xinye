@@ -141,8 +141,11 @@ export async function generateImage(userDesc) {
     let dataUrl = null;
     let _lastErr;
 
+    const _ts = () => new Date().toTimeString().slice(0,8);
+
     presetLoop: for (let _pi = 0; _pi < _cfgs.length; _pi++) {
       const _preset = _cfgs[_pi];
+      const _presetName = _preset?.name || '默认配置';
       const imgKey = _preset?.apiKey || settings.imageApiKey || settings.apiKey;
       const raw = (_preset?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
       const imgModel = _preset?.model || settings.imageModel || 'gpt-image-1';
@@ -151,6 +154,8 @@ export async function generateImage(userDesc) {
       try {
         let imgRes;
         const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
+        const _mode = hasRef ? 'edits' : (imgFmt === 'chat' ? 'chat' : 'generations');
+        console.log(`[${_ts()}] → ${_mode} | ${_presetName} | ${settings.imageSize||'1024x1024'} | ${raw}\n         prompt: ${prompt.slice(0,80)}`);
         const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
         if (hasRef) {
           const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
@@ -304,14 +309,17 @@ export async function generateImage(userDesc) {
           throw new Error('画图API没返回图片，vConsole查看完整返回');
         }
         dataUrl = _parsedUrl;
+        console.log(`[${_ts()}] ✓ 出图 | ${_presetName} | ${dataUrl.slice(0,40)}...`);
         break presetLoop;
 
       } catch(e) {
         if (e.name === 'AbortError') throw e;
         _lastErr = e;
+        console.warn(`[${_ts()}] ✗ 失败 | ${_presetName} | ${e.message}`);
         if (_pi < _cfgs.length - 1) {
           const _nextName = _cfgs[_pi + 1]?.name;
-          toast(`${_preset?.name || '当前配置'}失败，切换${_nextName ? '「' + _nextName + '」' : '下一个'}...`);
+          toast(`${_presetName}失败，切换${_nextName ? '「' + _nextName + '」' : '下一个'}...`);
+          console.log(`[${_ts()}] → 切换到 ${_nextName || '下一个预设'}`);
         }
       }
     } // end presetLoop
