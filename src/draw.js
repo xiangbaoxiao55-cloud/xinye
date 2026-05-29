@@ -214,10 +214,11 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
   console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
   if(negPrompt) body.negative_prompt=negPrompt;
+  const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const r=await fetch(`${url}/images/generations`,{
     method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-    body:JSON.stringify(body)
-  });
+    body:JSON.stringify(body),signal:_ac.signal
+  }).finally(()=>clearTimeout(_at));
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
@@ -248,10 +249,12 @@ async function _callChat(preset,prompt,n){
   console.log(`[${ts()}] → chat | ${preset.name} | n=${n} | ${url}/chat/completions\n         prompt: ${prompt.slice(0,80)}`);
   const results=[];
   for(let i=0;i<n;i++){
+    const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
     const r=await fetch(`${url}/chat/completions`,{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-      body:JSON.stringify({model:model||'dall-e-3',messages:[{role:'user',content:`请画一张图：${prompt}`}],max_tokens:2048})
-    });
+      body:JSON.stringify({model:model||'dall-e-3',messages:[{role:'user',content:`请画一张图：${prompt}`}],max_tokens:2048}),
+      signal:_ac.signal
+    }).finally(()=>clearTimeout(_at));
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();
     const content=d.choices?.[0]?.message?.content||'';
@@ -276,9 +279,10 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
   if(negPrompt) fd.append('negative_prompt',negPrompt);
+  const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const r=await fetch(`${url}/images/edits`,{
-    method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd
-  });
+    method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal
+  }).finally(()=>clearTimeout(_at));
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
