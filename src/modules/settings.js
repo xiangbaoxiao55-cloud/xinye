@@ -328,7 +328,7 @@ export function renderImagePresets() {
   }
   presets.forEach((p, i) => list.appendChild(_buildImagePresetCard(p, i, i === activeIdx, cardBg, cardBorder)));
   const addBtn = $('#btnAddImagePreset');
-  if (addBtn) addBtn.style.display = presets.length >= 5 ? 'none' : '';
+  if (addBtn) addBtn.style.display = presets.length >= 10 ? 'none' : '';
 }
 
 function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
@@ -834,7 +834,7 @@ export function initSettings() {
   if (_addImgPresetBtn) {
     _addImgPresetBtn.onclick = () => {
       const presets = getImagePresets();
-      if (presets.length >= 5) { toast('最多5个画图预设'); return; }
+      if (presets.length >= 10) { toast('最多10个画图预设'); return; }
       presets.push({ name: `画图预设${presets.length + 1}`, apiKey: '', baseUrl: '', model: 'gpt-image-1', apiFormat: 'images', skip: false });
       setImagePresets(presets);
       renderImagePresets();
