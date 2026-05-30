@@ -1141,10 +1141,17 @@ ${numbered.map(n => n.text).join('\n\n')}
       return { reviewed: top.length, removed: 0 };
     }
     const data = await res.json();
-    const raw = data?.choices?.[0]?.message?.content?.trim() || '';
+    const msg = data?.choices?.[0]?.message || {};
+    const rawContent = (msg.content || '').trim();
+    const rawReasoning = (msg.reasoning_content || '').trim();
+    // DeepSeek-R1 等reasoning模型：JSON可能在reasoning_content里
+    let raw = stripThinkingTags(rawContent) || rawContent;
+    if (!raw.match(/\{[\s\S]*\}/) && rawReasoning) raw = stripThinkingTags(rawReasoning) || rawReasoning;
     console.log('[Conflict] 📤 发给副API的30对：');
     numbered.forEach(n => console.log(n.text));
-    console.log('[Conflict] 📥 副API原始回复：', raw);
+    console.log('[Conflict] 📥 副API原始回复 content：', rawContent || '(空)');
+    if (rawReasoning) console.log('[Conflict] 📥 副API reasoning_content：', rawReasoning.slice(0, 500) + (rawReasoning.length > 500 ? '…' : ''));
+    console.log('[Conflict] 🔍 用于解析的raw：', raw.slice(0, 300));
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) {
       console.warn('[Conflict] 副API返回无法解析：', raw.slice(0, 200));
