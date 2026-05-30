@@ -1142,6 +1142,9 @@ ${numbered.map(n => n.text).join('\n\n')}
     }
     const data = await res.json();
     const raw = data?.choices?.[0]?.message?.content?.trim() || '';
+    console.log('[Conflict] 📤 发给副API的30对：');
+    numbered.forEach(n => console.log(n.text));
+    console.log('[Conflict] 📥 副API原始回复：', raw);
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) {
       console.warn('[Conflict] 副API返回无法解析：', raw.slice(0, 200));
@@ -1151,6 +1154,7 @@ ${numbered.map(n => n.text).join('\n\n')}
     }
     const parsed = JSON.parse(match[0]);
     const conflicts = Array.isArray(parsed.conflicts) ? parsed.conflicts : [];
+    console.log(`[Conflict] 解析出 conflicts.length=${conflicts.length}`);
 
     const removeSet = new Set();
     let removed = 0, kept = 0;
