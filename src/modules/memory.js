@@ -1141,9 +1141,9 @@ ${numbered.map(n => n.text).join('\n\n')}
       return { reviewed: top.length, removed: 0 };
     }
     const data = await res.json();
-    const msg = data?.choices?.[0]?.message || {};
-    const rawContent = (msg.content || '').trim();
-    const rawReasoning = (msg.reasoning_content || '').trim();
+    const apiMsg = data?.choices?.[0]?.message || {};
+    const rawContent = (apiMsg.content || '').trim();
+    const rawReasoning = (apiMsg.reasoning_content || '').trim();
     // DeepSeek-R1 等reasoning模型：JSON可能在reasoning_content里
     let raw = stripThinkingTags(rawContent) || rawContent;
     if (!raw.match(/\{[\s\S]*\}/) && rawReasoning) raw = stripThinkingTags(rawReasoning) || rawReasoning;
