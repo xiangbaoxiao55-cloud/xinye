@@ -1091,9 +1091,17 @@ export async function detectMemoryConflicts(silent = false) {
   }
 
   pairs.sort((x, y) => y.sim - x.sim);
-  const top = pairs.slice(0, 30);
-  if (statusEl) statusEl.textContent = `⏳ 副API审${top.length}对（共${pairs.length}对候选）…`;
-  console.log(`[Conflict] 候选${pairs.length}对，取top${top.length}给副API`);
+
+  // 混合采样：高/中/低三段各10对，覆盖全范围（top30常常都是描述同一事的不同侧面，反而不是矛盾）
+  const highBin = pairs.filter(p => p.sim >= 0.78);
+  const midBin  = pairs.filter(p => p.sim >= 0.68 && p.sim < 0.78);
+  const lowBin  = pairs.filter(p => p.sim >= 0.60 && p.sim < 0.68);
+  const pickHigh = highBin.slice(0, 10);
+  const pickMid  = midBin.slice(0, 10);
+  const pickLow  = lowBin.slice(0, 10);
+  const top = [...pickHigh, ...pickMid, ...pickLow];
+  console.log(`[Conflict] 候选${pairs.length}对，分箱采样：高${highBin.length}(取${pickHigh.length}) + 中${midBin.length}(取${pickMid.length}) + 低${lowBin.length}(取${pickLow.length}) = 给副API ${top.length}对`);
+  if (statusEl) statusEl.textContent = `⏳ 副API审${top.length}对（高${pickHigh.length}/中${pickMid.length}/低${pickLow.length}）…`;
 
   const numbered = top.map((p, i) => {
     const aTime = p.a.updatedAt || p.a.createdAt || 0;
