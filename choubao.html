@@ -452,6 +452,20 @@
         <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start;color:var(--text)">🔍 立即重新索引</button>
         <div id="archiveIndexStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
       </div>
+      <div style="margin-top:10px;padding:10px 12px;background:var(--warm-bg);border:1px dashed var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">🧹 记忆条去重 & 矛盾扫描</div>
+        <div class="hint" style="margin-top:0">写入50条新记忆自动跑去重；矛盾扫描调副API，~1分钱一次。</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" onclick="dedupMemoryBank()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)">🧹 全量去重（免费）</button>
+          <button type="button" onclick="detectMemoryConflicts()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--apricot);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)">🤖 智能扫矛盾（副API）</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);cursor:pointer">
+          <input type="checkbox" id="setMemoryAutoConflictDetect" style="accent-color:var(--pink-deep)">
+          自动去重后串联触发矛盾扫描（每50条触发一次）
+        </label>
+        <div id="memoryDedupStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
+        <div id="memoryConflictStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
+      </div>
       <div id="memoryBankPreview" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
         <div id="memCardAuto" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧷 自动记忆分层</div>

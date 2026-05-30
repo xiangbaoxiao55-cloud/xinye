@@ -59,6 +59,8 @@ export async function openSettings() {
   $('#setBraveKey').value = settings.braveKey || '';
   const _mwEl = $('#setMorningWalkEnabled');
   if (_mwEl) _mwEl.checked = !!settings.morningWalkEnabled;
+  const _mcdEl = $('#setMemoryAutoConflictDetect');
+  if (_mcdEl) _mcdEl.checked = !!settings.memoryAutoConflictDetect;
   $('#setSearchDays').value = settings.searchDays || 3;
   $('#setSearchCount').value = settings.searchCount || 5;
   if ($('#setWereadApiKey')) $('#setWereadApiKey').value = settings.wereadApiKey || '';
@@ -976,6 +978,7 @@ export function initSettings() {
     settings.useLocalProxy = !!($('#apiPresetUseProxy')?.checked);
     settings.braveKey = $('#setBraveKey').value.trim();
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
+    settings.memoryAutoConflictDetect = !!($('#setMemoryAutoConflictDetect')?.checked);
     settings.searchDays = parseInt($('#setSearchDays').value) || 3;
     settings.searchCount = parseInt($('#setSearchCount').value) || 5;
     settings.wereadApiKey = ($('#setWereadApiKey') ? $('#setWereadApiKey').value.trim() : '');

@@ -348,19 +348,39 @@ export async function getMemoryContextBlocks() {
   }
 
   if (settings.memoryArchiveExtended?.length) {
-    const extPool = settings.memoryArchiveExtended.filter(c => c.content);
+    const extPool = settings.memoryArchiveExtended.filter(c => c.text || c.content);
+    const isChunked = settings.memoryArchiveExtendedChunked || extPool.every(c => c.text && !c.content);
     let recalled;
-    if (queryVec) {
-      recalled = extPool
-        .map(c => ({ ...c, score: c.embedding ? cosineSimilarity(queryVec, c.embedding) : 0 }))
-        .filter(c => c.score > 0.25)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
+    if (isChunked) {
+      if (queryVec) {
+        recalled = extPool
+          .map(c => ({ ...c, score: c.embedding ? cosineSimilarity(queryVec, c.embedding) : 0 }))
+          .filter(c => c.score > 0.25)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+      } else {
+        recalled = extPool.slice(0, 5);
+      }
+      console.log(`[Memory Extended] chunk模式：候选${extPool.length} → 召回${recalled.length}（top5，阈值0.25）`);
+      recalled.forEach((c, i) => console.log(`  ext${i+1} [${c.title}] score=${(c.score||0).toFixed(3)} | ${c.text.slice(0,60)}…`));
+      if (recalled.length) {
+        const lines = recalled.map(c => `- (来自${c.title}) ${c.text}`).join('\n');
+        dynamic.push(`【背景细节·相关召回】\n${lines}`);
+      }
     } else {
-      recalled = extPool.slice(0, 2);
-    }
-    if (recalled.length) {
-      dynamic.push(`【关于涂涔·背景细节（相关召回）】\n${recalled.map(c => c.content).join('\n\n')}`);
+      if (queryVec) {
+        recalled = extPool
+          .map(c => ({ ...c, score: c.embedding ? cosineSimilarity(queryVec, c.embedding) : 0 }))
+          .filter(c => c.score > 0.25)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+      } else {
+        recalled = extPool.slice(0, 2);
+      }
+      console.log(`[Memory Extended] 旧整章模式：候选${extPool.length} → 召回${recalled.length}（建议点"重建索引"切换chunk模式）`);
+      if (recalled.length) {
+        dynamic.push(`【关于涂涔·背景细节（相关召回）】\n${recalled.map(c => c.content).join('\n\n')}`);
+      }
     }
   }
 
@@ -554,6 +574,48 @@ export function parseArchiveForInjection(archiveText, markersText) {
   return { core: coreParts.join('\n\n'), always: alwaysParts.join('\n\n'), extended: extendedChapters };
 }
 
+// 把章节按段落/列表项切chunk
+export function splitChapterIntoChunks(content) {
+  const body = String(content || '').replace(/^##\s+.+\n+/, '').trim();
+  if (!body) return [];
+  const rawChunks = [];
+  const paragraphs = body.split(/\n\s*\n+/).map(p => p.trim()).filter(Boolean);
+  for (const para of paragraphs) {
+    const lines = para.split('\n');
+    const listLines = lines.filter(l => /^- /.test(l));
+    if (listLines.length >= 2 && listLines.join('\n').length >= para.length * 0.6) {
+      let cur = '';
+      for (const line of lines) {
+        if (/^- /.test(line)) {
+          if (cur.trim()) rawChunks.push(cur.trim());
+          cur = line;
+        } else {
+          cur += (cur ? '\n' : '') + line;
+        }
+      }
+      if (cur.trim()) rawChunks.push(cur.trim());
+    } else {
+      rawChunks.push(para);
+    }
+  }
+  const final = [];
+  for (const c of rawChunks) {
+    if (c.length < 10) continue;
+    if (c.length > 500) {
+      const sentences = c.match(/[^。！？\n]+[。！？]?/g) || [c];
+      let buf = '';
+      for (const s of sentences) {
+        if ((buf + s).length > 500 && buf) { final.push(buf.trim()); buf = s; }
+        else { buf += s; }
+      }
+      if (buf.trim()) final.push(buf.trim());
+    } else {
+      final.push(c);
+    }
+  }
+  return final;
+}
+
 export async function rebuildArchiveIndex(silent = false) {
   const archiveText  = settings.memoryArchive?.trim();
   const markersText  = settings.memoryArchiveCoreMarkers?.trim();
@@ -567,16 +629,25 @@ export async function rebuildArchiveIndex(silent = false) {
   if (!parsed) { if (!silent) toast('档案解析失败'); return; }
   settings.memoryArchiveCore   = parsed.core;
   settings.memoryArchiveAlways = parsed.always;
+
+  const chapterChunks = parsed.extended.map(ch => ({ title: ch.title, chunks: splitChapterIntoChunks(ch.content) }));
+  const totalChunks = chapterChunks.reduce((s, c) => s + c.chunks.length, 0);
+  console.log(`[ArchiveIndex] 切chunk：${parsed.extended.length}章节 → ${totalChunks}个chunk`);
+
   const extended = [];
-  for (let i = 0; i < parsed.extended.length; i++) {
-    const ch = parsed.extended[i];
-    if (statusEl) statusEl.textContent = `⏳ 向量计算 (${i + 1}/${parsed.extended.length})：${ch.title}`;
-    const emb = await getEmbedding(ch.content.slice(0, 800));
-    extended.push({ title: ch.title, content: ch.content, embedding: emb });
+  let processed = 0;
+  for (const { title, chunks } of chapterChunks) {
+    for (const text of chunks) {
+      processed++;
+      if (statusEl) statusEl.textContent = `⏳ 向量计算 (${processed}/${totalChunks})：${title}`;
+      const emb = await getEmbedding(text);
+      extended.push({ title, text, embedding: emb });
+    }
   }
   settings.memoryArchiveExtended = extended;
+  settings.memoryArchiveExtendedChunked = true;
   await saveSettings();
-  const msg = `✅ 索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length} 个Extended章节`;
+  const msg = `✅ 索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length}个chunk（来自${parsed.extended.length}章节）`;
   if (statusEl) statusEl.textContent = msg;
   if (!silent) toast(msg);
   else console.log('[ArchiveIndex]', msg);
@@ -920,6 +991,194 @@ ${numbered}
   } catch (e) { console.warn('[Memory] cleanupMemoryBank 失败:', e.message); }
 }
 
+// ── 全量去重 ──────────────────────────────────────────────────────────────────
+// 对bank.archived所有有embedding的条目两两算cosine
+//   sim≥0.85 → 合并到weight更高/更新的那条，删除另一条
+//   0.78≤sim<0.85 → 双方加tag「疑似重复」
+export async function dedupMemoryBank(silent = false) {
+  const bank = ensureMemoryState();
+  const items = bank.archived || [];
+  const withVec = items.map((it, idx) => ({ it, idx })).filter(x => Array.isArray(x.it.embedding) && x.it.embedding.length);
+
+  if (withVec.length < 2) {
+    if (!silent) toast('记忆条不足或无向量，跳过去重');
+    return { merged: 0, marked: 0 };
+  }
+
+  const statusEl = document.getElementById('memoryDedupStatus');
+  if (statusEl) statusEl.textContent = `⏳ 去重中（${withVec.length}条）…`;
+  console.log(`[Dedup] 开始：候选${withVec.length}条（总${items.length}条）`);
+
+  const toDelete = new Set();
+  let mergedCount = 0, markedSet = new Set();
+  const conflictPairs = []; // 给Step3矛盾判定用
+
+  const scoreOf = (m) => (m.weight || 1) * 10 + (m.content?.length || 0) / 1000 + (m.updatedAt || 0) / 1e13;
+
+  for (let i = 0; i < withVec.length; i++) {
+    if (toDelete.has(withVec[i].idx)) continue;
+    for (let j = i + 1; j < withVec.length; j++) {
+      if (toDelete.has(withVec[j].idx)) continue;
+      const a = withVec[i].it, b = withVec[j].it;
+      const sim = cosineSimilarity(a.embedding, b.embedding);
+      if (sim >= 0.85) {
+        const keepA = scoreOf(a) >= scoreOf(b);
+        const keep = keepA ? a : b, drop = keepA ? b : a;
+        keep.weight = Math.max(a.weight || 1, b.weight || 1);
+        keep.accessCount = (a.accessCount || 0) + (b.accessCount || 0);
+        keep.tags = [...new Set([...(keep.tags || []), ...(drop.tags || [])])].filter(t => t !== '疑似重复').slice(0, 6);
+        keep.updatedAt = Math.max(a.updatedAt || 0, b.updatedAt || 0);
+        toDelete.add(keepA ? withVec[j].idx : withVec[i].idx);
+        mergedCount++;
+        console.log(`[Dedup] 合并 sim=${sim.toFixed(3)} | 留:「${(keep.content||'').slice(0,40)}」 删:「${(drop.content||'').slice(0,40)}」`);
+        if (!keepA) break;
+      } else if (sim >= 0.78) {
+        if (!(a.tags || []).includes('疑似重复')) { a.tags = [...(a.tags || []), '疑似重复'].slice(0, 6); markedSet.add(withVec[i].idx); }
+        if (!(b.tags || []).includes('疑似重复')) { b.tags = [...(b.tags || []), '疑似重复'].slice(0, 6); markedSet.add(withVec[j].idx); }
+        conflictPairs.push({ aId: a.id || withVec[i].idx, bId: b.id || withVec[j].idx, sim });
+      }
+    }
+  }
+
+  if (toDelete.size > 0) bank.archived = items.filter((_, idx) => !toDelete.has(idx));
+  bank.lastDedupAt = Date.now();
+  bank._lastDedupConflicts = conflictPairs; // 留给Step3矛盾判定用
+  await saveSettings();
+  renderMemoryBankPreview();
+
+  const ts = new Date().toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const msg = `🧹 ${ts} 去重：合并${mergedCount}对 · 疑似${markedSet.size}条 · 候选${withVec.length}`;
+  console.log('[Dedup]', msg);
+  if (statusEl) statusEl.textContent = msg;
+  if (!silent) toast(`✅ 合并${mergedCount}对，标记${markedSet.size}条疑似重复`);
+  return { merged: mergedCount, marked: markedSet.size, conflictPairs };
+}
+
+// ── 矛盾判定（副API）─────────────────────────────────────────────────────────
+// 扫embedding 0.6~0.82灰色区域候选对，让副API判断"新条目是否推翻旧条目"
+export async function detectMemoryConflicts(silent = false) {
+  const sub = getSubApiCfg();
+  if (!sub.apiKey) {
+    if (!silent) toast('未配置副API，跳过矛盾判定');
+    return { reviewed: 0, removed: 0 };
+  }
+  const bank = ensureMemoryState();
+  const items = bank.archived || [];
+  const withVec = items.filter(it => Array.isArray(it.embedding) && it.embedding.length);
+
+  if (withVec.length < 2) {
+    if (!silent) toast('记忆条不足，跳过矛盾判定');
+    return { reviewed: 0, removed: 0 };
+  }
+
+  const statusEl = document.getElementById('memoryConflictStatus');
+  if (statusEl) statusEl.textContent = `⏳ 扫描候选对（${withVec.length}条）…`;
+
+  const pairs = [];
+  for (let i = 0; i < withVec.length; i++) {
+    for (let j = i + 1; j < withVec.length; j++) {
+      const sim = cosineSimilarity(withVec[i].embedding, withVec[j].embedding);
+      if (sim >= 0.6 && sim < 0.82) pairs.push({ a: withVec[i], b: withVec[j], sim });
+    }
+  }
+
+  if (!pairs.length) {
+    const msg = '✅ 没找到可疑候选对（灰色区域0.6~0.82无内容）';
+    console.log('[Conflict]', msg);
+    if (statusEl) statusEl.textContent = msg;
+    if (!silent) toast(msg);
+    return { reviewed: 0, removed: 0 };
+  }
+
+  pairs.sort((x, y) => y.sim - x.sim);
+  const top = pairs.slice(0, 30);
+  if (statusEl) statusEl.textContent = `⏳ 副API审${top.length}对（共${pairs.length}对候选）…`;
+  console.log(`[Conflict] 候选${pairs.length}对，取top${top.length}给副API`);
+
+  const numbered = top.map((p, i) => {
+    const aTime = p.a.updatedAt || p.a.createdAt || 0;
+    const bTime = p.b.updatedAt || p.b.createdAt || 0;
+    const aDate = aTime ? new Date(aTime).toLocaleDateString('zh-CN') : '?';
+    const bDate = bTime ? new Date(bTime).toLocaleDateString('zh-CN') : '?';
+    return {
+      idx: i,
+      pair: p,
+      text: `${i}.\n  A [${aDate} w${p.a.weight||1}]: ${(p.a.content||'').slice(0,160)}\n  B [${bDate} w${p.b.weight||1}]: ${(p.b.content||'').slice(0,160)}`
+    };
+  });
+
+  const prompt = `下面是炘也记忆条里语义相近的条目对。判断每对是不是"较新的条目推翻了较旧的条目"（比如A说用Edge，B说换回PWA了）。
+判断标准：
+- 真矛盾且较新条目推翻较旧：标"remove":"A"或"B"（删较旧的那条）
+- 两条互补/无冲突/各自独立：标"remove":"keep_both"
+- weight≥3 的条目即便矛盾也标 "keep_both"
+
+候选对（编号从0开始）：
+${numbered.map(n => n.text).join('\n\n')}
+
+只用JSON回复，不要任何其他文字：
+{"conflicts":[{"idx":0,"remove":"A","reason":"一句话说明"}]}
+没找到矛盾就返回 {"conflicts":[]}`;
+
+  try {
+    const res = await subApiFetch({
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      max_tokens: 1200,
+      stream: false,
+    });
+    if (!res || !res.ok) {
+      if (!silent) toast('副API调用失败');
+      if (statusEl) statusEl.textContent = '❌ 副API失败';
+      return { reviewed: top.length, removed: 0 };
+    }
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content?.trim() || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) {
+      console.warn('[Conflict] 副API返回无法解析：', raw.slice(0, 200));
+      if (!silent) toast('返回格式错误，看vConsole');
+      if (statusEl) statusEl.textContent = '❌ 返回格式错误';
+      return { reviewed: top.length, removed: 0 };
+    }
+    const parsed = JSON.parse(match[0]);
+    const conflicts = Array.isArray(parsed.conflicts) ? parsed.conflicts : [];
+
+    const removeSet = new Set();
+    let removed = 0, kept = 0;
+    for (const c of conflicts) {
+      const n = numbered[c.idx];
+      if (!n) continue;
+      const remove = c.remove === 'A' ? n.pair.a : c.remove === 'B' ? n.pair.b : null;
+      if (!remove) { kept++; console.log(`[Conflict] keep_both #${c.idx} | ${c.reason}`); continue; }
+      if ((remove.weight || 1) >= 3 || remove.kind === 'pinned') {
+        console.log(`[Conflict] 拒删高权重 #${c.idx} weight=${remove.weight} | ${c.reason}`);
+        kept++; continue;
+      }
+      removeSet.add(remove);
+      removed++;
+      console.log(`[Conflict] 删 #${c.idx} | ${c.reason} | 「${(remove.content||'').slice(0,50)}」`);
+    }
+
+    if (removeSet.size > 0) bank.archived = bank.archived.filter(it => !removeSet.has(it));
+    bank.lastConflictAt = Date.now();
+    await saveSettings();
+    renderMemoryBankPreview();
+
+    const ts = new Date().toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const msg = `🤖 ${ts} 矛盾扫描：审${top.length}对 · 删${removed}条 · 保${kept}条`;
+    console.log('[Conflict]', msg);
+    if (statusEl) statusEl.textContent = msg;
+    if (!silent) toast(`✅ 审${top.length}对，删${removed}条矛盾旧条`);
+    return { reviewed: top.length, removed };
+  } catch(e) {
+    console.warn('[Conflict] 失败：', e);
+    if (!silent) toast('矛盾判定失败：' + e.message);
+    if (statusEl) statusEl.textContent = '❌ ' + e.message;
+    return { reviewed: top.length, removed: 0 };
+  }
+}
+
 // ── digestMemory ──────────────────────────────────────────────────────────────
 export async function digestMemory() {
   if (!settings.apiKey) { toast('请先填写 API Key'); return; }
@@ -1186,6 +1445,22 @@ export async function saveOneMemoryToBank(bank, parsed, msgTime) {
       if (entry.kind === 'pinned') upsertMemoryEntry(bank.pinned, entry, MEMORY_PINNED_LIMIT);
       else upsertMemoryEntry(bank.archived, entry);
       console.log('[Memory] 新记忆已入档：', entry.kind, entry.content, `情绪:${entry.emotion} 权重:${entry.weight}`, embedding ? '(有向量)' : '(无向量)');
+
+      if (entry.kind !== 'pinned') {
+        bank._dedupSinceLast = (bank._dedupSinceLast || 0) + 1;
+        if (bank._dedupSinceLast >= 50) {
+          bank._dedupSinceLast = 0;
+          console.log('[Memory] 攒满50条新记忆，后台触发全量去重…');
+          setTimeout(() => {
+            dedupMemoryBank(true).then(r => {
+              if (r && (r.merged > 0 || r.marked > 0) && settings.memoryAutoConflictDetect) {
+                console.log('[Memory] 去重后串联触发矛盾判定…');
+                setTimeout(() => detectMemoryConflicts(true), 2000);
+              }
+            }).catch(e => console.warn('[Memory] 自动去重失败：', e));
+          }, 1500);
+        }
+      }
     }
   }
 }
