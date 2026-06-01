@@ -266,9 +266,9 @@ async function describeImagesWithVision(imgs) {
           model,
           messages: [{ role: 'user', content: [
             { type: 'image_url', image_url: { url: imgUrl } },
-            { type: 'text', text: '请详细描述这张图片的内容，包括人物、物体、场景、颜色、动作等关键信息。用中文回答，不超过200字。' }
+            { type: 'text', text: '请详细描述这张图片的内容，用中文回答。包括：人物外貌/表情/动作/穿着、物体、场景环境、色调氛围、图中如有文字请原文转述。尽量完整，不省略细节。' }
           ]}],
-          max_tokens: 500,
+          max_tokens: 1000,
           stream: false
         })
       });
@@ -379,7 +379,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.06.01-1929';
+  if (_verEl) _verEl.textContent = 'v2026.06.01-1954';
 
   await openDB();
   await migrateFromLocalStorage();
