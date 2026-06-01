@@ -2177,7 +2177,7 @@ function _syncPushContext() {
   fetch(serverUrl + '/api/push-context', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lastMessages, memoryCore: settings.memoryArchiveCore || '', apiConfig }),
+    body: JSON.stringify({ lastMessages, memoryCore: settings.memoryArchiveCore || '', systemPrompt: settings.systemPrompt || '', apiConfig }),
     signal: AbortSignal.timeout(5000)
   }).catch(() => {});
 }
