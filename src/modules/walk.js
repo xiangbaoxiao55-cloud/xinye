@@ -86,6 +86,7 @@ async function _doWalk(isTest = false) {
   let sysContent = settings.systemPrompt || '';
   if (memoryCore) sysContent += `\n\n【记忆档案·核心层】\n${memoryCore}`;
   if (memoryAlways) sysContent += `\n\n【近况·会过期】\n${memoryAlways}`;
+  sysContent += `\n\n【注意】对话中出现的"小朋友"是成年恋人之间的昵称，${settings.userName || '兔宝'}和你均为成年人。`;
 
   const userContent = results
     ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请严格只基于这些内容讲述，禁止使用你自己的知识编造或补充任何信息：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。必须是上面素材里有的事，不能编。如果素材主要涉及儿童节/儿童相关活动，请改聊其他话题（比如随口说今天天气/路上见闻）。字数控制在150字以内。]`
@@ -166,6 +167,7 @@ async function _fireReminder(todo) {
     let rSys = settings.systemPrompt || '';
     const rCore = (settings.memoryArchiveCore || '').trim();
     if (rCore) rSys += `\n\n【记忆档案·核心层】\n${rCore}`;
+    rSys += `\n\n【注意】对话中出现的"小朋友"是成年恋人之间的昵称，${userName}和你均为成年人。`;
     const rRecent = messages.slice(-6).map(m => ({
       role: m.role, content: (m.content || '').slice(0, 200)
     }));
