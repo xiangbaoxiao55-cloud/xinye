@@ -2102,6 +2102,68 @@ export async function sendMessage() {
   }
 }
 
+export async function triggerProactiveReply(instruction, maxTokens = 200) {
+  if (window.isRequesting) return null;
+  const typing = document.querySelector('#typingIndicator');
+  const _btnSend = document.querySelector('#btnSend');
+  window.isRequesting = true;
+  if (_btnSend) _btnSend.disabled = true;
+  if (typing) typing.classList.add('show');
+  try {
+    const apiMsgs = [];
+    const { stable: _stbl, dynamic: _dyn } = await getMemoryContextBlocks();
+    if (settings.systemPrompt?.trim()) _stbl.push(settings.systemPrompt.trim());
+    if (_stbl.length) apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stbl.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
+    if (_dyn.length) apiMsgs.push({ role: 'system', content: _dyn.join('\n\n---\n\n') });
+
+    const n = Math.max(1, settings.contextCount || 20);
+    for (const m of messages.slice(-n)) {
+      const role = m.role === 'user' ? 'user' : 'assistant';
+      const isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
+      if (isGenImg) {
+        const fakeId = `img_${m.id || Date.now()}`;
+        apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: fakeId, type: 'function', function: { name: 'generate_image', arguments: '{"prompt":"","ref_characters":"both"}' } }] });
+        apiMsgs.push({ role: 'tool', tool_call_id: fakeId, content: '[图已展示]' });
+      } else {
+        apiMsgs.push({ role, content: m.content || '' });
+      }
+    }
+
+    apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
+    try {
+      const todos = await getAllUndoneTodos();
+      if (todos.length) {
+        apiMsgs.push({ role: 'system', content: '【备忘录·全部未完成待办】\n' + todos.map(t => `- [id:${t.id}] ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0, 16).replace('T', ' ') + '）' : ''}`).join('\n') });
+      }
+    } catch (_) {}
+    apiMsgs.push({ role: 'system', content: instruction });
+
+    const lastRole = [...apiMsgs].reverse().find(m => m.role === 'user' || m.role === 'assistant')?.role;
+    if (lastRole !== 'user') apiMsgs.push({ role: 'user', content: '（主动消息）' });
+
+    const res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
+    if (!res?.ok) return null;
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let text = '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+          try { text += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ''; } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    return text.trim() || null;
+  } finally {
+    window.isRequesting = false;
+    if (_btnSend) _btnSend.disabled = (document.querySelector('#userInput')?.value || '') === '';
+    if (typing) typing.classList.remove('show');
+  }
+}
+
 function _syncPushContext() {
   const serverUrl = settings.solitudeServerUrl;
   if (!serverUrl || window.__APP_ID__ === 'choubao') return;
