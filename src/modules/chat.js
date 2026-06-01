@@ -2141,8 +2141,11 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     const lastRole = [...apiMsgs].reverse().find(m => m.role === 'user' || m.role === 'assistant')?.role;
     if (lastRole !== 'user') apiMsgs.push({ role: 'user', content: '（主动消息）' });
 
+    console.log('[主动消息] 发送 messages 共', apiMsgs.length, '条，各role：', apiMsgs.map(m => m.role).join(','));
+    console.log('[主动消息] 最后3条：', JSON.stringify(apiMsgs.slice(-3), null, 2));
+
     const res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
-    if (!res?.ok) return null;
+    if (!res?.ok) { console.error('[主动消息] API失败', res?.status); return null; }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let text = '';
@@ -2156,6 +2159,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
         }
       }
     } catch (_) {}
+    console.log('[主动消息] 回复：', text.slice(0, 100) || '(空)');
     return text.trim() || null;
   } finally {
     window.isRequesting = false;
