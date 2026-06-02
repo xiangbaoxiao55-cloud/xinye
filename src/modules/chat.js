@@ -1741,7 +1741,7 @@ export async function sendMessage() {
       }
 
       async function _finalizeMsg(parsed, loopMsgs) {
-        let finalText = parsed.content || '（没有收到回复）';
+        let finalText = parsed.content || (parsed.think ? '' : '（没有收到回复）');
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
@@ -1753,7 +1753,7 @@ export async function sendMessage() {
           try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, aiMsg.id);
         } else {
-          if (!finalText.trim()) finalText = '（没有收到回复）';
+          if (!finalText.trim() && !parsed.think) finalText = '（没有收到回复）';
           if (parsed.think) parsed.bubbleEl.textContent = finalText;
           const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
           if (idx >= 0) messages[idx].content = finalText;
@@ -1801,8 +1801,8 @@ export async function sendMessage() {
           }
         }
         if (!_m1?.tool_calls?.length) {
-          let reply = _m1?.content || '（没有收到回复）';
           const _thk1 = _m1?.reasoning_content || _m1?.thinking || '';
+          let reply = _m1?.content || (_thk1 ? '' : '（没有收到回复）');
           if (_thk1) reply = `<thinking>${_thk1}</thinking>\n${reply}`;
           await _showNonStream(reply, loopMsgs, _d1.usage);
         } else {
@@ -1909,8 +1909,8 @@ export async function sendMessage() {
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
           const _df = await _rf.json();
           const _mf = _df.choices?.[0]?.message;
-          let finalText = _mf?.content || '（没有收到回复）';
           const _thkF = _mf?.reasoning_content || _mf?.thinking || '';
+          let finalText = _mf?.content || (_thkF ? '' : '（没有收到回复）');
           if (_thkF) finalText = `<thinking>${_thkF}</thinking>\n${finalText}`;
           await _showNonStream(finalText, loopMsgs, _df.usage);
         }
@@ -2034,7 +2034,7 @@ export async function sendMessage() {
       const data = await _r.json();
       const msg0 = data.choices?.[0]?.message;
       const thinking = msg0?.reasoning_content || msg0?.thinking || '';
-      let reply = msg0?.content || '（没有收到回复）';
+      let reply = msg0?.content || (thinking ? '' : '（没有收到回复）');
       if (thinking) reply = `<thinking>${thinking}</thinking>\n${reply}`;
       typing.classList.remove('show');
       const aiMsg = await addMessage('assistant', reply);
