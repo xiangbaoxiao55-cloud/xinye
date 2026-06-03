@@ -9,6 +9,33 @@ export function clearMimoRefCache() { _mimoRefBase64 = null; }
 const _ttsQueue = [];
 let _ttsQueueRunning = false;
 
+// 被浏览器自动播放策略拦下的语音，等下次用户手势再补播（无手势时 audio.play() 会被拒）
+const _pendingAutoplay = [];
+let _gestureArmed = false;
+function _armGestureResume() {
+  if (_gestureArmed) return;
+  _gestureArmed = true;
+  const handler = async () => {
+    document.removeEventListener('pointerdown', handler);
+    document.removeEventListener('touchstart', handler);
+    _gestureArmed = false;
+    const items = _pendingAutoplay.splice(0);
+    for (const { blob } of items) {
+      await new Promise(resolve => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudio = audio;
+        audio.onended = () => { currentAudio = null; URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(url); resolve(); };
+        audio.play().catch(resolve);
+      });
+    }
+  };
+  document.addEventListener('pointerdown', handler);
+  document.addEventListener('touchstart', handler);
+  console.warn('[TTS] 已挂手势监听，下次点屏幕补播', _pendingAutoplay.length, '条');
+}
+
 const _THINK_RE = /(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)\s*/gi;
 export function stripThinking(t) {
   return t.replace(_THINK_RE, '').trim();
@@ -327,6 +354,7 @@ async function _drainTTSQueue() {
         if (blob) { await dbPut('ttsCache', msgId, blob); markCached(msgId); }
       }
       const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
+      if (!blob) console.warn('[TTS] 语音未生成（generateTTSBlob 返回空），跳过播放', msgId);
       if (blob) await new Promise(resolve => {
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
@@ -337,7 +365,13 @@ async function _drainTTSQueue() {
         });
         audio.onended = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
         audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
-        audio.play().catch(resolve);
+        audio.play().catch(e => {
+          if (barCtrl) barCtrl.setPlaying(false);
+          console.warn('[TTS] 自动播放被拒', e?.name, e?.message, msgId);
+          // 自动播放策略拦截：留着，等用户手势补播；不要丢
+          if (e && e.name === 'NotAllowedError') { _pendingAutoplay.push({ msgId, blob }); _armGestureResume(); }
+          resolve();
+        });
       });
     } catch(e) { console.warn('[TTS Queue]', e); }
   }
