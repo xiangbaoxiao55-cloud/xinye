@@ -336,8 +336,10 @@ export async function playTTS(text, btnEl, msgId) {
 }
 
 export function enqueueTTS(text, msgId, showBar = false) {
+  const _raw = text;
   text = stripForTTS(text);
-  if (!text) return;
+  if (!text) { console.warn('[TTS] stripForTTS 后为空，跳过播放', msgId, '原文前30字:', (_raw || '').slice(0, 30)); return; }
+  console.warn('[TTS] 入队', msgId, 'showBar:', showBar, '清洗后前20字:', text.slice(0, 20));
   _ttsQueue.push({ text, msgId, showBar });
   if (!_ttsQueueRunning) _drainTTSQueue();
 }
