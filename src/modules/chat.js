@@ -1809,6 +1809,12 @@ export async function sendMessage() {
           loopMsgs.push({ role: 'assistant', content: _m1.content || null, tool_calls: _m1.tool_calls });
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
             typing.classList.remove('show');
+            // Show the pre-gen text immediately with TTS
+            if (_m1.content) {
+              const _preMsg1 = await addMessage('assistant', _m1.content);
+              await appendMsgDOM(_preMsg1);
+              window.maybeTTS?.(_m1.content, _preMsg1.id);
+            }
             window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
             const _bgTcs1 = _m1.tool_calls.slice();
             (async () => {
@@ -1827,7 +1833,7 @@ export async function sendMessage() {
                     : `[系统：你刚才给${_uN1}画图，但失败了（${(_imgErrStr1 || _imgResult1 || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                   try {
                     const _rr1 = await _apiFetch([{ role: 'system', content: _rs1 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt1 }], false, false);
-                    if (_rr1 && _rr1.ok) { const _rd1 = await _rr1.json(); const _rep1 = _rd1.choices?.[0]?.message?.content?.trim(); if (_rep1) { const _am1 = await addMessage('assistant', _rep1); await dbPut(activeStore(), null, _am1); await appendMsgDOM(_am1); scrollBottom(); } }
+                    if (_rr1 && _rr1.ok) { const _rd1 = await _rr1.json(); const _rep1 = _rd1.choices?.[0]?.message?.content?.trim(); if (_rep1) { const _am1 = await addMessage('assistant', _rep1); await dbPut(activeStore(), null, _am1); await appendMsgDOM(_am1); scrollBottom(); window.maybeTTS?.(_rep1, _am1.id); } }
                   } catch (_re1) { console.warn('[画图回应]', _re1.message); }
                 }
               }
@@ -1835,13 +1841,17 @@ export async function sendMessage() {
             })();
             return;
           }
-          for (const tc of _m1.tool_calls) {
+          // For speak+generate_image: run non-image tools synchronously, image in background
+          for (const tc of _m1.tool_calls.filter(t => t.function.name !== 'generate_image')) {
             let result = '';
             try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
             loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
           }
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image' || tc.function.name === 'speak')) {
-            if (_m1.tool_calls.some(tc => tc.function.name === 'speak')) {
+            const _hasSpeak1 = _m1.tool_calls.some(tc => tc.function.name === 'speak');
+            const _imgTcs1 = _m1.tool_calls.filter(t => t.function.name === 'generate_image');
+            // Finalize speak content immediately
+            if (_hasSpeak1) {
               const _speakContent = window._speakText || _m1.content || '';
               window._speakText = '';
               if (_speakContent) {
@@ -1854,27 +1864,35 @@ export async function sendMessage() {
                   if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage);
                 }
               }
-            } else {
-              // 检查generate_image工具结果，失败时显示错误气泡+toast
-              for (const _gtc of _m1.tool_calls.filter(t => t.function.name === 'generate_image')) {
-                const _gres = loopMsgs.find(m => m.role === 'tool' && m.tool_call_id === _gtc.id)?.content || '';
-                if (_gres && _gres !== '[图已画好并展示给兔宝了]') {
-                  console.error('[画图tool] 失败结果:', _gres);
-                  toast('画图失败：' + _gres);
-                  const _errArgs = _safeParseArgs('generate_image', _gtc.function.arguments);
-                  const _errMsg = await addMessage('assistant', `[画图失败] ${_gres}`);
-                  _errMsg.isGenImageError = true;
-                  _errMsg.genImageErrorPrompt = _errArgs?.prompt || '';
-                  await dbPut(activeStore(), null, _errMsg);
-                  const _errIdx = messages.findIndex(m => m.id === _errMsg.id);
-                  if (_errIdx >= 0) messages[_errIdx] = _errMsg;
-                  await appendMsgDOM(_errMsg);
-                }
-              }
-              rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
             }
             typing.classList.remove('show');
             window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+            if (_imgTcs1.length) {
+              (async () => {
+                for (const tc of _imgTcs1) {
+                  window._pendingImageCount = (window._pendingImageCount || 0) + 1;
+                  let _imgResultS = '', _imgErrStrS = '';
+                  try { _imgResultS = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { _imgErrStrS = e.message; toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+                  if (!window.isRequesting) {
+                    const _isOkS = _imgResultS === '[图已画好并展示给兔宝了]';
+                    const _tcAS = _safeParseArgs(tc.function.name, tc.function.arguments); const _ipS = _tcAS?.prompt || '';
+                    const _uNS = settings.userName || '兔宝';
+                    const _mcS = (settings.memoryArchiveCore || '').trim(); const _maS = (settings.memoryArchiveAlways || '').trim();
+                    let _rsS = settings.systemPrompt || ''; if (_mcS) _rsS += `\n\n【记忆档案·核心层】\n${_mcS}`; if (_maS) _rsS += `\n\n【近况·会过期】\n${_maS}`;
+                    const _rtS = _isOkS
+                      ? `[系统：你刚给${_uNS}画了一张图（"${_ipS.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
+                      : `[系统：你刚才给${_uNS}画图，但失败了（${(_imgErrStrS || _imgResultS || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
+                    try {
+                      const _rrS = await _apiFetch([{ role: 'system', content: _rsS }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rtS }], false, false);
+                      if (_rrS && _rrS.ok) { const _rdS = await _rrS.json(); const _repS = _rdS.choices?.[0]?.message?.content?.trim(); if (_repS) { const _amS = await addMessage('assistant', _repS); await dbPut(activeStore(), null, _amS); await appendMsgDOM(_amS); scrollBottom(); window.maybeTTS?.(_repS, _amS.id); } }
+                    } catch (_reS) { console.warn('[画图回应]', _reS.message); }
+                  }
+                }
+                if (!_hasSpeak1) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext(); }
+              })();
+            } else if (!_hasSpeak1) {
+              rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
+            }
             return;
           }
           for (let _tr = 1; _tr < 4; _tr++) {
@@ -1926,14 +1944,15 @@ export async function sendMessage() {
           await _finalizeMsg(parsed, loopMsgs); return;
         }
         const _onlyImgTool = parsed.tool_calls.every(tc => tc.name === 'generate_image');
-        if (parsed.aiMsg && parsed.content && !_onlyImgTool) {
+        if (parsed.aiMsg && parsed.content) {
           try { await updateMessage(parsed.aiMsg.id, parsed.content); } catch(_e) {}
         }
         loopMsgs.push({ role: 'assistant', content: parsed.content || null, tool_calls: parsed.tool_calls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args } })) });
         if (_onlyImgTool) {
-          if (parsed.aiMsg) {
-            await deleteMessage(parsed.aiMsg.id).catch(() => {});
-            chatArea.querySelector(`.msg-del-btn[data-id="${parsed.aiMsg.id}"]`)?.closest('.msg-row')?.remove();
+          // Keep the pre-gen text bubble; fire TTS for it immediately
+          if (parsed.aiMsg && parsed.content) {
+            try { linkifyEl(parsed.bubbleEl, parsed.content); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
+            window.maybeTTS?.(parsed.content, parsed.aiMsg.id);
           }
           typing.classList.remove('show');
           window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
@@ -1954,7 +1973,7 @@ export async function sendMessage() {
                   : `[系统：你刚才给${_uN}画图，但失败了（${(_imgErrStr || _imgResult || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                 try {
                   const _rr = await _apiFetch([{ role: 'system', content: _rs }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt }], false, false);
-                  if (_rr && _rr.ok) { const _rd = await _rr.json(); const _rep = _rd.choices?.[0]?.message?.content?.trim(); if (_rep) { const _am = await addMessage('assistant', _rep); await dbPut(activeStore(), null, _am); await appendMsgDOM(_am); scrollBottom(); } }
+                  if (_rr && _rr.ok) { const _rd = await _rr.json(); const _rep = _rd.choices?.[0]?.message?.content?.trim(); if (_rep) { const _am = await addMessage('assistant', _rep); await dbPut(activeStore(), null, _am); await appendMsgDOM(_am); scrollBottom(); window.maybeTTS?.(_rep, _am.id); } }
                 } catch (_re) { console.warn('[画图回应]', _re.message); }
               }
             }
@@ -1962,13 +1981,17 @@ export async function sendMessage() {
           })();
           return;
         }
-        for (const tc of parsed.tool_calls) {
+        // For speak+generate_image: run non-image tools synchronously, then image in background
+        for (const tc of parsed.tool_calls.filter(t => t.name !== 'generate_image')) {
           let result = '';
           try { result = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { result = `Tool error: ${e.message}`; }
           loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
         }
         if (parsed.tool_calls.every(tc => tc.name === 'generate_image' || tc.name === 'speak')) {
-          if (parsed.tool_calls.some(tc => tc.name === 'speak')) {
+          const _hasSpeak2 = parsed.tool_calls.some(tc => tc.name === 'speak');
+          const _imgTcs2 = parsed.tool_calls.filter(t => t.name === 'generate_image');
+          // Finalize speak content immediately — TTS fires now, not after image gen
+          if (_hasSpeak2) {
             const _speakContent = window._speakText || parsed.content || '';
             window._speakText = '';
             if (_speakContent) {
@@ -1981,11 +2004,36 @@ export async function sendMessage() {
                 await _finalizeMsg(_pSpeak, loopMsgs);
               }
             }
-          } else {
-            rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
           }
           typing.classList.remove('show');
           window.isRequesting = false; btnSend.disabled = userInput.value.trim() === '';
+          // Run generate_image tools in background — input already unblocked
+          if (_imgTcs2.length) {
+            (async () => {
+              for (const tc of _imgTcs2) {
+                window._pendingImageCount = (window._pendingImageCount || 0) + 1;
+                let _imgResult2 = '', _imgErrStr2 = '';
+                try { _imgResult2 = await _execTool(tc.name, _safeParseArgs(tc.name, tc.args)); } catch(e) { _imgErrStr2 = e.message; toast('画图失败：' + e.message); } finally { window._pendingImageCount = Math.max(0, (window._pendingImageCount || 1) - 1); }
+                if (!window.isRequesting) {
+                  const _isOk2 = _imgResult2 === '[图已画好并展示给兔宝了]';
+                  const _tcA2 = _safeParseArgs(tc.name, tc.args); const _ip2 = _tcA2?.prompt || '';
+                  const _uN2 = settings.userName || '兔宝';
+                  const _mc2 = (settings.memoryArchiveCore || '').trim(); const _ma2 = (settings.memoryArchiveAlways || '').trim();
+                  let _rs2 = settings.systemPrompt || ''; if (_mc2) _rs2 += `\n\n【记忆档案·核心层】\n${_mc2}`; if (_ma2) _rs2 += `\n\n【近况·会过期】\n${_ma2}`;
+                  const _rt2 = _isOk2
+                    ? `[系统：你刚给${_uN2}画了一张图（"${_ip2.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
+                    : `[系统：你刚才给${_uN2}画图，但失败了（${(_imgErrStr2 || _imgResult2 || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
+                  try {
+                    const _rr2 = await _apiFetch([{ role: 'system', content: _rs2 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt2 }], false, false);
+                    if (_rr2 && _rr2.ok) { const _rd2 = await _rr2.json(); const _rep2 = _rd2.choices?.[0]?.message?.content?.trim(); if (_rep2) { const _am2 = await addMessage('assistant', _rep2); await dbPut(activeStore(), null, _am2); await appendMsgDOM(_am2); scrollBottom(); window.maybeTTS?.(_rep2, _am2.id); } }
+                  } catch (_re2) { console.warn('[画图回应]', _re2.message); }
+                }
+              }
+              if (!_hasSpeak2) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext(); }
+            })();
+          } else if (!_hasSpeak2) {
+            rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
+          }
           return;
         }
         let _m2FinalContent = null;
