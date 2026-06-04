@@ -28,8 +28,13 @@ export function openPhoneDB() {
         }
       }
     };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+    req.onsuccess = e => {
+      _db = e.target.result;
+      _db.onversionchange = () => { _db.close(); _db = null; };
+      resolve(_db);
+    };
     req.onerror   = e => reject(e.target.error);
+    req.onblocked = () => reject(new Error('XinyePhoneDB onblocked'));
   });
 }
 
