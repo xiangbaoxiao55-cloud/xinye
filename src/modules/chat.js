@@ -720,6 +720,10 @@ export function renderTokenLog(msgId) {
 export async function sendMessage() {
   const text = userInput.value.trim();
   const imgs = [...(window.pendingImages || [])];
+  if (window.isRequesting && window._requestingAt && Date.now() - window._requestingAt > 300000) {
+    window.isRequesting = false; window._requestingAt = null;
+    btnSend.disabled = false; typing?.classList.remove('show');
+  }
   if ((!text && !imgs.length) || window.isRequesting) return;
   const _turnReceivedImgs = _PFX === '' ? [...imgs] : null;
   window._currentTurnGeneratedDataUrl = null;
@@ -750,6 +754,7 @@ export async function sendMessage() {
   }
 
   window.isRequesting = true;
+  window._requestingAt = Date.now();
   btnSend.disabled = true;
   typing.classList.add('show');
   scrollBottom();
