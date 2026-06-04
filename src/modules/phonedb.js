@@ -1,7 +1,7 @@
 // XinyePhoneDB — 炘也手机数据库
 const DB_NAME = 'XinyePhoneDB';
-const DB_VER  = 3;
-const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers','xinye_stickies'];
+const DB_VER  = 2;
+const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers'];
 
 let _db = null;
 
@@ -26,9 +26,6 @@ export function openPhoneDB() {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: 'key' });
         }
-      }
-      if (!db.objectStoreNames.contains('xinye_stickies')) {
-        db.createObjectStore('xinye_stickies', { autoIncrement: true, keyPath: 'id' });
       }
     };
     req.onsuccess = e => { _db = e.target.result; resolve(_db); };
@@ -179,13 +176,6 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
       if (cur?.content) hist.items.unshift({ content: cur.content, time: cur.time });
       await putRecord(store, { key: 'current', content: data[key].content, time: now });
       await putRecord(store, hist);
-    }
-  }
-
-  // stickies（随手记）
-  if (data.stickies?.items) {
-    for (const item of data.stickies.items) {
-      if (item.content) await addRecord('xinye_stickies', { content: item.content, time: now });
     }
   }
 
