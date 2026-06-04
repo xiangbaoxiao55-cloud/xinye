@@ -915,7 +915,9 @@ export async function sendMessage() {
       const _hwUrl = settings.healthWorkerUrl;
       if (_hwUrl) {
         const _hwHeaders = settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {};
-        const healthRes = await fetch(_hwUrl, { headers: _hwHeaders });
+        const _hwCtrl = new AbortController();
+        setTimeout(() => _hwCtrl.abort(), 5000);
+        const healthRes = await fetch(_hwUrl, { headers: _hwHeaders, signal: _hwCtrl.signal });
         if (healthRes.ok) {
           const healthData = await healthRes.json();
           const h = healthData[0];
