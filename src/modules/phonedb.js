@@ -1,6 +1,6 @@
 // XinyePhoneDB — 炘也手机数据库
 const DB_NAME = 'XinyePhoneDB';
-const DB_VER  = 2;
+const DB_VER  = 3;
 const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers'];
 
 let _db = null;
