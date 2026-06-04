@@ -1,6 +1,6 @@
 import { toast } from './utils.js';
 import { settings, messages } from './state.js';
-import { dbPut } from './db.js';
+import { dbPut, dbGet } from './db.js';
 import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
 import { getImagePresets, getImageCurPresetIdx } from './api.js';
@@ -88,7 +88,7 @@ export async function compositeRefImages(dataUrls) {
   return canvas.toDataURL('image/png');
 }
 
-export async function generateImage(userDesc) {
+export async function generateImage(userDesc, opts = {}) {
   if (!settings.apiKey) { toast('请先设置 API Key'); return; }
   if (window.isRequesting) return;
 
@@ -98,6 +98,15 @@ export async function generateImage(userDesc) {
   const imgPreview = document.getElementById('imgPreview');
 
   const refImgs = [...window.pendingImages];
+  // 重试时按原画图的 ref_characters/ref_style 从 IDB 捞角色参考图，保持脸一致（否则退化成纯文生图）
+  if (opts.refChars && opts.refChars !== 'none') {
+    const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
+    const _style = _styleMap[opts.refStyle] || 'Anime';
+    const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
+    const _userRef = await dbGet('images', 'userRef' + _style).catch(() => null);
+    if ((opts.refChars === 'ai' || opts.refChars === 'both') && _aiRef) refImgs.push(_aiRef);
+    if ((opts.refChars === 'user' || opts.refChars === 'both') && _userRef) refImgs.push(_userRef);
+  }
   if (userInput) userInput.value = '';
   if (typeof window.autoResize === 'function') window.autoResize();
   window.pendingImages = [];
@@ -330,6 +339,8 @@ export async function generateImage(userDesc) {
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
+    // 透传角色参考，二次重试仍能重建垫图
+    if (opts.refChars) { aiMsg.genRefChars = opts.refChars; aiMsg.genRefStyle = opts.refStyle || 'anime'; }
     await dbPut(activeStore(), null, aiMsg);
     const _idx = messages.findIndex(m => m.id === aiMsg.id);
     if (_idx >= 0) messages[_idx] = aiMsg;

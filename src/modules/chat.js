@@ -480,7 +480,7 @@ chatArea.addEventListener('click', e => {
     const msg = messages.find(m => m.id === id);
     if (msg) {
       const prompt = _extractGenPrompt(msg.content);
-      if (prompt && window.generateImage) window.generateImage(prompt);
+      if (prompt && window.generateImage) window.generateImage(prompt, { refChars: msg.genRefChars, refStyle: msg.genRefStyle });
     }
     return;
   }
@@ -1255,6 +1255,9 @@ export async function sendMessage() {
           const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图${_refTag}]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true; _genMsg.genImageData = _dataUrl;
+          // 记下本次画图用的角色参考，重试时可重建垫图（不退化成纯文生图）
+          _genMsg.genRefChars = args.ref_characters || 'none';
+          _genMsg.genRefStyle = args.ref_style || 'anime';
           if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
           await dbPut(activeStore(), null, _genMsg);
           const _gi = messages.findIndex(m => m.id === _genMsg.id);
