@@ -2226,16 +2226,50 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
   }
 }
 
-function _syncPushContext() {
+async function _syncPushContext() {
   const serverUrl = settings.solitudeServerUrl;
   if (!serverUrl || window.__APP_ID__ === 'choubao') return;
   const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
   const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
-  const lastMessages = messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) }));
+
+  // 和正式聊天一样的记忆块（stable = Core+ALWAYS+钉住, dynamic = RAG+Extended）
+  let stableBlocks = [], dynamicBlocks = [];
+  try {
+    const { stable, dynamic } = await getMemoryContextBlocks();
+    stableBlocks = stable;
+    dynamicBlocks = dynamic;
+  } catch {}
+  if (settings.systemPrompt?.trim()) stableBlocks.push(settings.systemPrompt.trim());
+
+  // 待办列表
+  let todosText = '';
+  try {
+    const _todos = await getAllUndoneTodos();
+    if (_todos.length) {
+      todosText = '【备忘录·全部未完成待办】\n' +
+        _todos.map(t => `- [id:${t.id}] ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
+    }
+  } catch {}
+
+  // 完整消息历史（图片内容只保留文字部分）
+  const n = Math.max(1, settings.contextCount || 20);
+  const fullMessages = messages.slice(-n).map(m => {
+    let content = '';
+    if (typeof m.content === 'string') content = m.content;
+    else if (Array.isArray(m.content)) content = m.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    return { role: m.role, content };
+  }).filter(m => m.content);
+
   fetch(serverUrl + '/api/push-context', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lastMessages, memoryCore: settings.memoryArchiveCore || '', systemPrompt: settings.systemPrompt || '', apiConfig }),
-    signal: AbortSignal.timeout(5000)
+    body: JSON.stringify({
+      stableBlocks, dynamicBlocks, todosText, fullMessages, apiConfig,
+      // 向后兼容：_schedulePush 关键词检测用
+      lastMessages: messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })),
+      memoryCore: settings.memoryArchiveCore || '',
+      systemPrompt: settings.systemPrompt || '',
+    }),
+    signal: AbortSignal.timeout(8000)
   }).catch(() => {});
 }
