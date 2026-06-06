@@ -236,7 +236,7 @@ function _doSpin(container, activeDims, btnSend) {
   });
 }
 
-// ── 标签管理 ──────────────────────────────────────────────────────────
+// ── 标签管理（显示全部：内置+自定义） ──────────────────────────────────
 function _showTagManager(panel) {
   let mgr = panel.querySelector('.fortune-tag-mgr');
   if (mgr) { mgr.remove(); return; }
@@ -248,7 +248,7 @@ function _showTagManager(panel) {
 
   const mgrTitle = document.createElement('div');
   mgrTitle.className = 'fortune-mgr-title';
-  mgrTitle.textContent = '自定义标签管理';
+  mgrTitle.textContent = '标签管理';
   mgr.appendChild(mgrTitle);
 
   const dimSelect = document.createElement('select');
@@ -280,35 +280,54 @@ function _showTagManager(panel) {
     custom[dimId].push(val);
     _saveCustomTags(custom);
     addInput.value = '';
-    _renderCustomList(customList, dimId);
+    _renderAllTagsList(tagList, dimId, () => _updateDimSelectLabel(dimSelect, dimId));
     _updateDimSelectLabel(dimSelect, dimId);
   };
   addRow.appendChild(addBtn);
   mgr.appendChild(addRow);
 
-  const customList = document.createElement('div');
-  customList.className = 'fortune-custom-list';
-  mgr.appendChild(customList);
+  const tagList = document.createElement('div');
+  tagList.className = 'fortune-tag-list';
+  mgr.appendChild(tagList);
 
-  dimSelect.onchange = () => _renderCustomList(customList, dimSelect.value);
-  _renderCustomList(customList, dimSelect.value);
+  const _renderAll = () => {
+    _renderAllTagsList(tagList, dimSelect.value, () => _updateDimSelectLabel(dimSelect, dimSelect.value));
+  };
+  dimSelect.onchange = _renderAll;
+  _renderAll();
 
   panel.appendChild(mgr);
 }
 
-function _renderCustomList(container, dimId) {
-  const custom = _getCustomTags()[dimId] || [];
+function _renderAllTagsList(container, dimId, onCustomChange) {
+  const dim = DIMS.find(d => d.id === dimId);
+  if (!dim) return;
+  const custom = (_getCustomTags()[dimId] || []).slice();
+  const builtIn = dim.tags;
   container.innerHTML = '';
-  if (!custom.length) {
-    container.innerHTML = '<div class="fortune-empty">暂无自定义标签</div>';
-    return;
-  }
-  for (const tag of custom) {
+
+  for (const tag of builtIn) {
     const row = document.createElement('div');
-    row.className = 'fortune-custom-row';
+    row.className = 'fortune-tag-row fortune-tag-builtin';
     const span = document.createElement('span');
     span.textContent = tag;
     row.appendChild(span);
+    const badge = document.createElement('span');
+    badge.className = 'fortune-tag-badge';
+    badge.textContent = '内置';
+    row.appendChild(badge);
+    container.appendChild(row);
+  }
+  for (const tag of custom) {
+    const row = document.createElement('div');
+    row.className = 'fortune-tag-row fortune-tag-custom';
+    const span = document.createElement('span');
+    span.textContent = tag;
+    row.appendChild(span);
+    const badge = document.createElement('span');
+    badge.className = 'fortune-tag-badge';
+    badge.textContent = '自定义';
+    row.appendChild(badge);
     const del = document.createElement('button');
     del.className = 'fortune-del-btn';
     del.textContent = '✕';
@@ -316,10 +335,14 @@ function _renderCustomList(container, dimId) {
       const c = _getCustomTags();
       c[dimId] = (c[dimId] || []).filter(t => t !== tag);
       _saveCustomTags(c);
-      _renderCustomList(container, dimId);
+      _renderAllTagsList(container, dimId, onCustomChange);
+      if (onCustomChange) onCustomChange();
     };
     row.appendChild(del);
     container.appendChild(row);
+  }
+  if (!builtIn.length && !custom.length) {
+    container.innerHTML = '<div class="fortune-empty">该维度暂无标签</div>';
   }
 }
 

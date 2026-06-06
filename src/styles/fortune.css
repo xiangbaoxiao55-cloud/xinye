@@ -146,20 +146,31 @@
   color: var(--text-color, #333);
   font-size: 13px;
 }
-.fortune-custom-list {
-  max-height: 150px; overflow-y: auto;
+.fortune-tag-list {
+  max-height: 220px; overflow-y: auto;
 }
-.fortune-custom-row {
+.fortune-tag-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border-color, rgba(0,0,0,.06));
   font-size: 13px;
   color: var(--text-color, #555);
 }
+.fortune-tag-builtin { opacity: .65; }
+.fortune-tag-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 8px;
+  background: var(--border-color, #e0d6cc);
+  color: var(--text-secondary, #999);
+  margin-left: auto; margin-right: 4px;
+}
+.fortune-tag-custom .fortune-tag-badge {
+  background: var(--accent, #b48ead); color: #fff;
+}
 .fortune-del-btn {
   background: none; border: none;
   color: var(--danger, #e55); font-size: 14px;
   cursor: pointer; padding: 2px 6px;
+  flex-shrink: 0;
 }
 .fortune-empty {
   text-align: center; color: var(--text-secondary, #aaa);

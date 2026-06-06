@@ -180,3 +180,33 @@
 [data-theme="dark"] .pp-name{background:#241c30;border-color:#4a3a58;color:var(--text)}
 [data-theme="dark"] .pp-btn{background:#241c30;border-color:#4a3a58;color:var(--text)}
 [data-theme="dark"] .pp-btn.pp-active{border-color:var(--pink-deep);color:var(--pink-deep)}
+
+/* ---- 命运转盘暗夜模式 ---- */
+[data-theme="dark"] .fortune-panel{background:#1e1528;color:#e8d4e4}
+[data-theme="dark"] .fortune-title{color:#e8d4e4}
+[data-theme="dark"] .fortune-dim-chip{color:#b090b0;border-color:#6b3a58}
+[data-theme="dark"] .fortune-dim-chip.active{background:#6b3a58;color:#fff;border-color:#6b3a58}
+[data-theme="dark"] .fortune-card{background:rgba(180,142,173,.1);border-color:#6b3a58}
+[data-theme="dark"] .fortune-card-label{color:#8a6878}
+[data-theme="dark"] .fortune-card-tag{color:#c084a8}
+[data-theme="dark"] .fortune-btn{color:#b090b0;border-color:#6b3a58}
+[data-theme="dark"] .fortune-btn:hover{background:#6b3a58;color:#fff}
+[data-theme="dark"] .fortune-btn-spin{background:#6b3a58;color:#fff}
+[data-theme="dark"] .fortune-btn:disabled{opacity:.35}
+[data-theme="dark"] .fortune-dim-select{background:#241c30;color:#e8d4e4;border-color:#3a2e48}
+[data-theme="dark"] .fortune-dim-select option{background:#241c30;color:#e8d4e4}
+[data-theme="dark"] .fortune-add-input{background:#241c30;color:#e8d4e4;border-color:#3a2e48}
+[data-theme="dark"] .fortune-add-input::placeholder{color:#7a5878}
+[data-theme="dark"] .fortune-tag-row{color:#c8b0c8;border-bottom-color:rgba(255,255,255,.06)}
+[data-theme="dark"] .fortune-tag-builtin{opacity:.5}
+[data-theme="dark"] .fortune-tag-badge{background:#3a2e48;color:#8a6878}
+[data-theme="dark"] .fortune-tag-custom .fortune-tag-badge{background:#6b3a58;color:#fff}
+[data-theme="dark"] .fortune-empty{color:#8a6878}
+[data-theme="dark"] .fortune-tag-mgr,[data-theme="dark"] .fortune-history-panel{border-top-color:#3a2e48}
+[data-theme="dark"] .fortune-mgr-title{color:#c8b0c8}
+[data-theme="dark"] .fortune-history-time{color:#8a6878}
+[data-theme="dark"] .fortune-history-tags{color:#c8b0c8}
+[data-theme="dark"] .fortune-history-row{border-bottom-color:rgba(255,255,255,.06)}
+[data-theme="dark"] .fortune-bubble{background:rgba(180,142,173,.08);border-color:#6b3a58}
+[data-theme="dark"] .fortune-bubble-title{color:#c084a8}
+[data-theme="dark"] .fortune-bubble-tag{background:#6b3a58;color:#fff}
