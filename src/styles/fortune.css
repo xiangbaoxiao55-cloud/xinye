@@ -1,0 +1,211 @@
+/* ── 命运转盘 ─────────────────────────────────────────────── */
+.fortune-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fortuneFadeIn .3s ease;
+}
+.fortune-overlay.hiding {
+  animation: fortuneFadeOut .3s ease forwards;
+}
+@keyframes fortuneFadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fortuneFadeOut { from { opacity: 1 } to { opacity: 0 } }
+
+.fortune-panel {
+  background: var(--bubble-bg, #fff);
+  border-radius: 20px;
+  padding: 24px 20px 20px;
+  max-width: 400px; width: 92vw;
+  max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  animation: fortuneSlideUp .35s cubic-bezier(.22,1,.36,1);
+}
+@keyframes fortuneSlideUp {
+  from { transform: translateY(30px); opacity: 0 }
+  to { transform: translateY(0); opacity: 1 }
+}
+
+.fortune-title {
+  text-align: center;
+  font-size: 20px; font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--text-color, #333);
+}
+
+/* ── 维度开关 chips ─── */
+.fortune-dim-toggles {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.fortune-dim-chip {
+  padding: 4px 12px; border-radius: 14px;
+  border: 1.5px solid var(--accent, #b48ead);
+  background: transparent;
+  color: var(--text-color, #666);
+  font-size: 13px; cursor: pointer;
+  transition: all .2s;
+}
+.fortune-dim-chip.active {
+  background: var(--accent, #b48ead);
+  color: #fff;
+  border-color: var(--accent, #b48ead);
+}
+
+/* ── 结果卡片 ─── */
+.fortune-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+  min-height: 80px;
+}
+.fortune-card {
+  background: var(--card-bg, rgba(180,142,173,.1));
+  border: 1.5px solid var(--accent, #b48ead);
+  border-radius: 14px;
+  padding: 12px 8px;
+  text-align: center;
+  animation: fortuneCardPop .4s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes fortuneCardPop {
+  from { transform: scale(.7) rotateY(90deg); opacity: 0 }
+  60%  { transform: scale(1.05) rotateY(0); opacity: 1 }
+  to   { transform: scale(1) rotateY(0); opacity: 1 }
+}
+.fortune-card-label {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 6px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.fortune-card-tag {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent, #b48ead);
+  word-break: break-all;
+}
+
+/* ── 按钮行 ─── */
+.fortune-btn-row {
+  display: flex; gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.fortune-btn {
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1.5px solid var(--accent, #b48ead);
+  background: transparent;
+  color: var(--text-color, #555);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.fortune-btn:hover { background: var(--accent, #b48ead); color: #fff; }
+.fortune-btn:disabled { opacity: .4; pointer-events: none; }
+.fortune-btn-spin {
+  background: var(--accent, #b48ead);
+  color: #fff; font-weight: 700;
+  min-width: 100px;
+}
+.fortune-btn-spin:hover { filter: brightness(1.1); }
+
+/* ── 标签管理 ─── */
+.fortune-tag-mgr, .fortune-history-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color, #e0d6cc);
+}
+.fortune-mgr-title {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text-color, #555);
+}
+.fortune-dim-select {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color, #ddd);
+  background: var(--input-bg, #fff);
+  color: var(--text-color, #333);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.fortune-add-row {
+  display: flex; gap: 6px; margin-bottom: 8px;
+}
+.fortune-add-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color, #ddd);
+  background: var(--input-bg, #fff);
+  color: var(--text-color, #333);
+  font-size: 13px;
+}
+.fortune-custom-list {
+  max-height: 150px; overflow-y: auto;
+}
+.fortune-custom-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color, rgba(0,0,0,.06));
+  font-size: 13px;
+  color: var(--text-color, #555);
+}
+.fortune-del-btn {
+  background: none; border: none;
+  color: var(--danger, #e55); font-size: 14px;
+  cursor: pointer; padding: 2px 6px;
+}
+.fortune-empty {
+  text-align: center; color: var(--text-secondary, #aaa);
+  font-size: 13px; padding: 12px 0;
+}
+
+/* ── 历史 ─── */
+.fortune-history-row {
+  display: flex; gap: 8px; align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-color, rgba(0,0,0,.06));
+  font-size: 12px;
+}
+.fortune-history-time {
+  color: var(--text-secondary, #aaa);
+  flex-shrink: 0; font-size: 11px;
+}
+.fortune-history-tags {
+  color: var(--text-color, #555);
+  word-break: break-all;
+}
+
+/* ── 聊天气泡内的转盘结果 ─── */
+.fortune-bubble {
+  background: var(--card-bg, rgba(180,142,173,.08));
+  border: 1.5px solid var(--accent, #b48ead);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 4px 0;
+}
+.fortune-bubble-title {
+  font-size: 13px; font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--accent, #b48ead);
+}
+.fortune-bubble-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.fortune-bubble-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--accent, #b48ead);
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+}
+.fortune-bubble-tag-dim {
+  opacity: .7; font-weight: 400;
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260605-1332';
+const CACHE_NAME = 'xinye-20260606-2239';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -21,12 +21,13 @@ const STATIC_ASSETS = [
   '/src/modules/image.js',
   '/src/modules/walk.js',
   '/src/modules/gift.js',
+  '/src/modules/fortune.js',
   '/src/modules/rp.js',
   '/src/modules/phonedb.js',
   '/phone.html', '/phone.webmanifest', '/phone-icon.svg',
   '/src/styles/variables.css', '/src/styles/layout.css', '/src/styles/stickers.css',
   '/src/styles/bubbles.css', '/src/styles/panels.css', '/src/styles/components.css',
-  '/src/styles/gift.css',
+  '/src/styles/gift.css', '/src/styles/fortune.css',
   '/src/styles/themes.css', '/src/styles/markdown.css', '/src/styles/friends.css',
   '/draw.html', '/src/draw.js', '/src/styles/draw.css'
 ];
