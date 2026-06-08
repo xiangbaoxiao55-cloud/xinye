@@ -368,10 +368,17 @@ async function _callMasterWithPreset(preset,messages){
   if(!key) throw new Error(`预设"${preset.name}"未配置API Key`);
   const base=(url||'https://api.anthropic.com/v1').replace(/\/$/,'');
   const isAnthropic=base.includes('anthropic.com');
+  const useProxy=!!S.localServer;
+  const _fetch=(targetUrl,opts)=>{
+    if(!useProxy) return fetch(targetUrl,opts);
+    const h={...opts.headers,'X-Real-Target':targetUrl,'X-Real-Key':key};
+    delete h['Authorization'];delete h['x-api-key'];
+    return fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
+  };
   if(isAnthropic){
     const sys=messages.find(m=>m.role==='system');
     const msgs=messages.filter(m=>m.role!=='system');
-    const r=await fetch(`${base}/messages`,{
+    const r=await _fetch(`${base}/messages`,{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
       body:JSON.stringify({model:model||'claude-opus-4-7',system:sys?.content||'',messages:msgs,max_tokens:1024})
@@ -379,7 +386,6 @@ async function _callMasterWithPreset(preset,messages){
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();return d.content?.[0]?.text||'';
   }
-  // convert Anthropic-format image blocks → OpenAI image_url format
   const toOAI=content=>{
     if(!Array.isArray(content)) return content;
     return content.map(b=>b.type==='image'&&b.source?.type==='base64'
@@ -387,7 +393,7 @@ async function _callMasterWithPreset(preset,messages){
       :b);
   };
   const oaiMsgs=messages.map(m=>({...m,content:toOAI(m.content)}));
-  const r=await fetch(`${base}/chat/completions`,{
+  const r=await _fetch(`${base}/chat/completions`,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
     body:JSON.stringify({model:model||'claude-opus-4-7',messages:oaiMsgs,max_tokens:1024,stream:false})
