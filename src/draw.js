@@ -604,10 +604,19 @@ async function analyzePreference(){
 
   const newCount=sample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
 
-  const imgBlocks=sample.map(g=>{
-    const mtype=g.imageData.startsWith('data:image/jpeg')?'image/jpeg':'image/png';
-    return{type:'image',source:{type:'base64',media_type:mtype,data:g.imageData.replace(/^data:image\/\w+;base64,/,'')}};
+  const _shrink=(dataUrl,maxDim=768,quality=0.7)=>new Promise(res=>{
+    const img=new Image();img.onload=()=>{
+      let{width:w,height:h}=img;
+      if(w>maxDim||h>maxDim){const r=Math.min(maxDim/w,maxDim/h);w=Math.round(w*r);h=Math.round(h*r)}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',quality).replace(/^data:image\/\w+;base64,/,''));
+    };img.src=dataUrl;
   });
+  const imgBlocks=await Promise.all(sample.map(async g=>{
+    const b64=await _shrink(g.imageData);
+    return{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}};
+  }));
   const pendingAfter=unanalyzed.length-newCount;
   const hint=newCount>0?`（${newCount}张新图${pendingAfter>0?`，还剩${pendingAfter}张待分析`:'，全部分析完毕'}）`:'（全部已分析，更新档案）';
   const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`};
