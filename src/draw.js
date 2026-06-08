@@ -591,17 +591,12 @@ async function analyzePreference(){
   }
 
   const newCount=sample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
-  sample.forEach(g=>S.allAnalyzedIds.add(g.id));
-  await db.setSetting('allAnalyzedIds',[...S.allAnalyzedIds]);
-  const newIds=sample.map(g=>g.id);
-  await db.setSetting('lastAnalyzedIds',newIds);
-  S.lastAnalyzedIds=newIds;
 
   const imgBlocks=sample.map(g=>{
     const mtype=g.imageData.startsWith('data:image/jpeg')?'image/jpeg':'image/png';
     return{type:'image',source:{type:'base64',media_type:mtype,data:g.imageData.replace(/^data:image\/\w+;base64,/,'')}};
   });
-  const pendingAfter=all.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
+  const pendingAfter=unanalyzed.length-newCount;
   const hint=newCount>0?`（${newCount}张新图${pendingAfter>0?`，还剩${pendingAfter}张待分析`:'，全部分析完毕'}）`:'（全部已分析，更新档案）';
   const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`};
   const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
@@ -610,6 +605,13 @@ async function analyzePreference(){
     {role:'user',content:[...imgBlocks,textBlock]}
   ];
   const result=await callMaster(msgs);
+
+  sample.forEach(g=>S.allAnalyzedIds.add(g.id));
+  await db.setSetting('allAnalyzedIds',[...S.allAnalyzedIds]);
+  const newIds=sample.map(g=>g.id);
+  await db.setSetting('lastAnalyzedIds',newIds);
+  S.lastAnalyzedIds=newIds;
+
   S.aestheticProfile=result;
   await db.setSetting('aestheticProfile',result);
   document.getElementById('master-insight-content').innerHTML=miniMd(result);
