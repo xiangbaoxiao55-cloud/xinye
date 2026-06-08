@@ -558,9 +558,10 @@ async function saveChar(){
 async function loadAestheticProfile(){
   S.aestheticProfile=await db.getSetting('aestheticProfile','')||'';
   S.lastAnalyzedIds=await db.getSetting('lastAnalyzedIds',[])||[];
-  if(!await db.getSetting('allAnalyzedIds_v2')){
+  if(!await db.getSetting('allAnalyzedIds_v3')){
     await db.setSetting('allAnalyzedIds',[]);
-    await db.setSetting('allAnalyzedIds_v2',true);
+    await db.setSetting('aestheticProfile','');
+    await db.setSetting('allAnalyzedIds_v3',true);
   }
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
