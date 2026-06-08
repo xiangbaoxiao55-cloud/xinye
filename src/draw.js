@@ -368,12 +368,14 @@ async function _callMasterWithPreset(preset,messages){
   if(!key) throw new Error(`预设"${preset.name}"未配置API Key`);
   const base=(url||'https://api.anthropic.com/v1').replace(/\/$/,'');
   const isAnthropic=base.includes('anthropic.com');
-  const useProxy=!!S.localServer;
-  const _fetch=(targetUrl,opts)=>{
-    if(!useProxy) return fetch(targetUrl,opts);
-    const h={...opts.headers,'X-Real-Target':targetUrl,'X-Real-Key':key};
-    delete h['Authorization'];delete h['x-api-key'];
-    return fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
+  const _fetch=async(targetUrl,opts)=>{
+    try{return await fetch(targetUrl,opts)}catch(e){
+      if(!S.localServer) throw e;
+      console.log(`[master] 直连失败(${e.message})，走本地代理重试`);
+      const h={...opts.headers,'X-Real-Target':targetUrl,'X-Real-Key':key};
+      delete h['Authorization'];delete h['x-api-key'];
+      return fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
+    }
   };
   if(isAnthropic){
     const sys=messages.find(m=>m.role==='system');
