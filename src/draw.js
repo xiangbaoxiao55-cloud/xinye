@@ -45,7 +45,7 @@ const db=new DrawDB();
 const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
-  aestheticProfile:'',lastAnalyzedIds:[],
+  aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
   selTokens:[],
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
@@ -338,7 +338,7 @@ function clearTokens(){
 
 async function _refreshPendingCount(){
   const allItems=await db.all('gallery');
-  const pending=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
+  const pending=allItems.filter(i=>!S.allAnalyzedIds.has(i.id)).length;
   const el=document.getElementById('gallery-pending-label');
   if(el) el.textContent=pending>0?`${pending} 张待分析`:'';
 }
@@ -550,6 +550,7 @@ async function saveChar(){
 async function loadAestheticProfile(){
   S.aestheticProfile=await db.getSetting('aestheticProfile','')||'';
   S.lastAnalyzedIds=await db.getSetting('lastAnalyzedIds',[])||[];
+  S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
@@ -573,13 +574,25 @@ async function analyzePreference(){
   const all=await db.all('gallery');
   if(all.length<2){toast('需要至少2张图片','warn');return}
 
-  const byDate=[...all].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
-  const byRating=[...all].filter(g=>(g.rating||0)>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,4);
-  const dedup=[...new Map([...byDate,...byRating].map(g=>[g.id,g])).values()].slice(0,8);
-  const sample=dedup;
+  const unanalyzed=all.filter(g=>!S.allAnalyzedIds.has(g.id));
+  let sample;
+  if(unanalyzed.length>=8){
+    const byDate=[...unanalyzed].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
+    const byRating=[...unanalyzed].filter(g=>(g.rating||0)>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,4);
+    sample=[...new Map([...byDate,...byRating].map(g=>[g.id,g])).values()].slice(0,8);
+  }else if(unanalyzed.length>0){
+    const analyzed=all.filter(g=>S.allAnalyzedIds.has(g.id));
+    const fill=[...analyzed].sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,8-unanalyzed.length);
+    sample=[...unanalyzed,...fill].slice(0,8);
+  }else{
+    const byDate=[...all].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
+    const byRating=[...all].filter(g=>(g.rating||0)>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,4);
+    sample=[...new Map([...byDate,...byRating].map(g=>[g.id,g])).values()].slice(0,8);
+  }
 
-  const prevIds=(await db.getSetting('lastAnalyzedIds',[]))||[];
-  const newCount=sample.filter(g=>!prevIds.includes(g.id)).length;
+  const newCount=sample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
+  sample.forEach(g=>S.allAnalyzedIds.add(g.id));
+  await db.setSetting('allAnalyzedIds',[...S.allAnalyzedIds]);
   const newIds=sample.map(g=>g.id);
   await db.setSetting('lastAnalyzedIds',newIds);
   S.lastAnalyzedIds=newIds;
@@ -588,7 +601,8 @@ async function analyzePreference(){
     const mtype=g.imageData.startsWith('data:image/jpeg')?'image/jpeg':'image/png';
     return{type:'image',source:{type:'base64',media_type:mtype,data:g.imageData.replace(/^data:image\/\w+;base64,/,'')}};
   });
-  const hint=newCount>0?`（其中${newCount}张是新图）`:'（均为已分析过的图，可继续更新档案）';
+  const pendingAfter=all.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
+  const hint=newCount>0?`（${newCount}张新图${pendingAfter>0?`，还剩${pendingAfter}张待分析`:'，全部分析完毕'}）`:'（全部已分析，更新档案）';
   const textBlock={type:'text',text:`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`};
   const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
   const msgs=[
@@ -602,12 +616,7 @@ async function analyzePreference(){
   console.log('[审美档案] 已更新:\n'+result);
   toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
-  else{
-    const allItems=await db.all('gallery');
-    const remaining=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
-    const pendingEl=document.getElementById('gallery-pending-label');
-    if(pendingEl) pendingEl.textContent=remaining>0?`${remaining} 张待分析`:'';
-  }
+  else _refreshPendingCount();
 }
 
 // ── AI Generate Prompt ───────────────────────────────────────
@@ -786,7 +795,7 @@ async function renderGallery(){
   if(ft) items=items.filter(i=>(i.tags||[]).some(t=>t.toLowerCase().includes(ft)));
   items.sort((a,b)=>b.createdAt-a.createdAt);
 
-  const pendingCount=allItems.filter(i=>!S.lastAnalyzedIds.includes(i.id)).length;
+  const pendingCount=allItems.filter(i=>!S.allAnalyzedIds.has(i.id)).length;
   const pendingEl=document.getElementById('gallery-pending-label');
   if(pendingEl) pendingEl.textContent=pendingCount>0?`${pendingCount} 张待分析`:'';
   document.getElementById('gallery-stats').textContent=`共 ${items.length} 张`;
@@ -806,7 +815,7 @@ function _paintGallery(){
   const grid=document.getElementById('gallery-grid');
   grid.innerHTML='';
   if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';return}
-  const analyzedSet=new Set(S.lastAnalyzedIds);
+  const analyzedSet=S.allAnalyzedIds;
   for(const item of _galItems.slice(0,_galShown)){
     const el=document.createElement('div');
     el.className='gallery-item';
