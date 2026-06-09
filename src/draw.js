@@ -383,7 +383,7 @@ async function _callMasterWithPreset(preset,messages){
     const r=await _fetch(`${base}/messages`,{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:model||'claude-opus-4-7',system:sys?.content||'',messages:msgs,max_tokens:1024})
+      body:JSON.stringify({model:model||'claude-opus-4-7',system:sys?.content||'',messages:msgs,max_tokens:4096})
     });
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
     const d=await r.json();return d.content?.[0]?.text||'';
@@ -398,7 +398,7 @@ async function _callMasterWithPreset(preset,messages){
   const r=await _fetch(`${base}/chat/completions`,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-    body:JSON.stringify({model:model||'claude-opus-4-7',messages:oaiMsgs,max_tokens:1024,stream:false})
+    body:JSON.stringify({model:model||'claude-opus-4-7',messages:oaiMsgs,stream:false})
   });
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();return d.choices?.[0]?.message?.content||'';
