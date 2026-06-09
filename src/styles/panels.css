@@ -79,13 +79,20 @@
 }
 .avatar-item span{font-size:13px;color:var(--text-light);font-weight:600}
 /* 画图参考图 */
-.ref-image-grid{display:flex;flex-direction:column;gap:12px}
+.ref-image-grid{display:flex;flex-wrap:wrap;gap:16px}
 .ref-image-col{display:flex;flex-direction:column;gap:6px}
 .ref-image-col-label{font-size:13px;font-weight:600;color:var(--text-light)}
-.ref-image-row{display:flex;gap:16px}
 .ref-image-item{display:flex;flex-direction:column;align-items:center;gap:6px}
 .ref-image-item img{width:80px;height:80px;border-radius:10px;object-fit:contain;border:2px solid var(--border);box-shadow:0 2px 8px var(--shadow)}
-.ref-image-item span{font-size:12px;color:var(--text-light)}
+/* 画风参考图槽 */
+.style-ref-slot{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+.style-ref-slot img{width:72px;height:72px;border-radius:8px;object-fit:contain;border:2px solid var(--border);flex-shrink:0;background:#f0f0f0}
+.style-ref-inputs{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.style-ref-inputs input,.style-ref-inputs textarea{font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)}
+.style-ref-inputs textarea{resize:vertical;min-height:32px;max-height:60px}
+.style-ref-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.btn-add-style-ref{margin-top:6px;padding:6px 16px;font-size:13px;border-radius:8px;border:1.5px dashed var(--border);background:transparent;color:var(--text-light);cursor:pointer;transition:all .2s}
+.btn-add-style-ref:hover{border-color:var(--pink);color:var(--pink)}
 .btn-upload{
   padding:6px 14px;border:1.5px dashed var(--pink);border-radius:8px;
   background:transparent;color:var(--text-light);font-size:12px;

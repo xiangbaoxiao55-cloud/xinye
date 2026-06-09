@@ -636,6 +636,93 @@ export async function deleteTtsPreset(i) {
   toast('预设已删除');
 }
 
+// ======================== 画风参考图渲染 ========================
+let _styleRefTargetIdx = -1;
+async function renderStyleRefSlots() {
+  const container = $('#styleRefContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  const meta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+
+  for (let i = 0; i < meta.length; i++) {
+    const entry = meta[i];
+    const idx = parseInt(entry.imgKey.replace('styleRef_', ''));
+    const imgB64 = await dbGet('images', entry.imgKey).catch(() => null);
+
+    const slot = document.createElement('div');
+    slot.className = 'style-ref-slot';
+    slot.innerHTML = `
+      <img src="${imgB64 || ''}" alt="${entry.name || '画风'}" style="object-fit:contain;background:#f0f0f0">
+      <div class="style-ref-inputs">
+        <input type="text" placeholder="画风名称" value="${entry.name || ''}" maxlength="20" data-field="name" data-i="${i}">
+        <textarea placeholder="描述（可选，帮助AI选择画风）" maxlength="100" data-field="desc" data-i="${i}">${entry.desc || ''}</textarea>
+        <div class="style-ref-actions">
+          <button class="btn-upload" data-action="upload" data-idx="${idx}">上传图</button>
+          <button class="btn-upload" data-action="clear" data-idx="${idx}" style="font-size:11px;opacity:0.7">清除图</button>
+          <button class="btn-upload" data-action="delete" data-i="${i}" style="font-size:11px;opacity:0.7;color:#e55">删除</button>
+        </div>
+      </div>`;
+    container.appendChild(slot);
+  }
+
+  if (meta.length < 5) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-add-style-ref';
+    addBtn.textContent = '＋ 添加画风';
+    addBtn.addEventListener('click', async () => {
+      const curMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+      if (curMeta.length >= 5) { toast('最多5个画风'); return; }
+      const usedIdxs = new Set(curMeta.map(s => parseInt(s.imgKey.replace('styleRef_', ''))));
+      let newIdx = 0;
+      while (usedIdxs.has(newIdx) && newIdx < 5) newIdx++;
+      curMeta.push({ name: '', desc: '', imgKey: 'styleRef_' + newIdx });
+      await dbPut('settings', 'styleRefs', curMeta);
+      await renderStyleRefSlots();
+    });
+    container.appendChild(addBtn);
+  }
+
+  if (!container.dataset.bound) {
+    container.dataset.bound = '1';
+    container.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      if (action === 'upload') {
+        _styleRefTargetIdx = parseInt(btn.dataset.idx);
+        $('#fileInputStyleRef')?.click();
+      } else if (action === 'clear') {
+        const imgKey = 'styleRef_' + btn.dataset.idx;
+        await dbPut('images', imgKey, null);
+        toast('画风参考图已清除');
+        await renderStyleRefSlots();
+      } else if (action === 'delete') {
+        const curMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+        const di = parseInt(btn.dataset.i);
+        if (di >= 0 && di < curMeta.length) {
+          await dbPut('images', curMeta[di].imgKey, null);
+          curMeta.splice(di, 1);
+          await dbPut('settings', 'styleRefs', curMeta);
+          toast('画风已删除');
+          await renderStyleRefSlots();
+        }
+      }
+    });
+
+    container.addEventListener('change', async (e) => {
+      const input = e.target;
+      if (!input.dataset.field) return;
+      const curMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+      const mi = parseInt(input.dataset.i);
+      if (mi >= 0 && mi < curMeta.length) {
+        curMeta[mi][input.dataset.field] = input.value.trim();
+        await dbPut('settings', 'styleRefs', curMeta);
+      }
+    });
+  }
+}
+
 // ======================== 应用 UI ========================
 export async function applyUI(skipRender = false) {
   const aiAv = await getAiAvatar();
@@ -647,12 +734,23 @@ export async function applyUI(skipRender = false) {
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
   if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
   await applyBg();
-  // 加载画图参考图预览
-  for (const key of ['aiRefAnime', 'aiRefAnime3d', 'aiRefChibi', 'aiRefReal', 'userRefAnime', 'userRefAnime3d', 'userRefChibi', 'userRefReal']) {
+  // 迁移旧参考图 → 新key（首次运行一次）
+  if (!await dbGet('images', 'aiRef').catch(() => null)) {
+    const old = await dbGet('images', 'aiRefAnime').catch(() => null);
+    if (old) await dbPut('images', 'aiRef', old);
+  }
+  if (!await dbGet('images', 'userRef').catch(() => null)) {
+    const old = await dbGet('images', 'userRefAnime').catch(() => null);
+    if (old) await dbPut('images', 'userRef', old);
+  }
+  // 加载形象参考图预览
+  for (const key of ['aiRef', 'userRef']) {
     const val = await dbGet('images', key);
     const el = $('#preview' + key.charAt(0).toUpperCase() + key.slice(1));
     if (el) el.src = val || '';
   }
+  // 加载画风参考图
+  await renderStyleRefSlots();
   if (!skipRender) {
     await renderMessages();
     renderStickers();
@@ -1137,24 +1235,12 @@ export function initSettings() {
 
   // ======================== 画图参考图上传 ========================
   const _refSlots = [
-    { btn: 'btnUploadAiRefAnime',    file: 'fileInputAiRefAnime',    prev: 'previewAiRefAnime',    key: 'aiRefAnime',    label: '炘也2D参考图' },
-    { btn: 'btnUploadAiRefAnime3d',  file: 'fileInputAiRefAnime3d',  prev: 'previewAiRefAnime3d',  key: 'aiRefAnime3d',  label: '炘也3D参考图' },
-    { btn: 'btnUploadAiRefChibi',    file: 'fileInputAiRefChibi',    prev: 'previewAiRefChibi',    key: 'aiRefChibi',    label: '炘也Q版参考图' },
-    { btn: 'btnUploadAiRefReal',     file: 'fileInputAiRefReal',     prev: 'previewAiRefReal',     key: 'aiRefReal',     label: '炘也真人参考图' },
-    { btn: 'btnUploadUserRefAnime',  file: 'fileInputUserRefAnime',  prev: 'previewUserRefAnime',  key: 'userRefAnime',  label: '涂涂2D参考图' },
-    { btn: 'btnUploadUserRefAnime3d',file: 'fileInputUserRefAnime3d',prev: 'previewUserRefAnime3d',key: 'userRefAnime3d', label: '涂涂3D参考图' },
-    { btn: 'btnUploadUserRefChibi',  file: 'fileInputUserRefChibi',  prev: 'previewUserRefChibi',  key: 'userRefChibi',  label: '涂涂Q版参考图' },
-    { btn: 'btnUploadUserRefReal',   file: 'fileInputUserRefReal',   prev: 'previewUserRefReal',   key: 'userRefReal',   label: '涂涂真人参考图' },
+    { btn: 'btnUploadAiRef',   file: 'fileInputAiRef',   prev: 'previewAiRef',   key: 'aiRef',   label: '炘也形象参考图' },
+    { btn: 'btnUploadUserRef', file: 'fileInputUserRef', prev: 'previewUserRef', key: 'userRef', label: '涂涂形象参考图' },
   ];
   const _clearSlots = [
-    { btn: 'btnClearAiRefAnime',    prev: 'previewAiRefAnime',    key: 'aiRefAnime',    label: '炘也2D参考图' },
-    { btn: 'btnClearAiRefAnime3d',  prev: 'previewAiRefAnime3d',  key: 'aiRefAnime3d',  label: '炘也3D参考图' },
-    { btn: 'btnClearAiRefChibi',    prev: 'previewAiRefChibi',    key: 'aiRefChibi',    label: '炘也Q版参考图' },
-    { btn: 'btnClearAiRefReal',     prev: 'previewAiRefReal',     key: 'aiRefReal',     label: '炘也真人参考图' },
-    { btn: 'btnClearUserRefAnime',  prev: 'previewUserRefAnime',  key: 'userRefAnime',  label: '涂涂2D参考图' },
-    { btn: 'btnClearUserRefAnime3d',prev: 'previewUserRefAnime3d',key: 'userRefAnime3d', label: '涂涂3D参考图' },
-    { btn: 'btnClearUserRefChibi',  prev: 'previewUserRefChibi',  key: 'userRefChibi',  label: '涂涂Q版参考图' },
-    { btn: 'btnClearUserRefReal',   prev: 'previewUserRefReal',   key: 'userRefReal',   label: '涂涂真人参考图' },
+    { btn: 'btnClearAiRef',   prev: 'previewAiRef',   key: 'aiRef',   label: '炘也形象参考图' },
+    { btn: 'btnClearUserRef', prev: 'previewUserRef', key: 'userRef', label: '涂涂形象参考图' },
   ];
   for (const s of _refSlots) {
     $('#' + s.btn)?.addEventListener('click', () => $('#' + s.file).click());
@@ -1176,6 +1262,19 @@ export function initSettings() {
       toast(s.label + '已清除');
     });
   }
+
+  // ======================== 画风参考图 ========================
+  $('#fileInputStyleRef')?.addEventListener('change', async function() {
+    if (!this.files[0] || _styleRefTargetIdx < 0) return;
+    const b64 = await readFileAsBase64(this.files[0]);
+    const meta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+    const entry = meta.find(s => s.imgKey === 'styleRef_' + _styleRefTargetIdx);
+    if (!entry) { this.value = ''; return; }
+    await dbPut('images', entry.imgKey, b64);
+    this.value = '';
+    toast('画风参考图已保存');
+    await renderStyleRefSlots();
+  });
 
   // Mimo 参考音频上传
   document.getElementById('mimoRefAudioInput')?.addEventListener('change', async function() {

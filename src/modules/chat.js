@@ -489,7 +489,7 @@ chatArea.addEventListener('click', e => {
     const msg = messages.find(m => m.id === id);
     if (msg) {
       const prompt = _extractGenPrompt(msg.content);
-      if (prompt && window.generateImage) window.generateImage(prompt, { refChars: msg.genRefChars, refStyle: msg.genRefStyle });
+      if (prompt && window.generateImage) window.generateImage(prompt, { refChars: msg.genRefChars, styleRef: msg.genStyleRef });
     }
     return;
   }
@@ -1099,20 +1099,28 @@ export async function sendMessage() {
     }
 
     if (!_rpInject && (settings.imageApiKey || settings.imageBaseUrl || settings.imageModel)) {
+      const _styleRefsRaw = await dbGet('settings', 'styleRefs').catch(() => null);
+      const _styleRefsMeta = Array.isArray(_styleRefsRaw) ? _styleRefsRaw.filter(s => s.name) : [];
+      const _styleRefProp = _styleRefsMeta.length > 0 ? {
+        type: 'string',
+        enum: _styleRefsMeta.map(s => s.name),
+        description: '可选，画风参考图：' + _styleRefsMeta.map(s => `"${s.name}"${s.desc ? '（' + s.desc + '）' : ''}`).join('、') + '。不传则自由发挥画风'
+      } : undefined;
+      const _imgToolProps = {
+        prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
+        size: { type: 'string', enum: ['1536x2048','2048x1536','1152x2048','2048x1152','2048x2048'], description: '可选。觉得当前尺寸不适合你设计的构图时再传，否则不传沿用设置。1536x2048=3:4竖，2048x1536=4:3横，1152x2048=9:16竖，2048x1152=16:9横，2048x2048=方形' },
+        use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
+        ref_characters: { type: 'string', enum: ['ai', 'user', 'both', 'none'], description: '必填。画面里有炘也或兔宝时必须选对应选项来垫图："ai"=只有炘也、"user"=只有兔宝、"both"=两人都有。"none"仅限纯风景/纯物体/完全无关的人物——只要画面里出现炘也或兔宝的形象，绝对不能选none，否则图会画错脸' },
+      };
+      if (_styleRefProp) _imgToolProps.style_ref = _styleRefProp;
       _toolDefs.push({
         type: 'function',
         function: {
           name: 'generate_image',
-          description: '画图工具。调用时机：①兔宝明确要求画图时（"画吧""画一下""来一张"等）；②你主动想送惊喜、表达心意、配合礼物、哄兔宝开心时——可以自主决定画。但不要在普通日常聊天中无缘无故画图。调用前必须先在 content 里说一句简短自然的话（10字以内，口语化，比如「等一下~」「我来给你画」「稍等」），让兔宝知道你在做什么，不要沉默直接就调用；但不要描述即将画的内容。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。ref_style传"anime"二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人。',
+          description: '画图工具。调用时机：①兔宝明确要求画图时（"画吧""画一下""来一张"等）；②你主动想送惊喜、表达心意、配合礼物、哄兔宝开心时——可以自主决定画。但不要在普通日常聊天中无缘无故画图。调用前必须先在 content 里说一句简短自然的话（10字以内，口语化，比如「等一下~」「我来给你画」「稍等」），让兔宝知道你在做什么，不要沉默直接就调用；但不要描述即将画的内容。画面内容由你决定。如果兔宝这条消息里发了图片，那些图会自动作为垫图/参考图。如果想在之前生成的图基础上改图（换表情、换衣服、调构图），传 use_last_image:true。【重要】画面中有炘也或兔宝出现时必须传 ref_characters，否则外貌无法保持一致：传"ai"垫炘也的参考图、"user"垫兔宝、"both"垫两人。如果设置了画风参考图，可传style_ref选择画风，不传则自由发挥。',
           parameters: {
             type: 'object',
-            properties: {
-              prompt: { type: 'string', description: (() => { const _sz = settings.imageSize || '1024x1024'; const [_sw,_sh] = _sz.split('x').map(Number); const _ori = _sw===_sh?'正方形':_sw>_sh?'横版':'竖版'; return `画面描述，包含内容、风格、色调、构图等，中文英文皆可。当前画布：${_sz}（${_ori}），构图请匹配此比例`; })() },
-              size: { type: 'string', enum: ['1536x2048','2048x1536','1152x2048','2048x1152','2048x2048'], description: '可选。觉得当前尺寸不适合你设计的构图时再传，否则不传沿用设置。1536x2048=3:4竖，2048x1536=4:3横，1152x2048=9:16竖，2048x1152=16:9横，2048x2048=方形' },
-              use_last_image: { type: 'boolean', description: '是否把最近一张生成的图作为垫图参考，默认false' },
-              ref_characters: { type: 'string', enum: ['ai', 'user', 'both', 'none'], description: '必填。画面里有炘也或兔宝时必须选对应选项来垫图："ai"=只有炘也、"user"=只有兔宝、"both"=两人都有。"none"仅限纯风景/纯物体/完全无关的人物——只要画面里出现炘也或兔宝的形象，绝对不能选none，否则图会画错脸' },
-              ref_style: { type: 'string', enum: ['anime', 'anime3d', 'chibi', 'real'], description: '参考图风格："anime"2D二次元（默认）、"anime3d"3D二次元、"chibi"Q版、"real"真人' }
-            },
+            properties: _imgToolProps,
             required: ['prompt', 'ref_characters']
           }
         }
@@ -1257,7 +1265,7 @@ export async function sendMessage() {
         return `[命运转盘结果：${formatted}] 请根据这些标签组合来展开互动，自然地融入当前场景。`;
       }
       if (name === 'generate_image') {
-        console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} ref_style=${args.ref_style||'默认anime'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);
+        console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} style_ref=${args.style_ref||'无'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);
         let _refImgs = imgs && imgs.length > 0 ? [...imgs] : [];
         const _refFromChat = _refImgs.length > 0;
         if (!_refImgs.length && args.use_last_image) {
@@ -1265,12 +1273,19 @@ export async function sendMessage() {
           if (_lastGen) _refImgs = [_lastGen.genImageData];
         }
         if (args.ref_characters && args.ref_characters !== 'none') {
-          const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
-          const _style = _styleMap[args.ref_style] || 'Anime';
-          const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
-          const _userRef = await dbGet('images', 'userRef' + _style).catch(() => null);
+          const _aiRef = await dbGet('images', 'aiRef').catch(() => null);
+          const _userRef = await dbGet('images', 'userRef').catch(() => null);
           if ((args.ref_characters === 'ai' || args.ref_characters === 'both') && _aiRef) _refImgs.push(_aiRef);
           if ((args.ref_characters === 'user' || args.ref_characters === 'both') && _userRef) _refImgs.push(_userRef);
+        }
+        let _styleRefB64 = null;
+        if (args.style_ref) {
+          const _srMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+          const _srEntry = _srMeta.find(s => s.name === args.style_ref);
+          if (_srEntry) {
+            _styleRefB64 = await dbGet('images', _srEntry.imgKey).catch(() => null);
+            if (_styleRefB64) _refImgs.push(_styleRefB64);
+          }
         }
         const _hasRef = _refImgs.length > 0;
         toast(_hasRef ? `${settings.aiName||'炘也'}正在改图...` : `${settings.aiName||'炘也'}正在画...`);
@@ -1298,14 +1313,13 @@ export async function sendMessage() {
             } catch(_ue) {}
           }
           const _refCharLabel = { none:'无垫图', ai:'垫炘也', user:'垫兔宝', both:'垫两人' }[args.ref_characters] || '';
-          const _refStyleLabel = args.ref_style ? ({ anime:'2D', anime3d:'3D', chibi:'Q版', real:'真人' }[args.ref_style] || args.ref_style) : '2D';
-          const _refTag = _refCharLabel && _refCharLabel !== '无垫图' ? `（${_refCharLabel}·${_refStyleLabel}）` : _refCharLabel ? '' : '';
+          const _styleRefLabel = args.style_ref ? `·画风:${args.style_ref}` : '';
+          const _refTag = _refCharLabel && _refCharLabel !== '无垫图' ? `（${_refCharLabel}${_styleRefLabel}）` : (args.style_ref ? `（画风:${args.style_ref}）` : '');
           const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图${_refTag}]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true; _genMsg.genImageData = _dataUrl;
-          // 记下本次画图用的角色参考，重试时可重建垫图（不退化成纯文生图）
           _genMsg.genRefChars = args.ref_characters || 'none';
-          _genMsg.genRefStyle = args.ref_style || 'anime';
+          if (args.style_ref) _genMsg.genStyleRef = args.style_ref;
           if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;
           await dbPut(activeStore(), null, _genMsg);
           const _gi = messages.findIndex(m => m.id === _genMsg.id);
@@ -1333,6 +1347,7 @@ export async function sendMessage() {
           });
           _compressedRefs = _refFromChat ? _refImgs : (await Promise.all(_refImgs.map(img => _compressRef(img)))).filter(Boolean);
         }
+        if (_styleRefB64) args.prompt += '\n\nArt style reference: match the artistic style of the style reference image provided.';
         // 画图预设轮询（与画图台 image.js 一致）
         const _rawImgPresets = getImagePresets();
         const _activeImgIdx = getImageCurPresetIdx();

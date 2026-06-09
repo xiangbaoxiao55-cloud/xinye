@@ -98,14 +98,19 @@ export async function generateImage(userDesc, opts = {}) {
   const imgPreview = document.getElementById('imgPreview');
 
   const refImgs = [...window.pendingImages];
-  // 重试时按原画图的 ref_characters/ref_style 从 IDB 捞角色参考图，保持脸一致（否则退化成纯文生图）
   if (opts.refChars && opts.refChars !== 'none') {
-    const _styleMap = { real: 'Real', anime3d: 'Anime3d', chibi: 'Chibi' };
-    const _style = _styleMap[opts.refStyle] || 'Anime';
-    const _aiRef = await dbGet('images', 'aiRef' + _style).catch(() => null);
-    const _userRef = await dbGet('images', 'userRef' + _style).catch(() => null);
+    const _aiRef = await dbGet('images', 'aiRef').catch(() => null);
+    const _userRef = await dbGet('images', 'userRef').catch(() => null);
     if ((opts.refChars === 'ai' || opts.refChars === 'both') && _aiRef) refImgs.push(_aiRef);
     if ((opts.refChars === 'user' || opts.refChars === 'both') && _userRef) refImgs.push(_userRef);
+  }
+  if (opts.styleRef) {
+    const _srMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+    const _srEntry = _srMeta.find(s => s.name === opts.styleRef);
+    if (_srEntry) {
+      const _srImg = await dbGet('images', _srEntry.imgKey).catch(() => null);
+      if (_srImg) refImgs.push(_srImg);
+    }
   }
   if (userInput) userInput.value = '';
   if (typeof window.autoResize === 'function') window.autoResize();
@@ -339,8 +344,8 @@ export async function generateImage(userDesc, opts = {}) {
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
-    // 透传角色参考，二次重试仍能重建垫图
-    if (opts.refChars) { aiMsg.genRefChars = opts.refChars; aiMsg.genRefStyle = opts.refStyle || 'anime'; }
+    if (opts.refChars) aiMsg.genRefChars = opts.refChars;
+    if (opts.styleRef) aiMsg.genStyleRef = opts.styleRef;
     await dbPut(activeStore(), null, aiMsg);
     const _idx = messages.findIndex(m => m.id === aiMsg.id);
     if (_idx >= 0) messages[_idx] = aiMsg;

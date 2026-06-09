@@ -526,67 +526,29 @@
       </div>
     </div>
     <div class="setting-group">
-      <label>画图外貌参考图（炘也画图时自动垫入，存入本地数据库）</label>
+      <label>画图形象参考图（炘也画图时自动垫入，存入本地数据库）</label>
       <div class="ref-image-grid">
         <div class="ref-image-col">
-          <div class="ref-image-col-label">炘也</div>
-          <div class="ref-image-row">
-            <div class="ref-image-item">
-              <img id="previewAiRefAnime" src="" alt="炘也2D" style="object-fit:contain;background:#f0f0f0">
-              <span>2D</span>
-              <button class="btn-upload" id="btnUploadAiRefAnime">上传</button>
-              <button class="btn-upload" id="btnClearAiRefAnime" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewAiRefAnime3d" src="" alt="炘也3D" style="object-fit:contain;background:#f0f0f0">
-              <span>3D</span>
-              <button class="btn-upload" id="btnUploadAiRefAnime3d">上传</button>
-              <button class="btn-upload" id="btnClearAiRefAnime3d" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewAiRefChibi" src="" alt="炘也Q版" style="object-fit:contain;background:#f0f0f0">
-              <span>Q版</span>
-              <button class="btn-upload" id="btnUploadAiRefChibi">上传</button>
-              <button class="btn-upload" id="btnClearAiRefChibi" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewAiRefReal" src="" alt="炘也真人" style="object-fit:contain;background:#f0f0f0">
-              <span>真人</span>
-              <button class="btn-upload" id="btnUploadAiRefReal">上传</button>
-              <button class="btn-upload" id="btnClearAiRefReal" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
+          <div class="ref-image-col-label">炘也形象</div>
+          <div class="ref-image-item">
+            <img id="previewAiRef" src="" alt="炘也" style="object-fit:contain;background:#f0f0f0">
+            <button class="btn-upload" id="btnUploadAiRef">上传</button>
+            <button class="btn-upload" id="btnClearAiRef" style="font-size:11px;opacity:0.7">清除</button>
           </div>
         </div>
         <div class="ref-image-col">
-          <div class="ref-image-col-label">涂涂</div>
-          <div class="ref-image-row">
-            <div class="ref-image-item">
-              <img id="previewUserRefAnime" src="" alt="涂涂2D" style="object-fit:contain;background:#f0f0f0">
-              <span>2D</span>
-              <button class="btn-upload" id="btnUploadUserRefAnime">上传</button>
-              <button class="btn-upload" id="btnClearUserRefAnime" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewUserRefAnime3d" src="" alt="涂涂3D" style="object-fit:contain;background:#f0f0f0">
-              <span>3D</span>
-              <button class="btn-upload" id="btnUploadUserRefAnime3d">上传</button>
-              <button class="btn-upload" id="btnClearUserRefAnime3d" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewUserRefChibi" src="" alt="涂涂Q版" style="object-fit:contain;background:#f0f0f0">
-              <span>Q版</span>
-              <button class="btn-upload" id="btnUploadUserRefChibi">上传</button>
-              <button class="btn-upload" id="btnClearUserRefChibi" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
-            <div class="ref-image-item">
-              <img id="previewUserRefReal" src="" alt="涂涂真人" style="object-fit:contain;background:#f0f0f0">
-              <span>真人</span>
-              <button class="btn-upload" id="btnUploadUserRefReal">上传</button>
-              <button class="btn-upload" id="btnClearUserRefReal" style="font-size:11px;opacity:0.7">清除</button>
-            </div>
+          <div class="ref-image-col-label">涂涂形象</div>
+          <div class="ref-image-item">
+            <img id="previewUserRef" src="" alt="涂涂" style="object-fit:contain;background:#f0f0f0">
+            <button class="btn-upload" id="btnUploadUserRef">上传</button>
+            <button class="btn-upload" id="btnClearUserRef" style="font-size:11px;opacity:0.7">清除</button>
           </div>
         </div>
       </div>
+    </div>
+    <div class="setting-group">
+      <label>画风参考图（可选，最多5张，炘也画图时可选择匹配某种画风）</label>
+      <div id="styleRefContainer"></div>
     </div>
     <div class="setting-group-row">
       <div class="setting-group">
@@ -1167,14 +1129,9 @@
 <!-- 隐藏的文件输入 -->
 <input type="file" id="fileInputAiAvatar" accept="image/*" hidden>
 <input type="file" id="fileInputUserAvatar" accept="image/*" hidden>
-<input type="file" id="fileInputAiRefAnime" accept="image/*" hidden>
-<input type="file" id="fileInputAiRefAnime3d" accept="image/*" hidden>
-<input type="file" id="fileInputAiRefChibi" accept="image/*" hidden>
-<input type="file" id="fileInputAiRefReal" accept="image/*" hidden>
-<input type="file" id="fileInputUserRefAnime" accept="image/*" hidden>
-<input type="file" id="fileInputUserRefAnime3d" accept="image/*" hidden>
-<input type="file" id="fileInputUserRefChibi" accept="image/*" hidden>
-<input type="file" id="fileInputUserRefReal" accept="image/*" hidden>
+<input type="file" id="fileInputAiRef" accept="image/*" hidden>
+<input type="file" id="fileInputUserRef" accept="image/*" hidden>
+<input type="file" id="fileInputStyleRef" accept="image/*" hidden>
 <input type="file" id="fileInputBg" accept="image/*,video/mp4,video/webm" hidden>
 <input type="file" id="fileInputSticker" accept="image/*" hidden>
 <input type="file" id="fileInputImport" accept=".json,application/json,text/plain,*/*" hidden>

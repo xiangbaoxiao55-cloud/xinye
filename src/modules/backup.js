@@ -232,18 +232,20 @@ export async function autoBackupToServer() {
         bgImage:    await dbGet('images', 'bgImage')    || null,
         bgType:     await dbGet('images', 'bgType')     || null,
         aiRefAnime:    await dbGet('images', 'aiRefAnime')    || null,
-        aiRefAnime3d:  await dbGet('images', 'aiRefAnime3d')  || null,
-        aiRefChibi:    await dbGet('images', 'aiRefChibi')    || null,
-        aiRefReal:     await dbGet('images', 'aiRefReal')     || null,
         userRefAnime:  await dbGet('images', 'userRefAnime')  || null,
-        userRefAnime3d:await dbGet('images', 'userRefAnime3d')|| null,
-        userRefChibi:  await dbGet('images', 'userRefChibi')  || null,
-        userRefReal:   await dbGet('images', 'userRefReal')   || null,
+        aiRef:         await dbGet('images', 'aiRef')         || null,
+        userRef:       await dbGet('images', 'userRef')       || null,
+        styleRef_0:    await dbGet('images', 'styleRef_0')    || null,
+        styleRef_1:    await dbGet('images', 'styleRef_1')    || null,
+        styleRef_2:    await dbGet('images', 'styleRef_2')    || null,
+        styleRef_3:    await dbGet('images', 'styleRef_3')    || null,
+        styleRef_4:    await dbGet('images', 'styleRef_4')    || null,
       },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
+      styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
       diary: diaryData,
       reading: readingData,
       friendsData: await getFriendsBackupData(),
@@ -308,18 +310,20 @@ export async function backupToPhone() {
         bgImage:    await dbGet('images', 'bgImage')    || null,
         bgType:     await dbGet('images', 'bgType')     || null,
         aiRefAnime:    await dbGet('images', 'aiRefAnime')    || null,
-        aiRefAnime3d:  await dbGet('images', 'aiRefAnime3d')  || null,
-        aiRefChibi:    await dbGet('images', 'aiRefChibi')    || null,
-        aiRefReal:     await dbGet('images', 'aiRefReal')     || null,
         userRefAnime:  await dbGet('images', 'userRefAnime')  || null,
-        userRefAnime3d:await dbGet('images', 'userRefAnime3d')|| null,
-        userRefChibi:  await dbGet('images', 'userRefChibi')  || null,
-        userRefReal:   await dbGet('images', 'userRefReal')   || null,
+        aiRef:         await dbGet('images', 'aiRef')         || null,
+        userRef:       await dbGet('images', 'userRef')       || null,
+        styleRef_0:    await dbGet('images', 'styleRef_0')    || null,
+        styleRef_1:    await dbGet('images', 'styleRef_1')    || null,
+        styleRef_2:    await dbGet('images', 'styleRef_2')    || null,
+        styleRef_3:    await dbGet('images', 'styleRef_3')    || null,
+        styleRef_4:    await dbGet('images', 'styleRef_4')    || null,
       },
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
+      styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
       diary: diaryData, reading: readingData,
       friendsData: await getFriendsBackupData(),
     });
@@ -391,16 +395,18 @@ export async function exportData(mode) {
       bgImage:    isLite ? null : (bgType === 'image' ? (await dbGet('images', 'bgImage') || null) : null),
       bgType:     isLite ? null : (bgType || null),
       aiRefAnime:    isLite ? null : (await dbGet('images', 'aiRefAnime')    || null),
-      aiRefAnime3d:  isLite ? null : (await dbGet('images', 'aiRefAnime3d')  || null),
-      aiRefChibi:    isLite ? null : (await dbGet('images', 'aiRefChibi')    || null),
-      aiRefReal:     isLite ? null : (await dbGet('images', 'aiRefReal')     || null),
       userRefAnime:  isLite ? null : (await dbGet('images', 'userRefAnime')  || null),
-      userRefAnime3d:isLite ? null : (await dbGet('images', 'userRefAnime3d')|| null),
-      userRefChibi:  isLite ? null : (await dbGet('images', 'userRefChibi')  || null),
-      userRefReal:   isLite ? null : (await dbGet('images', 'userRefReal')   || null),
+      aiRef:         isLite ? null : (await dbGet('images', 'aiRef')         || null),
+      userRef:       isLite ? null : (await dbGet('images', 'userRef')       || null),
+      styleRef_0:    isLite ? null : (await dbGet('images', 'styleRef_0')    || null),
+      styleRef_1:    isLite ? null : (await dbGet('images', 'styleRef_1')    || null),
+      styleRef_2:    isLite ? null : (await dbGet('images', 'styleRef_2')    || null),
+      styleRef_3:    isLite ? null : (await dbGet('images', 'styleRef_3')    || null),
+      styleRef_4:    isLite ? null : (await dbGet('images', 'styleRef_4')    || null),
     },
     stickers: isLite ? [] : getDecoStickers(),
     chatStickers: getChatStickers(),
+    styleRefs: isLite ? [] : (await dbGet('settings', 'styleRefs').catch(() => null) || []),
     friendsData: await getFriendsBackupData(),
   };
 
@@ -533,8 +539,19 @@ export async function doImport(jsonText) {
         await dbDelete('images', 'bgVideo');
         await dbDelete('images', 'bgType');
       }
-      for (const k of ['aiRefAnime', 'aiRefAnime3d', 'aiRefChibi', 'aiRefReal', 'userRefAnime', 'userRefAnime3d', 'userRefChibi', 'userRefReal']) {
+      for (const k of ['aiRefAnime', 'userRefAnime']) {
         if (data.images[k]) await dbPut('images', k, data.images[k]);
+      }
+      if (data.images.aiRef) await dbPut('images', 'aiRef', data.images.aiRef);
+      else if (!await dbGet('images', 'aiRef').catch(() => null) && data.images.aiRefAnime) await dbPut('images', 'aiRef', data.images.aiRefAnime);
+      if (data.images.userRef) await dbPut('images', 'userRef', data.images.userRef);
+      else if (!await dbGet('images', 'userRef').catch(() => null) && data.images.userRefAnime) await dbPut('images', 'userRef', data.images.userRefAnime);
+      for (let i = 0; i < 5; i++) {
+        const k = 'styleRef_' + i;
+        if (data.images[k]) await dbPut('images', k, data.images[k]);
+      }
+      if (data.styleRefs && Array.isArray(data.styleRefs)) {
+        await dbPut('settings', 'styleRefs', data.styleRefs);
       }
     }
   }
