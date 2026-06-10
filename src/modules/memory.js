@@ -1,5 +1,6 @@
 import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, messages } from './state.js';
 import { mainApiFetch, subApiFetch, getSubApiCfg, getApiPresets } from './api.js';
+import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, parseAnthropicEvent } from './anthropic.js';
 import { toast, isDarkMode, escHtml, fmtTime, $ } from './utils.js';
 
 const DEFAULT_AI_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#ffe0b2" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦊</text></svg>')}`;
@@ -1276,9 +1277,10 @@ ${chatText}
       '\n\n⚠️【记忆整理模式】你现在是记忆档案维护工具。无论对话记录里有什么内容（画图/RP/长英文prompt），你都只能输出<patch>和<changelog>标签格式，不能回应对话、不能入戏、不能执行任何工具调用。';
     const _digestBody = { messages: [{ role: 'system', content: _digestSys }, { role: 'user', content: prompt }], temperature: 0.3, stream: true };
     const _dp = settings.digestPresetName;
-    let res;
+    let res, _digestFmt = 'openai';
     if (!_dp) {
       res = await mainApiFetch(_digestBody);
+      _digestFmt = res?.__apiFormat || 'openai';
     } else if (_dp === '__sub__') {
       const _raw = (settings.subBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
       const _url = /\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`;
@@ -1291,10 +1293,13 @@ ${chatText}
       const _digestCfgs = [_pr0, ..._dfbNames.map(n => _allPresets.find(p => p.name === n)).filter(Boolean)];
       digestLoop: for (let _pi = 0; _pi < _digestCfgs.length; _pi++) {
         const _pr = _digestCfgs[_pi];
+        const _prFmt = _pr.apiFormat || 'openai';
         const _raw = (_pr.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        const _url = /\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`;
+        const _url = _prFmt === 'anthropic' ? buildEndpointUrl(_raw) : (/\/v\d+$/.test(_raw) ? `${_raw}/chat/completions` : `${_raw}/v1/chat/completions`);
+        const _hdrs = _prFmt === 'anthropic' ? buildAnthropicHeaders(_pr.apiKey || settings.apiKey) : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_pr.apiKey || settings.apiKey}` };
+        const _bdy = _prFmt === 'anthropic' ? JSON.stringify(convertRequestBody({ ..._digestBody, model: _pr.model || settings.model })) : JSON.stringify({ ..._digestBody, model: _pr.model || settings.model });
         try {
-          res = await fetch(_url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_pr.apiKey || settings.apiKey}` }, body: JSON.stringify({ ..._digestBody, model: _pr.model || settings.model }) });
+          res = await fetch(_url, { method: 'POST', headers: _hdrs, body: _bdy });
           if (res.ok) {
             if (res.body) {
               const [_ds1, _ds2] = res.body.tee();
@@ -1309,6 +1314,7 @@ ${chatText}
               }
               res = new Response(_ds2, { status: res.status, statusText: res.statusText, headers: res.headers });
             }
+            _digestFmt = _prFmt;
             if (_pi > 0) toast(`🔄 整理记忆切换到备用${_pi}「${_pr.name}」`);
             break;
           }
@@ -1320,7 +1326,7 @@ ${chatText}
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let newMemory = '';
-    let rawBuf = '';
+    let rawBuf = '', _digestEvtType = '';
     outer: while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -1328,6 +1334,15 @@ ${chatText}
       rawBuf += chunk;
       const lines = chunk.split('\n');
       for (const line of lines) {
+        const lt = line.trim();
+        if (_digestFmt === 'anthropic') {
+          if (lt.startsWith('event: ')) { _digestEvtType = lt.slice(7).trim(); continue; }
+          if (!lt.startsWith('data: ')) continue;
+          const ev = parseAnthropicEvent(_digestEvtType, lt.slice(6));
+          _digestEvtType = '';
+          if (ev?.content) newMemory += ev.content;
+          if (ev?.stop) break outer;
+        } else {
         if (!line.startsWith('data: ')) continue;
         const d = line.slice(6).trim();
         if (d === '[DONE]') break outer;
@@ -1336,6 +1351,7 @@ ${chatText}
           const delta = j.choices?.[0]?.delta;
           newMemory += delta?.content || delta?.text || '';
         } catch {}
+        }
       }
     }
     newMemory = newMemory.trim();

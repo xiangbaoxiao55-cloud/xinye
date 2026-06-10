@@ -3,6 +3,7 @@ const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets, getImagePresets, getImageCurPresetIdx } from './api.js';
+import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
@@ -1012,7 +1013,9 @@ export async function sendMessage() {
     }
 
     let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    const _mainFmt = settings.apiFormat || 'openai';
+    const url = _mainFmt === 'anthropic' ? buildEndpointUrl(baseUrl) : (/\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`);
+    let _lastUsedFormat = _mainFmt;
 
     const _hasTavily = !_rpInject && !!(settings.braveKey);
     const _toolDefs = _hasTavily ? [
@@ -1575,14 +1578,19 @@ export async function sendMessage() {
     function _buildCfg(preset) {
       if (preset) {
         const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-        return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o', useLocalProxy: !!preset.useLocalProxy };
+        const fmt = preset.apiFormat || 'openai';
+        const pUrl = fmt === 'anthropic' ? buildEndpointUrl(raw) : (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`);
+        return { url: pUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model || 'gpt-4o', useLocalProxy: !!preset.useLocalProxy, apiFormat: fmt };
       }
-      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: !!settings.useLocalProxy };
+      return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: !!settings.useLocalProxy, apiFormat: _mainFmt };
     }
     function _proxyFetchArgs(cfg) {
       if (cfg.useLocalProxy && settings.solitudeServerUrl) {
         const base = settings.solitudeServerUrl.replace(/\/+$/, '');
         return { fetchUrl: `${base}/api/llm-proxy`, headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey } };
+      }
+      if (cfg.apiFormat === 'anthropic') {
+        return { fetchUrl: cfg.url, headers: buildAnthropicHeaders(cfg.apiKey) };
       }
       return { fetchUrl: cfg.url, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` } };
     }
@@ -1633,18 +1641,63 @@ export async function sendMessage() {
       if (tcs.length) msg.tool_calls = tcs;
       return { ok: true, status: 200, json: async () => ({ choices: [{ message: msg, finish_reason: tcs.length ? 'tool_calls' : 'stop' }], usage, model }) };
     }
+    async function _bufferStreamAnthropic(res) {
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', content = '', think = '';
+      let toolCalls = {}, usage = {}, model = '', evtType = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n'); buf = lines.pop();
+          for (const line of lines) {
+            const t = line.trim();
+            if (t.startsWith('event: ')) { evtType = t.slice(7).trim(); continue; }
+            if (!t.startsWith('data: ')) continue;
+            const ev = parseAnthropicEvent(evtType, t.slice(6));
+            evtType = '';
+            if (!ev) continue;
+            if (ev.content) content += ev.content;
+            if (ev.thinking) think += ev.thinking;
+            if (ev.model) model = ev.model;
+            if (ev.usage) usage = { ...usage, ...ev.usage };
+            if (ev.toolStart) {
+              const tc = ev.toolStart;
+              toolCalls[tc.index] = { id: tc.id, type: 'function', function: { name: tc.name, arguments: '' } };
+            }
+            if (ev.toolDelta) {
+              const idx = ev.toolDelta.index;
+              if (toolCalls[idx]) toolCalls[idx].function.arguments += ev.toolDelta.arguments;
+            }
+          }
+        }
+      } catch(_) {}
+      const tcs = Object.values(toolCalls).filter(t => t.id || t.function?.name);
+      const msg = { role: 'assistant', content: content || null };
+      if (think) msg.reasoning_content = think;
+      if (tcs.length) msg.tool_calls = tcs;
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: msg, finish_reason: tcs.length ? 'tool_calls' : 'stop' }], usage, model }) };
+    }
     async function _apiFetch(msgs, withTools, streamMode) {
       let _res;
       outerLoop: for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
         const cfg = _buildCfg(_allCfgs[pi]);
+        _lastUsedFormat = cfg.apiFormat;
         const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
         if (settings.maxTokens) bodyObj.max_tokens = settings.maxTokens;
-        bodyObj.stream_options = { include_usage: true };
         if (withTools && _toolDefs.length) {
           bodyObj.tools = _toolDefs;
           bodyObj.tool_choice = 'auto';
         }
-        const bodyStr = JSON.stringify(bodyObj);
+        let bodyStr;
+        if (cfg.apiFormat === 'anthropic') {
+          bodyStr = JSON.stringify(convertRequestBody(bodyObj));
+        } else {
+          bodyObj.stream_options = { include_usage: true };
+          bodyStr = JSON.stringify(bodyObj);
+        }
         for (let _a = 0; _a < 2; _a++) {
           if (_a > 0) { toast('重试中…'); await new Promise(r => setTimeout(r, 4000)); }
           try {
@@ -1667,7 +1720,7 @@ export async function sendMessage() {
                 _res = new Response(_cs2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
               }
               if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
-              if (!streamMode) _res = await _bufferStream(_res);
+              if (!streamMode) _res = await (cfg.apiFormat === 'anthropic' ? _bufferStreamAnthropic(_res) : _bufferStream(_res));
               return _res;
             }
           } catch(fe) {
@@ -1729,13 +1782,15 @@ export async function sendMessage() {
         return tcs.length ? tcs : null;
       }
 
-      async function _liveStream(res) {
+      async function _liveStream(res, apiFormat) {
+        const _fmt = apiFormat || _lastUsedFormat || 'openai';
         const _reader = res.body.getReader();
         const _dec = new TextDecoder();
         let _buf = '', _content = '', _think = '', _streamUsage2 = {};
         const _toolCallMap = {};
         let _hasTools = false;
         let _aiMsg = null, _bubbleEl = null;
+        let _evtType = '';
         try {
           while (true) {
             const { done, value } = await _reader.read(); if (done) break;
@@ -1743,6 +1798,34 @@ export async function sendMessage() {
             const _lines = _buf.split('\n'); _buf = _lines.pop() || '';
             for (const _l of _lines) {
               const _t = _l.trim();
+              if (_fmt === 'anthropic') {
+                if (_t.startsWith('event: ')) { _evtType = _t.slice(7).trim(); continue; }
+                if (!_t.startsWith('data: ')) continue;
+                const _ev = parseAnthropicEvent(_evtType, _t.slice(6));
+                _evtType = '';
+                if (!_ev) continue;
+                if (_ev.usage) _streamUsage2 = { ..._streamUsage2, ..._ev.usage };
+                if (_ev.toolStart) {
+                  _hasTools = true;
+                  _toolCallMap[_ev.toolStart.index] = { id: _ev.toolStart.id, name: _ev.toolStart.name, args: '' };
+                }
+                if (_ev.toolDelta) {
+                  _hasTools = true;
+                  if (_toolCallMap[_ev.toolDelta.index]) _toolCallMap[_ev.toolDelta.index].args += _ev.toolDelta.arguments;
+                }
+                if (!_hasTools) {
+                  if (_ev.thinking) { _think += _ev.thinking; if (_bubbleEl) { _bubbleEl.textContent = '💭 思考中...\n' + _think.slice(-200); scrollBottom(); } }
+                  if (_ev.content) {
+                    if (!_aiMsg) {
+                      typing.classList.remove('show');
+                      _aiMsg = await addMessage('assistant', '');
+                      await appendMsgDOM(_aiMsg);
+                      _bubbleEl = chatArea.querySelector('.msg-row:last-child .msg-bubble');
+                    }
+                    _content += _ev.content; _bubbleEl.textContent = _content; scrollBottom();
+                  }
+                }
+              } else {
               if (!_t || _t === 'data: [DONE]' || !_t.startsWith('data: ')) continue;
               try {
                 const _ck = JSON.parse(_t.slice(6));
@@ -1771,6 +1854,7 @@ export async function sendMessage() {
                   }
                 }
               } catch(_) {}
+              }
             }
           }
         } catch(_streamErr) {
@@ -2171,6 +2255,7 @@ export async function sendMessage() {
       const reader = _r.body.getReader();
       const decoder = new TextDecoder();
       let fullText = '', thinkText = '', buffer = '', _streamUsage = {};
+      let _simpleEvtType = '';
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -2179,6 +2264,16 @@ export async function sendMessage() {
           const lines = buffer.split('\n'); buffer = lines.pop() || '';
           for (const line of lines) {
             const trimmed = line.trim();
+            if (_lastUsedFormat === 'anthropic') {
+              if (trimmed.startsWith('event: ')) { _simpleEvtType = trimmed.slice(7).trim(); continue; }
+              if (!trimmed.startsWith('data: ')) continue;
+              const _sev = parseAnthropicEvent(_simpleEvtType, trimmed.slice(6));
+              _simpleEvtType = '';
+              if (!_sev) continue;
+              if (_sev.usage) _streamUsage = { ..._streamUsage, ..._sev.usage };
+              if (_sev.thinking) { thinkText += _sev.thinking; bubbleEl.textContent = '💭 思考中...\n' + thinkText.slice(-200); scrollBottom(); }
+              if (_sev.content) { fullText += _sev.content; bubbleEl.textContent = fullText; scrollBottom(); }
+            } else {
             if (!trimmed || trimmed === 'data: [DONE]') continue;
             if (!trimmed.startsWith('data: ')) continue;
             try {
@@ -2189,6 +2284,7 @@ export async function sendMessage() {
               if (tk) { thinkText += tk; bubbleEl.textContent = '💭 思考中...\n' + thinkText.slice(-200); scrollBottom(); }
               if (delta?.content) { fullText += delta.content; bubbleEl.textContent = fullText; scrollBottom(); }
             } catch(_) {}
+            }
           }
         }
       } catch(_streamErr) {
@@ -2260,16 +2356,26 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
 
     const res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
     if (!res?.ok) { console.error('[主动消息] API失败', res?.status); return null; }
+    const _proFmt = res.__apiFormat || 'openai';
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let text = '';
+    let text = '', _proEvtType = '';
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         for (const line of dec.decode(value, { stream: true }).split('\n')) {
-          if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-          try { text += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ''; } catch (_) {}
+          const lt = line.trim();
+          if (_proFmt === 'anthropic') {
+            if (lt.startsWith('event: ')) { _proEvtType = lt.slice(7).trim(); continue; }
+            if (!lt.startsWith('data: ')) continue;
+            const ev = parseAnthropicEvent(_proEvtType, lt.slice(6));
+            _proEvtType = '';
+            if (ev?.content) text += ev.content;
+          } else {
+            if (!lt.startsWith('data: ') || lt === 'data: [DONE]') continue;
+            try { text += JSON.parse(lt.slice(6)).choices?.[0]?.delta?.content || ''; } catch (_) {}
+          }
         }
       }
     } catch (_) {}

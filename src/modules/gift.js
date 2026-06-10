@@ -1,6 +1,7 @@
 import { settings, messages } from './state.js';
 import { mainApiFetch } from './api.js';
 import { addMessage, appendMsgDOM, scrollBottom } from './chat.js';
+import { parseAnthropicEvent } from './anthropic.js';
 
 const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _GIFT_KEY = () => _APP() + '_giftDate';
@@ -145,16 +146,26 @@ export function showGift(message, imageUrl = null, occasion = '') {
 
 // ===== SSE流读取（同walk.js） =====
 async function _readStream(res) {
+  const fmt = res.__apiFormat || 'openai';
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let text = '';
+  let text = '', evtType = '';
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       for (const line of dec.decode(value, { stream: true }).split('\n')) {
-        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-        try { text += JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || ''; } catch {}
+        const lt = line.trim();
+        if (fmt === 'anthropic') {
+          if (lt.startsWith('event: ')) { evtType = lt.slice(7).trim(); continue; }
+          if (!lt.startsWith('data: ')) continue;
+          const ev = parseAnthropicEvent(evtType, lt.slice(6));
+          evtType = '';
+          if (ev?.content) text += ev.content;
+        } else {
+          if (!lt.startsWith('data: ') || lt === 'data: [DONE]') continue;
+          try { text += JSON.parse(lt.slice(6)).choices?.[0]?.delta?.content || ''; } catch {}
+        }
       }
     }
   } catch {}

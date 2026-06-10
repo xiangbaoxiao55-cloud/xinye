@@ -56,6 +56,7 @@ export function isLocalServerOnline() { return _localServerOnline; }
 export async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
   if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!settings.useLocalProxy;
+  if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = settings.apiFormat || 'openai';
   $('#setBraveKey').value = settings.braveKey || '';
   const _mwEl = $('#setMorningWalkEnabled');
   if (_mwEl) _mwEl.checked = !!settings.morningWalkEnabled;
@@ -975,7 +976,9 @@ export function initSettings() {
     if ($('#setBackupBaseUrl')) $('#setBackupBaseUrl').value = p.backupBaseUrl || '';
     $('#setModel').value   = p.model   || '';
     if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
+    if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = p.apiFormat || 'openai';
     settings.useLocalProxy = !!p.useLocalProxy;
+    settings.apiFormat = p.apiFormat || 'openai';
     saveSettings();
     toast(`✅ 已填入主预设「${p.name}」，确认后点保存设置`);
   };
@@ -998,11 +1001,12 @@ export function initSettings() {
     const backupBaseUrl = $('#setBackupBaseUrl') ? $('#setBackupBaseUrl').value.trim() : '';
     const model   = $('#setModel').value.trim();
     const useLocalProxy = !!$('#apiPresetUseProxy')?.checked;
+    const apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
     if (!apiKey) { toast('API Key 不能为空'); return; }
     const presets = getApiPresets();
     const existing = presets.findIndex(p => p.name === name);
-    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy };
-    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy });
+    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat };
+    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat });
     setApiPresets(presets);
     renderApiPresets();
     $('#apiPresetName').value = '';
@@ -1074,6 +1078,7 @@ export function initSettings() {
   $('#btnSaveSettings').onclick = async () => {
     settings.apiKey = $('#setApiKey').value.trim();
     settings.useLocalProxy = !!($('#apiPresetUseProxy')?.checked);
+    settings.apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
     settings.braveKey = $('#setBraveKey').value.trim();
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
     settings.memoryAutoConflictDetect = !!($('#setMemoryAutoConflictDetect')?.checked);
@@ -1479,8 +1484,11 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId, selec
   sel.style.display = 'block';
   try {
     const _useProxy = $('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl;
+    const _fmt = $('#apiPresetApiFormat')?.value || 'openai';
     const _fetchUrl = _useProxy ? `${settings.solitudeServerUrl.replace(/\/+$/,'')}/api/llm-proxy-get?target=${encodeURIComponent(url)}&key=${encodeURIComponent(apiKey)}` : url;
-    const _fetchOpts = _useProxy ? {} : { headers: { Authorization: `Bearer ${apiKey}` } };
+    const _fetchOpts = _useProxy ? {} : _fmt === 'anthropic'
+      ? { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } }
+      : { headers: { Authorization: `Bearer ${apiKey}` } };
     const res = await fetch(_fetchUrl, _fetchOpts);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();

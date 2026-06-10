@@ -1,6 +1,7 @@
 import { settings } from './state.js';
 import { toast } from './utils.js';
 import { lsBackup } from './db.js';
+import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 
 export function getApiPresets() {
@@ -50,28 +51,40 @@ export async function mainApiFetch(bodyWithoutModel) {
   function _buildCfg(preset) {
     if (preset) {
       const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, useLocalProxy: !!preset.useLocalProxy };
+      const fmt = preset.apiFormat || 'openai';
+      const pUrl = fmt === 'anthropic' ? buildEndpointUrl(raw) : (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`);
+      return { url: pUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, useLocalProxy: !!preset.useLocalProxy, apiFormat: fmt };
     }
     const raw = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: settings.apiKey, model: settings.model, useLocalProxy: !!settings.useLocalProxy };
+    const fmt = settings.apiFormat || 'openai';
+    const pUrl = fmt === 'anthropic' ? buildEndpointUrl(raw) : (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`);
+    return { url: pUrl, apiKey: settings.apiKey, model: settings.model, useLocalProxy: !!settings.useLocalProxy, apiFormat: fmt };
   }
-  function _buildFetchArgs(cfg, bodyStr, signal) {
+  function _buildFetchArgs(cfg) {
     if (cfg.useLocalProxy && settings.solitudeServerUrl) {
       const proxyBase = settings.solitudeServerUrl.replace(/\/+$/, '');
       return { url: `${proxyBase}/api/llm-proxy`, headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey } };
+    }
+    if (cfg.apiFormat === 'anthropic') {
+      return { url: cfg.url, headers: buildAnthropicHeaders(cfg.apiKey) };
     }
     return { url: cfg.url, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` } };
   }
   let _res;
   mainLoop: for (let pi = 0; pi < _allCfgs.length; pi++) {
     const cfg = _buildCfg(_allCfgs[pi]);
-    const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
+    let bodyStr;
+    if (cfg.apiFormat === 'anthropic') {
+      bodyStr = JSON.stringify(convertRequestBody({ ...bodyWithoutModel, model: cfg.model }));
+    } else {
+      bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
+    }
     for (let _a = 0; _a < 2; _a++) {
       if (_a > 0) await new Promise(r => setTimeout(r, 4000));
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 120000);
-        const _fa = _buildFetchArgs(cfg, bodyStr, ctrl.signal);
+        const _fa = _buildFetchArgs(cfg);
         _res = await fetch(_fa.url, { method: 'POST', headers: _fa.headers, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
@@ -88,6 +101,12 @@ export async function mainApiFetch(bodyWithoutModel) {
             _res = new Response(_es2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
           }
           if (pi > 0) toast(`🔄 主API已切换到备用${pi}「${_fbPresets[pi-1].name}」`);
+          _res.__apiFormat = cfg.apiFormat;
+          if (cfg.apiFormat === 'anthropic' && bodyWithoutModel.stream === false) {
+            const _origJson = await _res.json();
+            const _converted = anthropicToOpenAIResponse(_origJson);
+            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic' };
+          }
           return _res;
         }
       } catch(e) { _res = null; }
@@ -105,21 +124,31 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
   function _buildSubCfg(preset) {
     if (preset) {
       const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: preset.apiKey || sub.apiKey, model: preset.model || sub.model || defaultModel };
+      const fmt = preset.apiFormat || 'openai';
+      const pUrl = fmt === 'anthropic' ? buildEndpointUrl(raw) : (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`);
+      return { url: pUrl, apiKey: preset.apiKey || sub.apiKey, model: preset.model || sub.model || defaultModel, apiFormat: fmt };
     }
     const raw = (sub.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: sub.apiKey, model: sub.model || defaultModel };
+    return { url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`, apiKey: sub.apiKey, model: sub.model || defaultModel, apiFormat: 'openai' };
   }
   let _res;
   subLoop: for (let pi = 0; pi < _subAllCfgs.length; pi++) {
     const cfg = _buildSubCfg(_subAllCfgs[pi]);
-    const bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
+    let bodyStr;
+    if (cfg.apiFormat === 'anthropic') {
+      bodyStr = JSON.stringify(convertRequestBody({ ...bodyWithoutModel, model: cfg.model }));
+    } else {
+      bodyStr = JSON.stringify({ ...bodyWithoutModel, model: cfg.model });
+    }
+    const headers = cfg.apiFormat === 'anthropic'
+      ? buildAnthropicHeaders(cfg.apiKey)
+      : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` };
     for (let _a = 0; _a < 2; _a++) {
       if (_a > 0) await new Promise(r => setTimeout(r, 4000));
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 60000);
-        _res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` }, body: bodyStr, signal: ctrl.signal });
+        _res = await fetch(cfg.url, { method: 'POST', headers, body: bodyStr, signal: ctrl.signal });
         clearTimeout(tid);
         if (_res.ok) {
           if (_res.body) {
@@ -135,6 +164,12 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
             _res = new Response(_ss2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
           }
           if (pi > 0) toast(`🔄 副API已切换到备用${pi}「${_subFbPresets[pi-1].name}」`);
+          _res.__apiFormat = cfg.apiFormat;
+          if (cfg.apiFormat === 'anthropic' && bodyWithoutModel.stream === false) {
+            const _origJson = await _res.json();
+            const _converted = anthropicToOpenAIResponse(_origJson);
+            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic' };
+          }
           return _res;
         }
       } catch(e) { _res = null; }

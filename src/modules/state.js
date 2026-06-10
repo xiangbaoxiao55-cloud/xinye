@@ -1,7 +1,7 @@
 import { dbPut } from './db.js';
 
 export const settings = {
-  apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetNames: [], model: 'gpt-4o',
+  apiKey: '', baseUrl: 'https://api.openai.com', fallbackPresetNames: [], model: 'gpt-4o', apiFormat: 'openai',
   subApiKey: '', subBaseUrl: '', subFallbackPresetNames: [], subModel: '',
   embeddingApiKey: '', embeddingBaseUrl: '', embeddingModel: '',
   visionApiKey: '', visionBaseUrl: '', visionModel: '',

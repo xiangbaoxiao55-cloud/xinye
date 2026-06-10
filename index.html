@@ -184,6 +184,14 @@
         <input type="checkbox" id="apiPresetUseProxy" style="width:16px;height:16px;cursor:pointer">
         <label for="apiPresetUseProxy" style="font-size:13px;cursor:pointer;color:var(--text-muted)">走本地服务器代理（解决CORS，需在局域网）</label>
       </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <label style="font-size:13px;color:var(--text-muted);white-space:nowrap">API 格式</label>
+        <select id="apiPresetApiFormat" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
+          <option value="openai">OpenAI 兼容</option>
+          <option value="anthropic">Anthropic 原生</option>
+        </select>
+        <span style="font-size:11px;color:var(--text-light)">原生格式支持 prompt 缓存</span>
+      </div>
       <div class="hint">激活后填入下方主 API 字段，确认后点「保存设置」生效</div>
     </div>
     <div class="setting-group">
