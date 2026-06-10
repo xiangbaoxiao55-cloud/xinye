@@ -63,13 +63,17 @@ export function convertRequestBody(oaiBody) {
     stream: oaiBody.stream !== undefined ? oaiBody.stream : true,
   };
   if (oaiBody.temperature !== undefined) body.temperature = oaiBody.temperature;
-  if (systemBlocks.length) body.system = systemBlocks;
+  if (systemBlocks.length) {
+    systemBlocks[systemBlocks.length - 1].cache_control = { type: 'ephemeral' };
+    body.system = systemBlocks;
+  }
 
   if (oaiBody.tools?.length) {
     body.tools = oaiBody.tools.map(t => {
       const fn = t.function || t;
       return { name: fn.name, description: fn.description, input_schema: fn.parameters || fn.input_schema };
     });
+    body.tools[body.tools.length - 1].cache_control = { type: 'ephemeral' };
     if (oaiBody.tool_choice !== undefined) {
       body.tool_choice = _convertToolChoice(oaiBody.tool_choice);
     }
