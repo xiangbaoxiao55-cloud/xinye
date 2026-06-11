@@ -196,7 +196,29 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter){
     promptEl.textContent=expanded?prompt:promptShort;
     promptEl.style.webkitLineClamp=expanded?'unset':'2';
   };
-  taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(prompt,negPrompt,size,n,refs,taskWrap);
+  taskWrap.querySelector('.draw-task-reroll').onclick=()=>{
+    // 已有编辑区则关掉（toggle）
+    const existingEdit=taskWrap.querySelector('.draw-task-edit');
+    if(existingEdit){existingEdit.remove();return;}
+    const editDiv=document.createElement('div');
+    editDiv.className='draw-task-edit';
+    editDiv.innerHTML=`
+      <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
+      <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${negPrompt||''}</textarea></div>
+      <div class="dte-actions">
+        <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
+        <button class="btn-sm btn-outline dte-cancel">取消</button>
+      </div>`;
+    taskWrap.querySelector('.draw-task-header').after(editDiv);
+    editDiv.querySelector('.dte-cancel').onclick=()=>editDiv.remove();
+    editDiv.querySelector('.dte-confirm').onclick=()=>{
+      const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
+      const newNeg=editDiv.querySelector('.dte-neg').value.trim();
+      editDiv.remove();
+      _runDrawTask(newPrompt||prompt,newNeg,size,n,refs,taskWrap);
+    };
+    editDiv.querySelector('.dte-pos').focus();
+  };
   taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(prompt).then(()=>toast('Prompt已复制 ✓'));
   taskWrap.querySelector('.draw-task-save').onclick=async()=>{
     const name=prompt.trim();
