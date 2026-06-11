@@ -50,7 +50,7 @@ const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
-  selTokens:[],selStyles:[],
+  selTokens:[],selStyles:[],lastTemplateName:'',
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
@@ -168,17 +168,20 @@ async function doDraw(){
   const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
   const size=document.getElementById('param-size').value||'1024x1024';
   const refs=getAllRefs(); // 快照参考图，重roll时复现
-  _runDrawTask(prompt,negPrompt,size,n,refs);
+  const tplName=S.lastTemplateName;
+  S.lastTemplateName='';
+  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName);
 }
 
-async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter){
+async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
   const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
+  const labelText=tplName?`📄 ${tplName} · ${n}张 · ${size}`:`🎨 ${n}张 · ${size}`;
   taskWrap.innerHTML=`<div class="draw-task-header">
     <div class="draw-task-top">
-      <span class="draw-task-label">🎨 ${n}张 · ${size}</span>
+      <span class="draw-task-label">${labelText}</span>
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
@@ -1093,6 +1096,7 @@ async function openTemplates(){
         document.querySelectorAll('.token-tag:not(.style-tag)').forEach(el=>el.classList.toggle('selected',S.selTokens.some(s=>s.id===el.dataset.id)));
         document.querySelectorAll('.style-tag').forEach(el=>el.classList.toggle('selected',S.selStyles.some(s=>s.style_id===el.dataset.sid)));
         closeModal('modal-templates');toast('模版已载入 ✨');
+        S.lastTemplateName=t.name;
       };
       const bDel=document.createElement('button');
       bDel.className='btn-danger btn-sm';bDel.textContent='删除';
