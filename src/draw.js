@@ -1450,15 +1450,27 @@ function renderSelectedStyles(){
       area.appendChild(chip);
     }
   }
-  // 折叠时也能看见已选风格（header 小预览）
+  // 折叠时也能看见已选风格（header 小预览，可单个点 × 删除）
   const preview=document.getElementById('styles-selected-preview');
   if(preview){
     preview.innerHTML='';
     if(S.selStyles.length){
       for(const s of S.selStyles){
         const tag=document.createElement('span');
-        tag.style.cssText='font-size:10px;padding:1px 6px;border-radius:10px;background:var(--purple);color:#fff;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis';
-        tag.textContent=s['中文风格名'];
+        tag.style.cssText='display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:1px 5px 1px 6px;border-radius:10px;background:var(--purple);color:#fff;white-space:nowrap;max-width:90px';
+        const name=document.createElement('span');
+        name.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        name.textContent=s['中文风格名'];
+        const x=document.createElement('span');
+        x.textContent='×';
+        x.style.cssText='cursor:pointer;opacity:.7;flex-shrink:0;font-size:11px';
+        x.onclick=e=>{
+          e.stopPropagation();
+          S.selStyles=S.selStyles.filter(y=>y.style_id!==s.style_id);
+          document.querySelectorAll(`.style-tag[data-sid="${s.style_id}"]`).forEach(el=>el.classList.remove('selected'));
+          renderSelectedStyles();
+        };
+        tag.append(name,x);
         preview.appendChild(tag);
       }
     }
