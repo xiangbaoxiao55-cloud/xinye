@@ -175,9 +175,17 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter){
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
-  const promptShort=prompt.length>80?prompt.slice(0,80)+'…':prompt;
+  const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
   taskWrap.innerHTML=`<div class="draw-task-header">
-    <div class="draw-task-top"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span><button class="draw-task-reroll btn-tiny" title="用同样的prompt重roll">🔄</button></div>
+    <div class="draw-task-top">
+      <span class="draw-task-label">🎨 ${n}张 · ${size}</span>
+      <span class="draw-task-status">生成中...</span>
+      <div class="draw-task-btns">
+        <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
+        <button class="draw-task-copy" title="复制完整prompt">📋</button>
+        <button class="draw-task-save" title="存为模版">💾</button>
+      </div>
+    </div>
     <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
   </div><div class="draw-task-body"><div class="loading-spinner"></div></div>`;
 
@@ -189,6 +197,19 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter){
     promptEl.style.webkitLineClamp=expanded?'unset':'2';
   };
   taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(prompt,negPrompt,size,n,refs,taskWrap);
+  taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(prompt).then(()=>toast('Prompt已复制 ✓'));
+  taskWrap.querySelector('.draw-task-save').onclick=async()=>{
+    const name=prompt.trim();
+    const def=name.slice(0,30).replace(/[^\w一-龥]/g,' ').trim()||'未命名';
+    const tname=window.prompt('模版名称：',def);
+    if(!tname?.trim()) return;
+    await db.put('templates',{
+      id:uid(),name:tname.trim(),personaId:S.curPersonaId||null,
+      tokens:[...S.selTokens],styles:[...S.selStyles],
+      prompt,negPrompt,size,createdAt:Date.now()
+    });
+    toast(`模版"${tname.trim()}"已保存 ✨`);
+  };
 
   // 插到指定卡片后面（重roll），或顶部（新任务）
   if(insertAfter) insertAfter.insertAdjacentElement('afterend',taskWrap);
