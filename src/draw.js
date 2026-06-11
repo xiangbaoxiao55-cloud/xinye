@@ -176,7 +176,19 @@ async function doDraw(){
   const taskWrap=document.createElement('div');
   taskWrap.id=taskId;
   taskWrap.className='draw-task';
-  taskWrap.innerHTML=`<div class="draw-task-header"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span></div><div class="draw-task-body"><div class="loading-spinner"></div></div>`;
+  const promptShort=prompt.length>80?prompt.slice(0,80)+'…':prompt;
+  taskWrap.innerHTML=`<div class="draw-task-header">
+    <div class="draw-task-top"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span></div>
+    <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
+  </div><div class="draw-task-body"><div class="loading-spinner"></div></div>`;
+  // 点击 prompt 行展开/收起完整内容
+  const promptEl=taskWrap.querySelector('.draw-task-prompt');
+  let expanded=false;
+  promptEl.onclick=()=>{
+    expanded=!expanded;
+    promptEl.textContent=expanded?prompt:promptShort;
+    promptEl.style.webkitLineClamp=expanded?'unset':'2';
+  };
   res.insertBefore(taskWrap,res.firstChild);
 
   const setStatus=(msg,err)=>{
