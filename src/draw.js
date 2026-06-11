@@ -164,24 +164,23 @@ async function doDraw(){
   const prompt=buildPrompt();
   if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
   if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
-
   const n=Math.max(1,Math.min(20,parseInt(document.getElementById('param-count').value)||1));
   const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
   const size=document.getElementById('param-size').value||'1024x1024';
+  const refs=getAllRefs(); // 快照参考图，重roll时复现
+  _runDrawTask(prompt,negPrompt,size,n,refs);
+}
 
+async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter){
   const res=document.getElementById('draw-results');
-
-  // 每次生成独立一个任务卡，并行不互斥
-  const taskId='task_'+Date.now();
   const taskWrap=document.createElement('div');
-  taskWrap.id=taskId;
   taskWrap.className='draw-task';
   const promptShort=prompt.length>80?prompt.slice(0,80)+'…':prompt;
   taskWrap.innerHTML=`<div class="draw-task-header">
-    <div class="draw-task-top"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span></div>
+    <div class="draw-task-top"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span><button class="draw-task-reroll btn-tiny" title="用同样的prompt重roll">🔄</button></div>
     <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
   </div><div class="draw-task-body"><div class="loading-spinner"></div></div>`;
-  // 点击 prompt 行展开/收起完整内容
+
   const promptEl=taskWrap.querySelector('.draw-task-prompt');
   let expanded=false;
   promptEl.onclick=()=>{
@@ -189,7 +188,11 @@ async function doDraw(){
     promptEl.textContent=expanded?prompt:promptShort;
     promptEl.style.webkitLineClamp=expanded?'unset':'2';
   };
-  res.insertBefore(taskWrap,res.firstChild);
+  taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(prompt,negPrompt,size,n,refs,taskWrap);
+
+  // 插到指定卡片后面（重roll），或顶部（新任务）
+  if(insertAfter) insertAfter.insertAdjacentElement('afterend',taskWrap);
+  else res.insertBefore(taskWrap,res.firstChild);
 
   const setStatus=(msg,err)=>{
     const el=taskWrap.querySelector('.draw-task-status');
@@ -197,12 +200,9 @@ async function doDraw(){
   };
 
   try{
-    // 并行发起 n 张，每张独立请求
-    const jobs=Array.from({length:n},()=>_doSingleDraw(prompt,negPrompt,size));
+    const jobs=Array.from({length:n},()=>_doSingleDraw(prompt,negPrompt,size,refs));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
-
-    // 用 allSettled 等所有完成，但每张完成时立即插入
     let done=0;
     const results=await Promise.allSettled(jobs.map(async p=>{
       const imgData=await p;
@@ -224,7 +224,6 @@ async function doDraw(){
       body.appendChild(wrap);
       return imgData;
     }));
-
     const ok=results.filter(r=>r.status==='fulfilled').length;
     const fail=results.filter(r=>r.status==='rejected').length;
     if(ok>0 && fail===0) setStatus(`✓ ${ok}张完成`);
@@ -238,7 +237,7 @@ async function doDraw(){
   }
 }
 
-async function _doSingleDraw(prompt,negPrompt,size){
+async function _doSingleDraw(prompt,negPrompt,size,refs){
   const presets=S.drawPresets;
   let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
   if(startIdx<0) startIdx=0;
@@ -248,7 +247,7 @@ async function _doSingleDraw(prompt,negPrompt,size){
     if(i>0 && preset.skipFallback) continue;
     try{
       if(i>0) toast(`切备用"${preset.name}"...`,'warn');
-      const _refs=getAllRefs();
+      const _refs=refs||getAllRefs();
       let images;
       if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,1);
       else if(preset.format==='chat') images=await _callChat(preset,prompt,1);
