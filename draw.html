@@ -82,7 +82,22 @@
         </div>
 
         <div class="prompt-section">
-          <div class="draw-params">
+          <div class="section-header" id="styles-toggle-hdr" style="cursor:pointer">
+            <span>风格探索</span>
+            <button class="btn-tiny" onclick="event.stopPropagation();openAddStyle()">+ 自定义</button>
+            <button class="btn-tiny" onclick="event.stopPropagation();randomStyles()">🎲 随机</button>
+            <button class="btn-tiny" onclick="event.stopPropagation();clearStyles()">清空</button>
+            <span id="styles-toggle-icon" style="color:var(--sub);font-size:11px;margin-left:2px">▶</span>
+          </div>
+          <div id="styles-collapsible" style="display:none">
+            <div id="style-filter-row" style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap"></div>
+            <input type="text" id="style-search-input" placeholder="搜索风格（中文/英文）..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-bottom:6px">
+            <div id="styles-categories"></div>
+            <div id="selected-styles" class="selected-tokens-area" style="margin-top:6px"></div>
+          </div>
+        </div>
+
+        <div class="prompt-section">
             <label>尺寸
               <select id="param-size">
                 <option value="512x512">512×512</option>
@@ -369,6 +384,40 @@
     </div>
   </div>
 </div>
+
+<!-- 自定义风格弹窗 -->
+<div id="modal-style" class="modal-overlay" style="display:none">
+  <div class="modal-box modal-sm">
+    <h3 id="modal-style-title">添加自定义风格</h3>
+    <div class="form-group"><label>中文风格名</label><input type="text" id="style-name-input" placeholder="例：赛博霓虹街景"></div>
+    <div class="form-group"><label>English prompt tokens</label><input type="text" id="style-tokens-input" placeholder="cyberpunk neon, glowing edges, wet streets"></div>
+    <div class="form-group">
+      <label>类别</label>
+      <select id="style-category-select">
+        <option value="材质与表面质感">M 材质</option>
+        <option value="摄影工艺与影像缺陷">P 摄影</option>
+        <option value="电影、电视与影像类型">C 电影</option>
+        <option value="动画、漫画与插画亚种">A 动画</option>
+        <option value="平面设计、印刷与海报亚种">G 平面</option>
+        <option value="工艺、地域视觉与历史媒介">R 工艺</option>
+        <option value="数字、游戏、UI与计算机视觉">D 数字</option>
+        <option value="建筑、空间与场景气质">S 空间</option>
+        <option value="时装、亚文化与人物造型">F 时装</option>
+        <option value="玩具、产品与收藏品呈现">T 产品</option>
+      </select>
+    </div>
+    <div class="form-group"><label>风险提示（可选）</label><input type="text" id="style-risk-input" placeholder="常见翻车情况..."></div>
+    <div class="form-group"><label>补救提示（可选）</label><input type="text" id="style-rescue-input" placeholder="加上什么可以补救..."></div>
+    <div class="modal-actions">
+      <button id="btn-save-style" class="btn-primary">保存</button>
+      <button id="btn-delete-style" class="btn-danger" style="display:none">删除</button>
+      <button id="btn-cancel-style" class="btn-outline">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 风格详情浮层 -->
+<div id="style-tooltip"></div>
 
 <div id="toast"></div>
 

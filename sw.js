@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260610-1450';
+const CACHE_NAME = 'xinye-20260611-1045';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -30,7 +30,8 @@ const STATIC_ASSETS = [
   '/src/styles/bubbles.css', '/src/styles/panels.css', '/src/styles/components.css',
   '/src/styles/gift.css', '/src/styles/fortune.css',
   '/src/styles/themes.css', '/src/styles/markdown.css', '/src/styles/friends.css',
-  '/draw.html', '/src/draw.js', '/src/styles/draw.css'
+  '/draw.html', '/src/draw.js', '/src/styles/draw.css',
+  '/data/style_library.json'
 ];
 
 // ── 接收 app 传来的本地服务器 URL，持久存进 Cache ────────────────────────

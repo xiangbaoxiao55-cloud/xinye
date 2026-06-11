@@ -3,7 +3,7 @@ class DrawDB {
   constructor(){this.db=null}
   open(){
     return new Promise((res,rej)=>{
-      const r=indexedDB.open('DrawDB',1);
+      const r=indexedDB.open('DrawDB',2);
       r.onupgradeneeded=e=>{
         const db=e.target.result;
         if(!db.objectStoreNames.contains('personas')) db.createObjectStore('personas',{keyPath:'id'});
@@ -19,6 +19,10 @@ class DrawDB {
           s.createIndex('byDate','createdAt',{unique:false});
         }
         if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings',{keyPath:'key'});
+        if(!db.objectStoreNames.contains('styles')){
+          const s=db.createObjectStore('styles',{keyPath:'style_id'});
+          s.createIndex('byCategory','类别',{unique:false});
+        }
       };
       r.onsuccess=e=>{this.db=e.target.result;res()};
       r.onerror=e=>rej(e.target.error);
@@ -46,7 +50,7 @@ const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
-  selTokens:[],
+  selTokens:[],selStyles:[],
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
@@ -63,6 +67,14 @@ const CAT={
   scene:'场景',action:'动作/姿态',expression:'表情/情绪',
   lighting:'光影',camera:'镜头/构图',effect:'特效',other:'其他'
 };
+
+const STYLE_CAT={
+  '材质与表面质感':'M 材质','摄影工艺与影像缺陷':'P 摄影','电影、电视与影像类型':'C 电影',
+  '动画、漫画与插画亚种':'A 动画','平面设计、印刷与海报亚种':'G 平面','工艺、地域视觉与历史媒介':'R 工艺',
+  '数字、游戏、UI与计算机视觉':'D 数字','建筑、空间与场景气质':'S 空间',
+  '时装、亚文化与人物造型':'F 时装','玩具、产品与收藏品呈现':'T 产品'
+};
+const STYLE_LIB_VER=1;
 
 const INIT_TOKENS=[
   {id:'q1',text:'masterpiece',category:'quality'},{id:'q2',text:'best quality',category:'quality'},
@@ -120,7 +132,8 @@ const f2b=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.
 function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
   const tokenPart=S.selTokens.map(t=>t.text).join(', ');
-  return [base,tokenPart].filter(Boolean).join(', ');
+  const stylePart=S.selStyles.map(s=>s['English prompt tokens']).join(', ');
+  return [base,tokenPart,stylePart].filter(Boolean).join(', ');
 }
 
 // ── API Config ────────────────────────────────────────────────
@@ -968,7 +981,7 @@ async function saveTemplate(){
   if(!name?.trim()) return;
   await db.put('templates',{
     id:uid(),name:name.trim(),personaId:S.curPersonaId,
-    tokens:[...S.selTokens],
+    tokens:[...S.selTokens],styles:[...S.selStyles],
     prompt:document.getElementById('final-prompt-edit').value||'',
     negPrompt:document.getElementById('neg-prompt').value||'',
     size:document.getElementById('param-size').value||'1024x1024',
@@ -990,12 +1003,14 @@ async function openTemplates(){
       bLoad.className='btn-primary btn-sm';bLoad.textContent='载入';
       bLoad.onclick=()=>{
         S.selTokens=t.tokens?[...t.tokens]:[];
+        S.selStyles=t.styles?[...t.styles]:[];
         if(t.prompt) document.getElementById('final-prompt-edit').value=t.prompt;
         if(t.negPrompt) document.getElementById('neg-prompt').value=t.negPrompt;
         if(t.size) document.getElementById('param-size').value=t.size;
         if(t.personaId) selectPersona(t.personaId);
-        renderSelectedTokens();
-        document.querySelectorAll('.token-tag').forEach(el=>el.classList.toggle('selected',S.selTokens.some(s=>s.id===el.dataset.id)));
+        renderSelectedTokens();renderSelectedStyles();
+        document.querySelectorAll('.token-tag:not(.style-tag)').forEach(el=>el.classList.toggle('selected',S.selTokens.some(s=>s.id===el.dataset.id)));
+        document.querySelectorAll('.style-tag').forEach(el=>el.classList.toggle('selected',S.selStyles.some(s=>s.style_id===el.dataset.sid)));
         closeModal('modal-templates');toast('模版已载入 ✨');
       };
       const bDel=document.createElement('button');
@@ -1066,7 +1081,7 @@ function useDetailPrompt(){
   switchTab('studio');
   document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
   document.getElementById('neg-prompt').value=S.curDetail.negPrompt||'';
-  S.selTokens=[];renderSelectedTokens();
+  S.selTokens=[];S.selStyles=[];renderSelectedTokens();renderSelectedStyles();
   closeModal('modal-detail');toast('Prompt已载入工作台');
 }
 
@@ -1243,12 +1258,14 @@ async function exportConfig(){
   const templates=await db.all('templates');
   const defaultIds=new Set(INIT_TOKENS.map(t=>t.id));
   const customTokens=allTokens.filter(t=>!defaultIds.has(t.id));
+  const allStyles=await db.all('styles');
+  const customStyles=allStyles.filter(s=>s.custom);
   const cfg={
     _v:1,_app:'draw',_date:new Date().toISOString().slice(0,16).replace('T',' '),
     drawPresets:S.drawPresets,curDrawId:S.curDrawId,
     masterPresets:S.masterPresets,curMasterId:S.curMasterId,
     personas,curPersonaId:S.curPersonaId,
-    customTokens,templates,
+    customTokens,templates,customStyles,
   };
   const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -1267,6 +1284,7 @@ async function importConfig(file){
     if(cfg.masterPresets?.length){S.masterPresets=cfg.masterPresets;S.curMasterId=cfg.curMasterId||cfg.masterPresets[0]?.id}
     if(cfg.personas?.length) for(const p of cfg.personas) await db.put('personas',p);
     if(cfg.customTokens?.length) for(const t of cfg.customTokens) await db.put('tokens',t);
+    if(cfg.customStyles?.length) for(const s of cfg.customStyles) await db.put('styles',s);
     if(cfg.templates?.length) for(const t of cfg.templates) await db.put('templates',t);
     savePresetsToLS();
     loadCfg();
@@ -1296,6 +1314,214 @@ async function loadPersonas(){
 async function seedTokens(){
   const ex=await db.all('tokens');
   if(!ex.length) for(const t of INIT_TOKENS) await db.put('tokens',{...t,useCount:0,createdAt:Date.now()});
+}
+
+// ── Style Explorer ───────────────────────────────────────────
+let _styleFilter='',_styleCatCollapsed={},_styleSeeded=false,_editingStyleId=null;
+
+async function seedStyles(){
+  if(_styleSeeded) return;
+  const ver=await db.getSetting('styles_lib_version',0);
+  if(ver>=STYLE_LIB_VER){_styleSeeded=true;return}
+  try{
+    const resp=await fetch('./data/style_library.json');
+    if(!resp.ok) throw new Error('fetch failed');
+    const lib=await resp.json();
+    const styles=lib.styles||lib;
+    const tx=db.db.transaction('styles','readwrite');
+    const store=tx.objectStore('styles');
+    for(const s of styles) store.put({...s,builtin:true});
+    await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=rej});
+    await db.setSetting('styles_lib_version',STYLE_LIB_VER);
+    _styleSeeded=true;
+    toast(`已加载 ${styles.length} 个稀有风格 ✨`);
+  }catch(e){console.warn('[styles] 风格库加载失败:',e.message)}
+}
+
+async function renderStyles(search=''){
+  const all=await db.all('styles');
+  let items=all;
+  if(_styleFilter) items=items.filter(s=>s['类别']===_styleFilter);
+  if(search){
+    const q=search.toLowerCase();
+    items=items.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)||(s['English prompt tokens']||'').toLowerCase().includes(q));
+  }
+  const groups={};
+  for(const s of items)(groups[s['类别']]=groups[s['类别']]||[]).push(s);
+  const container=document.getElementById('styles-categories');
+  container.innerHTML='';
+  const order=Object.keys(STYLE_CAT);
+  for(const cat of order){
+    const styles=groups[cat];
+    if(!styles?.length) continue;
+    const sec=document.createElement('div');
+    sec.className='token-section'+(_styleCatCollapsed[cat]?' collapsed':'');
+    const hdr=document.createElement('div');
+    hdr.className='token-section-header';
+    hdr.innerHTML=`<span>${STYLE_CAT[cat]||cat}</span><span class="token-count">${styles.length}</span>`;
+    hdr.onclick=()=>{sec.classList.toggle('collapsed');_styleCatCollapsed[cat]=sec.classList.contains('collapsed')};
+    const grid=document.createElement('div');
+    grid.className='tokens-grid';
+    for(const s of styles){
+      const tag=document.createElement('span');
+      const sel=S.selStyles.some(x=>x.style_id===s.style_id);
+      tag.className='token-tag style-tag'+(sel?' selected':'')+(s.custom?' style-custom':'');
+      tag.textContent=s['中文风格名'];
+      tag.dataset.sid=s.style_id;
+      tag.title=s['English prompt tokens'];
+      tag.addEventListener('click',()=>toggleStyle(s));
+      tag.addEventListener('mouseenter',e=>showStyleTip(s,e));
+      tag.addEventListener('mouseleave',hideStyleTip);
+      if(s.custom) tag.addEventListener('contextmenu',e=>{e.preventDefault();openEditStyle(s.style_id)});
+      grid.appendChild(tag);
+    }
+    sec.append(hdr,grid);
+    container.appendChild(sec);
+  }
+  if(!container.children.length) container.innerHTML='<div style="color:var(--sub);font-size:12px;padding:8px 0">风格库为空，点击上方 + 自定义 添加</div>';
+}
+
+function renderStyleFilters(){
+  const row=document.getElementById('style-filter-row');
+  row.innerHTML='';
+  const mk=(label,cat)=>{
+    const btn=document.createElement('span');
+    btn.className='token-tag'+(_styleFilter===cat?' selected':'');
+    btn.textContent=label;
+    btn.onclick=()=>{_styleFilter=(_styleFilter===cat?'':cat);renderStyleFilters();renderStyles(document.getElementById('style-search-input')?.value||'')};
+    row.appendChild(btn);
+  };
+  mk('全部','');
+  for(const [cat,label] of Object.entries(STYLE_CAT)) mk(label,cat);
+}
+
+function toggleStyle(style){
+  const idx=S.selStyles.findIndex(s=>s.style_id===style.style_id);
+  if(idx>=0){
+    S.selStyles.splice(idx,1);
+    document.querySelectorAll(`.style-tag[data-sid="${style.style_id}"]`).forEach(el=>el.classList.remove('selected'));
+  }else{
+    S.selStyles.push(style);
+    document.querySelectorAll(`.style-tag[data-sid="${style.style_id}"]`).forEach(el=>el.classList.add('selected'));
+  }
+  renderSelectedStyles();
+}
+
+function renderSelectedStyles(){
+  const area=document.getElementById('selected-styles');
+  if(!area) return;
+  area.innerHTML='';
+  for(const s of S.selStyles){
+    const chip=document.createElement('span');
+    chip.className='selected-chip';
+    chip.innerHTML=`${s['中文风格名']}<button class="chip-remove" data-sid="${s.style_id}">×</button>`;
+    chip.querySelector('.chip-remove').onclick=()=>{
+      S.selStyles=S.selStyles.filter(x=>x.style_id!==s.style_id);
+      document.querySelectorAll(`.style-tag[data-sid="${s.style_id}"]`).forEach(el=>el.classList.remove('selected'));
+      renderSelectedStyles();
+    };
+    area.appendChild(chip);
+  }
+}
+
+function clearStyles(){
+  S.selStyles=[];
+  document.querySelectorAll('.style-tag.selected').forEach(el=>el.classList.remove('selected'));
+  renderSelectedStyles();
+}
+
+async function randomStyles(){
+  const all=await db.all('styles');
+  if(!all.length){toast('风格库未加载','warn');return}
+  clearStyles();
+  const count=1+Math.floor(Math.random()*3);
+  const shuffled=[...all].sort(()=>Math.random()-0.5);
+  for(let i=0;i<Math.min(count,shuffled.length);i++) S.selStyles.push(shuffled[i]);
+  renderSelectedStyles();
+  renderStyles(document.getElementById('style-search-input')?.value||'');
+  toast(`🎲 随机选了 ${S.selStyles.length} 个风格`);
+}
+
+function showStyleTip(style,event){
+  const tip=document.getElementById('style-tooltip');
+  if(!tip) return;
+  const tokens=style['English prompt tokens']||'';
+  const strength=style['建议强度']||'—';
+  const role=style['组合角色']||'';
+  const subjects=style['适合主体']||'—';
+  const risk=style['容易翻车']||'';
+  const rescue=style['补救提示']||'';
+  tip.innerHTML=`<div style="font-weight:600;margin-bottom:4px">${style['中文风格名']}</div>`
+    +`<div style="color:var(--teal);font-size:12px;margin-bottom:4px;word-break:break-all">${tokens}</div>`
+    +`<div style="font-size:11px;color:var(--sub)">强度 ${strength}${role?' · '+role:''}</div>`
+    +`<div style="font-size:11px;color:var(--sub)">适合: ${subjects}</div>`
+    +(risk?`<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠ ${risk}</div>`:'')
+    +(rescue?`<div style="font-size:11px;color:var(--teal);margin-top:2px">💡 ${rescue}</div>`:'');
+  tip.style.display='block';
+  const rect=event.target.getBoundingClientRect();
+  const left=Math.min(rect.left,window.innerWidth-310);
+  const top=rect.bottom+6;
+  tip.style.left=left+'px';
+  tip.style.top=(top+300>window.innerHeight?rect.top-tip.offsetHeight-6:top)+'px';
+}
+function hideStyleTip(){const tip=document.getElementById('style-tooltip');if(tip)tip.style.display='none'}
+
+function openAddStyle(){
+  _editingStyleId=null;
+  document.getElementById('modal-style-title').textContent='添加自定义风格';
+  document.getElementById('style-name-input').value='';
+  document.getElementById('style-tokens-input').value='';
+  document.getElementById('style-category-select').value='材质与表面质感';
+  document.getElementById('style-risk-input').value='';
+  document.getElementById('style-rescue-input').value='';
+  document.getElementById('btn-delete-style').style.display='none';
+  document.getElementById('modal-style').style.display='flex';
+}
+
+async function openEditStyle(styleId){
+  const s=await db.get('styles',styleId);
+  if(!s||s.builtin) return;
+  _editingStyleId=styleId;
+  document.getElementById('modal-style-title').textContent='编辑自定义风格';
+  document.getElementById('style-name-input').value=s['中文风格名']||'';
+  document.getElementById('style-tokens-input').value=s['English prompt tokens']||'';
+  document.getElementById('style-category-select').value=s['类别']||'材质与表面质感';
+  document.getElementById('style-risk-input').value=s['容易翻车']||'';
+  document.getElementById('style-rescue-input').value=s['补救提示']||'';
+  document.getElementById('btn-delete-style').style.display='';
+  document.getElementById('modal-style').style.display='flex';
+}
+
+async function saveStyle(){
+  const name=document.getElementById('style-name-input').value.trim();
+  const tokens=document.getElementById('style-tokens-input').value.trim();
+  if(!name||!tokens){toast('请填写风格名和英文词条','warn');return}
+  const obj={
+    style_id:_editingStyleId||'custom_'+uid(),
+    '中文风格名':name,'English prompt tokens':tokens,
+    '类别':document.getElementById('style-category-select').value,
+    '容易翻车':document.getElementById('style-risk-input').value.trim(),
+    '补救提示':document.getElementById('style-rescue-input').value.trim(),
+    builtin:false,custom:true,createdAt:Date.now()
+  };
+  await db.put('styles',obj);
+  const wasSelected=S.selStyles.findIndex(s=>s.style_id===obj.style_id);
+  if(wasSelected>=0) S.selStyles[wasSelected]=obj;
+  closeModal('modal-style');
+  renderStyles(document.getElementById('style-search-input')?.value||'');
+  renderSelectedStyles();
+  toast(_editingStyleId?'风格已更新 ✓':'自定义风格已添加 ✨');
+}
+
+async function deleteStyle(){
+  if(!_editingStyleId) return;
+  if(!confirm('确定删除这个自定义风格？')) return;
+  await db.del('styles',_editingStyleId);
+  S.selStyles=S.selStyles.filter(s=>s.style_id!==_editingStyleId);
+  renderSelectedStyles();
+  closeModal('modal-style');
+  renderStyles(document.getElementById('style-search-input')?.value||'');
+  toast('风格已删除');
 }
 
 function bindEvents(){
@@ -1340,6 +1566,18 @@ function bindEvents(){
   document.getElementById('btn-cancel-token').onclick=()=>closeModal('modal-token');
   document.getElementById('token-search-input').oninput=e=>renderTokens(e.target.value);
   document.getElementById('token-text-input').onkeydown=e=>{if(e.key==='Enter') saveToken()};
+  document.getElementById('styles-toggle-hdr').onclick=async()=>{
+    const col=document.getElementById('styles-collapsible');
+    const icon=document.getElementById('styles-toggle-icon');
+    const open=col.style.display==='none';
+    col.style.display=open?'':'none';
+    icon.textContent=open?'▼':'▶';
+    if(open){await seedStyles();renderStyleFilters();renderStyles(document.getElementById('style-search-input')?.value||'')}
+  };
+  document.getElementById('style-search-input').oninput=e=>renderStyles(e.target.value);
+  document.getElementById('btn-save-style').onclick=saveStyle;
+  document.getElementById('btn-delete-style').onclick=deleteStyle;
+  document.getElementById('btn-cancel-style').onclick=()=>closeModal('modal-style');
   document.getElementById('btn-copy-prompt').onclick=()=>navigator.clipboard.writeText(buildPrompt()).then(()=>toast('已复制'));
   document.getElementById('btn-save-template').onclick=saveTemplate;
   document.getElementById('btn-load-template').onclick=openTemplates;
