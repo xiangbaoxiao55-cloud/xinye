@@ -1486,13 +1486,17 @@ function clearStyles(){
 async function randomStyles(){
   const all=await db.all('styles');
   if(!all.length){toast('风格库未加载','warn');return}
+  // 在当前筛选分类内随机，没有筛选则全部范围
+  const pool=_styleFilter?all.filter(s=>s['类别']===_styleFilter):all;
+  if(!pool.length){toast('当前分类没有风格','warn');return}
   clearStyles();
   const count=1+Math.floor(Math.random()*3);
-  const shuffled=[...all].sort(()=>Math.random()-0.5);
+  const shuffled=[...pool].sort(()=>Math.random()-0.5);
   for(let i=0;i<Math.min(count,shuffled.length);i++) S.selStyles.push(shuffled[i]);
   renderSelectedStyles();
   renderStyles(document.getElementById('style-search-input')?.value||'');
-  toast(`🎲 随机选了 ${S.selStyles.length} 个风格`);
+  const scope=_styleFilter?(STYLE_CAT[_styleFilter]||_styleFilter):'全部';
+  toast(`🎲 [${scope}] 随机选了 ${S.selStyles.length} 个`);
 }
 
 function showStyleTip(style,event){
