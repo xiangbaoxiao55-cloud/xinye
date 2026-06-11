@@ -136,7 +136,12 @@ textarea:focus{border-color:var(--purple)}
   color:var(--text);font-size:12px;padding:4px 8px;outline:none;cursor:pointer;
 }
 .draw-actions{display:flex;gap:8px;flex-wrap:wrap}
-#draw-results{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px}
+#draw-results{display:flex;flex-direction:column;gap:10px;padding-top:4px}
+.draw-task{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+.draw-task-header{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--card2);font-size:12px}
+.draw-task-label{color:var(--sub)}
+.draw-task-status{color:var(--teal)}
+.draw-task-body{display:flex;flex-wrap:wrap;gap:10px;padding:10px}
 .result-image-wrapper{position:relative;border-radius:var(--r);overflow:hidden;background:var(--card2)}
 .result-image{display:block;max-width:300px;max-height:300px;object-fit:cover}
 .result-actions{

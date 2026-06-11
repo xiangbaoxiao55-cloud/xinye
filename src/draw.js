@@ -161,43 +161,41 @@ function savePresetsToLS(){
 
 // ── Draw API ──────────────────────────────────────────────────
 async function doDraw(){
-  if(S.drawing) return;
   const prompt=buildPrompt();
   if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
   if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
 
-  S.drawing=true;
-  const btn=document.getElementById('btn-draw');
-  btn.textContent='✦ 生成中...';btn.disabled=true;
+  const n=Math.max(1,Math.min(20,parseInt(document.getElementById('param-count').value)||1));
+  const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
+  const size=document.getElementById('param-size').value||'1024x1024';
+
   const res=document.getElementById('draw-results');
-  res.innerHTML='<div class="loading-spinner"></div>';
+
+  // 每次生成独立一个任务卡，并行不互斥
+  const taskId='task_'+Date.now();
+  const taskWrap=document.createElement('div');
+  taskWrap.id=taskId;
+  taskWrap.className='draw-task';
+  taskWrap.innerHTML=`<div class="draw-task-header"><span class="draw-task-label">🎨 ${n}张 · ${size}</span><span class="draw-task-status">生成中...</span></div><div class="draw-task-body"><div class="loading-spinner"></div></div>`;
+  res.insertBefore(taskWrap,res.firstChild);
+
+  const setStatus=(msg,err)=>{
+    const el=taskWrap.querySelector('.draw-task-status');
+    if(el){el.textContent=msg;if(err) el.style.color='var(--err)'}
+  };
 
   try{
-    const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
-    const size=document.getElementById('param-size').value||'1024x1024';
-    const n=parseInt(document.getElementById('param-count').value||'1');
+    // 并行发起 n 张，每张独立请求
+    const jobs=Array.from({length:n},()=>_doSingleDraw(prompt,negPrompt,size));
+    const body=taskWrap.querySelector('.draw-task-body');
+    body.innerHTML='';
 
-    const presets=S.drawPresets;
-    let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
-    if(startIdx<0) startIdx=0;
-    let images,lastErr,successPreset;
-    for(let i=0;i<presets.length;i++){
-      const preset=presets[(startIdx+i)%presets.length];
-      if(i>0 && preset.skipFallback) continue;
-      try{
-        if(i>0) toast(`"${presets[(startIdx+i-1)%presets.length].name}"失败，切备用"${preset.name}"...`,'warn');
-        const _refs=getAllRefs();
-        if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,n);
-        else if(preset.format==='chat') images=await _callChat(preset,prompt,n);
-        else images=await _callGenerations(preset,prompt,negPrompt,size,n);
-        successPreset=preset;break;
-      }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 预设"${preset.name}"失败:`,err.message)}
-    }
-    if(!images) throw lastErr||new Error('所有预设均失败');
-    console.log(`[${ts()}] ✅ 出图成功 → "${successPreset?.name}" (${images.length}张)`);
-
-    res.innerHTML='';
-    for(const imgData of images){
+    // 用 allSettled 等所有完成，但每张完成时立即插入
+    let done=0;
+    const results=await Promise.allSettled(jobs.map(async p=>{
+      const imgData=await p;
+      done++;
+      setStatus(`${done}/${n} 完成`);
       const wrap=document.createElement('div');
       wrap.className='result-image-wrapper';
       const img=document.createElement('img');
@@ -210,15 +208,44 @@ async function doDraw(){
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
       bDl.onclick=()=>dlImg(imgData);
-      acts.append(bSave,bDl);wrap.append(img,acts);res.appendChild(wrap);
-    }
-    toast(`生成了 ${images.length} 张（${successPreset?.name}）✨`);
+      acts.append(bSave,bDl);wrap.append(img,acts);
+      body.appendChild(wrap);
+      return imgData;
+    }));
+
+    const ok=results.filter(r=>r.status==='fulfilled').length;
+    const fail=results.filter(r=>r.status==='rejected').length;
+    if(ok>0 && fail===0) setStatus(`✓ ${ok}张完成`);
+    else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
+    else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
+    if(ok>0) toast(`生成了 ${ok} 张 ✨`);
   }catch(err){
-    res.innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
+    taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
+    setStatus('失败','err');
     toast(err.message,'error');
-  }finally{
-    S.drawing=false;btn.textContent='✦ 生成图片';btn.disabled=false;
   }
+}
+
+async function _doSingleDraw(prompt,negPrompt,size){
+  const presets=S.drawPresets;
+  let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
+  if(startIdx<0) startIdx=0;
+  let lastErr;
+  for(let i=0;i<presets.length;i++){
+    const preset=presets[(startIdx+i)%presets.length];
+    if(i>0 && preset.skipFallback) continue;
+    try{
+      if(i>0) toast(`切备用"${preset.name}"...`,'warn');
+      const _refs=getAllRefs();
+      let images;
+      if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,1);
+      else if(preset.format==='chat') images=await _callChat(preset,prompt,1);
+      else images=await _callGenerations(preset,prompt,negPrompt,size,1);
+      console.log(`[${ts()}] ✅ "${preset.name}" 出图`);
+      return images[0];
+    }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 预设"${preset.name}"失败:`,err.message)}
+  }
+  throw lastErr||new Error('所有预设均失败');
 }
 
 async function _callGenerations(preset,prompt,negPrompt,size,n){
@@ -1409,18 +1436,32 @@ function toggleStyle(style){
 
 function renderSelectedStyles(){
   const area=document.getElementById('selected-styles');
-  if(!area) return;
-  area.innerHTML='';
-  for(const s of S.selStyles){
-    const chip=document.createElement('span');
-    chip.className='selected-chip';
-    chip.innerHTML=`${s['中文风格名']}<button class="chip-remove" data-sid="${s.style_id}">×</button>`;
-    chip.querySelector('.chip-remove').onclick=()=>{
-      S.selStyles=S.selStyles.filter(x=>x.style_id!==s.style_id);
-      document.querySelectorAll(`.style-tag[data-sid="${s.style_id}"]`).forEach(el=>el.classList.remove('selected'));
-      renderSelectedStyles();
-    };
-    area.appendChild(chip);
+  if(area){
+    area.innerHTML='';
+    for(const s of S.selStyles){
+      const chip=document.createElement('span');
+      chip.className='selected-chip';
+      chip.innerHTML=`${s['中文风格名']}<button class="chip-remove" data-sid="${s.style_id}">×</button>`;
+      chip.querySelector('.chip-remove').onclick=()=>{
+        S.selStyles=S.selStyles.filter(x=>x.style_id!==s.style_id);
+        document.querySelectorAll(`.style-tag[data-sid="${s.style_id}"]`).forEach(el=>el.classList.remove('selected'));
+        renderSelectedStyles();
+      };
+      area.appendChild(chip);
+    }
+  }
+  // 折叠时也能看见已选风格（header 小预览）
+  const preview=document.getElementById('styles-selected-preview');
+  if(preview){
+    preview.innerHTML='';
+    if(S.selStyles.length){
+      for(const s of S.selStyles){
+        const tag=document.createElement('span');
+        tag.style.cssText='font-size:10px;padding:1px 6px;border-radius:10px;background:var(--purple);color:#fff;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis';
+        tag.textContent=s['中文风格名'];
+        preview.appendChild(tag);
+      }
+    }
   }
 }
 

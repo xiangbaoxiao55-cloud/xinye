@@ -84,6 +84,7 @@
         <div class="prompt-section">
           <div class="section-header" id="styles-toggle-hdr" style="cursor:pointer">
             <span>风格探索</span>
+            <span id="styles-selected-preview" style="display:flex;gap:4px;flex-wrap:wrap;flex:1;overflow:hidden"></span>
             <button class="btn-tiny" onclick="event.stopPropagation();openAddStyle()">+ 自定义</button>
             <button class="btn-tiny" onclick="event.stopPropagation();randomStyles()">🎲 随机</button>
             <button class="btn-tiny" onclick="event.stopPropagation();clearStyles()">清空</button>
@@ -98,6 +99,7 @@
         </div>
 
         <div class="prompt-section">
+          <div class="draw-params">
             <label>尺寸
               <select id="param-size">
                 <option value="512x512">512×512</option>
@@ -117,11 +119,7 @@
               </select>
             </label>
             <label>张数
-              <select id="param-count">
-                <option value="1">1张</option>
-                <option value="2">2张</option>
-                <option value="4">4张</option>
-              </select>
+              <input type="number" id="param-count" value="1" min="1" max="20" style="width:52px;padding:4px 6px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:12px;outline:none;text-align:center">
             </label>
             <label>垫图
               <input type="file" id="ref-image-input" accept="image/*" style="display:none" multiple>
