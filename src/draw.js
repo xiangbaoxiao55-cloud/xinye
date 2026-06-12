@@ -871,6 +871,18 @@ async function masterInspire(){
   return callMaster(msgs);
 }
 
+async function masterInspireFree(){
+  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
+  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
+  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的场景、时代、身份、构图和氛围）：${recentInspires}`:'';
+  const _base='你是一个充满想象力的画面构思师。请完全自由地创造一个AI绘画方向——场景、时间/时代、人物身份都由你随意发挥，现实或虚构均可。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
+  const msgs=[
+    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
+    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个画面灵感，场景/时间/时代/身份完全自由发挥。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+  ];
+  return callMaster(msgs);
+}
+
 function miniMd(t){
   return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
 }
@@ -1826,6 +1838,13 @@ function bindEvents(){
     if(S.masterBusy) return;S.masterBusy=true;
     const tmp=addMasterMsg('assistant','💡 寻找灵感中...✨',true);
     try{const r=await masterInspire();tmp.remove();addMasterMsg('assistant','💡 今日灵感\n\n'+r)}
+    catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
+    finally{S.masterBusy=false}
+  };
+  document.getElementById('btn-inspire-free').onclick=async()=>{
+    if(S.masterBusy) return;S.masterBusy=true;
+    const tmp=addMasterMsg('assistant','🎲 自由发挥中...✨',true);
+    try{const r=await masterInspireFree();tmp.remove();addMasterMsg('assistant','🎲 自由灵感\n\n'+r)}
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
     finally{S.masterBusy=false}
   };
