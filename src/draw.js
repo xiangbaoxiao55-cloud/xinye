@@ -257,7 +257,8 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
       const wrap=document.createElement('div');
       wrap.className='result-image-wrapper';
       const img=document.createElement('img');
-      img.src=imgData;img.className='result-image';
+      img.src=imgData;img.className='result-image';img.style.cursor='zoom-in';
+      img.onclick=()=>openLightbox(imgData);
       const acts=document.createElement('div');
       acts.className='result-actions';
       const bSave=document.createElement('button');
@@ -1462,6 +1463,18 @@ function switchTab(tab){
   if(tab==='gallery') renderGallery();
 }
 const closeModal=id=>{document.getElementById(id).style.display='none'};
+function openLightbox(src){
+  const lb=document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src=src;
+  lb.style.display='flex';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('lightbox')?.addEventListener('click',()=>{
+    const lb=document.getElementById('lightbox');
+    lb.style.display='none';
+    document.getElementById('lightbox-img').src='';
+  });
+});
 
 // ── Init ──────────────────────────────────────────────────────
 async function loadPersonas(){
