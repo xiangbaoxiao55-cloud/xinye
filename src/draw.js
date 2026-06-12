@@ -1021,11 +1021,12 @@ function _paintGallery(){
   for(const item of _galItems.slice(0,_galShown)){
     const el=document.createElement('div');
     el.className='gallery-item';
+    el.style.cssText='position:relative;overflow:hidden;border-radius:var(--r);cursor:pointer;background:var(--card2)';
     const badge=analyzedSet.size===0?''
       :analyzedSet.has(item.id)
         ?'<div class="gallery-badge analyzed">✓</div>'
         :'<div class="gallery-badge new-img">NEW</div>';
-    el.innerHTML=`<img src="${item.imageData}" alt="">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    el.innerHTML=`<div style="padding-bottom:100%"></div><img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
     el.addEventListener('click',()=>openDetail(item));
     grid.appendChild(el);
   }
