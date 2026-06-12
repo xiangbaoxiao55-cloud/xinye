@@ -169,19 +169,22 @@ async function doDraw(){
   const size=document.getElementById('param-size').value||'1024x1024';
   const refs=getAllRefs(); // 快照参考图，重roll时复现
   const tplName=S.lastTemplateName;
+  const styles=S.selStyles.map(s=>({id:s.style_id,name:s['中文风格名'],tokens:s['English prompt tokens']}));
   S.lastTemplateName='';
-  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName);
+  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName,styles);
 }
 
-async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
+async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,styles){
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
   const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
   const labelText=tplName?`📄 ${tplName} · ${n}张 · ${size}`:`🎨 ${n}张 · ${size}`;
+  const styleLabel=styles&&styles.length?`<span class="draw-task-styles">${styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
   taskWrap.innerHTML=`<div class="draw-task-header">
     <div class="draw-task-top">
       <span class="draw-task-label">${labelText}</span>
+      ${styleLabel}
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
@@ -218,7 +221,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
       const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
       const newNeg=editDiv.querySelector('.dte-neg').value.trim();
       editDiv.remove();
-      _runDrawTask(newPrompt||prompt,newNeg,size,n,refs,taskWrap);
+      _runDrawTask(newPrompt||prompt,newNeg,size,n,refs,taskWrap,null,styles);
     };
     editDiv.querySelector('.dte-pos').focus();
   };
@@ -263,7 +266,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
       acts.className='result-actions';
       const bSave=document.createElement('button');
       bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
-      bSave.onclick=()=>{saveToGallery(imgData,prompt,negPrompt,size);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
+      bSave.onclick=()=>{saveToGallery(imgData,prompt,negPrompt,size,styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
       bDl.onclick=()=>{dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none'};
@@ -396,11 +399,13 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   throw new Error('edits API返回格式异常');
 }
 
-async function saveToGallery(imageData,prompt,negPrompt,size){
+async function saveToGallery(imageData,prompt,negPrompt,size,styles){
   const p=S.personas.find(x=>x.id===S.curPersonaId);
   await db.put('gallery',{
     id:uid(),personaId:S.curPersonaId||null,personaName:p?.name||null,
-    imageData,prompt,negPrompt,params:{size},rating:0,tags:[],createdAt:Date.now()
+    imageData,prompt,negPrompt,params:{size},rating:0,tags:[],
+    styles:styles&&styles.length?styles:undefined,
+    createdAt:Date.now()
   });
   toast('已存入图库 ✨');
   _refreshPendingCount();
@@ -1197,6 +1202,7 @@ function openDetail(item){
   document.getElementById('btn-save-detail-prompt').style.display='none';
   renderStars(item.rating||0);
   renderDetailTags(item.tags||[]);
+  renderDetailStyles(item.styles||[]);
   document.getElementById('modal-detail').style.display='flex';
 }
 function renderStars(cur){
@@ -1215,6 +1221,19 @@ function renderDetailTags(tags){
     el.className='detail-tag';el.textContent=tag;
     el.title='点击删除';
     el.onclick=async()=>{if(!S.curDetail) return;S.curDetail.tags=(S.curDetail.tags||[]).filter(t=>t!==tag);await db.put('gallery',S.curDetail);renderDetailTags(S.curDetail.tags)};
+    c.appendChild(el);
+  }
+}
+function renderDetailStyles(styles){
+  const row=document.getElementById('detail-styles-row');
+  const c=document.getElementById('detail-styles');
+  if(!styles.length){row.style.display='none';return}
+  row.style.display='';c.innerHTML='';
+  for(const s of styles){
+    const el=document.createElement('span');
+    el.className='detail-tag';el.style.cssText='background:var(--purple);color:#fff;cursor:pointer';
+    el.textContent='🎨 '+s.name;el.title=s.tokens;
+    el.onclick=()=>{navigator.clipboard.writeText(s.tokens);toast('已复制：'+s.name)};
     c.appendChild(el);
   }
 }
@@ -1243,8 +1262,12 @@ function useDetailPrompt(){
   switchTab('studio');
   document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
   document.getElementById('neg-prompt').value=S.curDetail.negPrompt||'';
-  S.selTokens=[];S.selStyles=[];renderSelectedTokens();renderSelectedStyles();
-  closeModal('modal-detail');toast('Prompt已载入工作台');
+  S.selTokens=[];
+  if(S.curDetail.styles&&S.curDetail.styles.length){
+    S.selStyles=S.curDetail.styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens}));
+  }else{S.selStyles=[]}
+  renderSelectedTokens();renderSelectedStyles();renderStyles();
+  closeModal('modal-detail');toast('Prompt已载入工作台'+(S.selStyles.length?' · 风格已恢复':''));
 }
 
 // ── Preset Management ─────────────────────────────────────────
