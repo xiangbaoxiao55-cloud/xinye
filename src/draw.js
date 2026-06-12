@@ -818,13 +818,23 @@ async function masterInspire(){
     '花田迷路','废弃游泳池','深夜厨房','音乐节人群边缘','电影院散场','台风前的街道','雨后彩虹商场','初雪清晨窗边',
     '古镇石板路','西式咖啡馆落地窗','市集人潮','山顶云海','夜晚天台','老街巷弄','湖边码头','花市清晨','地下商场霓虹'
   ];
+  const times=[
+    '凌晨3点','清晨第一缕光','上午10点阳光斜射','正午强光','慵懒午后','黄昏橙光','日落最后一分钟',
+    '入夜蓝调时刻','深夜','夜里2点','暴雨将至前','雨后空气','初雪那天','闷热盛夏正午','寒冬清晨'
+  ];
   // 打乱避免相邻重复
   if(!S._inspireRecentThemes) S._inspireRecentThemes=[];
+  if(!S._inspireRecentTimes) S._inspireRecentTimes=[];
   const avail=themes.filter(t=>!S._inspireRecentThemes.includes(t));
   const pool=avail.length>5?avail:themes;
   const theme=pool[Math.floor(Math.random()*pool.length)];
   S._inspireRecentThemes.push(theme);
   if(S._inspireRecentThemes.length>6) S._inspireRecentThemes.shift();
+  const availT=times.filter(t=>!S._inspireRecentTimes.includes(t));
+  const poolT=availT.length>3?availT:times;
+  const time=poolT[Math.floor(Math.random()*poolT.length)];
+  S._inspireRecentTimes.push(time);
+  if(S._inspireRecentTimes.length>4) S._inspireRecentTimes.shift();
 
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   // 从masterHistory提取最近几次灵感的构图关键词，让模型主动回避
@@ -834,7 +844,7 @@ async function masterInspire(){
   const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。每次构图、姿势、距离感都要不同，不要总是依偎或从背后抱住，可以是各自做事、眼神交汇、侧身回头、独处等多种状态。不要出现日本元素（神社、和服、温泉旅馆、烟花祭等）。';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法（姿势要有新意）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`场景「${theme}」× 时间「${time}」${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法（姿势要有新意）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
   return callMaster(msgs);
 }
