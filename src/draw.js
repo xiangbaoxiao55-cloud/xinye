@@ -262,10 +262,10 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName){
       acts.className='result-actions';
       const bSave=document.createElement('button');
       bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
-      bSave.onclick=()=>saveToGallery(imgData,prompt,negPrompt,size);
+      bSave.onclick=()=>{saveToGallery(imgData,prompt,negPrompt,size);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
-      bDl.onclick=()=>dlImg(imgData);
+      bDl.onclick=()=>{dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none'};
       acts.append(bSave,bDl);wrap.append(img,acts);
       body.appendChild(wrap);
       return imgData;
@@ -811,13 +811,29 @@ async function masterSuggest(userInput){
 }
 
 async function masterInspire(){
-  const themes=['春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林'];
-  const theme=themes[Math.floor(Math.random()*themes.length)];
+  const themes=[
+    '春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林',
+    '图书馆午睡','便利店深夜','屋顶晒太阳','游乐园傍晚','地铁站玻璃','烟花节仰望','泳池水光','街边小食摊','神社石阶','公路旅行车窗',
+    '宿舍阳台','博物馆走廊','温泉旅馆窗边','雪山缆车','书店地板','植物园温室','大学操场黄昏','夜市霓虹','渡轮甲板','美术馆光影',
+    '花田迷路','废弃游泳池','深夜厨房','音乐节人群边缘','电影院散场','台风前的街道','雨后彩虹商场','初雪清晨窗边'
+  ];
+  // 打乱避免相邻重复
+  if(!S._inspireRecentThemes) S._inspireRecentThemes=[];
+  const avail=themes.filter(t=>!S._inspireRecentThemes.includes(t));
+  const pool=avail.length>5?avail:themes;
+  const theme=pool[Math.floor(Math.random()*pool.length)];
+  S._inspireRecentThemes.push(theme);
+  if(S._inspireRecentThemes.length>6) S._inspireRecentThemes.shift();
+
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
-  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。';
+  // 从masterHistory提取最近几次灵感的构图关键词，让模型主动回避
+  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,60)).join('；');
+  const avoidHint=recentInspires?`\n最近几次灵感内容（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
+
+  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。每次构图、姿势、距离感都要不同，不要总是依偎或从背后抱住，可以是各自做事、眼神交汇、侧身回头、独处等多种状态。';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`主题「${theme}」${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法（姿势要有新意）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
   return callMaster(msgs);
 }
