@@ -676,6 +676,10 @@ async function loadAestheticProfile(){
       const del=document.createElement('button');
       del.className='msg-del';del.textContent='✕';del.title='删除这条';
       del.onclick=e=>{e.stopPropagation();div.remove()};
+      const copy=document.createElement('button');
+      copy.className='msg-del';copy.textContent='📋';copy.title='复制';
+      copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(m.content).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
+      div.appendChild(copy);
       div.appendChild(del);
       chat.appendChild(div);
     }
@@ -901,6 +905,10 @@ function addMasterMsg(role,text,isTemp=false){
     const del=document.createElement('button');
     del.className='msg-del';del.textContent='✕';del.title='删除这条';
     del.onclick=e=>{e.stopPropagation();el.remove()};
+    const copy=document.createElement('button');
+    copy.className='msg-del';copy.textContent='📋';copy.title='复制';
+    copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(text).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
+    el.appendChild(copy);
     el.appendChild(del);
   }
   chat.appendChild(el);
