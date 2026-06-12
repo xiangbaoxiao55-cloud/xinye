@@ -1851,14 +1851,26 @@ function bindEvents(){
   document.getElementById('btn-inspire').onclick=async()=>{
     if(S.masterBusy) return;S.masterBusy=true;
     const tmp=addMasterMsg('assistant','💡 寻找灵感中...✨',true);
-    try{const r=await masterInspire();tmp.remove();addMasterMsg('assistant','💡 今日灵感\n\n'+r)}
+    try{
+      const r=await masterInspire();tmp.remove();
+      addMasterMsg('assistant','💡 今日灵感\n\n'+r);
+      S.masterHistory.push({role:'assistant',content:'💡 今日灵感\n\n'+r});
+      if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
+      db.setSetting('masterHistory',S.masterHistory);
+    }
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
     finally{S.masterBusy=false}
   };
   document.getElementById('btn-inspire-free').onclick=async()=>{
     if(S.masterBusy) return;S.masterBusy=true;
     const tmp=addMasterMsg('assistant','🎲 自由发挥中...✨',true);
-    try{const r=await masterInspireFree();tmp.remove();addMasterMsg('assistant','🎲 自由灵感\n\n'+r)}
+    try{
+      const r=await masterInspireFree();tmp.remove();
+      addMasterMsg('assistant','🎲 自由灵感\n\n'+r);
+      S.masterHistory.push({role:'assistant',content:'🎲 自由灵感\n\n'+r});
+      if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
+      db.setSetting('masterHistory',S.masterHistory);
+    }
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
     finally{S.masterBusy=false}
   };

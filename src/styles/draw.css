@@ -253,6 +253,7 @@ textarea:focus{border-color:var(--purple)}
   color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:2px 4px;border-radius:4px;
   opacity:0;transition:.15s;line-height:1;
 }
+.master-msg .msg-del:nth-last-child(2){right:28px;}
 .master-msg-assistant .msg-del{color:rgba(255,255,255,.3)}
 .master-msg:hover .msg-del{opacity:1}
 .master-msg .msg-del:hover{color:var(--err)!important;opacity:1}
