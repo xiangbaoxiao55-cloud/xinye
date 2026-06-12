@@ -231,9 +231,10 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     const def=name.slice(0,30).replace(/[^\w一-龥]/g,' ').trim()||'未命名';
     const tname=window.prompt('模版名称：',def);
     if(!tname?.trim()) return;
+    const tplStyles=styles?styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens})):[];
     await db.put('templates',{
       id:uid(),name:tname.trim(),personaId:S.curPersonaId||null,
-      tokens:[...S.selTokens],styles:[...S.selStyles],
+      tokens:[...S.selTokens],styles:tplStyles,
       prompt,negPrompt,size,createdAt:Date.now()
     });
     toast(`模版"${tname.trim()}"已保存 ✨`);
@@ -1164,7 +1165,11 @@ async function openTemplates(){
     all.sort((a,b)=>b.createdAt-a.createdAt).forEach(t=>{
       const el=document.createElement('div');
       el.className='template-item';
-      el.innerHTML=`<div class="template-name">${t.name}</div><div class="template-meta">${t.tokens?.length||0}个词条 · ${fmt(t.createdAt)}</div><div class="template-actions"></div>`;
+      const styleNames=(t.styles||[]).map(s=>s['中文风格名']||s.name).filter(Boolean);
+      const metaParts=[`${t.tokens?.length||0}个词条`];
+      if(styleNames.length) metaParts.push(styleNames.map(n=>'🎨'+n).join(' '));
+      metaParts.push(fmt(t.createdAt));
+      el.innerHTML=`<div class="template-name">${t.name}</div><div class="template-meta">${metaParts.join(' · ')}</div><div class="template-actions"></div>`;
       const bLoad=document.createElement('button');
       bLoad.className='btn-primary btn-sm';bLoad.textContent='载入';
       bLoad.onclick=()=>{
