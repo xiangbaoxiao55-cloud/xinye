@@ -812,45 +812,61 @@ async function masterSuggest(userInput){
 
 async function masterInspire(){
   const themes=[
+    // 现实场景
     '春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林',
     '图书馆午睡','便利店深夜','屋顶晒太阳','游乐园傍晚','地铁站玻璃','泳池水光','街边小食摊','公路旅行车窗',
     '宿舍阳台','博物馆走廊','雪山缆车','书店地板','植物园温室','大学操场黄昏','夜市霓虹','渡轮甲板','美术馆光影',
     '花田迷路','废弃游泳池','深夜厨房','音乐节人群边缘','电影院散场','台风前的街道','雨后彩虹商场','初雪清晨窗边',
-    '古镇石板路','西式咖啡馆落地窗','市集人潮','山顶云海','夜晚天台','老街巷弄','湖边码头','花市清晨','地下商场霓虹'
+    '古镇石板路','西式咖啡馆落地窗','市集人潮','山顶云海','夜晚天台','老街巷弄','湖边码头','花市清晨','地下商场霓虹',
+    // 虚构/幻想场景
+    '漂浮在云上的小岛','水下玻璃城市','会移动的图书馆列车','镜子里的另一个世界','废弃太空站','星际港口候机厅',
+    '魔法学校走廊','地下蘑菇森林','时间裂缝边缘','梦境边界海滩','神明居住的山顶','平行世界入口处'
   ];
   const times=[
     // 一天中
     '凌晨3点','清晨第一缕光','上午10点阳光斜射','正午强光','慵懒午后','黄昏橙光','日落最后一分钟',
     '入夜蓝调时刻','深夜','夜里2点','暴雨将至前','雨后空气','初雪那天','闷热盛夏正午','寒冬清晨',
-    // 年代/时代
-    '1990年代','2000年代初','胶片时代','工业革命时期','民国时期','战后废墟中','文艺复兴时代',
-    '赛博朋克近未来','末世后重建','蒸汽朋克维多利亚','冷战年代','千禧年前夕','80年代霓虹',
+    // 年代/时代（现实）
+    '1990年代','2000年代初','胶片时代','工业革命时期','民国时期','战后废墟中','文艺复兴时代','冷战年代','千禧年前夕','80年代霓虹',
+    // 年代/时代（虚构）
+    '赛博朋克近未来','末世后重建','蒸汽朋克维多利亚','魔法文明鼎盛期','星际联盟初建时','人类遗忘魔法后的第一百年',
     // 季节/节气
     '梅雨季','台风过境后','深秋落叶最后一天','第一场春雨','三伏天','寒露清晨','大雪封路那天'
   ];
-  // 打乱避免相邻重复
+  const roles=[
+    // 现实职业/身份
+    '深夜便利店打工的大学生','独自旅行的摄影师','小镇邮递员','旧书店老板','流浪歌手','急诊室实习医生',
+    '动物园管理员','马戏团退役演员','渔船上的向导','古籍修复师','气象站观测员','山区支教老师',
+    // 虚构身份
+    '记录梦境的书记官','驯龙人','星图绘制者','时间列车的检票员','遗忘收集师','神明的信使',
+    '末日前最后一个图书管理员','幽灵翻译官','造梦师学徒','世界边缘的灯塔守护者'
+  ];
+
+  const pick=(arr,recent,max)=>{
+    const avail=arr.filter(t=>!recent.includes(t));
+    const pool=avail.length>Math.floor(arr.length*0.3)?avail:arr;
+    const val=pool[Math.floor(Math.random()*pool.length)];
+    recent.push(val);
+    if(recent.length>max) recent.shift();
+    return val;
+  };
   if(!S._inspireRecentThemes) S._inspireRecentThemes=[];
-  if(!S._inspireRecentTimes) S._inspireRecentTimes=[];
-  const avail=themes.filter(t=>!S._inspireRecentThemes.includes(t));
-  const pool=avail.length>5?avail:themes;
-  const theme=pool[Math.floor(Math.random()*pool.length)];
-  S._inspireRecentThemes.push(theme);
-  if(S._inspireRecentThemes.length>6) S._inspireRecentThemes.shift();
-  const availT=times.filter(t=>!S._inspireRecentTimes.includes(t));
-  const poolT=availT.length>3?availT:times;
-  const time=poolT[Math.floor(Math.random()*poolT.length)];
-  S._inspireRecentTimes.push(time);
-  if(S._inspireRecentTimes.length>4) S._inspireRecentTimes.shift();
+  if(!S._inspireRecentTimes)  S._inspireRecentTimes=[];
+  if(!S._inspireRecentRoles)  S._inspireRecentRoles=[];
+  const theme=pick(themes,S._inspireRecentThemes,6);
+  const time =pick(times, S._inspireRecentTimes, 4);
+  // 30%概率不抽职业，保持部分画面无特定身份
+  const role =Math.random()<0.7?pick(roles,S._inspireRecentRoles,4):null;
 
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
-  // 从masterHistory提取最近几次灵感的构图关键词，让模型主动回避
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,60)).join('；');
-  const avoidHint=recentInspires?`\n最近几次灵感内容（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
+  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
 
-  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。每次构图、姿势、距离感都要不同，不要总是依偎或从背后抱住，可以是各自做事、眼神交汇、侧身回头、独处等多种状态。不要出现日本元素（神社、和服、温泉旅馆、烟花祭等）。';
+  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。每次构图、姿势、视线方向都要不同——大多数画面人物不应该看镜头，可以是望向远处、低头做事、侧身交谈、仰望、背对、眼神交汇彼此等自然状态。不要总是依偎或从背后抱住。不要出现日本元素（神社、和服、烟花祭等）。';
+  const roleHint=role?`× 身份「${role}」`:'';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`场景「${theme}」× 时间「${time}」${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法（姿势要有新意）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
   return callMaster(msgs);
 }
