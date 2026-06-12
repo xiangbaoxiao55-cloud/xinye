@@ -662,6 +662,9 @@ async function loadAestheticProfile(){
   }
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
+  S._inspireRecentThemes=await db.getSetting('inspireRecentThemes',[])||[];
+  S._inspireRecentTimes =await db.getSetting('inspireRecentTimes', [])||[];
+  S._inspireRecentRoles =await db.getSetting('inspireRecentRoles', [])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
   const chat=document.getElementById('master-chat');
@@ -857,6 +860,9 @@ async function masterInspire(){
   const time =pick(times, S._inspireRecentTimes, 4);
   // 30%概率不抽职业，保持部分画面无特定身份
   const role =Math.random()<0.7?pick(roles,S._inspireRecentRoles,4):null;
+  db.setSetting('inspireRecentThemes',S._inspireRecentThemes);
+  db.setSetting('inspireRecentTimes', S._inspireRecentTimes);
+  db.setSetting('inspireRecentRoles', S._inspireRecentRoles);
 
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,60)).join('；');
