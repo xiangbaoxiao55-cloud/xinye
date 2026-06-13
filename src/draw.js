@@ -933,19 +933,23 @@ async function masterInspireFree(){
     return val;
   };
   if(!S._inspireRecentLenses) S._inspireRecentLenses=[];
-  const muse=pick(muses,S._inspireRecentLenses,10);
-  db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
+  const freeRoam=Math.random()<0.35;
+  const muse=freeRoam?null:pick(muses,S._inspireRecentLenses,10);
+  if(!freeRoam) db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
 
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
   const _base='你是一个跨领域的艺术策展人，精通绘画、电影、文学、建筑的美学语言。你不是在描述一个场景，而是在构思一件值得存在的作品——它为什么打动人、它捕捉了什么转瞬即逝的东西。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
+  const userContent=freeRoam
+    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选择一个美学参考点——可以是任何时代、任何领域的艺术家/作品/运动/文化现象，越冷门越好，不要选太大众的。先用一句话说明你选了什么以及为什么，然后从它的精神内核出发，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，120字内。`
+    :`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，自由发散——不是复制这个风格，而是借它的精神内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
-    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，自由发散——不是复制这个风格，而是借它的精神内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。`}
+    {role:'user',content:userContent}
   ];
   const text=await callMaster(msgs);
-  return {text,muse};
+  return {text,muse:muse||'自由漫游'};
 }
 
 function miniMd(t){
