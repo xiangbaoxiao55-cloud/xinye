@@ -685,7 +685,7 @@ async function loadAestheticProfile(){
       div.innerHTML=miniMd(m.content);
       const del=document.createElement('button');
       del.className='msg-del';del.textContent='✕';del.title='删除这条';
-      del.onclick=e=>{e.stopPropagation();div.remove()};
+      del.onclick=e=>{e.stopPropagation();div.remove();_removeFromHistory(m)};
       const copy=document.createElement('button');
       copy.className='msg-del';copy.textContent='📋';copy.title='复制';
       copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(m.content).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
@@ -895,11 +895,11 @@ async function masterInspire(){
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,60)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
 
-  const _inspireBase='善于创造充满诗意美感的画面，给出有创意的AI绘画方向。每次构图、姿势、视线方向都要不同——大多数画面人物不应该看镜头，可以是望向远处、低头做事、侧身交谈、仰望、背对、眼神交汇彼此等自然状态。不要总是依偎或从背后抱住。不要出现日本元素（神社、和服、烟花祭等）。';
+  const _inspireBase='你是AI绘画prompt专家。根据给定的场景组合，直接输出可用的英文绘画prompt。每次构图、姿势、视线方向都要不同——大多数画面人物不应该看镜头。不要总是依偎或从背后抱住。不要出现日本元素（神社、和服、烟花祭等）。';
   const roleHint=role?`× 身份「${role}」`:'';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}。给一个有创意的AI绘画方向。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n\n格式：\n画面：xxx\nPrompt: xxx`}
   ];
   return callMaster(msgs);
 }
@@ -939,11 +939,11 @@ async function masterInspireFree(){
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
-  const styleReminder='\n\n⚠️ 重要：艺术参考只是情绪和构思的出发点，不是视觉风格模板。最终prompt关键词必须适合生成美丽的AI插画——用明亮/柔和/细腻的画质描述词，不要把艺术家名字或写实摄影风格词（cinematic photography、film grain、hyperrealistic）放进关键词。';
-  const _base='你是一个跨领域的艺术策展人，精通绘画、电影、文学、建筑的美学语言。你不是在描述一个场景，而是在构思一件值得存在的作品——它为什么打动人、它捕捉了什么转瞬即逝的东西。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
+  const _base='你是AI绘画prompt专家，同时有跨领域的艺术视野。你从美学参考中借情绪和构思灵感，但输出的是具体的、可直接使用的英文绘画prompt。要求画面具体、新鲜、有意外感——不要笼统的氛围散文。每次构图、姿势、视线都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。不要把艺术家名字或写实摄影风格词（cinematic photography, film grain, hyperrealistic）放进prompt。';
+  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n\n格式：\n画面：xxx\nPrompt: xxx';
   const userContent=freeRoam
-    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选择一个美学参考点——可以是任何时代、任何领域的艺术家/作品/运动/文化现象，越冷门越好。先用一句话说明你选了什么以及为什么，然后从它的精神内核出发，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，120字内。${styleReminder}`
-    :`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，借它的情绪内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。${styleReminder}`;
+    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选一个冷门的美学参考点（任何时代/领域的艺术家/作品/文化现象），从它的情绪出发构思一个出乎意料的画面。${promptFormat}`
+    :`${ctx?ctx+'\n':''}${avoidHint}\n美学参考点：「${muse}」。从它的情绪内核出发，构思一个出乎意料的具体画面。${promptFormat}`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
     {role:'user',content:userContent}
@@ -955,6 +955,10 @@ async function masterInspireFree(){
 function miniMd(t){
   return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
 }
+function _removeFromHistory(msg){
+  const idx=S.masterHistory.findIndex(m=>m.role===msg.role&&m.content===msg.content);
+  if(idx>=0){S.masterHistory.splice(idx,1);db.setSetting('masterHistory',S.masterHistory)}
+}
 function addMasterMsg(role,text,isTemp=false){
   const chat=document.getElementById('master-chat');
   const el=document.createElement('div');
@@ -963,7 +967,7 @@ function addMasterMsg(role,text,isTemp=false){
   if(!isTemp){
     const del=document.createElement('button');
     del.className='msg-del';del.textContent='✕';del.title='删除这条';
-    del.onclick=e=>{e.stopPropagation();el.remove()};
+    del.onclick=e=>{e.stopPropagation();el.remove();_removeFromHistory({role,content:text})};
     const copy=document.createElement('button');
     copy.className='msg-del';copy.textContent='📋';copy.title='复制';
     copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(text).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
