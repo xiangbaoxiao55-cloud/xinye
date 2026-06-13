@@ -1092,7 +1092,7 @@ function _paintGallery(){
         :'<div class="gallery-badge new-img">NEW</div>';
     const cb=selecting?`<label class="gal-cb"><input type="checkbox" ${S.gallerySelected.has(item.id)?'checked':''}><span class="gal-check"></span></label>`:'';
     const delBtn=selecting?'':'<button class="gal-quick-del" title="删除">✕</button>';
-    el.innerHTML=`<div style="padding-bottom:100%"></div><img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    el.innerHTML=`<img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
     const qdel=el.querySelector('.gal-quick-del');
     if(qdel) qdel.addEventListener('click',e=>{e.stopPropagation();_quickDeleteGallery(item)});
     if(selecting){
