@@ -1921,6 +1921,10 @@ function bindEvents(){
       db.setSetting('masterHistory',[]);
     }
   };
+  document.getElementById('master-insight-card').querySelector('.insight-header').onclick=e=>{
+    if(e.target.closest('button')) return;
+    document.getElementById('master-insight-card').classList.toggle('open');
+  };
   document.getElementById('btn-analyze').onclick=async()=>{
     const btn=document.getElementById('btn-analyze');
     btn.disabled=true;btn.textContent='分析中...';
