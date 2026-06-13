@@ -53,6 +53,7 @@ const S={
   selTokens:[],selStyles:[],lastTemplateName:'',
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
+  gallerySelecting:false,gallerySelected:new Set(),
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
   drawPresets:[],curDrawId:null,
   masterPresets:[],curMasterId:null,
@@ -1078,18 +1079,34 @@ async function renderGallery(){
 function _paintGallery(){
   const grid=document.getElementById('gallery-grid');
   grid.innerHTML='';
-  if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';return}
+  if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';_updateBatchBar();return}
   const analyzedSet=S.allAnalyzedIds;
+  const selecting=S.gallerySelecting;
   for(const item of _galItems.slice(0,_galShown)){
     const el=document.createElement('div');
-    el.className='gallery-item';
+    el.className='gallery-item'+(selecting&&S.gallerySelected.has(item.id)?' gal-selected':'');
     el.style.cssText='position:relative;overflow:hidden;border-radius:var(--r);cursor:pointer;background:var(--card2)';
     const badge=analyzedSet.size===0?''
       :analyzedSet.has(item.id)
         ?'<div class="gallery-badge analyzed">✓</div>'
         :'<div class="gallery-badge new-img">NEW</div>';
-    el.innerHTML=`<div style="padding-bottom:100%"></div><img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
-    el.addEventListener('click',()=>openDetail(item));
+    const cb=selecting?`<label class="gal-cb"><input type="checkbox" ${S.gallerySelected.has(item.id)?'checked':''}><span class="gal-check"></span></label>`:'';
+    const delBtn=selecting?'':'<button class="gal-quick-del" title="删除">✕</button>';
+    el.innerHTML=`<div style="padding-bottom:100%"></div><img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    const qdel=el.querySelector('.gal-quick-del');
+    if(qdel) qdel.addEventListener('click',e=>{e.stopPropagation();_quickDeleteGallery(item)});
+    if(selecting){
+      const cbInput=el.querySelector('.gal-cb input');
+      cbInput.addEventListener('click',e=>e.stopPropagation());
+      cbInput.addEventListener('change',()=>{
+        if(cbInput.checked) S.gallerySelected.add(item.id); else S.gallerySelected.delete(item.id);
+        el.classList.toggle('gal-selected',cbInput.checked);
+        _updateBatchBar();
+      });
+      el.addEventListener('click',()=>{cbInput.checked=!cbInput.checked;cbInput.dispatchEvent(new Event('change'))});
+    }else{
+      el.addEventListener('click',()=>openDetail(item));
+    }
     grid.appendChild(el);
   }
   if(_galItems.length>_galShown){
@@ -1100,6 +1117,53 @@ function _paintGallery(){
     btn.onclick=()=>{_galShown+=GAL_PAGE;_paintGallery()};
     grid.appendChild(btn);
   }
+  _updateBatchBar();
+}
+
+async function _quickDeleteGallery(item){
+  if(!confirm('删除这张图片？')) return;
+  await db.del('gallery',item.id);
+  _galItems=_galItems.filter(i=>i.id!==item.id);
+  S.gallerySelected.delete(item.id);
+  document.getElementById('gallery-stats').textContent=`共 ${_galItems.length} 张`;
+  _paintGallery();
+  toast('已删除');
+}
+
+function toggleGallerySelect(){
+  S.gallerySelecting=!S.gallerySelecting;
+  if(!S.gallerySelecting) S.gallerySelected.clear();
+  const btn=document.getElementById('btn-gallery-select');
+  btn.textContent=S.gallerySelecting?'✕ 退出多选':'☑ 多选';
+  btn.classList.toggle('active',S.gallerySelecting);
+  _paintGallery();
+}
+
+function _updateBatchBar(){
+  const bar=document.getElementById('gallery-batch-bar');
+  if(!bar) return;
+  const n=S.gallerySelected.size;
+  if(!S.gallerySelecting||n===0){bar.style.display='none';return}
+  bar.style.display='flex';
+  bar.querySelector('.batch-count').textContent=`已选 ${n} 张`;
+}
+
+async function _batchDeleteGallery(){
+  const ids=[...S.gallerySelected];
+  if(!ids.length) return;
+  if(!confirm(`确定删除选中的 ${ids.length} 张图片？`)) return;
+  for(const id of ids) await db.del('gallery',id);
+  S.gallerySelected.clear();
+  toast(`已删除 ${ids.length} 张`);
+  renderGallery();
+}
+
+function _batchSelectAll(){
+  const visible=_galItems.slice(0,_galShown);
+  const allSelected=visible.every(i=>S.gallerySelected.has(i.id));
+  if(allSelected) visible.forEach(i=>S.gallerySelected.delete(i.id));
+  else visible.forEach(i=>S.gallerySelected.add(i.id));
+  _paintGallery();
 }
 
 // ── Actions ───────────────────────────────────────────────────

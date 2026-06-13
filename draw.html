@@ -155,8 +155,14 @@
         </div>
         <span class="gallery-stats" id="gallery-stats"></span>
         <span id="gallery-pending-label" style="color:var(--warn);font-size:12px;white-space:nowrap"></span>
+        <button id="btn-gallery-select" class="btn-outline" style="white-space:nowrap" onclick="toggleGallerySelect()">☑ 多选</button>
         <button id="btn-gallery-import" class="btn-outline" style="white-space:nowrap">📥 存入图库</button>
         <button id="btn-analyze-aesthetic" class="btn-tiny" style="white-space:nowrap">✨ 分析偏好</button>
+      </div>
+      <div id="gallery-batch-bar" style="display:none">
+        <span class="batch-count"></span>
+        <button class="btn-outline btn-sm" onclick="_batchSelectAll()">全选/取消</button>
+        <button class="btn-danger btn-sm" onclick="_batchDeleteGallery()">🗑 删除选中</button>
       </div>
       <div id="gallery-grid"></div>
     </div>
