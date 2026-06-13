@@ -903,13 +903,27 @@ async function masterInspire(){
 }
 
 async function masterInspireFree(){
-  const lenses=[
-    '极端俯拍鸟瞰','地面蚂蚁视角','鱼眼广角','透过窗/门框偷窥','水面倒影视角','镜子里的画面','从背后看两人','一只手的特写延伸到远景',
-    '荒诞喜感','庄严肃穆','百无聊赖','如释重负','微醺迷离','心碎但平静','偷偷开心','强装镇定的紧张',
-    '刚吵完架的沉默','一方在睡另一方醒着看','教对方做一件事','各做各的但脚碰着脚','久别重逢前一秒','假装不认识的默契','一方受伤另一方照顾','争夺同一样东西',
-    '一封打开一半的信','一杯快凉的茶','一把钥匙','散落的照片','行李箱','一盏快熄的灯','一面裂开的镜子','一株快枯的花',
-    '正在奔跑','刚从水里出来','在高处往下看即将跳','风把所有东西吹乱','正在跌倒的瞬间','悬浮/失重','极度疲倦','舞蹈动作定格',
-    '没有人脸的画面','只有手的故事','极简单色','密集繁复装饰','画面中有画中画','时间流逝的痕迹','两个时空叠加','微缩模型世界'
+  const muses=[
+    // 绘画/视觉艺术
+    'Edward Hopper 画里城市人的疏离与渴望','Alphonse Mucha 新艺术运动的缠绕花纹与女性力量','Caspar David Friedrich 背对观众面向壮阔自然的崇高感',
+    'Moebius 的科幻线条与无限空间','敦煌壁画飞天的失重与神圣','浮世绘的平面构成与留白',
+    'René Magritte 的日常物件错位——苹果挡脸、夜空下的白昼','Egon Schiele 扭曲身体线条里的脆弱与欲望','Vermeer 室内光从左窗倾泻的宁静',
+    'Klimt 金箔与肉体交织的装饰性情欲','Remedios Varo 超现实的精密机械与炼金术幻想','Zdzisław Beksiński 没有恐怖只有忧伤的末世废墟',
+    'Yoshitaka Amano 的墨线飘逸与华丽颓废','草间弥生的无限圆点与自我消融','几米绘本里城市角落的温柔寂寞',
+    'Caravaggio 的戏剧明暗——黑暗中只照亮最重要的那张脸','Georgia O\'Keeffe 花朵特写里的抽象与感官','Piranesi 不可能建筑的迷宫眩晕',
+    'Norman Rockwell 的日常叙事温暖与偷窥感','Henri Rousseau 天真原始的丛林梦境',
+    // 电影/摄影
+    '王家卫的暧昧色调、慢动作与错过','塔可夫斯基长镜头里水、火、风的诗意','侯孝贤电影的长镜头静默与日常时间流逝',
+    'Wes Anderson 的对称构图与糖果色孤独','Blade Runner 雨夜霓虹与存在主义忧郁','Terrence Malick 的逆光、麦田与低语旁白',
+    '岩井俊二《情书》的雪与记忆的白','Park Chan-wook 的对称复仇美学与暗绿调','Kubrick 的单点透视走廊与不安的秩序',
+    'Gregory Crewdson 的郊区暮色——每扇窗户后面都有故事','杉本博司的长曝光海面——时间被压成一条线',
+    // 文学/音乐/概念
+    'Borges 的无限图书馆与镜中镜','村上春树的日常缝隙里突然出现的超现实','马尔克斯的黄蝴蝶与命运循环',
+    '坂本龙一最后一场钢琴独奏的告别感','Radiohead《OK Computer》的数字时代疏离','万能青年旅店《杀死那个石家庄人》的工业废土浪漫',
+    'Italo Calvino《看不见的城市》里每座城市是一种欲望','加缪《局外人》阳光下的冷漠与真实',
+    // 建筑/设计/文化
+    'Tadao Ando 清水混凝土与光的缝隙','Zaha Hadid 的流体建筑——没有直角的未来','废弃苏联太空纪念碑的粗野主义孤独',
+    '千与千寻油屋的层叠空间与神隐感','吉卜力天空之城的浮岛废墟与蓝天','敦煌莫高窟壁画剥落露出的时间层次'
   ];
   const pick=(arr,recent,max)=>{
     const avail=arr.filter(t=>!recent.includes(t));
@@ -919,19 +933,19 @@ async function masterInspireFree(){
     return val;
   };
   if(!S._inspireRecentLenses) S._inspireRecentLenses=[];
-  const lens=pick(lenses,S._inspireRecentLenses,8);
+  const muse=pick(muses,S._inspireRecentLenses,10);
   db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
 
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
-  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的场景、时代、身份、构图和氛围）：${recentInspires}`:'';
-  const _base='你是一个充满想象力的画面构思师。请完全自由地创造一个AI绘画方向——场景、时间/时代、人物身份都由你随意发挥，现实或虚构均可。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
+  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
+  const _base='你是一个跨领域的艺术策展人，精通绘画、电影、文学、建筑的美学语言。你不是在描述一个场景，而是在构思一件值得存在的作品——它为什么打动人、它捕捉了什么转瞬即逝的东西。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
-    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n这次请从「${lens}」这个切入点出发，自由构思一个画面灵感。场景/时间/时代/身份完全自由发挥，但必须围绕这个切入点展开。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，自由发散——不是复制这个风格，而是借它的精神内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。`}
   ];
   const text=await callMaster(msgs);
-  return {text,lens};
+  return {text,muse};
 }
 
 function miniMd(t){
@@ -1941,8 +1955,8 @@ function bindEvents(){
     if(S.masterBusy) return;S.masterBusy=true;
     const tmp=addMasterMsg('assistant','🎲 自由发挥中...✨',true);
     try{
-      const {text:r,lens}=await masterInspireFree();tmp.remove();
-      const label=`🎲 自由灵感 ·「${lens}」\n\n`;
+      const {text:r,muse}=await masterInspireFree();tmp.remove();
+      const label=`🎲「${muse}」\n\n`;
       addMasterMsg('assistant',label+r);
       S.masterHistory.push({role:'assistant',content:label+r});
       if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
