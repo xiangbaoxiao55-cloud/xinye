@@ -419,17 +419,19 @@ function openGalleryImport(){
   document.getElementById('modal-gallery-import').style.display='flex';
 }
 async function confirmGalleryImport(){
-  const file=document.getElementById('gallery-import-file').files[0];
-  if(!file){toast('请选择图片','warn');return}
-  const imageData=await f2b(file);
+  const files=[...document.getElementById('gallery-import-file').files];
+  if(!files.length){toast('请选择图片','warn');return}
   const prompt=document.getElementById('gallery-import-prompt').value.trim();
   const source=document.getElementById('gallery-import-source').value.trim();
-  await db.put('gallery',{
-    id:uid(),personaId:null,personaName:source||'外部导入',
-    imageData,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
-  });
+  for(const file of files){
+    const imageData=await f2b(file);
+    await db.put('gallery',{
+      id:uid(),personaId:null,personaName:source||'外部导入',
+      imageData,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
+    });
+  }
   closeModal('modal-gallery-import');
-  toast('图片已存入图库 ✨');
+  toast(files.length>1?`已存入 ${files.length} 张图片 ✨`:'图片已存入图库 ✨');
   _refreshPendingCount();
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
 }
