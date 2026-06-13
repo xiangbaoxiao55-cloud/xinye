@@ -908,24 +908,21 @@ async function masterInspireFree(){
   const muses=[
     // 绘画/视觉艺术
     'Edward Hopper 画里城市人的疏离与渴望','Alphonse Mucha 新艺术运动的缠绕花纹与女性力量','Caspar David Friedrich 背对观众面向壮阔自然的崇高感',
-    'Moebius 的科幻线条与无限空间','敦煌壁画飞天的失重与神圣','浮世绘的平面构成与留白',
-    'René Magritte 的日常物件错位——苹果挡脸、夜空下的白昼','Egon Schiele 扭曲身体线条里的脆弱与欲望','Vermeer 室内光从左窗倾泻的宁静',
-    'Klimt 金箔与肉体交织的装饰性情欲','Remedios Varo 超现实的精密机械与炼金术幻想','Zdzisław Beksiński 没有恐怖只有忧伤的末世废墟',
-    'Yoshitaka Amano 的墨线飘逸与华丽颓废','草间弥生的无限圆点与自我消融','几米绘本里城市角落的温柔寂寞',
-    'Caravaggio 的戏剧明暗——黑暗中只照亮最重要的那张脸','Georgia O\'Keeffe 花朵特写里的抽象与感官','Piranesi 不可能建筑的迷宫眩晕',
-    'Norman Rockwell 的日常叙事温暖与偷窥感','Henri Rousseau 天真原始的丛林梦境',
-    // 电影/摄影
-    '王家卫的暧昧色调、慢动作与错过','塔可夫斯基长镜头里水、火、风的诗意','侯孝贤电影的长镜头静默与日常时间流逝',
-    'Wes Anderson 的对称构图与糖果色孤独','Blade Runner 雨夜霓虹与存在主义忧郁','Terrence Malick 的逆光、麦田与低语旁白',
-    '岩井俊二《情书》的雪与记忆的白','Park Chan-wook 的对称复仇美学与暗绿调','Kubrick 的单点透视走廊与不安的秩序',
-    'Gregory Crewdson 的郊区暮色——每扇窗户后面都有故事','杉本博司的长曝光海面——时间被压成一条线',
+    'Moebius 的科幻线条与无限空间感','敦煌壁画飞天的失重与神圣','浮世绘的平面构成与留白诗意',
+    'René Magritte 的日常物件错位——平凡里藏着不可思议','Vermeer 室内光从左窗倾泻的宁静',
+    'Klimt 金色装饰与人物交织的华丽感','Remedios Varo 超现实的精密细节与神秘旅程','Yoshitaka Amano 的墨线飘逸与华丽颓废',
+    '草间弥生的无限重复与自我消融','几米绘本里城市角落的温柔寂寞',
+    'Georgia O\'Keeffe 花朵特写里的抽象与感官','Henri Rousseau 天真原始的丛林梦境',
+    // 电影
+    '王家卫的暧昧色调、慢动作与错过','塔可夫斯基长镜头里水与风的诗意','侯孝贤电影的静默与日常时间流逝',
+    'Wes Anderson 的对称构图与糖果色孤独','Terrence Malick 的逆光麦田与低语旁白',
+    '岩井俊二《情书》的雪与记忆的白','杉本博司的长曝光——时间被压成一条线',
     // 文学/音乐/概念
     'Borges 的无限图书馆与镜中镜','村上春树的日常缝隙里突然出现的超现实','马尔克斯的黄蝴蝶与命运循环',
-    '坂本龙一最后一场钢琴独奏的告别感','Radiohead《OK Computer》的数字时代疏离','万能青年旅店《杀死那个石家庄人》的工业废土浪漫',
-    'Italo Calvino《看不见的城市》里每座城市是一种欲望','加缪《局外人》阳光下的冷漠与真实',
+    '坂本龙一钢琴独奏的空旷与告别感','Italo Calvino《看不见的城市》里每座城市是一种欲望',
     // 建筑/设计/文化
-    'Tadao Ando 清水混凝土与光的缝隙','Zaha Hadid 的流体建筑——没有直角的未来','废弃苏联太空纪念碑的粗野主义孤独',
-    '千与千寻油屋的层叠空间与神隐感','吉卜力天空之城的浮岛废墟与蓝天','敦煌莫高窟壁画剥落露出的时间层次'
+    'Tadao Ando 清水混凝土与光的缝隙','千与千寻油屋的层叠空间与神隐感','吉卜力天空之城的浮岛废墟与蓝天',
+    '敦煌莫高窟壁画剥落露出的时间层次','印象派捕捉光在水面瞬息变化的执念'
   ];
   const pick=(arr,recent,max)=>{
     const avail=arr.filter(t=>!recent.includes(t));
@@ -942,10 +939,11 @@ async function masterInspireFree(){
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
+  const styleReminder='\n\n⚠️ 重要：艺术参考只是情绪和构思的出发点，不是视觉风格模板。最终prompt关键词必须适合生成美丽的AI插画——用明亮/柔和/细腻的画质描述词，不要把艺术家名字或写实摄影风格词（cinematic photography、film grain、hyperrealistic）放进关键词。';
   const _base='你是一个跨领域的艺术策展人，精通绘画、电影、文学、建筑的美学语言。你不是在描述一个场景，而是在构思一件值得存在的作品——它为什么打动人、它捕捉了什么转瞬即逝的东西。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
   const userContent=freeRoam
-    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选择一个美学参考点——可以是任何时代、任何领域的艺术家/作品/运动/文化现象，越冷门越好，不要选太大众的。先用一句话说明你选了什么以及为什么，然后从它的精神内核出发，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，120字内。`
-    :`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，自由发散——不是复制这个风格，而是借它的精神内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。`;
+    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选择一个美学参考点——可以是任何时代、任何领域的艺术家/作品/运动/文化现象，越冷门越好。先用一句话说明你选了什么以及为什么，然后从它的精神内核出发，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，120字内。${styleReminder}`
+    :`${ctx?ctx+'\n':''}${avoidHint}\n今天的美学参考点：「${muse}」。\n请从这个艺术参考出发，借它的情绪内核，构思一个全新的AI绘画方向。场景、时代、身份完全自由。告诉我：这张画捕捉的是什么瞬间/情感？构图与视线如何安排？光与色彩的情绪？推荐prompt关键词5-8个英文词。中文描述，100字内。${styleReminder}`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
     {role:'user',content:userContent}
