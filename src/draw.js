@@ -672,6 +672,7 @@ async function loadAestheticProfile(){
   S._inspireRecentThemes=await db.getSetting('inspireRecentThemes',[])||[];
   S._inspireRecentTimes =await db.getSetting('inspireRecentTimes', [])||[];
   S._inspireRecentRoles =await db.getSetting('inspireRecentRoles', [])||[];
+  S._inspireRecentLenses=await db.getSetting('inspireRecentLenses',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
   const chat=document.getElementById('master-chat');
@@ -750,11 +751,24 @@ async function analyzePreference(){
   await db.setSetting('lastAnalyzedIds',newIds);
   S.lastAnalyzedIds=newIds;
 
+  const similarity=(()=>{
+    if(!prevProfile||!result) return 0;
+    const bg=s=>{const r=new Set();for(let i=0;i<s.length-1;i++) r.add(s[i]+s[i+1]);return r};
+    const sa=bg(prevProfile),sb=bg(result);let ov=0;
+    for(const b of sa) if(sb.has(b)) ov++;
+    return sa.size+sb.size?2*ov/(sa.size+sb.size):0;
+  })();
+  const simPct=Math.round(similarity*100);
+
   S.aestheticProfile=result;
   await db.setSetting('aestheticProfile',result);
   document.getElementById('master-insight-content').innerHTML=miniMd(result);
-  console.log('[审美档案] 已更新:\n'+result);
-  toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
+  console.log(`[审美档案] 已更新（相似度${simPct}%）:\n`+result);
+  if(hasOld&&simPct>85){
+    toast(`审美档案已趋稳定（${simPct}%相似），新图影响不大 📊`,'info');
+  }else{
+    toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
+  }
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
   else _refreshPendingCount();
 }
@@ -889,15 +903,35 @@ async function masterInspire(){
 }
 
 async function masterInspireFree(){
+  const lenses=[
+    '极端俯拍鸟瞰','地面蚂蚁视角','鱼眼广角','透过窗/门框偷窥','水面倒影视角','镜子里的画面','从背后看两人','一只手的特写延伸到远景',
+    '荒诞喜感','庄严肃穆','百无聊赖','如释重负','微醺迷离','心碎但平静','偷偷开心','强装镇定的紧张',
+    '刚吵完架的沉默','一方在睡另一方醒着看','教对方做一件事','各做各的但脚碰着脚','久别重逢前一秒','假装不认识的默契','一方受伤另一方照顾','争夺同一样东西',
+    '一封打开一半的信','一杯快凉的茶','一把钥匙','散落的照片','行李箱','一盏快熄的灯','一面裂开的镜子','一株快枯的花',
+    '正在奔跑','刚从水里出来','在高处往下看即将跳','风把所有东西吹乱','正在跌倒的瞬间','悬浮/失重','极度疲倦','舞蹈动作定格',
+    '没有人脸的画面','只有手的故事','极简单色','密集繁复装饰','画面中有画中画','时间流逝的痕迹','两个时空叠加','微缩模型世界'
+  ];
+  const pick=(arr,recent,max)=>{
+    const avail=arr.filter(t=>!recent.includes(t));
+    const pool=avail.length>Math.floor(arr.length*0.3)?avail:arr;
+    const val=pool[Math.floor(Math.random()*pool.length)];
+    recent.push(val);if(recent.length>max) recent.shift();
+    return val;
+  };
+  if(!S._inspireRecentLenses) S._inspireRecentLenses=[];
+  const lens=pick(lenses,S._inspireRecentLenses,8);
+  db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
+
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的场景、时代、身份、构图和氛围）：${recentInspires}`:'';
   const _base='你是一个充满想象力的画面构思师。请完全自由地创造一个AI绘画方向——场景、时间/时代、人物身份都由你随意发挥，现实或虚构均可。每次构图、视线、姿势都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
-    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个画面灵感，场景/时间/时代/身份完全自由发挥。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
+    {role:'user',content:`${ctx?ctx+'\n':''}${avoidHint}\n这次请从「${lens}」这个切入点出发，自由构思一个画面灵感。场景/时间/时代/身份完全自由发挥，但必须围绕这个切入点展开。包括：场景氛围、构图想法、视线/姿势（不要看镜头）、色彩建议、推荐prompt关键词5-8个英文词。中文描述，温柔诗意，100字内。`}
   ];
-  return callMaster(msgs);
+  const text=await callMaster(msgs);
+  return {text,lens};
 }
 
 function miniMd(t){
@@ -1907,9 +1941,10 @@ function bindEvents(){
     if(S.masterBusy) return;S.masterBusy=true;
     const tmp=addMasterMsg('assistant','🎲 自由发挥中...✨',true);
     try{
-      const r=await masterInspireFree();tmp.remove();
-      addMasterMsg('assistant','🎲 自由灵感\n\n'+r);
-      S.masterHistory.push({role:'assistant',content:'🎲 自由灵感\n\n'+r});
+      const {text:r,lens}=await masterInspireFree();tmp.remove();
+      const label=`🎲 自由灵感 ·「${lens}」\n\n`;
+      addMasterMsg('assistant',label+r);
+      S.masterHistory.push({role:'assistant',content:label+r});
       if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
       db.setSetting('masterHistory',S.masterHistory);
     }
