@@ -201,7 +201,7 @@ textarea:focus{border-color:var(--purple)}
 .gallery-item{
   border-radius:var(--r);overflow:hidden;
   cursor:pointer;position:relative;background:var(--card2);
-  aspect-ratio:1/1;
+  height:0;padding-bottom:100%;
 }
 .gallery-load-more{
   grid-column:1/-1;width:100%;padding:12px;margin-bottom:8px;
