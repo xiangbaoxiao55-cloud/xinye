@@ -899,7 +899,7 @@ async function masterInspire(){
   const roleHint=role?`× 身份「${role}」`:'';
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n\n格式：\n画面：xxx\nPrompt: xxx`}
+    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
   ];
   return callMaster(msgs);
 }
@@ -940,7 +940,7 @@ async function masterInspireFree(){
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
   const _base='你是AI绘画prompt专家，同时有跨领域的艺术视野。你从美学参考中借情绪和构思灵感，但输出的是具体的、可直接使用的英文绘画prompt。要求画面具体、新鲜、有意外感——不要笼统的氛围散文。每次构图、姿势、视线都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。不要把艺术家名字或写实摄影风格词（cinematic photography, film grain, hyperrealistic）放进prompt。';
-  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n\n格式：\n画面：xxx\nPrompt: xxx';
+  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
   const userContent=freeRoam
     ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选一个冷门的美学参考点（任何时代/领域的艺术家/作品/文化现象），从它的情绪出发构思一个出乎意料的画面。${promptFormat}`
     :`${ctx?ctx+'\n':''}${avoidHint}\n美学参考点：「${muse}」。从它的情绪内核出发，构思一个出乎意料的具体画面。${promptFormat}`;
