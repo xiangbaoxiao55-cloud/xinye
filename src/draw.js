@@ -672,9 +672,7 @@ async function loadAestheticProfile(){
   }
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
-  S._inspireRecentThemes=await db.getSetting('inspireRecentThemes',[])||[];
-  S._inspireRecentTimes =await db.getSetting('inspireRecentTimes', [])||[];
-  S._inspireRecentRoles =await db.getSetting('inspireRecentRoles', [])||[];
+  S._inspireRecentMoments=await db.getSetting('inspireRecentMoments',[])||[];
   S._inspireRecentLenses=await db.getSetting('inspireRecentLenses',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
@@ -842,35 +840,26 @@ async function masterSuggest(userInput){
 }
 
 async function masterInspire(){
-  const themes=[
-    // 现实场景
-    '春日樱花','夏夜星空','秋日午后','冬雪温柔','梦幻森林','城市霓虹','古典庭院','海边黄昏','雨天咖啡馆','月光竹林',
-    '图书馆午睡','便利店深夜','屋顶晒太阳','游乐园傍晚','地铁站玻璃','泳池水光','街边小食摊','公路旅行车窗',
-    '宿舍阳台','博物馆走廊','雪山缆车','书店地板','植物园温室','大学操场黄昏','夜市霓虹','渡轮甲板','美术馆光影',
-    '花田迷路','废弃游泳池','深夜厨房','音乐节人群边缘','电影院散场','台风前的街道','雨后彩虹商场','初雪清晨窗边',
-    '古镇石板路','西式咖啡馆落地窗','市集人潮','山顶云海','夜晚天台','老街巷弄','湖边码头','花市清晨','地下商场霓虹',
-    // 虚构/幻想场景
-    '漂浮在云上的小岛','水下玻璃城市','会移动的图书馆列车','镜子里的另一个世界','废弃太空站','星际港口候机厅',
-    '魔法学校走廊','地下蘑菇森林','时间裂缝边缘','梦境边界海滩','神明居住的山顶','平行世界入口处'
-  ];
-  const times=[
-    // 一天中
-    '凌晨3点','清晨第一缕光','上午10点阳光斜射','正午强光','慵懒午后','黄昏橙光','日落最后一分钟',
-    '入夜蓝调时刻','深夜','夜里2点','暴雨将至前','雨后空气','初雪那天','闷热盛夏正午','寒冬清晨',
-    // 年代/时代（现实）
-    '1990年代','2000年代初','胶片时代','工业革命时期','民国时期','战后废墟中','文艺复兴时代','冷战年代','千禧年前夕','80年代霓虹',
-    // 年代/时代（虚构）
-    '赛博朋克近未来','末世后重建','蒸汽朋克维多利亚','魔法文明鼎盛期','星际联盟初建时','人类遗忘魔法后的第一百年',
-    // 季节/节气
-    '梅雨季','台风过境后','深秋落叶最后一天','第一场春雨','三伏天','寒露清晨','大雪封路那天'
-  ];
-  const roles=[
-    // 现实职业/身份
-    '深夜便利店打工的大学生','独自旅行的摄影师','小镇邮递员','旧书店老板','流浪歌手','急诊室实习医生',
-    '动物园管理员','马戏团退役演员','渔船上的向导','古籍修复师','气象站观测员','山区支教老师',
-    // 虚构身份
-    '记录梦境的书记官','驯龙人','星图绘制者','时间列车的检票员','遗忘收集师','神明的信使',
-    '末日前最后一个图书管理员','幽灵翻译官','造梦师学徒','世界边缘的灯塔守护者'
+  // 以"两人情境moment"为核心，不再硬拼三个独立维度
+  const moments=[
+    // 日常甜蜜
+    '一起在深夜厨房做宵夜，面粉撒了一脸','清晨赖床，一个人醒了在看另一个人睡颜','雨天共撑一把伞走在老街',
+    '在旧书店的角落各看各的书，脚悄悄碰在一起','超市里推购物车，为买什么零食拌嘴','窝在沙发看电影，一个人已经睡着靠在另一个肩上',
+    '公园长椅上分一副耳机听歌','骑单车带人穿过傍晚的林荫道','浴室镜前帮对方吹头发','搬家时两人被纸箱包围坐地上吃外卖',
+    '深夜天台看星星，裹同一条毯子','火车窗边并排坐，看窗外风景各有所思','一起遛狗，狗绳缠到一起','在花市挑花，顺手往对方头上别一朵',
+    '下厨时从背后环住在切菜的人','海边散步踩浪花互相泼水','图书馆并排复习偷偷传纸条','咖啡馆对坐画画/写东西互不打扰',
+    // 有情绪张力的
+    '吵架后在门外犹豫要不要敲门','深夜街头无声拥抱','站台送别，列车要开了还拉着手','暴雨里跑回来只为送一把伞',
+    '医院走廊等候，握紧对方的手','一个人伏案工作太晚，另一个披着毯子端着热饮过来','重逢机场到达口远远看见彼此',
+    '搬到新城市的第一夜抱着不说话','生日惊喜被发现了两人都在笑','在天台看城市夜景聊未来有点怕又有点期待',
+    // 浪漫/特别
+    '烟花下接吻只有侧影','游乐园摩天轮最高点','圣诞夜交换礼物偷看对方表情','樱花树下风吹花瓣落在发梢',
+    '美术馆里一个人在看画另一个人在看ta','温泉旅馆浴衣对坐下棋喝茶','薰衣草花田里奔跑追逐','雪地里手牵手呼出的白气交织',
+    '露营帐篷外看银河','午后阳光里帮对方画像','舞池中央只有两人的慢舞','夕阳码头上并肩坐着脚悬在水面',
+    // 奇幻/概念
+    '漂浮星空中两人在一本巨大的翻开的书上','水下城市的玻璃穹顶里相对而坐','时间静止的图书馆只有两人在动',
+    '梦境的边界处一个人伸手拉住要消散的另一个','巨大月亮前的屋顶剪影','云海上方的天空小岛共进早餐',
+    '发光的森林深处两人循光走向同一个方向','世界末日但两人在废墟天台浇花很平静'
   ];
 
   const pick=(arr,recent,max)=>{
@@ -881,49 +870,54 @@ async function masterInspire(){
     if(recent.length>max) recent.shift();
     return val;
   };
-  if(!S._inspireRecentThemes) S._inspireRecentThemes=[];
-  if(!S._inspireRecentTimes)  S._inspireRecentTimes=[];
-  if(!S._inspireRecentRoles)  S._inspireRecentRoles=[];
-  const theme=pick(themes,S._inspireRecentThemes,6);
-  const time =pick(times, S._inspireRecentTimes, 4);
-  // 30%概率不抽职业，保持部分画面无特定身份
-  const role =Math.random()<0.7?pick(roles,S._inspireRecentRoles,4):null;
-  db.setSetting('inspireRecentThemes',S._inspireRecentThemes);
-  db.setSetting('inspireRecentTimes', S._inspireRecentTimes);
-  db.setSetting('inspireRecentRoles', S._inspireRecentRoles);
+  if(!S._inspireRecentMoments) S._inspireRecentMoments=[];
+  const moment=pick(moments,S._inspireRecentMoments,8);
+  db.setSetting('inspireRecentMoments',S._inspireRecentMoments);
 
+  const charDesc=_getInspirationCharDesc();
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
-  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,60)).join('；');
+  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
 
-  const _inspireBase='你是AI绘画prompt专家。根据给定的场景组合，直接输出可用的英文绘画prompt。每次构图、姿势、视线方向都要不同——大多数画面人物不应该看镜头。不要总是依偎或从背后抱住。不要出现日本元素（神社、和服、烟花祭等）。';
-  const roleHint=role?`× 身份「${role}」`:'';
+  const _inspireBase=`你是AI绘画prompt专家。画面始终是一对情侣（一男一女）的互动。要求：
+- 画面要有叙事感和情感温度，不是词语堆砌
+- 两人之间要有自然的肢体语言和空间关系（动作具体、有因果逻辑）
+- 构图、姿势、视线方向每次都不同——不要总是看镜头、不要总是依偎或从背后抱
+- 注重光影氛围和色彩情绪
+- 不要出现日本元素（神社、和服、烟花祭等）
+- 不要写成零碎tag堆砌，要写成连贯的画面描述`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`场景「${theme}」× 时间「${time}」${roleHint}${ctx?'，'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
+    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（40-70词，写成完整的画面描述而非tag罗列。包含：两人的具体动作和空间关系、场景细节、光影、色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
   ];
   return callMaster(msgs);
 }
 
+function _getInspirationCharDesc(){
+  const chars=S.characters;
+  if(!chars.length) return '';
+  const all=chars.map(c=>`${c.name}：${c.prompt||'无描述'}`).join('\n');
+  return `画中人物（默认两人都出现）：\n${all}\n\n`;
+}
+
 async function masterInspireFree(){
   const muses=[
-    // 绘画/视觉艺术
-    'Edward Hopper 画里城市人的疏离与渴望','Alphonse Mucha 新艺术运动的缠绕花纹与女性力量','Caspar David Friedrich 背对观众面向壮阔自然的崇高感',
-    'Moebius 的科幻线条与无限空间感','敦煌壁画飞天的失重与神圣','浮世绘的平面构成与留白诗意',
-    'René Magritte 的日常物件错位——平凡里藏着不可思议','Vermeer 室内光从左窗倾泻的宁静',
-    'Klimt 金色装饰与人物交织的华丽感','Remedios Varo 超现实的精密细节与神秘旅程','Yoshitaka Amano 的墨线飘逸与华丽颓废',
-    '草间弥生的无限重复与自我消融','几米绘本里城市角落的温柔寂寞',
-    'Georgia O\'Keeffe 花朵特写里的抽象与感官','Henri Rousseau 天真原始的丛林梦境',
-    // 电影
-    '王家卫的暧昧色调、慢动作与错过','塔可夫斯基长镜头里水与风的诗意','侯孝贤电影的静默与日常时间流逝',
-    'Wes Anderson 的对称构图与糖果色孤独','Terrence Malick 的逆光麦田与低语旁白',
-    '岩井俊二《情书》的雪与记忆的白','杉本博司的长曝光——时间被压成一条线',
-    // 文学/音乐/概念
-    'Borges 的无限图书馆与镜中镜','村上春树的日常缝隙里突然出现的超现实','马尔克斯的黄蝴蝶与命运循环',
-    '坂本龙一钢琴独奏的空旷与告别感','Italo Calvino《看不见的城市》里每座城市是一种欲望',
-    // 建筑/设计/文化
-    'Tadao Ando 清水混凝土与光的缝隙','千与千寻油屋的层叠空间与神隐感','吉卜力天空之城的浮岛废墟与蓝天',
-    '敦煌莫高窟壁画剥落露出的时间层次','印象派捕捉光在水面瞬息变化的执念'
+    // 情绪/氛围美学（从具体感受出发比从艺术家出发更好出图）
+    '久别重逢的心跳——小跑着冲向对方那几秒','雨后放晴的奖赏感——光和水汽同时闪耀',
+    '深夜只剩我们两个人的城市——安静得像私有领地','睡前那种又困又不舍得睡的温存',
+    '一起迷路但完全不着急的下午','被对方偷拍到不知道的瞬间','秘密约会的紧张和甜蜜',
+    '大雨淋湿后反而笑出来的释然','春天午后那种万物苏醒的慵懒','窗外暴风雪屋内壁炉旁的安全感',
+    '夏夜纳凉屋顶上聊到凌晨','列车窗外飞速后退的风景映在两人脸上','海边日落最后五分钟的金色',
+    // 画面风格方向（用情绪主导，不用艺术家名字）
+    '水彩晕染——颜色边缘柔和渗透像记忆','厚涂油画——笔触有温度有力量感',
+    '赛璐璐动画感——干净的线条+大面积平涂色块','复古胶片色调——偏黄偏绿有颗粒感',
+    '梦幻发光感——逆光/光晕/空气中漂浮微光','极简线条——大面积留白只勾两人轮廓',
+    '浓郁新艺术装饰——缠绕花纹和金色点缀','暗色调光影戏剧感——伦勃朗式侧光',
+    '清新透明水色——薄涂+透光+轻盈','暖色夕阳调——整体橙黄粉笼罩',
+    // 特殊构图/视角
+    '从高处俯瞰两人躺在草地上的构图','只拍手部特写——牵手/交叠/递东西',
+    '隔着窗玻璃一个在里一个在外对望','背影——两人走向远方的画面',
+    '镜子/水面倒影里的两人','前景虚化后景两人清晰（或反过来）'
   ];
   const pick=(arr,recent,max)=>{
     const avail=arr.filter(t=>!recent.includes(t));
@@ -933,18 +927,25 @@ async function masterInspireFree(){
     return val;
   };
   if(!S._inspireRecentLenses) S._inspireRecentLenses=[];
-  const freeRoam=Math.random()<0.35;
+  const freeRoam=Math.random()<0.25;
   const muse=freeRoam?null:pick(muses,S._inspireRecentLenses,10);
   if(!freeRoam) db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
 
+  const charDesc=_getInspirationCharDesc();
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
-  const _base='你是AI绘画prompt专家，同时有跨领域的艺术视野。你从美学参考中借情绪和构思灵感，但输出的是具体的、可直接使用的英文绘画prompt。要求画面具体、新鲜、有意外感——不要笼统的氛围散文。每次构图、姿势、视线都要新鲜，人物大多数时候不应该看镜头。不要出现日本元素（神社、和服、烟花祭等）。不要总是依偎或从背后抱住。不要把艺术家名字或写实摄影风格词（cinematic photography, film grain, hyperrealistic）放进prompt。';
-  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（30-50词，包含具体的场景描写、人物姿态、光影、色调、画质词，可以直接用来画图）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
+  const _base=`你是AI绘画prompt专家。画面始终是一对情侣（一男一女）。要求：
+- 从给定的美学方向出发，构思一个具体的、有情感温度的画面
+- 两人之间要有自然的互动或空间关系，动作具体可信
+- 不要写成抽象散文或tag堆砌，要写成"可以直接想象出画面"的描述
+- 每次构图、姿势、视线都要新鲜，不要看镜头，不要总是依偎/从背后抱
+- 不要出现日本元素（神社、和服、烟花祭等）
+- 不要把艺术家名字或写实摄影风格词（cinematic photography, film grain, hyperrealistic）放进prompt`;
+  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（40-70词，写成连贯的画面描述。包含：两人具体动作和关系、场景、光影色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
   const userContent=freeRoam
-    ?`${ctx?ctx+'\n':''}${avoidHint}\n请你自己选一个冷门的美学参考点（任何时代/领域的艺术家/作品/文化现象），从它的情绪出发构思一个出乎意料的画面。${promptFormat}`
-    :`${ctx?ctx+'\n':''}${avoidHint}\n美学参考点：「${muse}」。从它的情绪内核出发，构思一个出乎意料的具体画面。${promptFormat}`;
+    ?`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个美好的、有情感的两人画面。可以是任何场景、氛围、风格——惊喜我。${promptFormat}`
+    :`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n美学方向：「${muse}」。以此为灵感起点，构思一个具体的两人画面。${promptFormat}`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
     {role:'user',content:userContent}
