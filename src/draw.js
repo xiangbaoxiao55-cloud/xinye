@@ -213,6 +213,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
       <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${negPrompt||''}</textarea></div>
       <div class="dte-actions">
+        <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${n}"></label>
         <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
         <button class="btn-sm btn-outline dte-cancel">取消</button>
       </div>`;
@@ -221,8 +222,9 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     editDiv.querySelector('.dte-confirm').onclick=()=>{
       const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
       const newNeg=editDiv.querySelector('.dte-neg').value.trim();
+      const newN=Math.max(1,Math.min(20,parseInt(editDiv.querySelector('.dte-count').value)||1));
       editDiv.remove();
-      _runDrawTask(newPrompt||prompt,newNeg,size,n,refs,taskWrap,null,styles);
+      _runDrawTask(newPrompt||prompt,newNeg,size,newN,refs,taskWrap,null,styles);
     };
     editDiv.querySelector('.dte-pos').focus();
   };
