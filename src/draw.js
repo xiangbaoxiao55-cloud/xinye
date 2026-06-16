@@ -896,7 +896,7 @@ async function masterInspire(){
 禁止：废墟、破败建筑、灰暗脏旧环境、废土风；不要出现日本元素（神社、和服等）；不要写成tag堆砌`;
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（40-70词，写成完整的画面描述而非tag罗列。包含：两人的具体动作和空间关系、场景细节、光影、色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
+    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（写成完整的画面描述，不限字数，不要tag罗列。包含：两人的具体动作和空间关系、场景细节、光影、色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
   ];
   return callMaster(msgs);
 }
@@ -953,7 +953,7 @@ async function masterInspireFree(){
 每次都要做出不一样的选择——不要每次都是同一种画风、同一种构图、同一种氛围。
 
 禁止：废墟、破败建筑、灰暗脏旧环境、废土风；不要出现日本元素（神社、和服等）；不要写成tag堆砌；不要把艺术家名字或hyperrealistic放进prompt`;
-  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（40-70词，写成连贯的画面描述。包含：两人具体动作和关系、场景、光影色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
+  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（写成连贯的画面描述，不限字数。包含：两人具体动作和关系、场景、光影色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
   const userContent=freeRoam
     ?`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个美好的、有情感的两人画面。可以是任何场景、氛围、风格——惊喜我。${promptFormat}`
     :`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n美学方向：「${muse}」。以此为灵感起点，构思一个具体的两人画面。${promptFormat}`;
