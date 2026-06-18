@@ -3,7 +3,7 @@ const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets, getImagePresets, getImageCurPresetIdx } from './api.js';
-import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders } from './anthropic.js';
+import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
@@ -1729,7 +1729,12 @@ export async function sendMessage() {
                   _res = null; continue outerLoop;
                 }
                 if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
-                _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+                if (cfg.apiFormat === 'anthropic') {
+                  try { _res = { ok: true, status: 200, json: async () => anthropicToOpenAIResponse(JSON.parse(_text)) }; }
+                  catch(_) { _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers }); }
+                } else {
+                  _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+                }
               }
               return _res;
             }
