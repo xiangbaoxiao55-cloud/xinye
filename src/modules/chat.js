@@ -1685,7 +1685,7 @@ export async function sendMessage() {
       outerLoop: for (let pi = _activeCfgIdx; pi < _allCfgs.length; pi++) {
         const cfg = _buildCfg(_allCfgs[pi]);
         _lastUsedFormat = cfg.apiFormat;
-        const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: true };
+        const bodyObj = { model: cfg.model, messages: msgs, temperature: 0.8, stream: !!settings.streamMode };
         if (settings.maxTokens) bodyObj.max_tokens = settings.maxTokens;
         if (withTools && _toolDefs.length) {
           bodyObj.tools = _toolDefs;
@@ -1695,7 +1695,7 @@ export async function sendMessage() {
         if (cfg.apiFormat === 'anthropic') {
           bodyStr = JSON.stringify(convertRequestBody(bodyObj));
         } else {
-          bodyObj.stream_options = { include_usage: true };
+          if (bodyObj.stream) bodyObj.stream_options = { include_usage: true };
           bodyStr = JSON.stringify(bodyObj);
         }
         for (let _a = 0; _a < 2; _a++) {
@@ -1707,20 +1707,30 @@ export async function sendMessage() {
             _res = await fetch(_pfa.fetchUrl, { method: 'POST', headers: _pfa.headers, body: bodyStr, signal: ctrl.signal });
             clearTimeout(tid);
             if (_res.ok) {
-              if (_res.body) {
-                const [_cs1, _cs2] = _res.body.tee();
-                const _cr = _cs1.getReader();
-                const { value: _cv } = await _cr.read();
-                _cr.cancel();
-                if (/\[Backend Error\]/i.test(new TextDecoder().decode(_cv || new Uint8Array()))) {
-                  _cs2.cancel().catch(() => {});
+              if (bodyObj.stream) {
+                if (_res.body) {
+                  const [_cs1, _cs2] = _res.body.tee();
+                  const _cr = _cs1.getReader();
+                  const { value: _cv } = await _cr.read();
+                  _cr.cancel();
+                  if (/\[Backend Error\]/i.test(new TextDecoder().decode(_cv || new Uint8Array()))) {
+                    _cs2.cancel().catch(() => {});
+                    if (pi + 1 < _allCfgs.length) toast(`API返回错误，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
+                    _res = null; continue outerLoop;
+                  }
+                  _res = new Response(_cs2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+                }
+                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
+                if (!streamMode) _res = await (cfg.apiFormat === 'anthropic' ? _bufferStreamAnthropic(_res) : _bufferStream(_res));
+              } else {
+                const _text = await _res.text();
+                if (/\[Backend Error\]/i.test(_text)) {
                   if (pi + 1 < _allCfgs.length) toast(`API返回错误，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
                   _res = null; continue outerLoop;
                 }
-                _res = new Response(_cs2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
+                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
+                _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
               }
-              if (pi > _activeCfgIdx) { _activeCfgIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
-              if (!streamMode) _res = await (cfg.apiFormat === 'anthropic' ? _bufferStreamAnthropic(_res) : _bufferStream(_res));
               return _res;
             }
           } catch(fe) {
