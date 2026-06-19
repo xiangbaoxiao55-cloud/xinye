@@ -359,7 +359,8 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
 
   const body = document.createElement('div');
   body.style.cssText = 'padding:8px 10px 4px;border-top:1px solid var(--border,#eee);flex-direction:column;gap:6px;display:none';
-  const apiFormatOpt = (v) => v === 'chat' ? 'selected' : '';
+  const _selFmt = (v) => (opt) => (v || 'images') === opt ? 'selected' : '';
+  const _sf = _selFmt(p.apiFormat);
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px">
       <label style="min-width:40px;font-size:12px">Key</label>
@@ -376,8 +377,9 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     <div style="display:flex;align-items:center;gap:8px">
       <label style="min-width:40px;font-size:12px">格式</label>
       <select data-f="apiFormat" style="flex:1;font-size:12px;padding:5px 8px">
-        <option value="images" ${(p.apiFormat||'images')!=='chat'?'selected':''}>images（标准）</option>
-        <option value="chat" ${apiFormatOpt(p.apiFormat)}>chat（部分站子）</option>
+        <option value="images" ${_sf('images')}>images（标准）</option>
+        <option value="chat" ${_sf('chat')}>chat（部分站子）</option>
+        <option value="nvidia" ${_sf('nvidia')}>nvidia（NVIDIA NIM）</option>
       </select>
     </div>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:2px 0">

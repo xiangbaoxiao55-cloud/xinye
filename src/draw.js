@@ -304,6 +304,7 @@ async function _doSingleDraw(prompt,negPrompt,size,refs){
       const _refs=refs||getAllRefs();
       let images;
       if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,1);
+      else if(preset.format==='nvidia') images=await _callNvidia(preset,prompt,size,1);
       else if(preset.format==='chat') images=await _callChat(preset,prompt,1);
       else images=await _callGenerations(preset,prompt,negPrompt,size,1);
       console.log(`[${ts()}] ✅ "${preset.name}" 出图`);
@@ -366,6 +367,32 @@ async function _callChat(preset,prompt,n){
     const m=content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
     if(m) results.push(m[0]);
     else throw new Error('chat格式未能提取图片数据');
+  }
+  return results;
+}
+
+async function _callNvidia(preset,prompt,size,n){
+  const {key,url}=preset;
+  if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
+  const VALID=[768,832,896,960,1024,1088,1152,1216,1280,1344];
+  const clamp=v=>VALID.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
+  const [sw,sh]=(size||'1024x1344').split('x').map(Number);
+  const w=clamp(sw||1024),h=clamp(sh||1344);
+  const isSchnell=url.includes('schnell');
+  console.log(`[${ts()}] → nvidia | ${preset.name} | ${w}x${h} | steps=${isSchnell?4:50} | ${url}\n         prompt: ${prompt.slice(0,80)}`);
+  const results=[];
+  for(let i=0;i<n;i++){
+    const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),300000);
+    const r=await fetch(url,{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`,'Accept':'application/json'},
+      body:JSON.stringify({prompt,width:w,height:h,steps:isSchnell?4:50,cfg_scale:5,seed:0}),
+      signal:_ac.signal
+    }).finally(()=>clearTimeout(_at));
+    if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+    const d=await r.json();
+    const b64=d.artifacts?.[0]?.base64||d.image?.replace(/^data:image\/[^;]+;base64,/,'');
+    if(b64) results.push(`data:image/png;base64,${b64}`);
+    else throw new Error('NVIDIA API返回格式异常: '+JSON.stringify(d).slice(0,200));
   }
   return results;
 }
@@ -1485,11 +1512,13 @@ function _buildPresetCard(preset,isActive,type){
 
   const body=document.createElement('div');
   body.className='preset-body';
+  const _dfSel=(v,opt)=>(v||'images')===opt?'selected':'';
   const fmtRow=type==='draw'?`
     <div class="preset-row"><label>格式</label>
       <select data-f="format">
-        <option value="images" ${preset.format!=='chat'?'selected':''}>images（标准）</option>
-        <option value="chat" ${preset.format==='chat'?'selected':''}>chat（部分站子）</option>
+        <option value="images" ${_dfSel(preset.format,'images')}>images（标准）</option>
+        <option value="chat" ${_dfSel(preset.format,'chat')}>chat（部分站子）</option>
+        <option value="nvidia" ${_dfSel(preset.format,'nvidia')}>nvidia（NVIDIA NIM）</option>
       </select>
     </div>`:'' ;
   body.innerHTML=`

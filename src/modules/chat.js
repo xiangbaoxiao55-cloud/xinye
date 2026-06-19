@@ -1375,7 +1375,7 @@ export async function sendMessage() {
           const _imgRaw = (_pCfg?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
           const _imgModel = _pCfg?.model || settings.imageModel || 'gpt-image-1';
           const _imgFmt = _pCfg?.apiFormat || settings.imageApiFormat || 'images';
-          const _genEp = /\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`;
+          const _genEp = _imgFmt === 'nvidia' ? _imgRaw : (/\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`);
           const _editsUrl = (() => { const _b = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`; return `${_b}/images/edits`; })();
           const _buildEditsForm = (mdl) => {
             const _form = new FormData();
@@ -1445,7 +1445,7 @@ export async function sendMessage() {
                 try {
                   _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
                     method: 'POST', headers: _gh,
-                    body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url' }),
+                    body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url', api_format: _imgFmt }),
                     signal: _ctrl.signal
                   });
                 } catch(proxyErr) {

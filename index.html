@@ -341,8 +341,9 @@
       <select id="setImageApiFormat">
         <option value="images">images（标准，默认）</option>
         <option value="chat">chat（部分站子专用）</option>
+        <option value="nvidia">nvidia（NVIDIA NIM 免费）</option>
       </select>
-      <div class="hint">仅走本地服务器时有效。chat 格式适用于不支持 /images/generations 的站子</div>
+      <div class="hint">仅走本地服务器时有效。chat 适用于不支持 /images/generations 的站子；nvidia 格式需填完整端点URL（如 https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev）</div>
     </div>
     <div class="setting-group">
       <label>画图代理地址（cpolar/云代理）</label>
