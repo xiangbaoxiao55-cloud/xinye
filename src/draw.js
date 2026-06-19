@@ -374,18 +374,23 @@ async function _callChat(preset,prompt,n){
 async function _callNvidia(preset,prompt,size,n){
   const {key,url}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
-  const VALID=[768,832,896,960,1024,1088,1152,1216,1280,1344];
-  const clamp=v=>VALID.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
-  const [sw,sh]=(size||'1024x1344').split('x').map(Number);
-  const w=clamp(sw||1024),h=clamp(sh||1344);
+  const _SF=[768,832,896,960,1024,1088,1152,1216,1280,1344];
+  const _SK=[672,688,720,752,800,832,880,944,1024,1104,1184,1248,1328,1392,1456,1504,1568];
+  const isKtx=url.includes('kontext');
+  const V=isKtx?_SK:_SF;
+  const clamp=v=>V.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
+  const defSize=isKtx?'1024x1568':'1024x1344';
+  const [sw,sh]=(size||defSize).split('x').map(Number);
+  const w=clamp(sw||1024),h=clamp(sh||(isKtx?1568:1344));
   const isSchnell=url.includes('schnell');
-  console.log(`[${ts()}] → nvidia | ${preset.name} | ${w}x${h} | steps=${isSchnell?4:50} | ${url}\n         prompt: ${prompt.slice(0,80)}`);
+  const steps=isKtx?30:(isSchnell?4:50);
+  console.log(`[${ts()}] → nvidia | ${preset.name} | ${w}x${h} | steps=${steps} | ${url}\n         prompt: ${prompt.slice(0,80)}`);
   const results=[];
   for(let i=0;i<n;i++){
     const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),300000);
     const r=await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`,'Accept':'application/json'},
-      body:JSON.stringify({prompt,width:w,height:h,steps:isSchnell?4:50,cfg_scale:5,seed:0}),
+      body:JSON.stringify({prompt,width:w,height:h,steps,cfg_scale:5,seed:0}),
       signal:_ac.signal
     }).finally(()=>clearTimeout(_at));
     if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
