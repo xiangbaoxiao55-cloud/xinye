@@ -196,15 +196,18 @@
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
           <span style="font-size:12px;color:var(--text-muted)">📡 模型监控（选填，自动恢复用）</span>
         </div>
-        <input type="url" id="apiPresetStatusUrl" placeholder="监控页API地址" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);margin-bottom:6px;box-sizing:border-box">
-        <div style="display:flex;gap:6px">
-          <select id="apiPresetStatusType" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
+        <input type="url" id="apiPresetStatusUrl" placeholder="监控页地址（如 https://status.68886868.xyz）" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);margin-bottom:6px;box-sizing:border-box">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <select id="apiPresetStatusType" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
             <option value="">— 类型 —</option>
-            <option value="uptime-kuma">Uptime Kuma</option>
-            <option value="success-rate">成功率</option>
+            <option value="uptime-kuma">Uptime Kuma（小鸡等）</option>
+            <option value="success-rate">成功率（空悲切等）</option>
           </select>
-          <input type="text" id="apiPresetStatusKey" placeholder="模型标识（monitor ID 或模型名）" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
-          <button type="button" id="btnFetchStatusModels" style="padding:5px 8px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;white-space:nowrap">📋 获取</button>
+          <button type="button" id="btnFetchStatusModels" style="padding:5px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;white-space:nowrap">📋 获取</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="apiPresetStatusKey" readonly placeholder="← 点获取选模型" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);background:var(--input-bg)">
+          <span id="statusKeyHint" style="font-size:11px;color:var(--text-muted);white-space:nowrap"></span>
         </div>
         <div class="hint" style="margin-top:4px">填了后主预设挂了会自动监控，恢复了自动切回</div>
       </div>

@@ -2462,25 +2462,29 @@ async function _checkMainHealth() {
   const { statusUrl, statusType, statusKey, solitudeServerUrl } = settings;
   if (!statusUrl || !statusKey || !statusType) return;
   if (Date.now() - _lastRecoveryTs < 900000) return;
-  const proxyBase = solitudeServerUrl;
-  if (!proxyBase) return;
   try {
-    const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(statusUrl)}`, {
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!resp.ok) return;
-    const data = await resp.json();
     let healthy = false;
     if (statusType === 'uptime-kuma') {
+      if (!solitudeServerUrl) return;
+      const resp = await fetch(`${solitudeServerUrl}/api/proxy-fetch?url=${encodeURIComponent(statusUrl)}`, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) return;
+      const data = await resp.json();
       const beats = data.heartbeatList?.[statusKey];
       if (beats?.length) {
-        const recent = beats.slice(-3);
-        healthy = recent.every(b => b.status === 1);
+        healthy = beats.slice(-3).every(b => b.status === 1);
       }
     } else if (statusType === 'success-rate') {
-      const item = (data.data || []).find(d => (d.model_name || '').includes(statusKey));
+      const resp = await fetch(statusUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([statusKey]),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const item = (data.data || []).find(d => d.model_name === statusKey);
       if (item && item.total_requests > 0) {
-        healthy = (item.success_count / item.total_requests) > 0.8;
+        const recent = item.slot_data?.slice(-3) || [];
+        healthy = recent.length > 0 && recent.every(s => s.total_requests === 0 || s.success_rate > 80);
       }
     }
     if (healthy) {

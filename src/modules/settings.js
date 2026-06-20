@@ -1558,30 +1558,42 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
 }
 
 export async function fetchStatusModels() {
-  const statusUrl = $('#apiPresetStatusUrl')?.value.trim();
+  const rawUrl = ($('#apiPresetStatusUrl')?.value || '').trim().replace(/\/+$/, '');
   const statusType = $('#apiPresetStatusType')?.value;
-  if (!statusUrl) { toast('请先填写监控页API地址'); return; }
+  if (!rawUrl) { toast('请先填写监控页地址'); return; }
   if (!statusType) { toast('请先选择监控类型'); return; }
   const proxyBase = settings.solitudeServerUrl;
   if (!proxyBase) { toast('需要先配置本地服务器地址'); return; }
   toast('⏳ 获取监控模型…');
   try {
-    const fetchUrl = statusType === 'uptime-kuma' ? statusUrl.replace('/heartbeat/', '/').replace(/\/+$/, '') : statusUrl;
-    const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(fetchUrl)}`, {
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    let items = [];
+    let apiUrl, items = [];
     if (statusType === 'uptime-kuma') {
+      const base = rawUrl.replace(/\/api\/status-page.*$/, '').replace(/\/status\/.*$/, '');
+      const slugMatch = rawUrl.match(/(?:\/status\/|\/status-page\/(?:heartbeat\/)?)([\w-]+)/);
+      const slug = slugMatch ? slugMatch[1] : 'api';
+      apiUrl = `${base}/api/status-page/${slug}`;
+      const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(apiUrl)}`, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
       const monitors = (data.publicGroupList || []).flatMap(g => g.monitorList || []);
-      items = monitors.map(m => ({ label: `${m.name}`, value: String(m.id) }));
+      items = monitors.map(m => ({ label: m.name, value: String(m.id) }));
+      if (items.length) {
+        const heartbeatUrl = `${base}/api/status-page/heartbeat/${slug}`;
+        $('#apiPresetStatusUrl').value = heartbeatUrl;
+      }
     } else if (statusType === 'success-rate') {
-      const models = data.data || [];
-      items = models.map(m => ({
-        label: `${m.model_name}${m.total_requests > 0 ? ' (' + Math.round(m.success_count / m.total_requests * 100) + '%)' : ''}`,
-        value: m.model_name
-      }));
+      const base = rawUrl.replace(/\/embed\.html.*$/, '').replace(/\/api\/.*$/, '');
+      apiUrl = `${base}/api/model-status/embed/config/selected`;
+      const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(apiUrl)}`, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const models = (data.custom_groups || []).flatMap(g => g.models || []);
+      const unique = [...new Set(models)].sort();
+      items = unique.map(m => ({ label: m, value: m }));
+      if (items.length) {
+        const statusApiUrl = `${base}/api/model-status/embed/status/batch?window=30`;
+        $('#apiPresetStatusUrl').value = statusApiUrl;
+      }
     }
     if (!items.length) { toast('（无可用模型）'); return; }
     _openModelPicker('📡 选择监控模型', items, 'apiPresetStatusKey');
