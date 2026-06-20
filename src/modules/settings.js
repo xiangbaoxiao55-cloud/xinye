@@ -535,10 +535,16 @@ export function checkerActivate(i) {
   settings.apiKey = p.apiKey;
   settings.baseUrl = p.baseUrl || '';
   settings.model = p.model || '';
+  settings.useLocalProxy = !!p.useLocalProxy;
+  settings.apiFormat = p.apiFormat || 'openai';
   saveSettings();
   $('#setApiKey').value = p.apiKey || '';
   $('#setBaseUrl').value = p.baseUrl || '';
   $('#setModel').value = p.model || '';
+  if ($('#apiPresetName')) $('#apiPresetName').value = p.name;
+  if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
+  if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = p.apiFormat || 'openai';
+  if ($('#presetSelect')) $('#presetSelect').value = i;
   document.getElementById('checkerOverlay').style.display = 'none';
   toast(`✅ 已切换到「${p.name}」`);
 }
