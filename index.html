@@ -192,6 +192,21 @@
         </select>
         <span style="font-size:11px;color:var(--text-light)">原生格式支持 prompt 缓存</span>
       </div>
+      <div style="margin-top:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text-muted)">📡 模型监控（选填，自动恢复用）</span>
+        </div>
+        <input type="url" id="apiPresetStatusUrl" placeholder="监控页API地址" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);margin-bottom:6px;box-sizing:border-box">
+        <div style="display:flex;gap:6px">
+          <select id="apiPresetStatusType" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
+            <option value="">— 类型 —</option>
+            <option value="uptime-kuma">Uptime Kuma</option>
+            <option value="success-rate">成功率</option>
+          </select>
+          <input type="text" id="apiPresetStatusKey" placeholder="模型标识（monitor ID 或模型名）" style="flex:1;padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text)">
+        </div>
+        <div class="hint" style="margin-top:4px">填了后主预设挂了会自动监控，恢复了自动切回</div>
+      </div>
       <div class="hint">激活后填入下方主 API 字段，确认后点「保存设置」生效</div>
     </div>
     <div class="setting-group">

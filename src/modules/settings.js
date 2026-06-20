@@ -4,7 +4,7 @@ import { dbPut, dbGet, dbClear } from './db.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getImageCurPresetIdx, setImageCurPresetIdx } from './api.js';
 import { digestMemory, renderMemoryBankPreview, archiveMemoryBank } from './memory.js';
 import { applyBg, toggleDeco } from './ui.js';
-import { getAiAvatar, getUserAvatar, renderMessages, updateBookmarkBadge } from './chat.js';
+import { getAiAvatar, getUserAvatar, renderMessages, updateBookmarkBadge, resetStickyPreset } from './chat.js';
 import { setupReminders, resetIdleTimer } from './notifications.js';
 import { saveToLocal, exportData, doImport, doImportPresetsOnly, backupToPhone, autoBackupToServer, initBackupDeps, fetchServerBackupList, restoreFromServer } from './backup.js';
 import { renderStickers, renderStickerMgr } from './stickers.js';
@@ -91,6 +91,9 @@ export async function openSettings() {
   const _dp = $('#setDigestPreset'); if (_dp) _dp.value = settings.digestPresetName || '';
   [0,1,2].forEach(i => { const el = $(`#setDigestFallback${i}`); if (el) el.value = (settings.digestFallbackPresetNames||[])[i] || ''; });
   $('#setModel').value = settings.model;
+  if ($('#apiPresetStatusUrl')) $('#apiPresetStatusUrl').value = settings.statusUrl || '';
+  if ($('#apiPresetStatusType')) $('#apiPresetStatusType').value = settings.statusType || '';
+  if ($('#apiPresetStatusKey')) $('#apiPresetStatusKey').value = settings.statusKey || '';
   const _mtEl = $('#setMaxTokens'); if (_mtEl) _mtEl.value = settings.maxTokens || '';
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
@@ -979,6 +982,9 @@ export function initSettings() {
     $('#setModel').value   = p.model   || '';
     if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
     if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = p.apiFormat || 'openai';
+    if ($('#apiPresetStatusUrl')) $('#apiPresetStatusUrl').value = p.statusUrl || '';
+    if ($('#apiPresetStatusType')) $('#apiPresetStatusType').value = p.statusType || '';
+    if ($('#apiPresetStatusKey')) $('#apiPresetStatusKey').value = p.statusKey || '';
     settings.useLocalProxy = !!p.useLocalProxy;
     settings.apiFormat = p.apiFormat || 'openai';
     saveSettings();
@@ -1004,11 +1010,15 @@ export function initSettings() {
     const model   = $('#setModel').value.trim();
     const useLocalProxy = !!$('#apiPresetUseProxy')?.checked;
     const apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
+    const statusUrl = $('#apiPresetStatusUrl')?.value.trim() || '';
+    const statusType = $('#apiPresetStatusType')?.value || '';
+    const statusKey = $('#apiPresetStatusKey')?.value.trim() || '';
     if (!apiKey) { toast('API Key 不能为空'); return; }
     const presets = getApiPresets();
     const existing = presets.findIndex(p => p.name === name);
-    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat };
-    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat });
+    const _statusFields = statusUrl ? { statusUrl, statusType, statusKey } : {};
+    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat, ..._statusFields };
+    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat, ..._statusFields });
     setApiPresets(presets);
     renderApiPresets();
     $('#apiPresetName').value = '';
@@ -1081,6 +1091,10 @@ export function initSettings() {
     settings.apiKey = $('#setApiKey').value.trim();
     settings.useLocalProxy = !!($('#apiPresetUseProxy')?.checked);
     settings.apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
+    settings.statusUrl = $('#apiPresetStatusUrl')?.value.trim() || '';
+    settings.statusType = $('#apiPresetStatusType')?.value || '';
+    settings.statusKey = $('#apiPresetStatusKey')?.value.trim() || '';
+    resetStickyPreset();
     settings.braveKey = $('#setBraveKey').value.trim();
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
     settings.memoryAutoConflictDetect = !!($('#setMemoryAutoConflictDetect')?.checked);
