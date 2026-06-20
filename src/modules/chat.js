@@ -2465,10 +2465,7 @@ async function _checkMainHealth() {
   const proxyBase = solitudeServerUrl;
   if (!proxyBase) return;
   try {
-    const resp = await fetch(`${proxyBase}/api/proxy-fetch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: statusUrl }),
+    const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(statusUrl)}`, {
       signal: AbortSignal.timeout(15000)
     });
     if (!resp.ok) return;

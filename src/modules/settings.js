@@ -1566,10 +1566,8 @@ export async function fetchStatusModels() {
   if (!proxyBase) { toast('需要先配置本地服务器地址'); return; }
   toast('⏳ 获取监控模型…');
   try {
-    const resp = await fetch(`${proxyBase}/api/proxy-fetch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: statusType === 'uptime-kuma' ? statusUrl.replace('/heartbeat/', '/').replace(/\/+$/, '') : statusUrl }),
+    const fetchUrl = statusType === 'uptime-kuma' ? statusUrl.replace('/heartbeat/', '/').replace(/\/+$/, '') : statusUrl;
+    const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(fetchUrl)}`, {
       signal: AbortSignal.timeout(15000)
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
