@@ -77,6 +77,14 @@ export async function openSettings() {
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
+  const _allPresets = getApiPresets();
+  const _matchIdx = _allPresets.findIndex(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model);
+  if (_matchIdx >= 0) {
+    $('#apiPresetName').value = _allPresets[_matchIdx].name;
+    $('#presetSelect').value = _matchIdx;
+  } else {
+    $('#apiPresetName').value = '';
+  }
   renderVisionPresets();
   renderImagePresets();
   // 兼容旧的单备用字段
