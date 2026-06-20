@@ -869,6 +869,7 @@ export function initSettings() {
     document.getElementById('checkerOverlay').style.display = 'flex';
   };
   $('#btnCloseChecker').onclick = () => { document.getElementById('checkerOverlay').style.display = 'none'; };
+  if ($('#btnFetchStatusModels')) $('#btnFetchStatusModels').onclick = fetchStatusModels;
   $('#btnCheckerSelectAll').onclick = () => {
     document.querySelectorAll('[id^="checker-cb-"]').forEach(cb => cb.checked = true);
   };
@@ -1489,15 +1490,41 @@ export function initSettings() {
 }
 
 // ======================== 模型列表获取 ========================
-export async function fetchModelList(urlInputId, keyInputId, modelInputId, selectId) {
+function _openModelPicker(title, items, targetInputId) {
+  const overlay = $('#modelPickerOverlay');
+  const list = $('#modelPickerList');
+  const search = $('#modelPickerSearch');
+  const titleEl = $('#modelPickerTitle');
+  if (!overlay || !list) return;
+  titleEl.textContent = title;
+  search.value = '';
+  const render = (filter) => {
+    const q = (filter || '').toLowerCase();
+    const filtered = q ? items.filter(it => it.label.toLowerCase().includes(q) || (it.value + '').toLowerCase().includes(q)) : items;
+    list.innerHTML = filtered.length
+      ? filtered.map(it => `<div class="model-pick-item" data-val="${escHtml(it.value)}" style="padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text);border:1px solid var(--border);background:var(--bg)">${escHtml(it.label)}</div>`).join('')
+      : '<div style="padding:12px;color:var(--text-muted);font-size:13px;text-align:center">无匹配结果</div>';
+  };
+  render('');
+  search.oninput = () => render(search.value);
+  list.onclick = (e) => {
+    const item = e.target.closest('.model-pick-item');
+    if (!item) return;
+    const input = $('#' + targetInputId);
+    if (input) input.value = item.dataset.val;
+    overlay.style.display = 'none';
+  };
+  overlay.style.display = 'flex';
+  setTimeout(() => search.focus(), 100);
+}
+
+export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
   const rawUrl = $('#' + urlInputId).value.trim() || ($('#setBaseUrl') ? $('#setBaseUrl').value.trim() : '') || 'https://api.openai.com';
   const baseUrl = rawUrl.replace(/\/+$/, '');
   const apiKey = $('#' + keyInputId).value.trim() || ($('#setApiKey') ? $('#setApiKey').value.trim() : '');
-  const sel = $('#' + selectId);
   if (!baseUrl && !apiKey) { toast('请先填写 Base URL 和 API Key'); return; }
   const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
-  sel.innerHTML = '<option value="">⏳ 获取中…</option>';
-  sel.style.display = 'block';
+  toast('⏳ 获取模型列表…');
   try {
     const _useProxy = $('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl;
     const _fmt = $('#apiPresetApiFormat')?.value || 'openai';
@@ -1509,10 +1536,45 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId, selec
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
-    if (!models.length) { sel.innerHTML = '<option value="">（无可用模型）</option>'; return; }
-    sel.innerHTML = '<option value="">— 选择模型 —</option>' + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+    if (!models.length) { toast('（无可用模型）'); return; }
+    _openModelPicker('📋 选择模型', models.map(m => ({ label: m, value: m })), modelInputId);
   } catch(e) {
-    sel.innerHTML = `<option value="">❌ 获取失败：${escHtml(e.message)}</option>`;
+    toast(`❌ 获取失败：${e.message}`);
+  }
+}
+
+export async function fetchStatusModels() {
+  const statusUrl = $('#apiPresetStatusUrl')?.value.trim();
+  const statusType = $('#apiPresetStatusType')?.value;
+  if (!statusUrl) { toast('请先填写监控页API地址'); return; }
+  if (!statusType) { toast('请先选择监控类型'); return; }
+  const proxyBase = settings.solitudeServerUrl;
+  if (!proxyBase) { toast('需要先配置本地服务器地址'); return; }
+  toast('⏳ 获取监控模型…');
+  try {
+    const resp = await fetch(`${proxyBase}/api/proxy-fetch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: statusType === 'uptime-kuma' ? statusUrl.replace('/heartbeat/', '/').replace(/\/+$/, '') : statusUrl }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    let items = [];
+    if (statusType === 'uptime-kuma') {
+      const monitors = (data.publicGroupList || []).flatMap(g => g.monitorList || []);
+      items = monitors.map(m => ({ label: `${m.name}`, value: String(m.id) }));
+    } else if (statusType === 'success-rate') {
+      const models = data.data || [];
+      items = models.map(m => ({
+        label: `${m.model_name}${m.total_requests > 0 ? ' (' + Math.round(m.success_count / m.total_requests * 100) + '%)' : ''}`,
+        value: m.model_name
+      }));
+    }
+    if (!items.length) { toast('（无可用模型）'); return; }
+    _openModelPicker('📡 选择监控模型', items, 'apiPresetStatusKey');
+  } catch(e) {
+    toast(`❌ 获取失败：${e.message}`);
   }
 }
 
