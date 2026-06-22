@@ -276,6 +276,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       bDl.onclick=()=>{dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none'};
       acts.append(bSave,bDl);wrap.append(img,acts);
       body.appendChild(wrap);
+      dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none';
       return imgData;
     }));
     const ok=results.filter(r=>r.status==='fulfilled').length;
