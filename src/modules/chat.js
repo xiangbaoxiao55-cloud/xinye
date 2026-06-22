@@ -1314,11 +1314,36 @@ export async function sendMessage() {
           let _dataUrl = _pi(imgData);
           if (!_dataUrl) return null;
           if (_dataUrl.startsWith('http')) {
-            try {
-              const _r = await fetch(_dataUrl);
+            const _urlToB64 = async (u) => {
+              const _r = await fetch(u);
+              if (!_r.ok) throw new Error(`HTTP ${_r.status}`);
               const _b = await _r.blob();
-              _dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_b); });
-            } catch(_ue) {}
+              return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_b); });
+            };
+            try {
+              _dataUrl = await _urlToB64(_dataUrl);
+              console.log('[画图tool] URL已转base64');
+            } catch(_ue) {
+              console.warn('[画图tool] 直接fetch失败，尝试代理:', _ue.message);
+              const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+              let _proxyOk = false;
+              if (_lUrl) {
+                try {
+                  _dataUrl = await _urlToB64(`${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(_dataUrl)}`);
+                  _proxyOk = true;
+                  console.log('[画图tool] 代理URL已转base64');
+                } catch(_pe) { console.warn('[画图tool] 本地代理也失败:', _pe.message); }
+              }
+              if (!_proxyOk) {
+                try {
+                  _dataUrl = await _urlToB64(`/api/img-proxy?url=${encodeURIComponent(_dataUrl)}`);
+                  console.log('[画图tool] Vercel代理已转base64');
+                } catch(_ve) {
+                  console.warn('[画图tool] 所有代理均失败:', _ve.message);
+                  _dataUrl = '__HTTP_URL__:' + _dataUrl;
+                }
+              }
+            }
           }
           const _refCharLabel = { none:'无垫图', ai:'垫炘也', user:'垫兔宝', both:'垫两人' }[args.ref_characters] || '';
           const _styleRefLabel = args.style_ref ? `·画风:${args.style_ref}` : '';
