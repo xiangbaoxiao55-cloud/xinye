@@ -3,7 +3,7 @@ class DrawDB {
   constructor(){this.db=null}
   open(){
     return new Promise((res,rej)=>{
-      const r=indexedDB.open('DrawDB',2);
+      const r=indexedDB.open('DrawDB',3);
       r.onupgradeneeded=e=>{
         const db=e.target.result;
         if(!db.objectStoreNames.contains('personas')) db.createObjectStore('personas',{keyPath:'id'});
@@ -23,6 +23,7 @@ class DrawDB {
           const s=db.createObjectStore('styles',{keyPath:'style_id'});
           s.createIndex('byCategory','类别',{unique:false});
         }
+        if(!db.objectStoreNames.contains('tasks')) db.createObjectStore('tasks',{keyPath:'id'});
       };
       r.onsuccess=e=>{this.db=e.target.result;res()};
       r.onerror=e=>rej(e.target.error);
@@ -179,6 +180,8 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
+  const taskId=uid();
+  taskWrap.dataset.taskId=taskId;
   const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
   const labelText=tplName?`📄 ${tplName} · ${n}张 · ${size}`:`🎨 ${n}张 · ${size}`;
   const styleLabel=styles&&styles.length?`<span class="draw-task-styles">${styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
@@ -191,6 +194,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
         <button class="draw-task-copy" title="复制完整prompt">📋</button>
         <button class="draw-task-save" title="存为模版">💾</button>
+        <button class="draw-task-del" title="删除此卡片">✕</button>
       </div>
     </div>
     <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
@@ -228,6 +232,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     };
     editDiv.querySelector('.dte-pos').focus();
   };
+  taskWrap.querySelector('.draw-task-del').onclick=()=>{taskWrap.remove();db.del('tasks',taskId);_updateClearBtn()};
   taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(prompt).then(()=>toast('Prompt已复制 ✓'));
   taskWrap.querySelector('.draw-task-save').onclick=async()=>{
     const name=prompt.trim();
@@ -285,6 +290,8 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
+    const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
+    if(imgs.length) db.put('tasks',{id:taskId,prompt,negPrompt,size,n,tplName,styles,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
     setStatus('失败','err');
@@ -1994,6 +2001,13 @@ function bindEvents(){
     renderRefArea();
   };
   document.getElementById('btn-draw').onclick=doDraw;
+  document.getElementById('btn-clear-tasks').onclick=async()=>{
+    if(!confirm('清空所有生成记录？')) return;
+    const tasks=await db.all('tasks');
+    for(const t of tasks) db.del('tasks',t.id);
+    document.getElementById('draw-results').innerHTML='';
+    _updateClearBtn();
+  };
   ['filter-persona','filter-rating','filter-tag'].forEach(id=>{
     const el=document.getElementById(id);
     el.addEventListener(el.tagName==='INPUT'?'input':'change',renderGallery);
@@ -2094,6 +2108,60 @@ function bindEvents(){
   document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.style.display='none'}));
 }
 
+function _updateClearBtn(){
+  const btn=document.getElementById('btn-clear-tasks');
+  if(!btn) return;
+  const hasTasks=document.getElementById('draw-results').children.length>0;
+  btn.style.display=hasTasks?'':'none';
+}
+
+async function restoreTaskCards(){
+  const tasks=await db.all('tasks');
+  if(!tasks.length) return;
+  tasks.sort((a,b)=>a.createdAt-b.createdAt);
+  const res=document.getElementById('draw-results');
+  for(const t of tasks){
+    const taskWrap=document.createElement('div');
+    taskWrap.className='draw-task';
+    taskWrap.dataset.taskId=t.id;
+    const promptShort=t.prompt.length>100?t.prompt.slice(0,100)+'…':t.prompt;
+    const labelText=t.tplName?`📄 ${t.tplName} · ${t.n}张 · ${t.size}`:`🎨 ${t.n}张 · ${t.size}`;
+    const styleLabel=t.styles&&t.styles.length?`<span class="draw-task-styles">${t.styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
+    taskWrap.innerHTML=`<div class="draw-task-header">
+      <div class="draw-task-top">
+        <span class="draw-task-label">${labelText}</span>
+        ${styleLabel}
+        <span class="draw-task-status">✓ ${t.images.length}张完成</span>
+        <div class="draw-task-btns">
+          <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
+          <button class="draw-task-copy" title="复制完整prompt">📋</button>
+          <button class="draw-task-del" title="删除此卡片">✕</button>
+        </div>
+      </div>
+      <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
+    </div><div class="draw-task-body"></div>`;
+    const body=taskWrap.querySelector('.draw-task-body');
+    for(const imgData of t.images){
+      const wrap=document.createElement('div');wrap.className='result-image-wrapper';
+      const img=document.createElement('img');img.src=imgData;img.className='result-image';img.style.cursor='zoom-in';
+      img.onclick=()=>openLightbox(imgData);
+      const acts=document.createElement('div');acts.className='result-actions';
+      const bSave=document.createElement('button');bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
+      bSave.onclick=()=>{saveToGallery(imgData,t.prompt,t.negPrompt,t.size,t.styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
+      const bDl=document.createElement('button');bDl.className='btn-sm btn-primary';bDl.textContent='已下载 ✓';bDl.style.pointerEvents='none';
+      acts.append(bSave,bDl);wrap.append(img,acts);body.appendChild(wrap);
+    }
+    const promptEl=taskWrap.querySelector('.draw-task-prompt');
+    let expanded=false;
+    promptEl.onclick=()=>{expanded=!expanded;promptEl.textContent=expanded?t.prompt:promptShort;promptEl.style.webkitLineClamp=expanded?'unset':'2'};
+    taskWrap.querySelector('.draw-task-del').onclick=()=>{taskWrap.remove();db.del('tasks',t.id);_updateClearBtn()};
+    taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(t.prompt).then(()=>toast('Prompt已复制 ✓'));
+    taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(t.prompt,t.negPrompt,t.size,t.n,null,taskWrap,null,t.styles);
+    res.appendChild(taskWrap);
+  }
+  _updateClearBtn();
+}
+
 async function init(){
   await db.open();
   await seedTokens();
@@ -2102,5 +2170,6 @@ async function init(){
   await loadCharacters();
   await loadAestheticProfile();
   bindEvents();
+  await restoreTaskCards();
 }
 init().catch(console.error);

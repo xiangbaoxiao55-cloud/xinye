@@ -142,13 +142,14 @@ textarea:focus{border-color:var(--purple)}
 .draw-task-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .draw-task-top .draw-task-status{flex:1;text-align:center}
 .draw-task-btns{display:flex;gap:4px;flex-shrink:0}
-.draw-task-reroll,.draw-task-copy,.draw-task-save{
+.draw-task-reroll,.draw-task-copy,.draw-task-save,.draw-task-del{
   font-size:11px;padding:3px 7px;border-radius:var(--rs);
   border:1px solid var(--border);background:var(--card);color:var(--text);
   cursor:pointer;white-space:nowrap;transition:.12s
 }
 .draw-task-reroll:hover{border-color:var(--purple);color:var(--purple)}
 .draw-task-copy:hover,.draw-task-save:hover{border-color:var(--teal);color:var(--teal)}
+.draw-task-del:hover{border-color:var(--err,#e55);color:var(--err,#e55)}
 .draw-task-label{color:var(--sub)}
 .draw-task-styles{font-size:11px;color:var(--pink);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .draw-task-status{color:var(--teal)}
