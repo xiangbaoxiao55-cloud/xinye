@@ -482,7 +482,7 @@ export async function regenTTS(text, btnEl, msgId) {
     if (!blob) return;
     await dbPut('ttsCache', msgId, blob);
     markCached(msgId);
-    playAudioBlob(blob, btnEl.closest('.msg-actions').querySelector('.btn-tts') || btnEl);
+    playAudioBlob(blob, document.querySelector(`.btn-tts[data-id="${msgId}"]`) || btnEl);
   } catch(err) {
     toast(`TTS 重新生成失败：${err.message}`);
     console.error('[TTS Regen]', err);
