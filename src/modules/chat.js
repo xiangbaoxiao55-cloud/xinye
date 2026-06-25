@@ -2445,7 +2445,7 @@ async function _syncPushContext() {
   const serverUrl = settings.solitudeServerUrl;
   if (!serverUrl || window.__APP_ID__ === 'choubao') return;
   const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
-  const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model };
+  const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, apiFormat: preset.apiFormat || settings.apiFormat || 'openai' };
 
   // 和正式聊天一样的记忆块（stable = Core+ALWAYS+钉住, dynamic = RAG+Extended）
   let stableBlocks = [], dynamicBlocks = [];
