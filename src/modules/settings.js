@@ -185,6 +185,10 @@ export async function openSettings() {
     const el = document.getElementById('mimoRefAudioStatus');
     if (el) el.textContent = b ? '✓ 已上传' : '未上传';
   });
+  dbGet('images', 'mimoRefAudioEn').then(b => {
+    const el = document.getElementById('mimoRefAudioEnStatus');
+    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
+  });
   $('#setMinimaxKey').value = settings.minimaxKey || '';
   $('#setMinimaxGroupId').value = settings.minimaxGroupId || '';
   $('#setMinimaxVoiceId').value = settings.minimaxVoiceId || '';
@@ -1322,6 +1326,19 @@ export function initSettings() {
     const el = document.getElementById('mimoRefAudioStatus');
     if (el) el.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(0)}KB)`;
     toast('Mimo 参考音频已保存');
+    this.value = '';
+  });
+
+  // Mimo 英文参考音频上传
+  document.getElementById('mimoRefAudioEnInput')?.addEventListener('change', async function() {
+    const file = this.files[0];
+    if (!file) return;
+    await dbPut('images', 'mimoRefAudioEn', file);
+    const { clearMimoRefCacheEn } = await import('./tts.js');
+    clearMimoRefCacheEn();
+    const el = document.getElementById('mimoRefAudioEnStatus');
+    if (el) el.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(0)}KB)`;
+    toast('Mimo 英文参考音频已保存');
     this.value = '';
   });
 

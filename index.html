@@ -741,6 +741,15 @@
         <div class="hint">建议5~10秒清晰录音，WAV / MP3 均可，上传后缓存在本地</div>
       </div>
       <div class="setting-group">
+        <label>英文参考音频（可选，英文内容时自动使用）</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" onclick="document.getElementById('mimoRefAudioEnInput').click()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);cursor:pointer;font-size:13px">上传英文参考音频</button>
+          <span id="mimoRefAudioEnStatus" style="font-size:13px;opacity:0.7">未上传</span>
+        </div>
+        <input type="file" id="mimoRefAudioEnInput" accept="audio/*" style="display:none">
+        <div class="hint">同一个人的英文录音，说英文时自动切换；不上传则统一用上面的</div>
+      </div>
+      <div class="setting-group">
         <label>风格指令（可选）</label>
         <input type="text" id="setMimoStylePrompt" placeholder="例：用温柔慵懒的语气说">
         <div class="hint">留空使用默认风格；改变情绪时修改此处</div>

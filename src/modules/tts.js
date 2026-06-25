@@ -5,7 +5,9 @@ import { dbGet, dbPut, dbDelete, dbGetAll, dbGetAllKeys } from './db.js';
 let currentAudio = null;
 let _ttsGenerating = new Map();
 let _mimoRefBase64 = null;
+let _mimoRefEnBase64 = null;
 export function clearMimoRefCache() { _mimoRefBase64 = null; }
+export function clearMimoRefCacheEn() { _mimoRefEnBase64 = null; }
 const _ttsQueue = [];
 let _ttsQueueRunning = false;
 
@@ -182,14 +184,29 @@ export async function generateTTSBlob(text) {
   }
   if (settings.ttsType === 'mimo') {
     if (!settings.mimoKey) { toast('请先填写 Mimo API Key'); return null; }
-    if (!_mimoRefBase64) {
-      const refBlob = await dbGet('images', 'mimoRefAudio');
-      if (!refBlob) { toast('请先在设置中上传 Mimo 参考音频'); return null; }
-      _mimoRefBase64 = await new Promise(resolve => {
-        const r = new FileReader();
-        r.onload = e => resolve(e.target.result);
-        r.readAsDataURL(refBlob);
-      });
+    const isEn = /^[a-zA-Z0-9\s.,!?;:'"()\-\[\]{}\/\\@#$%^&*+=<>~`]+$/.test(text.replace(/[（）""''…—–·、。，！？；：]+/g, ''));
+    let refBase64;
+    if (isEn && await dbGet('images', 'mimoRefAudioEn')) {
+      if (!_mimoRefEnBase64) {
+        const refBlob = await dbGet('images', 'mimoRefAudioEn');
+        _mimoRefEnBase64 = await new Promise(resolve => {
+          const r = new FileReader();
+          r.onload = e => resolve(e.target.result);
+          r.readAsDataURL(refBlob);
+        });
+      }
+      refBase64 = _mimoRefEnBase64;
+    } else {
+      if (!_mimoRefBase64) {
+        const refBlob = await dbGet('images', 'mimoRefAudio');
+        if (!refBlob) { toast('请先在设置中上传 Mimo 参考音频'); return null; }
+        _mimoRefBase64 = await new Promise(resolve => {
+          const r = new FileReader();
+          r.onload = e => resolve(e.target.result);
+          r.readAsDataURL(refBlob);
+        });
+      }
+      refBase64 = _mimoRefBase64;
     }
     // 去掉 MiniMax 速度标签 <#1#> 等，Mimo 不识别会乱说
     text = text.replace(/<#[\d.]+#?>/g, '').replace(/\s{2,}/g, ' ').trim();
@@ -202,7 +219,7 @@ export async function generateTTSBlob(text) {
           { role: 'user', content: settings.mimoStylePrompt || '' },
           { role: 'assistant', content: text }
         ],
-        audio: { format: 'wav', voice: _mimoRefBase64 }
+        audio: { format: 'wav', voice: refBase64 }
       })
     }, 60000);
     if (!res.ok) throw new Error(`Mimo TTS HTTP ${res.status}`);
