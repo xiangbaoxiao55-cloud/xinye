@@ -94,6 +94,12 @@
 }
 .btn-tts-dl:hover{opacity:1;transform:scale(1.15)}
 .btn-tts-dl.cached{opacity:.9;color:#4caf50}
+.btn-tts-regen{
+  border:none;background:none;cursor:pointer;
+  font-size:12px;padding:0 1px;line-height:1;
+  color:var(--text-light);opacity:.6;transition:all .2s;
+}
+.btn-tts-regen:hover{opacity:1;transform:scale(1.15);color:var(--primary)}
 /* 炘也主动语音条（speak工具触发） */
 .tts-voice-bar{
   display:inline-flex;align-items:center;gap:8px;

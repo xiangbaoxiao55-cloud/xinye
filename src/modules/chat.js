@@ -5,7 +5,7 @@ import { settings, messages, saveSettings } from './state.js';
 import { getApiPresets, getImagePresets, getImageCurPresetIdx } from './api.js';
 import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
-import { stripForTTS, playTTS, downloadTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
+import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { spinFortune, formatFortuneResult } from './fortune.js';
 
@@ -283,7 +283,7 @@ export async function renderMessages() {
     const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
     const _isBookmarked = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
     const bookmarkBtn = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-    const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
+    const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button class="btn-tts-regen" data-id="${msg.id}" title="重新生成语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
     const _stickerName = isUser ? window.detectStickerMsg?.(msg.content) : null;
     const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
     let _bubbleInner;
@@ -361,7 +361,7 @@ export async function appendMsgDOM(msg) {
   const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
   const _isBookmarked2 = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
   const bookmarkBtn2 = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-  const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
+  const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button class="btn-tts-regen" data-id="${msg.id}" title="重新生成语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
   const _sn = isUser ? window.detectStickerMsg?.(msg.content) : null;
   const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
   let _bi;
@@ -556,6 +556,13 @@ chatArea.addEventListener('click', e => {
     const id = Number(dlBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
     if (msg) downloadTTS(stripForTTS(msg.content), id);
+    return;
+  }
+  const regenBtn = e.target.closest('.btn-tts-regen');
+  if (regenBtn) {
+    const id = Number(regenBtn.dataset.id);
+    const msg = messages.find(m => m.id === id);
+    if (msg && msg.content) regenTTS(msg.content, regenBtn, id);
     return;
   }
   const ttsBtn = e.target.closest('.btn-tts');

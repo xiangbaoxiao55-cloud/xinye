@@ -1,6 +1,6 @@
 import { settings } from './state.js';
 import { toast } from './utils.js';
-import { dbGet, dbPut, dbGetAll, dbGetAllKeys } from './db.js';
+import { dbGet, dbPut, dbDelete, dbGetAll, dbGetAllKeys } from './db.js';
 
 let currentAudio = null;
 let _ttsGenerating = new Map();
@@ -465,6 +465,28 @@ export async function downloadTTS(text, msgId) {
     toast(`下载失败：${err.message}`);
     console.error('[TTS DL]', err);
   }
+}
+
+export async function regenTTS(text, btnEl, msgId) {
+  text = stripForTTS(text);
+  if (!text) return;
+  const lockTime = _ttsGenerating.get(msgId);
+  if (lockTime && Date.now() - lockTime < 120000) { toast('语音生成中，请稍候~'); return; }
+  await dbDelete('ttsCache', msgId);
+  document.querySelectorAll(`.btn-tts[data-id="${msgId}"],.btn-tts-dl[data-id="${msgId}"]`)
+    .forEach(b => b.classList.remove('cached'));
+  toast('正在重新生成语音…');
+  _ttsGenerating.set(msgId, Date.now());
+  try {
+    const blob = await generateTTSBlob(text);
+    if (!blob) return;
+    await dbPut('ttsCache', msgId, blob);
+    markCached(msgId);
+    playAudioBlob(blob, btnEl.closest('.msg-actions').querySelector('.btn-tts') || btnEl);
+  } catch(err) {
+    toast(`TTS 重新生成失败：${err.message}`);
+    console.error('[TTS Regen]', err);
+  } finally { _ttsGenerating.delete(msgId); }
 }
 
 export async function exportTTSCache() {
