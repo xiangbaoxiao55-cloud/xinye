@@ -183,8 +183,10 @@ export async function generateTTSBlob(text) {
   }
   if (settings.ttsType === 'mimo') {
     if (!settings.mimoKey) { toast('请先填写 Mimo API Key'); return null; }
-    const _langText = text.replace(/[（(][^)）]*[）)]/g, '').replace(/[^\x00-\x7F]/g, '').trim();
-    const isEn = _langText.length > 0 && /^[a-zA-Z0-9\s.,!?;:'"()\-\[\]{}\/\\@#$%^&*+=<>~`]+$/.test(_langText);
+    const _langText = text.replace(/[（(][^)）]*[）)]/g, '').trim();
+    const _enChars = (_langText.match(/[a-zA-Z]/g) || []).length;
+    const _zhChars = (_langText.match(/[一-鿿]/g) || []).length;
+    const isEn = _enChars > 0 && _enChars > _zhChars * 2;
     const pid = settings.ttsActivePresetId || '';
     const _refKey = pid ? `mimoRefAudio_${pid}` : 'mimoRefAudio';
     const _refEnKey = pid ? `mimoRefAudioEn_${pid}` : 'mimoRefAudioEn';
