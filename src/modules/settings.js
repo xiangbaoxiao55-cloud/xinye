@@ -569,7 +569,15 @@ export function updateTtsTypeUI() {
 }
 
 // ======================== 音色预设管理 ========================
+function _showActivePresetLabel() {
+  const el = document.getElementById('ttsActivePresetLabel');
+  if (!el) return;
+  const name = settings.ttsActivePresetName;
+  if (name) { el.textContent = `当前：${name}`; el.style.display = ''; }
+  else { el.style.display = 'none'; }
+}
 export function renderTtsPresets() {
+  _showActivePresetLabel();
   const list = $('#ttsPresetList');
   if (!list) return;
   list.innerHTML = '';
@@ -648,6 +656,9 @@ export async function activateTtsPreset(i) {
   $('#setMinimaxModifyIntensity').value   = settings.minimaxModifyIntensity ?? '';
   $('#setMinimaxModifyTimbre').value      = settings.minimaxModifyTimbre ?? '';
   updateTtsTypeUI();
+  settings.ttsActivePresetName = p.name;
+  await saveSettings();
+  _showActivePresetLabel();
   toast(`✅ 已激活音色预设「${p.name}」`);
 }
 
