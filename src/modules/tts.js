@@ -210,6 +210,7 @@ export async function generateTTSBlob(text) {
     }
     // 去掉 MiniMax 速度标签 <#1#> 等，Mimo 不识别会乱说
     text = text.replace(/<#[\d.]+#?>/g, '').replace(/\s{2,}/g, ' ').trim();
+    console.log(`[TTS] Mimo 使用${isEn ? '英文' : '中文'}参考音频`);
     const res = await fetchWithTimeout('https://api.xiaomimimo.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'api-key': settings.mimoKey, 'Content-Type': 'application/json' },
