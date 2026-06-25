@@ -276,7 +276,8 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   };
 
   try{
-    const jobs=Array.from({length:n},()=>_doSingleDraw(prompt,negPrompt,size,refs));
+    const styleRefPrefix=styleRefName?'Use the last reference image(s) as art style guide only, do not copy their composition or content. ':'';
+    const jobs=Array.from({length:n},()=>_doSingleDraw(styleRefPrefix+prompt,negPrompt,size,refs));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
     let done=0;
