@@ -215,24 +215,38 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     // 已有编辑区则关掉（toggle）
     const existingEdit=taskWrap.querySelector('.draw-task-edit');
     if(existingEdit){existingEdit.remove();return;}
+    // 构建画风参考选项
+    const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}"${sr.id===styleRefName?'':''}>🖼️ ${sr.name}</option>`).join('');
+    // styleRefName 存的是名字，需要反查 id（首次传入是名字用于显示，重roll时需重查）
+    const activeId=S.styleRefs.find(r=>r.name===styleRefName)?.id||'';
     const editDiv=document.createElement('div');
     editDiv.className='draw-task-edit';
     editDiv.innerHTML=`
       <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
       <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${negPrompt||''}</textarea></div>
+      <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
       <div class="dte-actions">
         <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${n}"></label>
         <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
         <button class="btn-sm btn-outline dte-cancel">取消</button>
       </div>`;
     taskWrap.querySelector('.draw-task-header').after(editDiv);
+    // 设置画风参考下拉默认值
+    editDiv.querySelector('.dte-styleref').value=activeId;
     editDiv.querySelector('.dte-cancel').onclick=()=>editDiv.remove();
     editDiv.querySelector('.dte-confirm').onclick=()=>{
       const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
       const newNeg=editDiv.querySelector('.dte-neg').value.trim();
       const newN=Math.max(1,Math.min(20,parseInt(editDiv.querySelector('.dte-count').value)||1));
+      const newSrId=editDiv.querySelector('.dte-styleref').value;
+      // 重新组合refs：原快照里去掉旧画风参考图，换上新选的
+      const oldSrImages=(S.styleRefs.find(r=>r.name===styleRefName)?.images)||[];
+      const baseRefs=refs.filter(r=>!oldSrImages.includes(r));
+      const newSr=S.styleRefs.find(r=>r.id===newSrId);
+      const newRefs=newSr?[...baseRefs,...newSr.images]:baseRefs;
+      const newSrName=newSr?.name||null;
       editDiv.remove();
-      _runDrawTask(newPrompt||prompt,newNeg,size,newN,refs,taskWrap,null,styles);
+      _runDrawTask(newPrompt||prompt,newNeg,size,newN,newRefs,taskWrap,null,styles,newSrName);
     };
     editDiv.querySelector('.dte-pos').focus();
   };
@@ -295,7 +309,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
     const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
-    if(imgs.length) db.put('tasks',{id:taskId,prompt,negPrompt,size,n,tplName,styles,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
+    if(imgs.length) db.put('tasks',{id:taskId,prompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
     setStatus('失败','err');
@@ -2293,10 +2307,11 @@ async function restoreTaskCards(){
     const promptShort=t.prompt.length>100?t.prompt.slice(0,100)+'…':t.prompt;
     const labelText=t.tplName?`📄 ${t.tplName} · ${t.n}张 · ${t.size}`:`🎨 ${t.n}张 · ${t.size}`;
     const styleLabel=t.styles&&t.styles.length?`<span class="draw-task-styles">${t.styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
+    const styleRefLabel=t.styleRefName?`<span class="draw-task-styles">🖼️ ${t.styleRefName}</span>`:'';
     taskWrap.innerHTML=`<div class="draw-task-header">
       <div class="draw-task-top">
         <span class="draw-task-label">${labelText}</span>
-        ${styleLabel}
+        ${styleLabel}${styleRefLabel}
         <span class="draw-task-status">✓ ${t.images.length}张完成</span>
         <div class="draw-task-btns">
           <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
@@ -2322,7 +2337,7 @@ async function restoreTaskCards(){
     promptEl.onclick=()=>{expanded=!expanded;promptEl.textContent=expanded?t.prompt:promptShort;promptEl.style.webkitLineClamp=expanded?'unset':'2'};
     taskWrap.querySelector('.draw-task-del').onclick=()=>{taskWrap.remove();db.del('tasks',t.id);_updateClearBtn()};
     taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(t.prompt).then(()=>toast('Prompt已复制 ✓'));
-    taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(t.prompt,t.negPrompt,t.size,t.n,null,taskWrap,null,t.styles);
+    taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(t.prompt,t.negPrompt,t.size,t.n,null,taskWrap,null,t.styles,t.styleRefName||null);
     res.appendChild(taskWrap);
   }
   _updateClearBtn();
