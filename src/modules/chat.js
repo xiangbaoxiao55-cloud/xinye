@@ -1314,8 +1314,9 @@ export async function sendMessage() {
           let _dataUrl = _pi(imgData);
           if (!_dataUrl) return null;
           if (_dataUrl.startsWith('http')) {
-            const _urlToB64 = async (u) => {
-              const _r = await fetch(u);
+            const _urlToB64 = async (u, authToken) => {
+              const _opts = authToken ? { headers: { 'Authorization': `Bearer ${authToken}` } } : {};
+              const _r = await fetch(u, _opts);
               if (!_r.ok) throw new Error(`HTTP ${_r.status}`);
               const _b = await _r.blob();
               return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_b); });
@@ -1326,10 +1327,11 @@ export async function sendMessage() {
             } catch(_ue) {
               console.warn('[画图tool] 直接fetch失败，尝试代理:', _ue.message);
               const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+              const _proxyToken = settings.imageProxyToken || '';
               let _proxyOk = false;
               if (_lUrl) {
                 try {
-                  _dataUrl = await _urlToB64(`${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(_dataUrl)}`);
+                  _dataUrl = await _urlToB64(`${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(_dataUrl)}`, _proxyToken || undefined);
                   _proxyOk = true;
                   console.log('[画图tool] 代理URL已转base64');
                 } catch(_pe) { console.warn('[画图tool] 本地代理也失败:', _pe.message); }
