@@ -3,7 +3,7 @@ class DrawDB {
   constructor(){this.db=null}
   open(){
     return new Promise((res,rej)=>{
-      const r=indexedDB.open('DrawDB',3);
+      const r=indexedDB.open('DrawDB',4);
       r.onupgradeneeded=e=>{
         const db=e.target.result;
         if(!db.objectStoreNames.contains('personas')) db.createObjectStore('personas',{keyPath:'id'});
@@ -24,6 +24,7 @@ class DrawDB {
           s.createIndex('byCategory','类别',{unique:false});
         }
         if(!db.objectStoreNames.contains('tasks')) db.createObjectStore('tasks',{keyPath:'id'});
+        if(!db.objectStoreNames.contains('styleRefs')) db.createObjectStore('styleRefs',{keyPath:'id'});
       };
       r.onsuccess=e=>{this.db=e.target.result;res()};
       r.onerror=e=>rej(e.target.error);
@@ -58,6 +59,7 @@ const S={
   drawing:false,masterBusy:false,aiGenBusy:false,cfg:{},
   drawPresets:[],curDrawId:null,
   masterPresets:[],curMasterId:null,
+  styleRefs:[],curStyleRefId:null,
 };
 
 let _galItems=[];
@@ -172,11 +174,12 @@ async function doDraw(){
   const refs=getAllRefs(); // 快照参考图，重roll时复现
   const tplName=S.lastTemplateName;
   const styles=S.selStyles.map(s=>({id:s.style_id,name:s['中文风格名'],tokens:s['English prompt tokens']}));
+  const styleRefName=getActiveStyleRef()?.name||null;
   S.lastTemplateName='';
-  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName,styles);
+  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName,styles,styleRefName);
 }
 
-async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,styles){
+async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,styles,styleRefName){
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
@@ -185,10 +188,11 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
   const labelText=tplName?`📄 ${tplName} · ${n}张 · ${size}`:`🎨 ${n}张 · ${size}`;
   const styleLabel=styles&&styles.length?`<span class="draw-task-styles">${styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
+  const styleRefLabel=styleRefName?`<span class="draw-task-styles">🖼️ ${styleRefName}</span>`:'';
   taskWrap.innerHTML=`<div class="draw-task-header">
     <div class="draw-task-top">
       <span class="draw-task-label">${labelText}</span>
-      ${styleLabel}
+      ${styleLabel}${styleRefLabel}
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
@@ -571,7 +575,155 @@ function getAllRefs(){
     if(ch?.refImage) refs.push(ch.refImage);
   }
   refs.push(...S.customRefB64s);
+  // 画风参考图追加到末尾
+  if(S.curStyleRefId){
+    const sr=S.styleRefs.find(r=>r.id===S.curStyleRefId);
+    if(sr?.images?.length) refs.push(...sr.images);
+  }
   return refs;
+}
+
+// ── Style Refs CRUD ───────────────────────────────────────────
+async function loadStyleRefs(){
+  S.styleRefs=await db.all('styleRefs');
+}
+async function saveStyleRef(name,images){
+  const item={id:uid(),name,images,createdAt:Date.now()};
+  await db.put('styleRefs',item);
+  S.styleRefs=await db.all('styleRefs');
+  return item;
+}
+async function deleteStyleRef(id){
+  await db.del('styleRefs',id);
+  S.styleRefs=await db.all('styleRefs');
+  if(S.curStyleRefId===id) S.curStyleRefId=null;
+}
+
+function getActiveStyleRef(){
+  return S.styleRefs.find(r=>r.id===S.curStyleRefId)||null;
+}
+
+let _pendingStyleRefB64s=[];
+
+function renderStyleRefStrip(){
+  const active=getActiveStyleRef();
+  const nameEl=document.getElementById('style-ref-active-name');
+  const clearBtn=document.getElementById('btn-style-ref-clear');
+  const strip=document.getElementById('style-ref-strip');
+  if(!nameEl||!strip) return;
+  if(active){
+    nameEl.textContent='当前：'+active.name;
+    clearBtn.style.display='';
+    strip.innerHTML='';
+    active.images.forEach(b64=>{
+      const img=document.createElement('img');
+      img.src=b64;img.style.cssText='width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--border)';
+      strip.appendChild(img);
+    });
+  } else {
+    nameEl.textContent='未选择';
+    clearBtn.style.display='none';
+    strip.innerHTML='';
+    // 显示已保存套装列表供快速选择
+    S.styleRefs.forEach(sr=>{
+      const btn=document.createElement('button');
+      btn.className='btn-tiny';
+      btn.textContent=(sr.images.length?'🖼️ ':'')+sr.name;
+      btn.title='点击使用此画风参考';
+      btn.onclick=()=>{S.curStyleRefId=sr.id;renderStyleRefStrip()};
+      strip.appendChild(btn);
+    });
+    if(!S.styleRefs.length){
+      const hint=document.createElement('span');
+      hint.style.cssText='font-size:11px;color:var(--sub)';
+      hint.textContent='点「管理」上传画风参考图';
+      strip.appendChild(hint);
+    }
+  }
+}
+
+function renderNewStyleRefPreview(){
+  const preview=document.getElementById('new-style-ref-preview');
+  if(!preview) return;
+  preview.innerHTML='';
+  (_pendingStyleRefB64s||[]).forEach((b64,i)=>{
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;display:inline-block';
+    const img=document.createElement('img');
+    img.src=b64;img.style.cssText='width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border)';
+    const del=document.createElement('button');
+    del.textContent='✕';del.className='custom-ref-del';
+    del.onclick=()=>{_pendingStyleRefB64s.splice(i,1);renderNewStyleRefPreview()};
+    wrap.append(img,del);preview.appendChild(wrap);
+  });
+}
+
+async function confirmSaveStyleRef(){
+  const name=(document.getElementById('new-style-ref-name').value||'').trim();
+  if(!name){toast('请填写套装名称','warn');return}
+  if(!_pendingStyleRefB64s||!_pendingStyleRefB64s.length){toast('请选择至少1张参考图','warn');return}
+  const item=await saveStyleRef(name,[..._pendingStyleRefB64s]);
+  _pendingStyleRefB64s=[];
+  document.getElementById('new-style-ref-name').value='';
+  document.getElementById('new-style-ref-preview').innerHTML='';
+  document.getElementById('new-style-ref-input').value='';
+  toast(`画风参考"${name}"已保存 ✨`);
+  S.curStyleRefId=item.id;
+  renderStyleRefStrip();
+  renderStyleRefList();
+}
+
+function openStyleRefModal(){
+  _pendingStyleRefB64s=[];
+  document.getElementById('new-style-ref-name').value='';
+  document.getElementById('new-style-ref-preview').innerHTML='';
+  document.getElementById('new-style-ref-input').value='';
+  renderStyleRefList();
+  document.getElementById('modal-style-ref').style.display='flex';
+}
+
+function renderStyleRefList(){
+  const list=document.getElementById('style-ref-list');
+  if(!list) return;
+  list.innerHTML='';
+  if(!S.styleRefs.length){
+    list.innerHTML='<div style="color:var(--sub);font-size:12px;padding:4px 0">还没有画风参考套装</div>';
+    return;
+  }
+  S.styleRefs.forEach(sr=>{
+    const el=document.createElement('div');
+    el.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)';
+    const thumbs=document.createElement('div');
+    thumbs.style.cssText='display:flex;gap:3px';
+    sr.images.slice(0,3).forEach(b64=>{
+      const img=document.createElement('img');
+      img.src=b64;img.style.cssText='width:36px;height:36px;object-fit:cover;border-radius:3px;cursor:pointer';
+      img.title='点击查看大图';
+      img.onclick=()=>{const w=window.open();w.document.write(`<img src="${b64}" style="max-width:100%;max-height:100vh">`)}
+      thumbs.appendChild(img);
+    });
+    const info=document.createElement('span');
+    info.style.cssText='flex:1;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+    info.textContent=sr.name+(S.curStyleRefId===sr.id?' ✓':'');
+    if(S.curStyleRefId===sr.id) info.style.color='var(--accent)';
+    const useBtn=document.createElement('button');
+    useBtn.className='btn-tiny';
+    useBtn.textContent=S.curStyleRefId===sr.id?'已激活':'使用';
+    useBtn.onclick=()=>{
+      S.curStyleRefId=(S.curStyleRefId===sr.id)?null:sr.id;
+      renderStyleRefStrip();renderStyleRefList();
+    };
+    const delBtn=document.createElement('button');
+    delBtn.className='btn-tiny';delBtn.textContent='🗑';delBtn.title='删除';
+    delBtn.onclick=async()=>{
+      if(!confirm(`删除"${sr.name}"？`)) return;
+      await deleteStyleRef(sr.id);
+      renderStyleRefStrip();renderStyleRefList();
+      toast('已删除');
+    };
+    el.append(thumbs,info,useBtn,delBtn);
+    list.appendChild(el);
+  });
 }
 
 function renderRefArea(){
@@ -2026,6 +2178,20 @@ function bindEvents(){
       document.getElementById('btn-save-detail-prompt').style.display='';
     };
   });
+  document.getElementById('btn-style-ref-manage').onclick=openStyleRefModal;
+  document.getElementById('btn-style-ref-clear').onclick=()=>{
+    S.curStyleRefId=null;renderStyleRefStrip();
+  };
+  document.getElementById('btn-save-style-ref').onclick=confirmSaveStyleRef;
+  document.getElementById('new-style-ref-input').onchange=async e=>{
+    const files=[...e.target.files].slice(0,3);
+    if(!files.length) return;
+    const added=[];
+    for(const f of files) added.push(await f2b(f));
+    e.target.value='';
+    _pendingStyleRefB64s=(_pendingStyleRefB64s||[]).concat(added).slice(0,3);
+    renderNewStyleRefPreview();
+  };
   document.getElementById('btn-settings').onclick=openSettings;
   document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
   document.getElementById('btn-save-local-server').onclick=()=>{
@@ -2169,7 +2335,9 @@ async function init(){
   await loadPersonas();
   await loadCharacters();
   await loadAestheticProfile();
+  await loadStyleRefs();
   bindEvents();
+  renderStyleRefStrip();
   await restoreTaskCards();
 }
 init().catch(console.error);
