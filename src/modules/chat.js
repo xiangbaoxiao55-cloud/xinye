@@ -1415,7 +1415,6 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', args.size || settings.imageSize || '1024x1024');
-            _form.append('response_format', 'url');
             _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
             return _form;
           };
