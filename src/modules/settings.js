@@ -181,14 +181,7 @@ export async function openSettings() {
   $('#setMosiVoiceId').value = settings.mosiVoiceId || '';
   $('#setMimoKey').value = settings.mimoKey || '';
   $('#setMimoStylePrompt').value = settings.mimoStylePrompt || '';
-  dbGet('images', 'mimoRefAudio').then(b => {
-    const el = document.getElementById('mimoRefAudioStatus');
-    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
-  });
-  dbGet('images', 'mimoRefAudioEn').then(b => {
-    const el = document.getElementById('mimoRefAudioEnStatus');
-    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
-  });
+  _updateMimoRefStatus();
   $('#setMinimaxKey').value = settings.minimaxKey || '';
   $('#setMinimaxGroupId').value = settings.minimaxGroupId || '';
   $('#setMinimaxVoiceId').value = settings.minimaxVoiceId || '';
@@ -576,12 +569,29 @@ function _showActivePresetLabel() {
   if (name) { el.textContent = `当前：${name}`; el.style.display = ''; }
   else { el.style.display = 'none'; }
 }
+function _mimoRefKey(suffix) {
+  const id = settings.ttsActivePresetId;
+  return id ? `${suffix}_${id}` : suffix;
+}
+function _updateMimoRefStatus() {
+  dbGet('images', _mimoRefKey('mimoRefAudio')).then(b => {
+    const el = document.getElementById('mimoRefAudioStatus');
+    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
+  });
+  dbGet('images', _mimoRefKey('mimoRefAudioEn')).then(b => {
+    const el = document.getElementById('mimoRefAudioEnStatus');
+    if (el) el.textContent = b ? '✓ 已上传' : '未上传';
+  });
+}
 export function renderTtsPresets() {
   _showActivePresetLabel();
   const list = $('#ttsPresetList');
   if (!list) return;
   list.innerHTML = '';
   const presets = settings.ttsPresets || [];
+  let needSave = false;
+  presets.forEach(p => { if (!p.id) { p.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); needSave = true; } });
+  if (needSave) saveSettings();
   const dark = isDarkMode();
   const cardBg = dark ? 'rgba(46,28,58,.7)' : 'rgba(255,255,255,.6)';
   const cardBorder = dark ? 'rgba(80,60,100,.9)' : 'var(--pink-light)';
@@ -611,6 +621,7 @@ export function renderTtsPresets() {
 export async function activateTtsPreset(i) {
   const p = (settings.ttsPresets || [])[i];
   if (!p) return;
+  settings.ttsActivePresetId = p.id || '';
   if (p.ttsType)         settings.ttsType          = p.ttsType;
   if (p.ttsUrl)          settings.ttsUrl            = p.ttsUrl;
   settings.ttsRefPath     = p.ttsRefPath    || '';
@@ -658,6 +669,9 @@ export async function activateTtsPreset(i) {
   updateTtsTypeUI();
   settings.ttsActivePresetName = p.name;
   await saveSettings();
+  const { clearMimoRefCache, clearMimoRefCacheEn } = await import('./tts.js');
+  clearMimoRefCache(); clearMimoRefCacheEn();
+  _updateMimoRefStatus();
   _showActivePresetLabel();
   toast(`✅ 已激活音色预设「${p.name}」`);
 }
@@ -1225,6 +1239,7 @@ export function initSettings() {
     if (!name) { toast('请先输入预设名称'); return; }
     if (!settings.ttsPresets) settings.ttsPresets = [];
     const p = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
       name,
       ttsType:         $('#setTtsType').value,
       ttsUrl:          $('#setTtsUrl').value.trim(),
@@ -1331,7 +1346,7 @@ export function initSettings() {
   document.getElementById('mimoRefAudioInput')?.addEventListener('change', async function() {
     const file = this.files[0];
     if (!file) return;
-    await dbPut('images', 'mimoRefAudio', file);
+    await dbPut('images', _mimoRefKey('mimoRefAudio'), file);
     const { clearMimoRefCache } = await import('./tts.js');
     clearMimoRefCache();
     const el = document.getElementById('mimoRefAudioStatus');
@@ -1344,7 +1359,7 @@ export function initSettings() {
   document.getElementById('mimoRefAudioEnInput')?.addEventListener('change', async function() {
     const file = this.files[0];
     if (!file) return;
-    await dbPut('images', 'mimoRefAudioEn', file);
+    await dbPut('images', _mimoRefKey('mimoRefAudioEn'), file);
     const { clearMimoRefCacheEn } = await import('./tts.js');
     clearMimoRefCacheEn();
     const el = document.getElementById('mimoRefAudioEnStatus');

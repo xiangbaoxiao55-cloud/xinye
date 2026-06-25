@@ -4,10 +4,9 @@ import { dbGet, dbPut, dbDelete, dbGetAll, dbGetAllKeys } from './db.js';
 
 let currentAudio = null;
 let _ttsGenerating = new Map();
-let _mimoRefBase64 = null;
-let _mimoRefEnBase64 = null;
-export function clearMimoRefCache() { _mimoRefBase64 = null; }
-export function clearMimoRefCacheEn() { _mimoRefEnBase64 = null; }
+const _mimoRefCache = new Map();
+export function clearMimoRefCache() { _mimoRefCache.clear(); }
+export function clearMimoRefCacheEn() { _mimoRefCache.clear(); }
 const _ttsQueue = [];
 let _ttsQueueRunning = false;
 
@@ -185,32 +184,25 @@ export async function generateTTSBlob(text) {
   if (settings.ttsType === 'mimo') {
     if (!settings.mimoKey) { toast('请先填写 Mimo API Key'); return null; }
     const isEn = /^[a-zA-Z0-9\s.,!?;:'"()\-\[\]{}\/\\@#$%^&*+=<>~`]+$/.test(text.replace(/[（）""''…—–·、。，！？；：]+/g, ''));
-    let refBase64;
-    if (isEn && await dbGet('images', 'mimoRefAudioEn')) {
-      if (!_mimoRefEnBase64) {
-        const refBlob = await dbGet('images', 'mimoRefAudioEn');
-        _mimoRefEnBase64 = await new Promise(resolve => {
-          const r = new FileReader();
-          r.onload = e => resolve(e.target.result);
-          r.readAsDataURL(refBlob);
-        });
-      }
-      refBase64 = _mimoRefEnBase64;
-    } else {
-      if (!_mimoRefBase64) {
-        const refBlob = await dbGet('images', 'mimoRefAudio');
-        if (!refBlob) { toast('请先在设置中上传 Mimo 参考音频'); return null; }
-        _mimoRefBase64 = await new Promise(resolve => {
-          const r = new FileReader();
-          r.onload = e => resolve(e.target.result);
-          r.readAsDataURL(refBlob);
-        });
-      }
-      refBase64 = _mimoRefBase64;
+    const pid = settings.ttsActivePresetId || '';
+    const _refKey = pid ? `mimoRefAudio_${pid}` : 'mimoRefAudio';
+    const _refEnKey = pid ? `mimoRefAudioEn_${pid}` : 'mimoRefAudioEn';
+    const cacheKey = `${pid}_${isEn ? 'en' : 'zh'}`;
+    let refBase64 = _mimoRefCache.get(cacheKey);
+    if (!refBase64) {
+      const useEn = isEn && await dbGet('images', _refEnKey);
+      const refBlob = useEn ? await dbGet('images', _refEnKey) : await dbGet('images', _refKey);
+      if (!refBlob) { toast('请先在设置中上传 Mimo 参考音频'); return null; }
+      refBase64 = await new Promise(resolve => {
+        const r = new FileReader();
+        r.onload = e => resolve(e.target.result);
+        r.readAsDataURL(refBlob);
+      });
+      _mimoRefCache.set(cacheKey, refBase64);
     }
     // 去掉 MiniMax 速度标签 <#1#> 等，Mimo 不识别会乱说
     text = text.replace(/<#[\d.]+#?>/g, '').replace(/\s{2,}/g, ' ').trim();
-    console.log(`[TTS] Mimo 使用${isEn ? '英文' : '中文'}参考音频`);
+    console.log(`[TTS] Mimo 使用${isEn ? '英文' : '中文'}参考音频 (预设:${pid || '默认'})`);
     const res = await fetchWithTimeout('https://api.xiaomimimo.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'api-key': settings.mimoKey, 'Content-Type': 'application/json' },
