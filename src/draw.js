@@ -2389,7 +2389,39 @@ async function restoreTaskCards(){
     promptEl.onclick=()=>{expanded=!expanded;promptEl.textContent=expanded?t.prompt:promptShort;promptEl.style.webkitLineClamp=expanded?'unset':'2'};
     taskWrap.querySelector('.draw-task-del').onclick=()=>{taskWrap.remove();db.del('tasks',t.id);_updateClearBtn()};
     taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(t.prompt).then(()=>toast('Prompt已复制 ✓'));
-    taskWrap.querySelector('.draw-task-reroll').onclick=()=>_runDrawTask(t.prompt,t.negPrompt,t.size,t.n,null,taskWrap,null,t.styles,t.styleRefName||null);
+    taskWrap.querySelector('.draw-task-reroll').onclick=()=>{
+      const existingEdit=taskWrap.querySelector('.draw-task-edit');
+      if(existingEdit){existingEdit.remove();return;}
+      const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}">🖼️ ${sr.name}</option>`).join('');
+      const activeId=S.styleRefs.find(r=>r.name===t.styleRefName)?.id||'';
+      const editDiv=document.createElement('div');
+      editDiv.className='draw-task-edit';
+      editDiv.innerHTML=`
+        <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${t.prompt}</textarea></div>
+        <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${t.negPrompt||''}</textarea></div>
+        <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
+        <div class="dte-actions">
+          <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${t.n}"></label>
+          <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
+          <button class="btn-sm btn-outline dte-cancel">取消</button>
+        </div>`;
+      taskWrap.querySelector('.draw-task-header').after(editDiv);
+      editDiv.querySelector('.dte-styleref').value=activeId;
+      editDiv.querySelector('.dte-cancel').onclick=()=>editDiv.remove();
+      editDiv.querySelector('.dte-confirm').onclick=()=>{
+        const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
+        const newNeg=editDiv.querySelector('.dte-neg').value.trim();
+        const newN=Math.max(1,Math.min(20,parseInt(editDiv.querySelector('.dte-count').value)||1));
+        const newSrId=editDiv.querySelector('.dte-styleref').value;
+        const oldSrImages=(S.styleRefs.find(r=>r.name===t.styleRefName)?.images)||[];
+        const baseRefs=(t.refs||[]).filter(r=>!oldSrImages.includes(r));
+        const newSr=S.styleRefs.find(r=>r.id===newSrId);
+        const newRefs=newSr?[...baseRefs,...newSr.images]:baseRefs;
+        editDiv.remove();
+        _runDrawTask(newPrompt||t.prompt,newNeg,t.size,newN,newRefs,taskWrap,null,t.styles,newSr?.name||null);
+      };
+      editDiv.querySelector('.dte-pos').focus();
+    };
     res.appendChild(taskWrap);
   }
   _updateClearBtn();
