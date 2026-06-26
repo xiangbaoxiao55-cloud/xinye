@@ -11,7 +11,7 @@
 <!-- 顶栏 -->
 <div id="topbar">
   <div class="topbar-left">
-    <a href="javascript:void(0)" class="topbar-back" title="回画图台" onclick="window.history.length>1?window.history.back():window.close()">←</a>
+    <a href="./draw.html" class="topbar-back" title="回画图台">←</a>
     <input id="project-name" class="topbar-title" value="未命名项目" spellcheck="false">
     <span id="save-status" class="save-ok">已保存</span>
   </div>
@@ -27,6 +27,7 @@
 <!-- 画布区域 -->
 <div id="canvas-wrap">
   <div id="canvas">
+    <div id="selection-box" class="hidden"></div>
     <!-- cards will be added here -->
   </div>
 </div>

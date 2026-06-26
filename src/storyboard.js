@@ -35,6 +35,8 @@ const db = new SBDatabase();
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const ts = () => new Date().toTimeString().slice(0,8);
 
+let _lastDragEnd = 0;
+
 let S = {
   projectId: null,
   projectName: '未命名项目',
@@ -47,18 +49,20 @@ let S = {
   panX: 0, panY: 0, zoom: 1,
   isPanning: false, panStartX: 0, panStartY: 0,
   isDragging: false, dragCard: null, dragOffX: 0, dragOffY: 0,
-  selectedCardId: null,
+  selectedIds: [],
   ctxCardId: null,
   spaceHeld: false,
+  isBoxSelecting: false, boxStartX: 0, boxStartY: 0,
 };
 
 const SB_SIZES = [
-  {v:'512x512',l:'512²'},{v:'768x768',l:'768²'},{v:'1024x1024',l:'1024²'},
-  {v:'1024x1536',l:'竖'},{v:'1536x1024',l:'横'},
-  {v:'720x1280',l:'竖16:9'},{v:'1280x720',l:'横16:9'},
-  {v:'1024x1792',l:'竖长'},{v:'1792x1024',l:'横长'},
-  {v:'1152x2048',l:'竖2K'},{v:'1536x2048',l:'竖2K²'},{v:'2048x1152',l:'横2K'},
-  {v:'2048x1536',l:'横2K²'},{v:'2048x2048',l:'2048²'},
+  {v:'512x512',l:'512×512'},{v:'768x768',l:'768×768'},{v:'1024x1024',l:'1024×1024'},
+  {v:'1024x1536',l:'1024×1536 竖'},{v:'1536x1024',l:'1536×1024 横'},
+  {v:'720x1280',l:'720×1280 竖16:9'},{v:'1280x720',l:'1280×720 横16:9'},
+  {v:'1024x1792',l:'1024×1792 竖长'},{v:'1792x1024',l:'1792×1024 横长'},
+  {v:'1152x2048',l:'1152×2048 竖2K'},{v:'1536x2048',l:'1536×2048 竖2K'},
+  {v:'2048x1152',l:'2048×1152 横2K'},{v:'2048x1536',l:'2048×1536 横2K'},
+  {v:'2048x2048',l:'2048×2048'},
 ];
 
 // ── Init ─────────────────────────────────────────────────────────
@@ -160,8 +164,18 @@ function onCanvasPointerDown(e) {
     return;
   }
   if (e.button === 0 && !e.target.closest('.sb-card')) {
-    S.selectedCardId = null;
-    document.querySelectorAll('.sb-card.selected').forEach(el => el.classList.remove('selected'));
+    S.isBoxSelecting = true;
+    const pos = screenToCanvas(e.clientX, e.clientY);
+    S.boxStartX = pos.x; S.boxStartY = pos.y;
+    if (!e.shiftKey) {
+      S.selectedIds = [];
+      document.querySelectorAll('.sb-card.selected').forEach(el => el.classList.remove('selected'));
+    }
+    const box = document.getElementById('selection-box');
+    box.style.left = pos.x + 'px'; box.style.top = pos.y + 'px';
+    box.style.width = '0'; box.style.height = '0';
+    box.classList.remove('hidden');
+    e.preventDefault();
   }
 }
 
@@ -172,18 +186,25 @@ function onCanvasPointerMove(e) {
     applyTransform();
     return;
   }
-  if (S.isDragging && S.dragCard) {
+  if (S.isBoxSelecting) {
     const pos = screenToCanvas(e.clientX, e.clientY);
-    const card = S.cards.find(c => c.id === S.dragCard);
-    if (card) {
-      card.x = pos.x - S.dragOffX;
-      card.y = pos.y - S.dragOffY;
+    const bx = Math.min(S.boxStartX, pos.x), by = Math.min(S.boxStartY, pos.y);
+    const bw = Math.abs(pos.x - S.boxStartX), bh = Math.abs(pos.y - S.boxStartY);
+    const box = document.getElementById('selection-box');
+    box.style.left = bx + 'px'; box.style.top = by + 'px';
+    box.style.width = bw + 'px'; box.style.height = bh + 'px';
+    const sel = [];
+    for (const card of S.cards) {
+      if (!card.imageData) continue;
       const el = document.querySelector(`.sb-card[data-id="${card.id}"]`);
-      if (el) {
-        el.style.left = card.x + 'px';
-        el.style.top = card.y + 'px';
-      }
+      if (!el) continue;
+      const cw = el.offsetWidth, ch = el.offsetHeight;
+      const hit = !(card.x + cw < bx || card.x > bx + bw || card.y + ch < by || card.y > by + bh);
+      if (hit) { sel.push(card.id); el.classList.add('selected'); }
+      else el.classList.remove('selected');
     }
+    S.selectedIds = sel;
+    return;
   }
 }
 
@@ -192,6 +213,12 @@ function onCanvasPointerUp(e) {
     S.isPanning = false;
     $wrap().classList.remove('grabbing');
     scheduleSave();
+    return;
+  }
+  if (S.isBoxSelecting) {
+    S.isBoxSelecting = false;
+    document.getElementById('selection-box').classList.add('hidden');
+    if (S.selectedIds.length) toast(`选中 ${S.selectedIds.length} 张图片，右键可「以此生图」`);
     return;
   }
   if (S.isDragging) {
@@ -422,16 +449,28 @@ function renderCard(card) {
   $canvas().appendChild(el);
 }
 
+function normalizeRefs(card) {
+  if (!card.refImageData) return [];
+  return Array.isArray(card.refImageData) ? card.refImageData : [card.refImageData];
+}
+
 function renderCardIdle(el, card) {
   const presetOpts = S.drawPresets.map(p =>
     `<option value="${p.id}"${p.id === S.curDrawId ? ' selected' : ''}>${p.name}</option>`
   ).join('');
 
-  const refThumb = card.refImageData ? `<div class="sb-ref-thumb"><img src="${card.refImageData}" alt="参考"><button class="sb-ref-remove" title="移除参考">✕</button></div>` : '';
+  const refs = normalizeRefs(card);
+  let refHtml = '';
+  if (refs.length === 1) {
+    refHtml = `<div class="sb-ref-thumb"><img src="${refs[0]}" alt="参考"><button class="sb-ref-remove" title="移除参考">✕</button></div>`;
+  } else if (refs.length > 1) {
+    refHtml = `<div class="sb-ref-strip">${refs.map((r,i) => `<img src="${r}" alt="参考${i+1}">`).join('')}<button class="sb-ref-remove" title="移除全部参考">✕</button></div>`;
+  }
+
   el.innerHTML = `
     <div class="sb-card-placeholder">
-      ${refThumb || '<div class="icon">🖼</div>'}
-      <span>${card.refImageData ? '参考图已加载' : '双击或输入prompt'}</span>
+      ${refHtml || '<div class="icon">🖼</div>'}
+      <span>${refs.length ? '参考图 ×' + refs.length : '双击或输入prompt'}</span>
     </div>
     <div class="sb-card-prompt">
       <textarea placeholder="描述你想要的画面...">${card.prompt || ''}</textarea>
@@ -491,7 +530,8 @@ function renderCardDone(el, card) {
     </div>`;
 
   el.querySelector('img').addEventListener('click', e => {
-    if (!S.isDragging) openLightbox(card.imageData);
+    if (Date.now() - _lastDragEnd < 300) return;
+    openLightbox(card.imageData);
   });
 
   el.querySelector('.sb-card-info-prompt').addEventListener('click', () => {
@@ -513,9 +553,11 @@ function initCardDrag(el, card) {
     if (e.button !== 0) return;
     if (S.spaceHeld) return;
 
-    S.selectedCardId = card.id;
-    document.querySelectorAll('.sb-card.selected').forEach(x => x.classList.remove('selected'));
-    el.classList.add('selected');
+    if (!S.selectedIds.includes(card.id)) {
+      S.selectedIds = [card.id];
+      document.querySelectorAll('.sb-card.selected').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    }
 
     const pos = screenToCanvas(e.clientX, e.clientY);
     S.dragOffX = pos.x - card.x;
@@ -544,6 +586,7 @@ function initCardDrag(el, card) {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       if (moved) {
+        _lastDragEnd = Date.now();
         S.isDragging = false;
         S.dragCard = null;
         el.classList.remove('dragging');
@@ -573,7 +616,7 @@ async function doGenerate(card, el) {
 
   try {
     const presetId = el.querySelector('.p-preset')?.value || S.curDrawId;
-    const refs = card.refImageData ? [card.refImageData] : [];
+    const refs = normalizeRefs(card);
     const imageData = await drawWithFallback(card.prompt, card.negPrompt, card.size, presetId, refs);
     card.imageData = imageData;
     card.status = 'done';
@@ -803,17 +846,22 @@ function initContextMenus() {
           renderCardUpdate(card, el);
         }
       } else if (action === 'gen-from') {
-        if (card.imageData) {
+        const selWithImg = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData);
+        const refSources = selWithImg.length > 0 ? selWithImg : (card.imageData ? [card] : []);
+        if (refSources.length) {
+          const refImages = refSources.map(c => c.imageData);
+          const last = refSources[refSources.length - 1];
           const newCard = {
             id: uid(), projectId: S.projectId, type: 'generate',
-            x: card.x + 30, y: card.y + (card.height || 280) + 20,
-            width: 280, prompt: card.prompt || '', negPrompt: '',
+            x: last.x + 30, y: last.y + (last.height || 280) + 20,
+            width: 280, prompt: '', negPrompt: '',
             size: card.size || S.defaultSize, imageData: null, status: 'idle',
-            refImageData: card.imageData, createdAt: Date.now(),
+            refImageData: refImages, createdAt: Date.now(),
           };
           S.cards.push(newCard);
           renderCard(newCard);
           scheduleSave();
+          toast(`已加载 ${refImages.length} 张参考图`);
         }
       } else if (action === 'duplicate') {
         const dup = { ...card, id: uid(), x: card.x + 30, y: card.y + 30 };
@@ -850,7 +898,10 @@ function showCardContextMenu(x, y, cardId) {
   const card = S.cards.find(c => c.id === cardId);
   menu.querySelector('[data-action="download"]').style.display = card?.imageData ? '' : 'none';
   menu.querySelector('[data-action="regenerate"]').style.display = card?.type === 'generate' ? '' : 'none';
-  menu.querySelector('[data-action="gen-from"]').style.display = card?.imageData ? '' : 'none';
+  const selCount = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).length;
+  const genBtn = menu.querySelector('[data-action="gen-from"]');
+  genBtn.style.display = (card?.imageData || selCount > 0) ? '' : 'none';
+  genBtn.textContent = selCount > 1 ? `🎨 以 ${selCount} 张图生图` : '🎨 以此生图';
 }
 
 function clampMenuPosition(menu) {
@@ -920,8 +971,9 @@ function initKeyboard() {
       hideAllMenus();
       document.getElementById('modal-settings').classList.add('hidden');
     }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && S.selectedCardId && !e.target.closest('textarea, input')) {
-      deleteCard(S.selectedCardId);
+    if ((e.key === 'Delete' || e.key === 'Backspace') && S.selectedIds.length && !e.target.closest('textarea, input')) {
+      [...S.selectedIds].forEach(id => deleteCard(id));
+      S.selectedIds = [];
     }
   });
 
@@ -937,7 +989,7 @@ function deleteCard(id) {
   S.cards = S.cards.filter(c => c.id !== id);
   const el = document.querySelector(`.sb-card[data-id="${id}"]`);
   if (el) el.remove();
-  if (S.selectedCardId === id) S.selectedCardId = null;
+  S.selectedIds = S.selectedIds.filter(x => x !== id);
   db.del('cards', id);
   scheduleSave();
 }
