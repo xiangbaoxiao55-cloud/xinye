@@ -1884,18 +1884,25 @@ async function exportFullDB(){
   const btn=document.getElementById('btn-export-full');
   if(btn){btn.disabled=true;btn.textContent='⏳ 导出中…'}
   try{
-    const data={_app:'draw-full',_v:1,_date:new Date().toISOString().slice(0,16).replace('T',' '),
+    const meta={_app:'draw-full',_v:1,_date:new Date().toISOString().slice(0,16).replace('T',' '),
       drawPresets:S.drawPresets,curDrawId:S.curDrawId,
       masterPresets:S.masterPresets,curMasterId:S.curMasterId,
       curPersonaId:S.curPersonaId,
     };
+    const parts=[JSON.stringify(meta).slice(0,-1)];
     const counts=[];
     for(const store of FULL_STORES){
       const rows=await db.all(store);
-      data[store]=rows;
       if(rows.length) counts.push(`${store}(${rows.length})`);
+      parts.push(`,"${store}":[`);
+      for(let i=0;i<rows.length;i++){
+        if(i) parts.push(',');
+        parts.push(JSON.stringify(rows[i]));
+      }
+      parts.push(']');
     }
-    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    parts.push('}');
+    const blob=new Blob(parts,{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
     a.download=`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`;
