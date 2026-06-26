@@ -159,6 +159,8 @@ textarea:focus{border-color:var(--purple)}
 .dte-row label{font-size:11px;color:var(--sub)}
 .dte-row textarea{font-size:12px;line-height:1.5;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);padding:6px 8px;resize:vertical;outline:none;font-family:inherit}
 .dte-row textarea:focus{border-color:var(--purple)}
+.dte-row select{font-size:12px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);padding:5px 8px;outline:none;width:100%;cursor:pointer}
+.dte-row select:focus{border-color:var(--purple)}
 .dte-actions{display:flex;gap:6px;align-items:center}
 .dte-count-label{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--sub);margin-right:2px}
 .dte-count{width:44px;font-size:12px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);padding:4px 6px;text-align:center;outline:none}

@@ -206,11 +206,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
 
   const promptEl=taskWrap.querySelector('.draw-task-prompt');
   let expanded=false;
-  promptEl.onclick=()=>{
-    expanded=!expanded;
-    promptEl.textContent=expanded?prompt:promptShort;
-    promptEl.style.webkitLineClamp=expanded?'unset':'2';
-  };
+  // onclick 在 try 块内用 fullPrompt 重新绑定（含画风前缀），这里先占位
   taskWrap.querySelector('.draw-task-reroll').onclick=()=>{
     // 已有编辑区则关掉（toggle）
     const existingEdit=taskWrap.querySelector('.draw-task-edit');
@@ -282,7 +278,14 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
           ? `Use the last reference image(s) as art style guide. Style: ${activeStyleRef.description}. Do not copy their composition or content. `
           : 'Use the last reference image(s) as art style guide only, do not copy their composition or content. ')
       : '';
-    const jobs=Array.from({length:n},()=>_doSingleDraw(styleRefPrefix+prompt,negPrompt,size,refs));
+    const fullPrompt=styleRefPrefix+prompt;
+    // 更新展开后显示完整 prompt（含画风前缀）
+    promptEl.onclick=()=>{
+      expanded=!expanded;
+      promptEl.textContent=expanded?fullPrompt:promptShort;
+      promptEl.style.webkitLineClamp=expanded?'unset':'2';
+    };
+    const jobs=Array.from({length:n},()=>_doSingleDraw(fullPrompt,negPrompt,size,refs));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
     let done=0;
