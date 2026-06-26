@@ -745,6 +745,37 @@ function renderStyleRefList(){
       S.curStyleRefId=(S.curStyleRefId===sr.id)?null:sr.id;
       renderStyleRefStrip();renderStyleRefList();
     };
+    const editBtn=document.createElement('button');
+    editBtn.className='btn-tiny';editBtn.textContent='✏️';editBtn.title='编辑名称和描述';
+    editBtn.onclick=()=>{
+      // 切换为内联编辑
+      const nameInput=document.createElement('input');
+      nameInput.value=sr.name;
+      nameInput.style.cssText='font-size:12px;width:80px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text)';
+      const descInput=document.createElement('input');
+      descInput.value=sr.description||'';
+      descInput.placeholder='风格描述（空=通用提示）';
+      descInput.style.cssText='font-size:11px;width:130px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text)';
+      const okBtn=document.createElement('button');
+      okBtn.className='btn-tiny';okBtn.textContent='✓';okBtn.title='保存';
+      okBtn.onclick=async()=>{
+        const newName=nameInput.value.trim();
+        if(!newName){toast('名称不能为空','warn');return;}
+        sr.name=newName;sr.description=descInput.value.trim();
+        await db.put('styleRefs',sr);
+        S.styleRefs=await db.all('styleRefs');
+        renderStyleRefStrip();renderStyleRefList();
+        toast('已保存 ✓');
+      };
+      const cancelBtn=document.createElement('button');
+      cancelBtn.className='btn-tiny';cancelBtn.textContent='✕';cancelBtn.title='取消';
+      cancelBtn.onclick=()=>renderStyleRefList();
+      info.innerHTML='';
+      info.style.cssText='flex:1;display:flex;flex-direction:column;gap:3px;min-width:0';
+      info.append(nameInput,descInput);
+      el.innerHTML='';
+      el.append(thumbs,info,okBtn,cancelBtn);
+    };
     const delBtn=document.createElement('button');
     delBtn.className='btn-tiny';delBtn.textContent='🗑';delBtn.title='删除';
     delBtn.onclick=async()=>{
@@ -753,7 +784,7 @@ function renderStyleRefList(){
       renderStyleRefStrip();renderStyleRefList();
       toast('已删除');
     };
-    el.append(thumbs,info,useBtn,delBtn);
+    el.append(thumbs,info,useBtn,editBtn,delBtn);
     list.appendChild(el);
   });
 }
