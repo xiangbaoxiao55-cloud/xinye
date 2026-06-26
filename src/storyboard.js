@@ -522,7 +522,7 @@ function renderCardLoading(el, card) {
 function renderCardDone(el, card) {
   el.innerHTML = `
     <div class="sb-card-image">
-      <img src="${card.imageData}" alt="">
+      <img src="${card.imageData}" alt="" draggable="false">
     </div>
     <div class="sb-card-info">
       <span class="sb-card-info-prompt" title="${(card.prompt || '').replace(/"/g, '&quot;')}">${truncate(card.prompt, 40)}</span>
@@ -546,6 +546,7 @@ function truncate(s, n) {
 
 // ── Card Drag ────────────────────────────────────────────────────
 function initCardDrag(el, card) {
+  el.addEventListener('dragstart', e => e.preventDefault());
   let startX, startY, moved;
 
   el.addEventListener('pointerdown', e => {
