@@ -276,7 +276,12 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   };
 
   try{
-    const styleRefPrefix=styleRefName?'Use the last reference image(s) as art style guide only, do not copy their composition or content. ':'';
+    const activeStyleRef=getActiveStyleRef();
+    const styleRefPrefix=activeStyleRef
+      ? (activeStyleRef.description
+          ? `Use the last reference image(s) as art style guide. Style: ${activeStyleRef.description}. Do not copy their composition or content. `
+          : 'Use the last reference image(s) as art style guide only, do not copy their composition or content. ')
+      : '';
     const jobs=Array.from({length:n},()=>_doSingleDraw(styleRefPrefix+prompt,negPrompt,size,refs));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
@@ -602,8 +607,8 @@ function getAllRefs(){
 async function loadStyleRefs(){
   S.styleRefs=await db.all('styleRefs');
 }
-async function saveStyleRef(name,images){
-  const item={id:uid(),name,images,createdAt:Date.now()};
+async function saveStyleRef(name,images,description=''){
+  const item={id:uid(),name,images,description,createdAt:Date.now()};
   await db.put('styleRefs',item);
   S.styleRefs=await db.all('styleRefs');
   return item;
@@ -675,11 +680,13 @@ function renderNewStyleRefPreview(){
 
 async function confirmSaveStyleRef(){
   const name=(document.getElementById('new-style-ref-name').value||'').trim();
+  const desc=(document.getElementById('new-style-ref-desc').value||'').trim();
   if(!name){toast('请填写套装名称','warn');return}
   if(!_pendingStyleRefB64s||!_pendingStyleRefB64s.length){toast('请选择至少1张参考图','warn');return}
-  const item=await saveStyleRef(name,[..._pendingStyleRefB64s]);
+  const item=await saveStyleRef(name,[..._pendingStyleRefB64s],desc);
   _pendingStyleRefB64s=[];
   document.getElementById('new-style-ref-name').value='';
+  document.getElementById('new-style-ref-desc').value='';
   document.getElementById('new-style-ref-preview').innerHTML='';
   document.getElementById('new-style-ref-input').value='';
   toast(`画风参考"${name}"已保存 ✨`);
@@ -691,6 +698,7 @@ async function confirmSaveStyleRef(){
 function openStyleRefModal(){
   _pendingStyleRefB64s=[];
   document.getElementById('new-style-ref-name').value='';
+  document.getElementById('new-style-ref-desc').value='';
   document.getElementById('new-style-ref-preview').innerHTML='';
   document.getElementById('new-style-ref-input').value='';
   renderStyleRefList();
@@ -717,10 +725,19 @@ function renderStyleRefList(){
       img.onclick=()=>{const w=window.open();w.document.write(`<img src="${b64}" style="max-width:100%;max-height:100vh">`)}
       thumbs.appendChild(img);
     });
-    const info=document.createElement('span');
-    info.style.cssText='flex:1;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
-    info.textContent=sr.name+(S.curStyleRefId===sr.id?' ✓':'');
-    if(S.curStyleRefId===sr.id) info.style.color='var(--accent)';
+    const info=document.createElement('div');
+    info.style.cssText='flex:1;font-size:12px;overflow:hidden;min-width:0';
+    const nameRow=document.createElement('div');
+    nameRow.style.cssText='overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+    nameRow.textContent=sr.name+(S.curStyleRefId===sr.id?' ✓':'');
+    if(S.curStyleRefId===sr.id) nameRow.style.color='var(--accent)';
+    info.appendChild(nameRow);
+    if(sr.description){
+      const descRow=document.createElement('div');
+      descRow.style.cssText='font-size:11px;color:var(--sub);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:1px';
+      descRow.textContent=sr.description;
+      info.appendChild(descRow);
+    }
     const useBtn=document.createElement('button');
     useBtn.className='btn-tiny';
     useBtn.textContent=S.curStyleRefId===sr.id?'已激活':'使用';
