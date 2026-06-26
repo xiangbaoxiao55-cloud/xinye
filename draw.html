@@ -366,6 +366,10 @@
       <div style="font-size:11px;color:var(--sub);margin-top:4px">填了之后，API返回URL格式图片时会走代理，避免CORS失败</div>
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btn-export-full" class="btn-outline">📦 导出全部数据</button>
+      <label class="btn-outline" style="cursor:pointer">📦 导入全部数据<input type="file" id="input-import-full" accept=".json" style="display:none"></label>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="btn-import-settings" class="btn-outline">从主App导入</button>
       <button id="btn-export-config" class="btn-outline">导出配置</button>
       <label class="btn-outline" style="cursor:pointer">导入配置<input type="file" id="input-import-config" accept=".json" style="display:none"></label>

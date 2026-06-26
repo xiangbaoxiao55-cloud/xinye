@@ -1877,6 +1877,59 @@ async function importConfig(file){
   }catch(e){toast('导入失败：'+e.message,'error')}
 }
 
+// ── Full DB Export / Import (跨域迁移) ─────────────────────────
+const FULL_STORES=['gallery','styleRefs','tasks','settings','personas','tokens','templates','styles'];
+
+async function exportFullDB(){
+  const btn=document.getElementById('btn-export-full');
+  if(btn){btn.disabled=true;btn.textContent='⏳ 导出中…'}
+  try{
+    const data={_app:'draw-full',_v:1,_date:new Date().toISOString().slice(0,16).replace('T',' '),
+      drawPresets:S.drawPresets,curDrawId:S.curDrawId,
+      masterPresets:S.masterPresets,curMasterId:S.curMasterId,
+      curPersonaId:S.curPersonaId,
+    };
+    const counts=[];
+    for(const store of FULL_STORES){
+      const rows=await db.all(store);
+      data[store]=rows;
+      if(rows.length) counts.push(`${store}(${rows.length})`);
+    }
+    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();URL.revokeObjectURL(a.href);
+    toast(`全部数据已导出 ✓\n${counts.join('、')}`);
+  }catch(e){toast('导出失败：'+e.message,'error')}
+  finally{if(btn){btn.disabled=false;btn.textContent='📦 导出全部数据'}}
+}
+
+async function importFullDB(file){
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(data._app!=='draw-full') throw new Error('不是画图台完整备份文件');
+    if(data.drawPresets?.length){S.drawPresets=data.drawPresets;S.curDrawId=data.curDrawId||data.drawPresets[0]?.id}
+    if(data.masterPresets?.length){S.masterPresets=data.masterPresets;S.curMasterId=data.curMasterId||data.masterPresets[0]?.id}
+    if(data.curPersonaId) S.curPersonaId=data.curPersonaId;
+    const counts=[];
+    for(const store of FULL_STORES){
+      const rows=data[store];
+      if(!Array.isArray(rows)||!rows.length) continue;
+      let n=0;
+      for(const row of rows){await db.put(store,row);n++}
+      counts.push(`${store}(${n})`);
+    }
+    savePresetsToLS();
+    loadCfg();
+    await loadPersonas();
+    await renderTokens();
+    renderDrawPresets();renderMasterPresets();
+    toast(`全部数据已导入 ✓（${data._date||''}）\n${counts.join('、')}`);
+  }catch(e){toast('导入失败：'+e.message,'error')}
+}
+
 // ── Tab & Modal ───────────────────────────────────────────────
 function switchTab(tab){
   document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
@@ -2271,6 +2324,8 @@ function bindEvents(){
   document.getElementById('btn-import-settings').onclick=importFromApp;
   document.getElementById('btn-export-config').onclick=exportConfig;
   document.getElementById('input-import-config').onchange=e=>{const f=e.target.files[0];if(f){importConfig(f);e.target.value=''}};
+  document.getElementById('btn-export-full').onclick=exportFullDB;
+  document.getElementById('input-import-full').onchange=e=>{const f=e.target.files[0];if(f){importFullDB(f);e.target.value=''}};
   document.getElementById('btn-add-draw-preset').onclick=addDrawPreset;
   document.getElementById('btn-add-master-preset').onclick=addMasterPreset;
   document.getElementById('btn-clear-master-chat').onclick=()=>{
