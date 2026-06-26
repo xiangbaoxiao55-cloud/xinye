@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>故事板</title>
+<link rel="stylesheet" href="./src/styles/storyboard.css">
+</head>
+<body>
+
+<!-- 顶栏 -->
+<div id="topbar">
+  <div class="topbar-left">
+    <a href="javascript:void(0)" class="topbar-back" title="回画图台" onclick="window.history.length>1?window.history.back():window.close()">←</a>
+    <input id="project-name" class="topbar-title" value="未命名项目" spellcheck="false">
+    <span id="save-status" class="save-ok">已保存</span>
+  </div>
+  <div class="topbar-right">
+    <button id="btn-fit" title="适应画布">⊡</button>
+    <button id="btn-settings" title="设置">⚙</button>
+    <span id="zoom-label">100%</span>
+    <button id="btn-zoom-out" title="缩小">−</button>
+    <button id="btn-zoom-in" title="放大">＋</button>
+  </div>
+</div>
+
+<!-- 画布区域 -->
+<div id="canvas-wrap">
+  <div id="canvas">
+    <!-- cards will be added here -->
+  </div>
+</div>
+
+<!-- 浮动按钮 -->
+<div id="fab-group">
+  <button id="fab-add" class="fab" title="添加生成卡片">＋</button>
+  <button id="fab-upload" class="fab fab-sm" title="上传图片">📷</button>
+  <button id="fab-text" class="fab fab-sm" title="添加文本">T</button>
+</div>
+
+<!-- 右键菜单（画布空白处） -->
+<div id="ctx-menu" class="hidden">
+  <button data-action="generate">🎨 生成图片</button>
+  <button data-action="upload">📷 上传图片</button>
+  <button data-action="text">📝 文本卡片</button>
+</div>
+
+<!-- 卡片右键菜单 -->
+<div id="card-ctx-menu" class="hidden">
+  <button data-action="regenerate">🔄 重新生成</button>
+  <button data-action="edit-prompt">✏️ 编辑</button>
+  <button data-action="gen-from">🎨 以此生图</button>
+  <button data-action="duplicate">📋 复制</button>
+  <button data-action="download">💾 下载</button>
+  <hr>
+  <button data-action="delete">🗑 删除</button>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="hidden">
+  <img id="lb-img" src="">
+  <button id="lb-close">✕</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- 设置弹窗 -->
+<div id="modal-settings" class="modal hidden">
+  <div class="modal-box">
+    <h3>设置 <button class="modal-close" onclick="document.getElementById('modal-settings').classList.add('hidden')">✕</button></h3>
+    <div class="form-group">
+      <label>画图预设 <small>（与画图台共享）</small></label>
+      <div id="settings-presets-info" class="settings-info"></div>
+    </div>
+    <div class="form-group">
+      <label>本地服务器</label>
+      <input id="settings-local-server" class="input" placeholder="http://192.168.1.59:8787">
+    </div>
+    <div class="form-group">
+      <label>默认尺寸</label>
+      <select id="settings-default-size" class="input">
+        <option value="512x512">512×512</option>
+        <option value="768x768">768×768</option>
+        <option value="1024x1024">1024×1024</option>
+        <option value="1024x1536">1024×1536 竖</option>
+        <option value="1536x1024">1536×1024 横</option>
+        <option value="720x1280">720×1280 竖16:9</option>
+        <option value="1280x720">1280×720 横16:9</option>
+        <option value="1024x1792">1024×1792 竖长</option>
+        <option value="1792x1024">1792×1024 横长</option>
+        <option value="1152x2048">1152×2048 竖2K</option>
+        <option value="1536x2048">1536×2048 竖2K</option>
+        <option value="2048x1152">2048×1152 横2K</option>
+        <option value="2048x1536">2048×1536 横2K</option>
+        <option value="2048x2048">2048×2048</option>
+      </select>
+    </div>
+    <button onclick="saveSettings()" class="btn-primary" style="width:100%;margin-top:12px">保存</button>
+  </div>
+</div>
+
+<input type="file" id="file-upload" accept="image/*" multiple style="display:none">
+
+<script src="./src/storyboard.js"></script>
+</body>
+</html>
