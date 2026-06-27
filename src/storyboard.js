@@ -906,6 +906,16 @@ function initContextMenus() {
           scheduleSave();
           toast(`已加载 ${refImages.length} 张参考图`);
         }
+      } else if (action === 'add-refs') {
+        const refs = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData && c.id !== card.id)
+          .map(c => c.imageData);
+        if (refs.length && card.type === 'generate') {
+          card.refImageData = refs;
+          card.status = 'idle';
+          renderCardUpdate(card, el);
+          scheduleSave();
+          toast(`已添加 ${refs.length} 张参考图`);
+        }
       } else if (action === 'duplicate') {
         const dup = { ...card, id: uid(), x: card.x + 30, y: card.y + 30 };
         S.cards.push(dup);
@@ -941,10 +951,16 @@ function showCardContextMenu(x, y, cardId) {
   const card = S.cards.find(c => c.id === cardId);
   menu.querySelector('[data-action="download"]').style.display = card?.imageData ? '' : 'none';
   menu.querySelector('[data-action="regenerate"]').style.display = card?.type === 'generate' ? '' : 'none';
-  const selCount = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).length;
+  const selWithImg = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData && c.id !== cardId);
+  const selCount = selWithImg.length;
   const genBtn = menu.querySelector('[data-action="gen-from"]');
   genBtn.style.display = (card?.imageData || selCount > 0) ? '' : 'none';
   genBtn.textContent = selCount > 1 ? `🎨 以 ${selCount} 张图生图` : '🎨 以此生图';
+
+  const addRefsBtn = menu.querySelector('[data-action="add-refs"]');
+  const isTarget = card?.type === 'generate';
+  addRefsBtn.style.display = (selCount > 0 && isTarget) ? '' : 'none';
+  if (selCount > 0) addRefsBtn.textContent = `📌 将 ${selCount} 张图设为参考图`;
 }
 
 function clampMenuPosition(menu) {
