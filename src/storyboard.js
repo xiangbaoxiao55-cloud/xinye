@@ -180,6 +180,7 @@ function onCanvasPointerDown(e) {
       S.selectedIds = [];
       document.querySelectorAll('.sb-card.selected').forEach(el => el.classList.remove('selected'));
     }
+    S._boxPriorSel = [...S.selectedIds];
     const box = document.getElementById('selection-box');
     box.style.left = pos.x + 'px'; box.style.top = pos.y + 'px';
     box.style.width = '0'; box.style.height = '0';
@@ -202,17 +203,17 @@ function onCanvasPointerMove(e) {
     const box = document.getElementById('selection-box');
     box.style.left = bx + 'px'; box.style.top = by + 'px';
     box.style.width = bw + 'px'; box.style.height = bh + 'px';
-    const sel = [];
+    const boxSel = new Set(S._boxPriorSel || []);
     for (const card of S.cards) {
       if (!card.imageData) continue;
       const el = document.querySelector(`.sb-card[data-id="${card.id}"]`);
       if (!el) continue;
       const cw = el.offsetWidth, ch = el.offsetHeight;
       const hit = !(card.x + cw < bx || card.x > bx + bw || card.y + ch < by || card.y > by + bh);
-      if (hit) { sel.push(card.id); el.classList.add('selected'); }
-      else el.classList.remove('selected');
+      if (hit) { boxSel.add(card.id); el.classList.add('selected'); }
+      else if (!S._boxPriorSel?.includes(card.id)) { boxSel.delete(card.id); el.classList.remove('selected'); }
     }
-    S.selectedIds = sel;
+    S.selectedIds = [...boxSel];
     return;
   }
 }
@@ -227,7 +228,7 @@ function onCanvasPointerUp(e) {
   if (S.isBoxSelecting) {
     S.isBoxSelecting = false;
     document.getElementById('selection-box').classList.add('hidden');
-    if (S.selectedIds.length) toast(`选中 ${S.selectedIds.length} 张图片，右键可「以此生图」`);
+    if (S.selectedIds.length) toast(`选中 ${S.selectedIds.length} 张图片（Shift+框选可追加）`);
     return;
   }
   if (S.isDragging) {
@@ -569,7 +570,15 @@ function initCardDrag(el, card) {
     if (e.button !== 0) return;
     if (S.spaceHeld) return;
 
-    if (!S.selectedIds.includes(card.id)) {
+    if (e.shiftKey) {
+      if (S.selectedIds.includes(card.id)) {
+        S.selectedIds = S.selectedIds.filter(id => id !== card.id);
+        el.classList.remove('selected');
+      } else {
+        S.selectedIds.push(card.id);
+        el.classList.add('selected');
+      }
+    } else if (!S.selectedIds.includes(card.id)) {
       S.selectedIds = [card.id];
       document.querySelectorAll('.sb-card.selected').forEach(x => x.classList.remove('selected'));
       el.classList.add('selected');
