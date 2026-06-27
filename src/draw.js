@@ -1923,28 +1923,90 @@ async function exportFullDB(){
 }
 
 async function importFullDB(file){
+  const btn=document.getElementById('btn-import-full');
+  if(btn){btn.disabled=true;btn.textContent='⏳ 导入中…'}
   try{
-    const text=await file.text();
-    const data=JSON.parse(text);
-    if(data._app!=='draw-full') throw new Error('不是画图台完整备份文件');
-    if(data.drawPresets?.length){S.drawPresets=data.drawPresets;S.curDrawId=data.curDrawId||data.drawPresets[0]?.id}
-    if(data.masterPresets?.length){S.masterPresets=data.masterPresets;S.curMasterId=data.curMasterId||data.masterPresets[0]?.id}
-    if(data.curPersonaId) S.curPersonaId=data.curPersonaId;
+    // 流式解析：用 ReadableStream 逐块读取，手动解析 JSON 顶层结构
+    // 避免 file.text() + JSON.parse 把 1G+ 文件整个加载到 JS 堆
+    const stream=file.stream();
+    const reader=stream.getReader();
+    const decoder=new TextDecoder();
+    let buf='',metaParsed=false,metaObj=null;
     const counts=[];
-    for(const store of FULL_STORES){
-      const rows=data[store];
-      if(!Array.isArray(rows)||!rows.length) continue;
-      let n=0;
-      for(const row of rows){await db.put(store,row);n++}
-      counts.push(`${store}(${n})`);
+    // 读到足够的前部数据来解析 meta 字段（预设/日期等，通常 <100KB）
+    // 然后逐 store 流式解析每条记录写入 IDB
+    const readChunk=async()=>{const{done,value}=await reader.read();if(done)return false;buf+=decoder.decode(value,{stream:true});return true};
+    // 先读 meta：找到第一个 store 数组之前的内容
+    const firstStoreRe=new RegExp(`,"(${FULL_STORES.join('|')})":\\[`);
+    while(!firstStoreRe.test(buf)){if(!await readChunk())break}
+    const firstMatch=buf.match(firstStoreRe);
+    if(firstMatch){
+      const metaStr=buf.slice(0,firstMatch.index)+'}';
+      metaObj=JSON.parse(metaStr);
+      buf=buf.slice(firstMatch.index);
+    }else{
+      metaObj=JSON.parse(buf);buf='';
     }
+    if(metaObj._app!=='draw-full') throw new Error('不是画图台完整备份文件');
+    if(metaObj.drawPresets?.length){S.drawPresets=metaObj.drawPresets;S.curDrawId=metaObj.curDrawId||metaObj.drawPresets[0]?.id}
+    if(metaObj.masterPresets?.length){S.masterPresets=metaObj.masterPresets;S.curMasterId=metaObj.curMasterId||metaObj.masterPresets[0]?.id}
+    if(metaObj.curPersonaId) S.curPersonaId=metaObj.curPersonaId;
+    // 逐 store 解析
+    for(const store of FULL_STORES){
+      const storeStart=`,"${store}":[`;
+      // 跳到这个 store 的起始位置
+      while(!buf.includes(storeStart)){if(!await readChunk())break}
+      const si=buf.indexOf(storeStart);
+      if(si<0) continue;
+      buf=buf.slice(si+storeStart.length);
+      // 逐条解析 JSON 对象
+      let n=0,depth=0,inStr=false,esc=false,objStart=-1;
+      const processBuffer=async()=>{
+        let i=0;
+        while(i<buf.length){
+          const c=buf[i];
+          if(esc){esc=false;i++;continue}
+          if(c==='\\'){esc=true;i++;continue}
+          if(c==='"'){inStr=!inStr;i++;continue}
+          if(inStr){i++;continue}
+          if(c==='{'){if(depth===0)objStart=i;depth++;i++;continue}
+          if(c==='}'){
+            depth--;
+            if(depth===0&&objStart>=0){
+              const json=buf.slice(objStart,i+1);
+              const row=JSON.parse(json);
+              await db.put(store,row);
+              n++;
+              if(n%50===0&&btn) btn.textContent=`⏳ ${store}(${n})…`;
+              objStart=-1;
+              buf=buf.slice(i+1);
+              i=0;continue;
+            }
+            i++;continue;
+          }
+          if(c===']'&&depth===0){buf=buf.slice(i+1);break}
+          i++;
+        }
+        if(depth>0&&objStart>=0) buf=buf.slice(objStart);
+        else if(depth===0) buf='';
+      };
+      await processBuffer();
+      while(depth>0||(!buf.includes(']')&&depth===0)){
+        if(!await readChunk())break;
+        await processBuffer();
+      }
+      if(n) counts.push(`${store}(${n})`);
+      if(btn) btn.textContent=`⏳ ${store}(${n}) ✓`;
+    }
+    reader.cancel();
     savePresetsToLS();
     loadCfg();
     await loadPersonas();
     await renderTokens();
     renderDrawPresets();renderMasterPresets();
-    toast(`全部数据已导入 ✓（${data._date||''}）\n${counts.join('、')}`);
-  }catch(e){toast('导入失败：'+e.message,'error')}
+    toast(`全部数据已导入 ✓（${metaObj._date||''}）\n${counts.join('、')}`);
+  }catch(e){toast('导入失败：'+e.message,'error');console.error(e)}
+  finally{if(btn){btn.disabled=false;btn.textContent='📥 导入全部数据'}}
 }
 
 // ── Tab & Modal ───────────────────────────────────────────────
