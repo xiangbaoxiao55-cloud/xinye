@@ -612,11 +612,11 @@ async function doGenerate(card, el) {
     return;
   }
 
+  const presetId = el.querySelector('.p-preset')?.value || S.curDrawId;
   card.status = 'generating';
-  renderCardUpdate(card, el);
+  el = renderCardUpdate(card, el);
 
   try {
-    const presetId = el.querySelector('.p-preset')?.value || S.curDrawId;
     const refs = normalizeRefs(card);
     const imageData = await drawWithFallback(card.prompt, card.negPrompt, card.size, presetId, refs);
     card.imageData = imageData;
@@ -653,6 +653,7 @@ function renderCardUpdate(card, el) {
 
   initCardDrag(newEl, card);
   el.replaceWith(newEl);
+  return newEl;
 }
 
 async function drawWithFallback(prompt, negPrompt, size, presetId, refs) {
