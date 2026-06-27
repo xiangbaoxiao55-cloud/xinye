@@ -488,8 +488,8 @@ function renderCardIdle(el, card) {
           ${SB_SIZES.map(s => `<option value="${s.v}"${card.size === s.v ? ' selected' : ''}>${s.l}</option>`).join('')}
         </select>
         <select class="p-preset">${presetOpts || '<option value="">无预设</option>'}</select>
-        ${card.imageData ? '<button class="sb-card-cancel">✕</button>' : ''}
         <button class="sb-card-gen">生成 ▶</button>
+        ${card.imageData ? '<button class="sb-card-cancel">取消</button>' : ''}
       </div>
     </div>`;
 
