@@ -1923,20 +1923,16 @@ async function exportFullDB(){
 }
 
 async function importFullDB(file){
-  const btn=document.getElementById('btn-import-full');
-  if(btn){btn.disabled=true;btn.textContent='⏳ 导入中…'}
+  const statusEl=document.getElementById('import-full-status');
+  const showProgress=msg=>{if(statusEl){statusEl.textContent=msg;statusEl.style.display='block'}};
+  showProgress('⏳ 开始读取…');
   try{
-    // 流式解析：用 ReadableStream 逐块读取，手动解析 JSON 顶层结构
-    // 避免 file.text() + JSON.parse 把 1G+ 文件整个加载到 JS 堆
     const stream=file.stream();
     const reader=stream.getReader();
     const decoder=new TextDecoder();
-    let buf='',metaParsed=false,metaObj=null;
+    let buf='',metaObj=null;
     const counts=[];
-    // 读到足够的前部数据来解析 meta 字段（预设/日期等，通常 <100KB）
-    // 然后逐 store 流式解析每条记录写入 IDB
     const readChunk=async()=>{const{done,value}=await reader.read();if(done)return false;buf+=decoder.decode(value,{stream:true});return true};
-    // 先读 meta：找到第一个 store 数组之前的内容
     const firstStoreRe=new RegExp(`,"(${FULL_STORES.join('|')})":\\[`);
     while(!firstStoreRe.test(buf)){if(!await readChunk())break}
     const firstMatch=buf.match(firstStoreRe);
@@ -1951,15 +1947,13 @@ async function importFullDB(file){
     if(metaObj.drawPresets?.length){S.drawPresets=metaObj.drawPresets;S.curDrawId=metaObj.curDrawId||metaObj.drawPresets[0]?.id}
     if(metaObj.masterPresets?.length){S.masterPresets=metaObj.masterPresets;S.curMasterId=metaObj.curMasterId||metaObj.masterPresets[0]?.id}
     if(metaObj.curPersonaId) S.curPersonaId=metaObj.curPersonaId;
-    // 逐 store 解析
+    showProgress('⏳ 预设已读取，开始导入数据…');
     for(const store of FULL_STORES){
       const storeStart=`,"${store}":[`;
-      // 跳到这个 store 的起始位置
       while(!buf.includes(storeStart)){if(!await readChunk())break}
       const si=buf.indexOf(storeStart);
       if(si<0) continue;
       buf=buf.slice(si+storeStart.length);
-      // 逐条解析 JSON 对象
       let n=0,depth=0,inStr=false,esc=false,objStart=-1;
       const processBuffer=async()=>{
         let i=0;
@@ -1977,7 +1971,7 @@ async function importFullDB(file){
               const row=JSON.parse(json);
               await db.put(store,row);
               n++;
-              if(n%50===0&&btn) btn.textContent=`⏳ ${store}(${n})…`;
+              if(n%20===0) showProgress(`⏳ ${store} — 已导入 ${n} 条…`);
               objStart=-1;
               buf=buf.slice(i+1);
               i=0;continue;
@@ -1996,7 +1990,7 @@ async function importFullDB(file){
         await processBuffer();
       }
       if(n) counts.push(`${store}(${n})`);
-      if(btn) btn.textContent=`⏳ ${store}(${n}) ✓`;
+      showProgress(`✅ ${store}(${n}) 完成`);
     }
     reader.cancel();
     savePresetsToLS();
@@ -2004,9 +1998,10 @@ async function importFullDB(file){
     await loadPersonas();
     await renderTokens();
     renderDrawPresets();renderMasterPresets();
+    showProgress('');
+    if(statusEl) statusEl.style.display='none';
     toast(`全部数据已导入 ✓（${metaObj._date||''}）\n${counts.join('、')}`);
-  }catch(e){toast('导入失败：'+e.message,'error');console.error(e)}
-  finally{if(btn){btn.disabled=false;btn.textContent='📥 导入全部数据'}}
+  }catch(e){showProgress('❌ '+e.message);toast('导入失败：'+e.message,'error');console.error(e)}
 }
 
 // ── Tab & Modal ───────────────────────────────────────────────
