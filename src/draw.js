@@ -1889,20 +1889,30 @@ async function exportFullDB(){
       masterPresets:S.masterPresets,curMasterId:S.curMasterId,
       curPersonaId:S.curPersonaId,
     };
-    const parts=[JSON.stringify(meta).slice(0,-1)];
+    // 用 Blob 数组 + cursor 逐条刷入，避免 getAll() 把整个 gallery 一次性加载到 JS 堆 OOM
+    const blobs=[new Blob([JSON.stringify(meta).slice(0,-1)])];
     const counts=[];
     for(const store of FULL_STORES){
-      const rows=await db.all(store);
-      if(rows.length) counts.push(`${store}(${rows.length})`);
-      parts.push(`,"${store}":[`);
-      for(let i=0;i<rows.length;i++){
-        if(i) parts.push(',');
-        parts.push(JSON.stringify(rows[i]));
-      }
-      parts.push(']');
+      blobs.push(new Blob([`,"${store}":[`]));
+      let first=true,count=0;
+      await new Promise((res,rej)=>{
+        const req=db._tx(store).openCursor();
+        req.onsuccess=e=>{
+          const cur=e.target.result;
+          if(cur){
+            blobs.push(new Blob([(first?'':',')+JSON.stringify(cur.value)]));
+            first=false;count++;
+            cur.continue();
+          }else{res()}
+        };
+        req.onerror=e=>rej(e.target.error);
+      });
+      blobs.push(new Blob([']']));
+      if(count) counts.push(`${store}(${count})`);
+      if(btn) btn.textContent=`⏳ ${store}(${count})…`;
     }
-    parts.push('}');
-    const blob=new Blob(parts,{type:'application/json'});
+    blobs.push(new Blob(['}']));
+    const blob=new Blob(blobs,{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
     a.download=`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`;
