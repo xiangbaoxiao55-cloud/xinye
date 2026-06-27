@@ -37,6 +37,7 @@
   <button id="fab-add" class="fab" title="添加生成卡片">＋</button>
   <button id="fab-upload" class="fab fab-sm" title="上传图片">📷</button>
   <button id="fab-text" class="fab fab-sm" title="添加文本">T</button>
+  <button id="fab-agent" class="fab fab-sm fab-agent" title="创作助手">🤖</button>
 </div>
 
 <!-- 右键菜单（画布空白处） -->
@@ -98,6 +99,26 @@
       </select>
     </div>
     <button onclick="saveSettings()" class="btn-primary" style="width:100%;margin-top:12px">保存</button>
+  </div>
+</div>
+
+<!-- 创作助手面板 -->
+<div id="agent-panel" class="agent-panel hidden">
+  <div class="agent-header">
+    <span>🤖 创作助手</span>
+    <div class="agent-header-actions">
+      <button id="agent-clear" title="清空对话">🗑</button>
+      <button id="agent-close">✕</button>
+    </div>
+  </div>
+  <div id="agent-messages" class="agent-messages">
+    <div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 ✨</div>
+  </div>
+  <div class="agent-ref-bar hidden" id="agent-ref-bar"></div>
+  <div class="agent-input-area">
+    <button id="agent-attach" class="agent-btn-icon" title="附加选中卡片的图片">📎</button>
+    <textarea id="agent-input" placeholder="描述你的创作想法..." rows="2"></textarea>
+    <button id="agent-send" class="btn-primary">发送</button>
   </div>
 </div>
 

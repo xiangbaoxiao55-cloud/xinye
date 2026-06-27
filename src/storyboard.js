@@ -53,6 +53,11 @@ let S = {
   ctxCardId: null,
   spaceHeld: false,
   isBoxSelecting: false, boxStartX: 0, boxStartY: 0,
+  // agent
+  masterPresets: [],
+  curMasterId: null,
+  agentHistory: [],
+  agentAttachedImages: [],
 };
 
 const SB_SIZES = [
@@ -78,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initKeyboard();
   renderAllCards();
   updateZoomLabel();
+  initAgent();
 });
 
 function loadDrawConfig() {
@@ -85,6 +91,8 @@ function loadDrawConfig() {
   S.curDrawId = localStorage.getItem('draw_curDrawId') || S.drawPresets[0]?.id || null;
   S.localServer = localStorage.getItem('draw_localServer') || '';
   S.defaultSize = localStorage.getItem('sb_defaultSize') || '1024x1024';
+  S.masterPresets = JSON.parse(localStorage.getItem('draw_masterPresets') || '[]');
+  S.curMasterId = localStorage.getItem('draw_curMasterId') || S.masterPresets[0]?.id || null;
 }
 
 async function loadOrCreateProject() {
@@ -1038,6 +1046,310 @@ function toast(msg, type = 'info') {
   el.className = `show${type === 'error' ? ' toast-error' : type === 'warn' ? ' toast-warn' : ''}`;
   clearTimeout(el._t);
   el._t = setTimeout(() => el.className = '', 3000);
+}
+
+// ── Master API (创作助手 LLM) ────────────────────────────────────
+async function callMaster(messages) {
+  if (!S.masterPresets.length) throw new Error('请先在画图台设置里添加大师API预设');
+  const presets = S.masterPresets;
+  let startIdx = presets.findIndex(p => p.id === S.curMasterId);
+  if (startIdx < 0) startIdx = 0;
+  let lastErr;
+  for (let i = 0; i < presets.length; i++) {
+    const preset = presets[(startIdx + i) % presets.length];
+    if (i > 0 && preset.skipFallback) continue;
+    try {
+      if (i > 0) toast(`助手切到"${preset.name}"...`, 'warn');
+      return await _callMasterWithPreset(preset, messages);
+    } catch (err) { lastErr = err; if (presets.length > 1) console.warn(`[${ts()}] 助手预设"${preset.name}"失败:`, err.message); }
+  }
+  throw lastErr || new Error('所有大师预设均失败');
+}
+
+async function _callMasterWithPreset(preset, messages) {
+  const { key, url, model } = preset;
+  if (!key) throw new Error(`预设"${preset.name}"未配置API Key`);
+  const base = (url || 'https://api.anthropic.com/v1').replace(/\/$/, '');
+  const isAnthropic = base.includes('anthropic.com');
+  const _fetch = async (targetUrl, opts) => {
+    try { return await fetch(targetUrl, opts); } catch (e) {
+      if (!S.localServer) throw e;
+      console.log(`[agent] 直连失败(${e.message})，走本地代理重试`);
+      const h = { ...opts.headers, 'X-Real-Target': targetUrl, 'X-Real-Key': key };
+      delete h['Authorization']; delete h['x-api-key'];
+      return fetch(`${S.localServer}/api/llm-proxy`, { ...opts, headers: h });
+    }
+  };
+  if (isAnthropic) {
+    const sys = messages.find(m => m.role === 'system');
+    const msgs = messages.filter(m => m.role !== 'system');
+    const r = await _fetch(`${base}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: model || 'claude-opus-4-7', system: sys?.content || '', messages: msgs, max_tokens: 4096 })
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+    const d = await r.json(); return d.content?.[0]?.text || '';
+  }
+  const toOAI = content => {
+    if (!Array.isArray(content)) return content;
+    return content.map(b => b.type === 'image' && b.source?.type === 'base64'
+      ? { type: 'image_url', image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } }
+      : b);
+  };
+  const oaiMsgs = messages.map(m => ({ ...m, content: toOAI(m.content) }));
+  const r = await _fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: model || 'claude-opus-4-7', messages: oaiMsgs, stream: false })
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
+  const d = await r.json(); return d.choices?.[0]?.message?.content || '';
+}
+
+// ── Creative Agent ──────────────────────────────────────────────
+const AGENT_SYSTEM = () => `你是故事板创作助手。帮用户规划分镜、写画面描述、生成图片prompt。
+
+规则：
+1. 用中文交流，但 image prompt 必须用英文
+2. 当你要创建卡片时，在回复末尾输出一个 JSON 块，格式如下（不要加 markdown 代码块标记）：
+<<<CARDS
+[{"prompt":"english image prompt","size":"1024x1024","neg":"optional negative prompt"}]
+CARDS>>>
+3. prompt 要具体详细：包含主体、动作、表情、构图、光影、氛围、风格关键词
+4. 如果用户想要分镜，规划3-6个镜头，每个创建一张卡片
+5. 如果用户发来图片，分析画面内容并给出建议或续写分镜
+6. 不要解释 prompt 语法，直接给出可用的 prompt
+7. 每张卡片的 prompt 是独立的完整描述，不要引用"同上"
+
+可用尺寸：${SB_SIZES.map(s => s.v).join(', ')}
+默认尺寸：${S.defaultSize}`;
+
+function buildCanvasContext() {
+  const cards = S.cards.filter(c => c.type !== 'text');
+  if (!cards.length) return '';
+  const lines = cards.map((c, i) => {
+    const sel = S.selectedIds.includes(c.id) ? ' [选中]' : '';
+    if (c.status === 'done') return `${i + 1}. [已生成] "${c.prompt || '无prompt'}" ${c.size || ''}${sel}`;
+    return `${i + 1}. [待生成] "${c.prompt || '无prompt'}" ${c.size || ''}${sel}`;
+  });
+  const textCards = S.cards.filter(c => c.type === 'text' && c.text?.trim());
+  if (textCards.length) lines.push('', '文本卡片：', ...textCards.map(c => `- "${c.text}"`));
+  return '\n\n当前画布上的卡片：\n' + lines.join('\n');
+}
+
+function parseCardsFromReply(text) {
+  const m = text.match(/<<<CARDS\s*([\s\S]*?)\s*CARDS>>>/);
+  if (!m) return { cleanText: text, cards: [] };
+  try {
+    const cards = JSON.parse(m[1]);
+    const cleanText = text.replace(/<<<CARDS[\s\S]*?CARDS>>>/, '').trim();
+    return { cleanText, cards: Array.isArray(cards) ? cards : [] };
+  } catch { return { cleanText: text, cards: [] }; }
+}
+
+function compressImage(dataUrl, maxPx = 1024) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        const scale = maxPx / Math.max(w, h);
+        w = Math.round(w * scale); h = Math.round(h * scale);
+      }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(cv.toDataURL('image/jpeg', 0.8));
+    };
+    img.src = dataUrl;
+  });
+}
+
+async function agentSend() {
+  const input = document.getElementById('agent-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const msgBox = document.getElementById('agent-messages');
+  const welcome = msgBox.querySelector('.agent-welcome');
+  if (welcome) welcome.remove();
+
+  // user bubble
+  const userEl = document.createElement('div');
+  userEl.className = 'agent-msg user';
+  userEl.textContent = text;
+  msgBox.appendChild(userEl);
+
+  // build user message content (with optional images)
+  let userContent;
+  if (S.agentAttachedImages.length) {
+    const blocks = [];
+    for (const dataUrl of S.agentAttachedImages) {
+      const compressed = await compressImage(dataUrl);
+      const [, mime, b64] = compressed.match(/^data:(.*?);base64,(.*)$/);
+      blocks.push({ type: 'image', source: { type: 'base64', media_type: mime, data: b64 } });
+    }
+    blocks.push({ type: 'text', text: text });
+    userContent = blocks;
+    clearAgentRefs();
+  } else {
+    userContent = text;
+  }
+
+  S.agentHistory.push({ role: 'user', content: userContent });
+
+  // typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'agent-typing';
+  typing.innerHTML = '<div class="agent-typing-dots"><span></span><span></span><span></span></div>';
+  msgBox.appendChild(typing);
+  msgBox.scrollTop = msgBox.scrollHeight;
+
+  try {
+    const canvasCtx = buildCanvasContext();
+    const sysContent = AGENT_SYSTEM() + canvasCtx;
+    const messages = [{ role: 'system', content: sysContent }, ...S.agentHistory];
+    const reply = await callMaster(messages);
+
+    typing.remove();
+
+    const { cleanText, cards } = parseCardsFromReply(reply);
+    S.agentHistory.push({ role: 'assistant', content: reply });
+
+    // assistant bubble
+    const aiEl = document.createElement('div');
+    aiEl.className = 'agent-msg assistant';
+    aiEl.textContent = cleanText;
+
+    // create cards on canvas
+    if (cards.length) {
+      const createdIds = [];
+      const wrap = document.getElementById('canvas-wrap');
+      const cx = (-S.panX + wrap.clientWidth / 2) / S.zoom;
+      const cy = (-S.panY + wrap.clientHeight / 2) / S.zoom;
+      const totalW = cards.length * 300;
+      let startX = cx - totalW / 2;
+
+      for (const c of cards) {
+        const card = {
+          id: uid(), projectId: S.projectId, type: 'generate',
+          x: startX, y: cy + 60, width: 280,
+          prompt: c.prompt || '', negPrompt: c.neg || '', size: c.size || S.defaultSize,
+          imageData: null, status: 'idle', createdAt: Date.now()
+        };
+        S.cards.push(card);
+        const el = document.createElement('div');
+        el.className = 'sb-card';
+        el.dataset.id = card.id;
+        el.style.cssText = `left:${card.x}px;top:${card.y}px;width:${card.width}px`;
+        document.getElementById('canvas').appendChild(el);
+        renderCardUpdate(card, el);
+        createdIds.push(card.id);
+        startX += 300;
+      }
+      scheduleSave();
+
+      const info = document.createElement('div');
+      info.className = 'agent-cards-info';
+      info.innerHTML = `已创建 ${cards.length} 张卡片：` +
+        cards.map((c, i) => `<div class="card-preview">${i + 1}. ${c.prompt.slice(0, 50)}${c.prompt.length > 50 ? '…' : ''}</div>`).join('');
+      const genBtn = document.createElement('button');
+      genBtn.className = 'agent-auto-gen';
+      genBtn.textContent = `🎨 一键生图（${cards.length}张）`;
+      genBtn.onclick = () => {
+        genBtn.disabled = true;
+        genBtn.textContent = '生成中...';
+        for (const cid of createdIds) {
+          const card = S.cards.find(c => c.id === cid);
+          const el = document.querySelector(`.sb-card[data-id="${cid}"]`);
+          if (card && el && card.status === 'idle') doGenerate(card, el);
+        }
+      };
+      info.appendChild(genBtn);
+      aiEl.appendChild(info);
+    }
+
+    msgBox.appendChild(aiEl);
+  } catch (err) {
+    typing.remove();
+    const errEl = document.createElement('div');
+    errEl.className = 'agent-msg assistant';
+    errEl.style.color = 'var(--err)';
+    errEl.textContent = '出错了：' + err.message;
+    msgBox.appendChild(errEl);
+  }
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+function toggleAgentPanel() {
+  const panel = document.getElementById('agent-panel');
+  const wrap = document.getElementById('canvas-wrap');
+  const fab = document.getElementById('fab-agent');
+  const isOpen = panel.classList.contains('visible');
+  if (isOpen) {
+    panel.classList.remove('visible');
+    panel.classList.add('hidden');
+    wrap.classList.remove('agent-open');
+    fab.classList.remove('active');
+  } else {
+    panel.classList.remove('hidden');
+    panel.classList.add('visible');
+    wrap.classList.add('agent-open');
+    fab.classList.add('active');
+    document.getElementById('agent-input').focus();
+  }
+}
+
+function attachAgentRefs() {
+  const selected = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData);
+  if (!selected.length) { toast('先在画布上选中有图片的卡片', 'warn'); return; }
+  S.agentAttachedImages = selected.map(c => c.imageData);
+  const bar = document.getElementById('agent-ref-bar');
+  bar.innerHTML = `<span class="ref-label">参考图 ×${selected.length}</span>`;
+  selected.forEach((c, i) => {
+    const item = document.createElement('span');
+    item.className = 'ref-item';
+    item.innerHTML = `<img src="${c.imageData}"><button class="ref-remove" data-idx="${i}">✕</button>`;
+    bar.appendChild(item);
+  });
+  bar.classList.remove('hidden');
+  document.getElementById('agent-attach').classList.add('has-refs');
+  bar.querySelectorAll('.ref-remove').forEach(btn => {
+    btn.onclick = () => {
+      const idx = +btn.dataset.idx;
+      S.agentAttachedImages.splice(idx, 1);
+      if (!S.agentAttachedImages.length) clearAgentRefs();
+      else attachAgentRefs();
+    };
+  });
+}
+
+function clearAgentRefs() {
+  S.agentAttachedImages = [];
+  const bar = document.getElementById('agent-ref-bar');
+  bar.innerHTML = '';
+  bar.classList.add('hidden');
+  document.getElementById('agent-attach').classList.remove('has-refs');
+}
+
+function clearAgentChat() {
+  S.agentHistory = [];
+  clearAgentRefs();
+  const msgBox = document.getElementById('agent-messages');
+  msgBox.innerHTML = '<div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 ✨</div>';
+}
+
+function initAgent() {
+  document.getElementById('fab-agent').onclick = toggleAgentPanel;
+  document.getElementById('agent-close').onclick = toggleAgentPanel;
+  document.getElementById('agent-clear').onclick = clearAgentChat;
+  document.getElementById('agent-attach').onclick = attachAgentRefs;
+  document.getElementById('agent-send').onclick = agentSend;
+  document.getElementById('agent-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); agentSend(); }
+  });
 }
 
 // ── Persistence ──────────────────────────────────────────────────
