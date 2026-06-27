@@ -642,12 +642,48 @@ async function doGenerate(card, el) {
   }
 
   const presetId = el.querySelector('.p-preset')?.value || S.curDrawId;
+  const editedPrompt = card.prompt;
+  const editedNeg = card.negPrompt;
+  const editedSize = card.size;
+  const editedRefs = normalizeRefs(card);
+
+  if (card.imageData) {
+    card.status = 'done';
+    renderCardUpdate(card, el);
+
+    const newCard = {
+      id: uid(), projectId: S.projectId, type: 'generate',
+      x: card.x + (card.width || 280) + 20, y: card.y,
+      width: card.width || 280, prompt: editedPrompt, negPrompt: editedNeg || '',
+      size: editedSize || S.defaultSize, imageData: null, status: 'generating',
+      refImageData: editedRefs.length ? [...editedRefs] : undefined, createdAt: Date.now(),
+    };
+    S.cards.push(newCard);
+    renderCard(newCard);
+    scheduleSave();
+
+    const newEl = document.querySelector(`.sb-card[data-id="${newCard.id}"]`);
+    try {
+      const imageData = await drawWithFallback(editedPrompt, editedNeg, editedSize, presetId, editedRefs);
+      newCard.imageData = imageData;
+      newCard.status = 'done';
+      renderCardUpdate(newCard, newEl);
+      dlImg(imageData);
+      toast('生成完成 ✨');
+      scheduleSave();
+    } catch (err) {
+      newCard.status = 'idle';
+      renderCardUpdate(newCard, newEl);
+      toast(err.message, 'error');
+    }
+    return;
+  }
+
   card.status = 'generating';
   el = renderCardUpdate(card, el);
 
   try {
-    const refs = normalizeRefs(card);
-    const imageData = await drawWithFallback(card.prompt, card.negPrompt, card.size, presetId, refs);
+    const imageData = await drawWithFallback(card.prompt, card.negPrompt, card.size, presetId, editedRefs);
     card.imageData = imageData;
     card.status = 'done';
     renderCardUpdate(card, el);
