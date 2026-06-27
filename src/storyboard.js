@@ -205,7 +205,6 @@ function onCanvasPointerMove(e) {
     box.style.width = bw + 'px'; box.style.height = bh + 'px';
     const boxSel = new Set(S._boxPriorSel || []);
     for (const card of S.cards) {
-      if (!card.imageData) continue;
       const el = document.querySelector(`.sb-card[data-id="${card.id}"]`);
       if (!el) continue;
       const cw = el.offsetWidth, ch = el.offsetHeight;
