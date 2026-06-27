@@ -1231,11 +1231,11 @@ function buildCanvasContext() {
 }
 
 function parseCardsFromReply(text) {
-  const m = text.match(/<<<CARDS\s*([\s\S]*?)\s*CARDS>>>/);
+  const m = text.match(/<?<?<?CARDS\s*([\s\S]*?)\s*CARDS>?>?>?/);
   if (!m) return { cleanText: text, cards: [] };
   try {
     const cards = JSON.parse(m[1]);
-    const cleanText = text.replace(/<<<CARDS[\s\S]*?CARDS>>>/, '').trim();
+    const cleanText = text.replace(/<?<?<?CARDS[\s\S]*?CARDS>?>?>?/, '').trim();
     return { cleanText, cards: Array.isArray(cards) ? cards : [] };
   } catch { return { cleanText: text, cards: [] }; }
 }
