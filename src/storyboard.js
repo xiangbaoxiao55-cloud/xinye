@@ -488,6 +488,7 @@ function renderCardIdle(el, card) {
           ${SB_SIZES.map(s => `<option value="${s.v}"${card.size === s.v ? ' selected' : ''}>${s.l}</option>`).join('')}
         </select>
         <select class="p-preset">${presetOpts || '<option value="">无预设</option>'}</select>
+        ${card.imageData ? '<button class="sb-card-cancel">✕</button>' : ''}
         <button class="sb-card-gen">生成 ▶</button>
       </div>
     </div>`;
@@ -507,6 +508,11 @@ function renderCardIdle(el, card) {
   });
 
   el.querySelector('.sb-card-gen').addEventListener('click', () => doGenerate(card, el));
+  const cancelBtn = el.querySelector('.sb-card-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => {
+    card.status = 'done';
+    renderCardUpdate(card, el);
+  });
   const rmBtn = el.querySelector('.sb-ref-remove');
   if (rmBtn) rmBtn.addEventListener('click', e => {
     e.stopPropagation();
@@ -576,6 +582,14 @@ function initCardDrag(el, card) {
     startY = e.clientY;
     moved = false;
 
+    const peers = S.selectedIds.includes(card.id)
+      ? S.selectedIds.filter(id => id !== card.id).map(id => {
+          const c = S.cards.find(x => x.id === id);
+          const e = c && document.querySelector(`.sb-card[data-id="${id}"]`);
+          return c && e ? { card: c, el: e, offX: c.x - card.x, offY: c.y - card.y } : null;
+        }).filter(Boolean)
+      : [];
+
     const onMove = me => {
       if (!moved && (Math.abs(me.clientX - startX) > 4 || Math.abs(me.clientY - startY) > 4)) {
         moved = true;
@@ -589,6 +603,12 @@ function initCardDrag(el, card) {
         card.y = p.y - S.dragOffY;
         el.style.left = card.x + 'px';
         el.style.top = card.y + 'px';
+        for (const pr of peers) {
+          pr.card.x = card.x + pr.offX;
+          pr.card.y = card.y + pr.offY;
+          pr.el.style.left = pr.card.x + 'px';
+          pr.el.style.top = pr.card.y + 'px';
+        }
       }
     };
 
@@ -848,9 +868,20 @@ function initContextMenus() {
       const el = document.querySelector(`.sb-card[data-id="${card.id}"]`);
 
       if (action === 'regenerate') {
-        if (card.type === 'generate') {
-          card.status = 'idle';
-          renderCardUpdate(card, el);
+        if (card.type === 'generate' && card.prompt) {
+          const refs = normalizeRefs(card);
+          const newCard = {
+            id: uid(), projectId: S.projectId, type: 'generate',
+            x: card.x + (card.width || 280) + 20, y: card.y,
+            width: card.width || 280, prompt: card.prompt, negPrompt: card.negPrompt || '',
+            size: card.size || S.defaultSize, imageData: null, status: 'idle',
+            refImageData: refs.length ? [...refs] : undefined, createdAt: Date.now(),
+          };
+          S.cards.push(newCard);
+          renderCard(newCard);
+          scheduleSave();
+          const newEl = document.querySelector(`.sb-card[data-id="${newCard.id}"]`);
+          doGenerate(newCard, newEl);
         }
       } else if (action === 'edit-prompt') {
         if (card.type === 'generate') {
