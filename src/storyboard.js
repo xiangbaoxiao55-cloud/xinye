@@ -1173,20 +1173,50 @@ function renderPdfThumbs(container) {
   });
 }
 
+async function loadJsPdf() {
+  if (window.jspdf) return true;
+  const cdns = [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+  ];
+  for (const url of cdns) {
+    try {
+      await new Promise((ok, fail) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = ok;
+        s.onerror = fail;
+        document.head.appendChild(s);
+      });
+      if (window.jspdf) return true;
+    } catch {}
+  }
+  return false;
+}
+
 async function doExportPdf() {
   if (!_pdfCards.length) return;
+  const btn = document.getElementById('pdf-export');
   if (typeof window.jspdf === 'undefined') {
-    toast('jsPDF 加载中，请稍后再试');
-    return;
+    btn.disabled = true;
+    btn.textContent = '加载中…';
+    const ok = await loadJsPdf();
+    if (!ok) {
+      toast('jsPDF 库加载失败，请检查网络');
+      btn.disabled = false;
+      btn.textContent = '导出';
+      return;
+    }
   }
   const { jsPDF } = window.jspdf;
-  const btn = document.getElementById('pdf-export');
   btn.disabled = true;
   btn.textContent = '生成中…';
 
   try {
     let doc = null;
     for (let i = 0; i < _pdfCards.length; i++) {
+      btn.textContent = `生成中 ${i + 1}/${_pdfCards.length}`;
       const card = _pdfCards[i];
       const imgDim = await getImageDim(card.imageData);
       const isLandscape = imgDim.w > imgDim.h;
@@ -1209,6 +1239,7 @@ async function doExportPdf() {
       const dx = (pw - dw) / 2;
       const dy = (ph - dh) / 2;
       doc.addImage(card.imageData, 'PNG', dx, dy, dw, dh);
+      if (i % 3 === 2) await new Promise(r => setTimeout(r, 0));
     }
 
     const projectName = document.getElementById('project-name').value || '故事板';
