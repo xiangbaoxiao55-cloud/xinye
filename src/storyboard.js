@@ -44,7 +44,7 @@ let S = {
   drawPresets: [],
   curDrawId: null,
   localServer: '',
-  defaultSize: '1024x1024',
+  defaultSize: '1536x2048',
   // canvas state
   panX: 0, panY: 0, zoom: 1,
   isPanning: false, panStartX: 0, panStartY: 0,
@@ -84,13 +84,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAllCards();
   updateZoomLabel();
   initAgent();
+  loadAgentChat();
 });
 
 function loadDrawConfig() {
   S.drawPresets = JSON.parse(localStorage.getItem('draw_drawPresets') || '[]');
   S.curDrawId = localStorage.getItem('draw_curDrawId') || S.drawPresets[0]?.id || null;
   S.localServer = localStorage.getItem('draw_localServer') || '';
-  S.defaultSize = localStorage.getItem('sb_defaultSize') || '1024x1024';
+  S.defaultSize = localStorage.getItem('sb_defaultSize') || '1536x2048';
   S.masterPresets = JSON.parse(localStorage.getItem('draw_masterPresets') || '[]');
   S.curMasterId = localStorage.getItem('draw_curMasterId') || S.masterPresets[0]?.id || null;
 }
@@ -630,6 +631,7 @@ async function doGenerate(card, el) {
     card.imageData = imageData;
     card.status = 'done';
     renderCardUpdate(card, el);
+    dlImg(imageData);
     toast('生成完成 ✨');
     scheduleSave();
   } catch (err) {
@@ -1107,6 +1109,49 @@ async function _callMasterWithPreset(preset, messages) {
   const d = await r.json(); return d.choices?.[0]?.message?.content || '';
 }
 
+// ── Agent Chat Persistence ──────────────────────────────────────
+function stripImagesFromHistory(history) {
+  return history.map(m => {
+    if (Array.isArray(m.content)) {
+      const textParts = m.content.filter(b => b.type === 'text');
+      return { ...m, content: textParts.length === 1 ? textParts[0].text : textParts };
+    }
+    return m;
+  });
+}
+
+async function saveAgentChat() {
+  if (!S.projectId) return;
+  const stripped = stripImagesFromHistory(S.agentHistory);
+  await db.put('settings', { key: `agentChat_${S.projectId}`, value: stripped });
+}
+
+async function loadAgentChat() {
+  if (!S.projectId) return;
+  const rec = await db.get('settings', `agentChat_${S.projectId}`);
+  if (!rec?.value?.length) return;
+  S.agentHistory = rec.value;
+  const msgBox = document.getElementById('agent-messages');
+  const welcome = msgBox.querySelector('.agent-welcome');
+  if (welcome) welcome.remove();
+  for (const msg of S.agentHistory) {
+    const el = document.createElement('div');
+    el.className = `agent-msg ${msg.role === 'user' ? 'user' : 'assistant'}`;
+    const text = typeof msg.content === 'string' ? msg.content
+      : Array.isArray(msg.content)
+        ? msg.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
+        : msg.content;
+    if (msg.role === 'assistant') {
+      const { cleanText } = parseCardsFromReply(text);
+      el.textContent = cleanText;
+    } else {
+      el.textContent = text;
+    }
+    msgBox.appendChild(el);
+  }
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
 // ── Creative Agent ──────────────────────────────────────────────
 const AGENT_SYSTEM = () => `你是故事板创作助手。帮用户规划分镜、写画面描述、生成图片prompt。
 
@@ -1199,6 +1244,7 @@ async function agentSend() {
   }
 
   S.agentHistory.push({ role: 'user', content: userContent });
+  saveAgentChat();
 
   // typing indicator
   const typing = document.createElement('div');
@@ -1210,13 +1256,15 @@ async function agentSend() {
   try {
     const canvasCtx = buildCanvasContext();
     const sysContent = AGENT_SYSTEM() + canvasCtx;
-    const messages = [{ role: 'system', content: sysContent }, ...S.agentHistory];
+    const recent = S.agentHistory.slice(-20);
+    const messages = [{ role: 'system', content: sysContent }, ...recent];
     const reply = await callMaster(messages);
 
     typing.remove();
 
     const { cleanText, cards } = parseCardsFromReply(reply);
     S.agentHistory.push({ role: 'assistant', content: reply });
+    saveAgentChat();
 
     // assistant bubble
     const aiEl = document.createElement('div');
@@ -1225,6 +1273,10 @@ async function agentSend() {
 
     // create cards on canvas
     if (cards.length) {
+      const selRefs = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).map(c => c.imageData);
+      const agentRefs = S.agentAttachedImages.length ? [...S.agentAttachedImages] : [];
+      const autoRefs = selRefs.length ? selRefs : agentRefs.length ? agentRefs : null;
+
       const createdIds = [];
       const wrap = document.getElementById('canvas-wrap');
       const cx = (-S.panX + wrap.clientWidth / 2) / S.zoom;
@@ -1237,7 +1289,8 @@ async function agentSend() {
           id: uid(), projectId: S.projectId, type: 'generate',
           x: startX, y: cy + 60, width: 280,
           prompt: c.prompt || '', negPrompt: c.neg || '', size: c.size || S.defaultSize,
-          imageData: null, status: 'idle', createdAt: Date.now()
+          imageData: null, status: 'idle', createdAt: Date.now(),
+          ...(autoRefs ? { refImageData: autoRefs } : {}),
         };
         S.cards.push(card);
         const el = document.createElement('div');
@@ -1250,6 +1303,7 @@ async function agentSend() {
         startX += 300;
       }
       scheduleSave();
+      if (autoRefs) toast(`已自动附加 ${autoRefs.length} 张参考图`);
 
       const info = document.createElement('div');
       info.className = 'agent-cards-info';
@@ -1337,6 +1391,7 @@ function clearAgentRefs() {
 function clearAgentChat() {
   S.agentHistory = [];
   clearAgentRefs();
+  if (S.projectId) db.del('settings', `agentChat_${S.projectId}`);
   const msgBox = document.getElementById('agent-messages');
   msgBox.innerHTML = '<div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 ✨</div>';
 }
