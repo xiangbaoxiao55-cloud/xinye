@@ -333,6 +333,34 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 #agent-input::placeholder{color:var(--dim)}
 #agent-send{height:34px;padding:0 14px;flex-shrink:0}
 
+/* ── PDF Export Modal ────────────────────────────────── */
+.modal-pdf-box{max-width:560px}
+.pdf-hint{font-size:12px;color:var(--sub);margin-bottom:12px}
+.pdf-preview{
+  display:flex;flex-wrap:wrap;gap:10px;
+  max-height:50vh;overflow-y:auto;padding:4px;
+}
+.pdf-thumb{
+  position:relative;width:100px;cursor:grab;
+  border:2px solid var(--border);border-radius:var(--rs);
+  overflow:hidden;background:var(--card);transition:border-color .15s;
+}
+.pdf-thumb:hover{border-color:var(--purple)}
+.pdf-thumb.dragging{opacity:.4;border-color:var(--pink)}
+.pdf-thumb.drag-over{border-color:var(--teal);box-shadow:0 0 8px rgba(6,182,212,.3)}
+.pdf-thumb img{width:100%;display:block}
+.pdf-thumb .pdf-seq{
+  position:absolute;top:4px;left:4px;
+  background:var(--purple);color:#fff;font-size:11px;font-weight:600;
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+}
+.pdf-actions{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:14px;
+}
+.pdf-actions span{font-size:13px;color:var(--sub)}
+
 /* ── Scrollbar ───────────────────────────────────────── */
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:transparent}

@@ -967,11 +967,25 @@ function initContextMenus() {
         scheduleSave();
       } else if (action === 'download') {
         if (card.imageData) dlImg(card.imageData);
+      } else if (action === 'export-pdf') {
+        const selCards = S.selectedIds.length > 1
+          ? S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData)
+          : card.imageData ? [card] : [];
+        if (selCards.length) showPdfPreview(selCards);
+        else toast('没有可导出的图片');
       } else if (action === 'delete') {
         deleteCard(card.id);
       }
       hideAllMenus();
     });
+  });
+
+  document.getElementById('pdf-close').addEventListener('click', () => {
+    document.getElementById('modal-pdf').classList.add('hidden');
+  });
+  document.getElementById('pdf-export').addEventListener('click', doExportPdf);
+  document.getElementById('modal-pdf').addEventListener('click', e => {
+    if (e.target.id === 'modal-pdf') e.target.classList.add('hidden');
   });
 }
 
@@ -1004,6 +1018,11 @@ function showCardContextMenu(x, y, cardId) {
   const addRefsBtn = menu.querySelector('[data-action="add-refs"]');
   const isTarget = card?.type === 'generate';
   addRefsBtn.style.display = (selCount > 0 && isTarget) ? '' : 'none';
+
+  const pdfBtn = menu.querySelector('[data-action="export-pdf"]');
+  const pdfCount = S.selectedIds.length > 1 ? S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).length : (card?.imageData ? 1 : 0);
+  pdfBtn.style.display = pdfCount > 0 ? '' : 'none';
+  pdfBtn.textContent = pdfCount > 1 ? `📄 导出PDF (${pdfCount}张)` : '📄 导出PDF';
   if (selCount > 0) addRefsBtn.textContent = `📌 将 ${selCount} 张图设为参考图`;
 }
 
@@ -1103,6 +1122,115 @@ function dlImg(dataUrl) {
   a.href = dataUrl;
   a.download = `storyboard_${Date.now()}.png`;
   a.click();
+}
+
+// ── PDF Export ───────────────────────────────────────────────────
+let _pdfCards = [];
+
+function showPdfPreview(cards) {
+  const ROW_GAP = 20;
+  _pdfCards = cards.slice().sort((a, b) => {
+    const rowA = Math.round(a.y / ROW_GAP);
+    const rowB = Math.round(b.y / ROW_GAP);
+    return rowA !== rowB ? rowA - rowB : a.x - b.x;
+  });
+  const modal = document.getElementById('modal-pdf');
+  const container = document.getElementById('pdf-preview');
+  modal.classList.remove('hidden');
+  renderPdfThumbs(container);
+  document.getElementById('pdf-count').textContent = `共 ${_pdfCards.length} 页`;
+}
+
+function renderPdfThumbs(container) {
+  container.innerHTML = '';
+  _pdfCards.forEach((card, i) => {
+    const div = document.createElement('div');
+    div.className = 'pdf-thumb';
+    div.dataset.idx = i;
+    div.draggable = true;
+    div.innerHTML = `<span class="pdf-seq">${i + 1}</span><img src="${card.imageData}">`;
+
+    div.addEventListener('dragstart', e => {
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+    div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+    div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      div.classList.remove('drag-over');
+      const from = parseInt(e.dataTransfer.getData('text/plain'));
+      const to = parseInt(div.dataset.idx);
+      if (from !== to && !isNaN(from) && !isNaN(to)) {
+        const [moved] = _pdfCards.splice(from, 1);
+        _pdfCards.splice(to, 0, moved);
+        renderPdfThumbs(container);
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+async function doExportPdf() {
+  if (!_pdfCards.length) return;
+  if (typeof window.jspdf === 'undefined') {
+    toast('jsPDF 加载中，请稍后再试');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const btn = document.getElementById('pdf-export');
+  btn.disabled = true;
+  btn.textContent = '生成中…';
+
+  try {
+    let doc = null;
+    for (let i = 0; i < _pdfCards.length; i++) {
+      const card = _pdfCards[i];
+      const imgDim = await getImageDim(card.imageData);
+      const isLandscape = imgDim.w > imgDim.h;
+      const orient = isLandscape ? 'l' : 'p';
+
+      if (i === 0) {
+        doc = new jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
+      } else {
+        doc.addPage('a4', orient);
+      }
+
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+      const margin = 5;
+      const aw = pw - margin * 2;
+      const ah = ph - margin * 2;
+      const scale = Math.min(aw / imgDim.w, ah / imgDim.h);
+      const dw = imgDim.w * scale;
+      const dh = imgDim.h * scale;
+      const dx = (pw - dw) / 2;
+      const dy = (ph - dh) / 2;
+      doc.addImage(card.imageData, 'PNG', dx, dy, dw, dh);
+    }
+
+    const projectName = document.getElementById('project-name').value || '故事板';
+    doc.save(`${projectName}.pdf`);
+    toast('PDF 导出成功');
+    document.getElementById('modal-pdf').classList.add('hidden');
+  } catch (e) {
+    console.error('PDF export error:', e);
+    toast('导出失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '导出';
+  }
+}
+
+function getImageDim(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => resolve({ w: 1024, h: 1024 });
+    img.src = dataUrl;
+  });
 }
 
 // ── Settings ─────────────────────────────────────────────────────

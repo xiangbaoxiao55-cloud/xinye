@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>故事板</title>
 <link rel="stylesheet" href="./src/styles/storyboard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -55,6 +56,7 @@
   <button data-action="add-refs">📌 设为参考图</button>
   <button data-action="duplicate">📋 复制</button>
   <button data-action="download">💾 下载</button>
+  <button data-action="export-pdf">📄 导出PDF</button>
   <hr>
   <button data-action="delete">🗑 删除</button>
 </div>
@@ -120,6 +122,19 @@
     <button id="agent-attach" class="agent-btn-icon" title="附加选中卡片的图片">📎</button>
     <textarea id="agent-input" placeholder="描述你的创作想法..." rows="2"></textarea>
     <button id="agent-send" class="btn-primary">发送</button>
+  </div>
+</div>
+
+<!-- PDF导出预览 -->
+<div id="modal-pdf" class="modal hidden">
+  <div class="modal-box modal-pdf-box">
+    <h3>导出PDF <button class="modal-close" id="pdf-close">✕</button></h3>
+    <p class="pdf-hint">拖拽调整顺序，一页一图，横图横版竖图竖版</p>
+    <div id="pdf-preview" class="pdf-preview"></div>
+    <div class="pdf-actions">
+      <span id="pdf-count"></span>
+      <button id="pdf-export" class="btn-primary">导出</button>
+    </div>
   </div>
 </div>
 
