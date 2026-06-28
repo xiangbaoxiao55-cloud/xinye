@@ -306,12 +306,11 @@ export async function renderMessages() {
       _bubbleInner = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags}</div></div>`;
     } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
       const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
-      const _eBody = (msg.content || '').replace(/^\[✉️ .+?\]\n?/, '');
-      _bubbleInner = `<div class="email-card"><div class="email-card-header"><span class="email-card-icon">✉️</span><span class="email-card-subject">${escHtml(_eSubj)}</span></div><div class="email-card-body">${escHtml(_eBody)}</div></div>`;
+      _bubbleInner = `<div class="email-sent-tip">✉️ 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
-    row.innerHTML = `
+  row.innerHTML = `
       <img class="msg-avatar" src="${escHtml(isUser ? usAv : aiAv)}" alt="">
       <div class="msg-content">
         <div class="${_bubbleCls}">${_bubbleInner}</div>
@@ -388,8 +387,7 @@ export async function appendMsgDOM(msg) {
     _bi = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags2}</div></div>`;
   } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
     const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
-    const _eBody2 = (msg.content || '').replace(/^\[✉️ .+?\]\n?/, '');
-    _bi = `<div class="email-card"><div class="email-card-header"><span class="email-card-icon">✉️</span><span class="email-card-subject">${escHtml(_eSubj2)}</span></div><div class="email-card-body">${escHtml(_eBody2)}</div></div>`;
+    _bi = `<div class="email-sent-tip">✉️ 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }

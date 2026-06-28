@@ -1,25 +1,9 @@
-/* ---- 邮件卡片气泡 ---- */
-.email-card{
-  background:linear-gradient(135deg,#fef9f2,#fff5f0);
-  border:1px solid rgba(200,140,90,.28);
-  border-radius:12px;padding:12px 14px;
-  min-width:180px;max-width:280px;
+/* ---- 邮件发送提示（轻量，不剧透内容） ---- */
+.email-sent-tip{
+  font-size:13px;color:#9e7a5a;
+  opacity:.85;font-style:italic;
 }
-.email-card-header{
-  display:flex;align-items:center;gap:8px;
-  padding-bottom:8px;margin-bottom:8px;
-  border-bottom:1px solid rgba(200,140,90,.18);
-}
-.email-card-icon{font-size:17px;line-height:1;flex-shrink:0}
-.email-card-subject{font-weight:600;font-size:13.5px;color:#5d3e28;line-height:1.3}
-.email-card-body{font-size:13.5px;line-height:1.75;color:#6d4c35;white-space:pre-wrap;word-break:break-word}
-[data-theme="dark"] .email-card{
-  background:linear-gradient(135deg,#2a1e14,#261a14);
-  border-color:rgba(200,140,90,.2);
-}
-[data-theme="dark"] .email-card-subject{color:#d4a980}
-[data-theme="dark"] .email-card-body{color:#c49a72}
-[data-theme="dark"] .email-card-header{border-bottom-color:rgba(200,140,90,.15)}
+[data-theme="dark"] .email-sent-tip{color:#b8956a}
 
 /* ---- 消息行 ---- */
 .msg-row{
