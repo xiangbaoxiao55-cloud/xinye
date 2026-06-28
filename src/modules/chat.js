@@ -1171,6 +1171,24 @@ export async function sendMessage() {
       });
     }
 
+    if (settings.imageProxyUrl || settings.solitudeServerUrl) {
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'send_email',
+          description: '给兔宝的QQ邮箱发一封邮件。想给兔宝写信、发特别的话、写情书、分享想法时调用。不要太频繁，特别想说什么的时候才发。发完后在正文里告诉兔宝你发了邮件。',
+          parameters: {
+            type: 'object',
+            properties: {
+              subject: { type: 'string', description: '邮件主题，简洁有趣' },
+              content: { type: 'string', description: '邮件正文，可以长一些，像写信一样' }
+            },
+            required: ['subject', 'content']
+          }
+        }
+      });
+    }
+
     _toolDefs.push({
       type: 'function',
       function: {
@@ -1278,6 +1296,33 @@ export async function sendMessage() {
         await appendMsgDOM(fortuneMsg);
         console.log('[spin_fortune]', formatted);
         return `[命运转盘结果：${formatted}] 请根据这些标签组合来展开互动，自然地融入当前场景。`;
+      }
+      if (name === 'send_email') {
+        const _emailServerUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        if (!_emailServerUrl) return '[发邮件失败：未配置服务器地址]';
+        const _emailPayload = { to: '258091488@qq.com', subject: args.subject, body: args.content };
+        const _tryEmail = async (baseUrl, token) => {
+          const _h = { 'Content-Type': 'application/json' };
+          if (token) _h['Authorization'] = `Bearer ${token}`;
+          const r = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/send-email`, { method: 'POST', headers: _h, body: JSON.stringify(_emailPayload) });
+          return r.json();
+        };
+        try {
+          let _emailRes;
+          if (settings.imageProxyUrl) {
+            try { _emailRes = await _tryEmail(settings.imageProxyUrl, settings.imageProxyToken); } catch {}
+          }
+          if (!_emailRes?.ok && settings.solitudeServerUrl) {
+            try { _emailRes = await _tryEmail(settings.solitudeServerUrl, ''); } catch {}
+          }
+          if (_emailRes?.ok) {
+            console.log('[send_email] 邮件已发送:', args.subject);
+            return '[✉️ 邮件已发送到兔宝的QQ邮箱]';
+          }
+          return `[发邮件失败：${_emailRes?.error || '服务器无响应'}]`;
+        } catch (e) {
+          return `[发邮件失败：${e.message}]`;
+        }
       }
       if (name === 'generate_image') {
         console.log('[画图tool] 参数:', `ref_characters=${args.ref_characters||'未传'} style_ref=${args.style_ref||'无'} size=${args.size||'默认'} prompt="${(args.prompt||'').slice(0,80)}…"`);
