@@ -304,6 +304,10 @@ export async function renderMessages() {
       const _fr = msg.fortuneResult || {};
       const _ftags = Object.values(_fr).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
       _bubbleInner = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags}</div></div>`;
+    } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
+      const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
+      const _eBody = (msg.content || '').replace(/^\[✉️ .+?\]\n?/, '');
+      _bubbleInner = `<div class="email-card"><div class="email-card-header"><span class="email-card-icon">✉️</span><span class="email-card-subject">${escHtml(_eSubj)}</span></div><div class="email-card-body">${escHtml(_eBody)}</div></div>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -382,6 +386,10 @@ export async function appendMsgDOM(msg) {
     const _fr2 = msg.fortuneResult || {};
     const _ftags2 = Object.values(_fr2).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
     _bi = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags2}</div></div>`;
+  } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
+    const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
+    const _eBody2 = (msg.content || '').replace(/^\[✉️ .+?\]\n?/, '');
+    _bi = `<div class="email-card"><div class="email-card-header"><span class="email-card-icon">✉️</span><span class="email-card-subject">${escHtml(_eSubj2)}</span></div><div class="email-card-body">${escHtml(_eBody2)}</div></div>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -999,6 +1007,7 @@ export async function sendMessage() {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         const _isGiftCard = m.isGiftCard || (role === 'assistant' && m.content?.startsWith('[🎁'));
         const _isFortuneCard = m.isFortuneCard || (role === 'assistant' && m.content?.startsWith('[🎰'));
+        const _isEmailCard = m.isEmailCard || (role === 'assistant' && m.content?.startsWith('[✉️'));
         if (_isGenImg) {
           const _promptMatch = m.content?.match(/(?:提示词|描述)：([\s\S]+?)(?:\n你说|$)/);
           const _userDescMatch = m.content?.match(/你说：(.+?)(?:\n|$)/);
@@ -1017,6 +1026,12 @@ export async function sendMessage() {
           const _fakeId = `fortune_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'spin_fortune', arguments: '{}' } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[命运转盘结果：${_fortuneText}]` });
+        } else if (_isEmailCard) {
+          const _emailSubj = m.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
+          const _emailBody = (m.content || '').replace(/^\[✉️ .+?\]\n?/, '');
+          const _fakeId = `email_${m.id || Date.now()}`;
+          apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'send_email', arguments: JSON.stringify({ subject: _emailSubj, content: _emailBody }) } }] });
+          apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[✉️ 邮件已发送到兔宝的QQ邮箱\n主题：${_emailSubj}\n正文：${_emailBody}]` });
         } else {
           apiMsgs.push({ role, content: m.content });
         }
@@ -1317,7 +1332,11 @@ export async function sendMessage() {
           }
           if (_emailRes?.ok) {
             console.log('[send_email] 邮件已发送:', args.subject);
-            return `[✉️ 邮件已发送到兔宝的QQ邮箱\n主题：${args.subject}\n正文：${args.content}]`;
+            const _emailDesc = `[✉️ ${args.subject}]\n${args.content}`;
+            const _emailMsg = await addMessage('assistant', _emailDesc);
+            _emailMsg.isEmailCard = true;
+            await appendMsgDOM(_emailMsg);
+            return '[✉️ 邮件已发送到兔宝的QQ邮箱]';
           }
           return `[发邮件失败：${_emailRes?.error || '服务器无响应'}]`;
         } catch (e) {
