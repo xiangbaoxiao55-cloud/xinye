@@ -1317,7 +1317,7 @@ export async function sendMessage() {
           }
           if (_emailRes?.ok) {
             console.log('[send_email] 邮件已发送:', args.subject);
-            return '[✉️ 邮件已发送到兔宝的QQ邮箱]';
+            return `[✉️ 邮件已发送到兔宝的QQ邮箱\n主题：${args.subject}\n正文：${args.content}]`;
           }
           return `[发邮件失败：${_emailRes?.error || '服务器无响应'}]`;
         } catch (e) {
