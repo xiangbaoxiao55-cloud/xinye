@@ -99,9 +99,6 @@ export async function openSettings() {
   const _dp = $('#setDigestPreset'); if (_dp) _dp.value = settings.digestPresetName || '';
   [0,1,2].forEach(i => { const el = $(`#setDigestFallback${i}`); if (el) el.value = (settings.digestFallbackPresetNames||[])[i] || ''; });
   $('#setModel').value = settings.model;
-  if ($('#apiPresetStatusUrl')) $('#apiPresetStatusUrl').value = settings.statusUrl || '';
-  if ($('#apiPresetStatusType')) $('#apiPresetStatusType').value = settings.statusType || '';
-  if ($('#apiPresetStatusKey')) $('#apiPresetStatusKey').value = settings.statusKey || '';
   const _mtEl = $('#setMaxTokens'); if (_mtEl) _mtEl.value = settings.maxTokens || '';
   $('#setSubApiKey').value = settings.subApiKey || '';
   $('#setSubBaseUrl').value = settings.subBaseUrl || '';
@@ -940,7 +937,7 @@ export function initSettings() {
     document.getElementById('checkerOverlay').style.display = 'flex';
   };
   $('#btnCloseChecker').onclick = () => { document.getElementById('checkerOverlay').style.display = 'none'; };
-  if ($('#btnFetchStatusModels')) $('#btnFetchStatusModels').onclick = fetchStatusModels;
+
   $('#btnCheckerSelectAll').onclick = () => {
     document.querySelectorAll('[id^="checker-cb-"]').forEach(cb => cb.checked = true);
   };
@@ -1054,9 +1051,6 @@ export function initSettings() {
     $('#setModel').value   = p.model   || '';
     if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!p.useLocalProxy;
     if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = p.apiFormat || 'openai';
-    if ($('#apiPresetStatusUrl')) $('#apiPresetStatusUrl').value = p.statusUrl || '';
-    if ($('#apiPresetStatusType')) $('#apiPresetStatusType').value = p.statusType || '';
-    if ($('#apiPresetStatusKey')) $('#apiPresetStatusKey').value = p.statusKey || '';
     settings.useLocalProxy = !!p.useLocalProxy;
     settings.apiFormat = p.apiFormat || 'openai';
     saveSettings();
@@ -1082,15 +1076,11 @@ export function initSettings() {
     const model   = $('#setModel').value.trim();
     const useLocalProxy = !!$('#apiPresetUseProxy')?.checked;
     const apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
-    const statusUrl = $('#apiPresetStatusUrl')?.value.trim() || '';
-    const statusType = $('#apiPresetStatusType')?.value || '';
-    const statusKey = $('#apiPresetStatusKey')?.value.trim() || '';
     if (!apiKey) { toast('API Key 不能为空'); return; }
     const presets = getApiPresets();
     const existing = presets.findIndex(p => p.name === name);
-    const _statusFields = statusUrl ? { statusUrl, statusType, statusKey } : {};
-    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat, ..._statusFields };
-    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat, ..._statusFields });
+    if (existing >= 0) presets[existing] = { name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat };
+    else presets.push({ name, apiKey, baseUrl, backupBaseUrl, model, useLocalProxy, apiFormat });
     setApiPresets(presets);
     renderApiPresets();
     $('#apiPresetName').value = '';
@@ -1163,9 +1153,6 @@ export function initSettings() {
     settings.apiKey = $('#setApiKey').value.trim();
     settings.useLocalProxy = !!($('#apiPresetUseProxy')?.checked);
     settings.apiFormat = $('#apiPresetApiFormat')?.value || 'openai';
-    settings.statusUrl = $('#apiPresetStatusUrl')?.value.trim() || '';
-    settings.statusType = $('#apiPresetStatusType')?.value || '';
-    settings.statusKey = $('#apiPresetStatusKey')?.value.trim() || '';
     resetStickyPreset();
     settings.braveKey = $('#setBraveKey').value.trim();
     settings.morningWalkEnabled = !!($('#setMorningWalkEnabled')?.checked);
@@ -1623,51 +1610,6 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
     const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
     if (!models.length) { toast('（无可用模型）'); return; }
     _openModelPicker('📋 选择模型', models.map(m => ({ label: m, value: m })), modelInputId);
-  } catch(e) {
-    toast(`❌ 获取失败：${e.message}`);
-  }
-}
-
-export async function fetchStatusModels() {
-  const rawUrl = ($('#apiPresetStatusUrl')?.value || '').trim().replace(/\/+$/, '');
-  const statusType = $('#apiPresetStatusType')?.value;
-  if (!rawUrl) { toast('请先填写监控页地址'); return; }
-  if (!statusType) { toast('请先选择监控类型'); return; }
-  const proxyBase = settings.solitudeServerUrl;
-  if (!proxyBase) { toast('需要先配置本地服务器地址'); return; }
-  toast('⏳ 获取监控模型…');
-  try {
-    let apiUrl, items = [];
-    if (statusType === 'uptime-kuma') {
-      const base = rawUrl.replace(/\/api\/status-page.*$/, '').replace(/\/status\/.*$/, '');
-      const slugMatch = rawUrl.match(/(?:\/status\/|\/status-page\/(?:heartbeat\/)?)([\w-]+)/);
-      const slug = slugMatch ? slugMatch[1] : 'api';
-      apiUrl = `${base}/api/status-page/${slug}`;
-      const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(apiUrl)}`, { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      const monitors = (data.publicGroupList || []).flatMap(g => g.monitorList || []);
-      items = monitors.map(m => ({ label: m.name, value: String(m.id) }));
-      if (items.length) {
-        const heartbeatUrl = `${base}/api/status-page/heartbeat/${slug}`;
-        $('#apiPresetStatusUrl').value = heartbeatUrl;
-      }
-    } else if (statusType === 'success-rate') {
-      const base = rawUrl.replace(/\/embed\.html.*$/, '').replace(/\/api\/.*$/, '');
-      apiUrl = `${base}/api/model-status/embed/config/selected`;
-      const resp = await fetch(`${proxyBase}/api/proxy-fetch?url=${encodeURIComponent(apiUrl)}`, { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      const models = (data.custom_groups || []).flatMap(g => g.models || []);
-      const unique = [...new Set(models)].sort();
-      items = unique.map(m => ({ label: m, value: m }));
-      if (items.length) {
-        const statusApiUrl = `${base}/api/model-status/embed/status/batch?window=30`;
-        $('#apiPresetStatusUrl').value = statusApiUrl;
-      }
-    }
-    if (!items.length) { toast('（无可用模型）'); return; }
-    _openModelPicker('📡 选择监控模型', items, 'apiPresetStatusKey');
   } catch(e) {
     toast(`❌ 获取失败：${e.message}`);
   }

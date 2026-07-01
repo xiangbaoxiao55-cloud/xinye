@@ -27,10 +27,9 @@ let editingId = -1;
 const _tokenLogs = new Map();
 const _openPanels = new Set();
 
-// ======================== 粘性预设切换 + 状态监控 ========================
+// ======================== 粘性预设切换（5分钟自动恢复） ========================
 let _stickyPresetIdx = 0;
-let _lastRecoveryTs = 0;
-let _statusTimer = null;
+let _stickyFallbackTs = 0;
 
 // ======================== 收藏 ========================
 export function toggleBookmark(msgId) {
@@ -1676,6 +1675,10 @@ export async function sendMessage() {
     const _fallbackPresets = (settings.fallbackPresetNames || [])
       .map(n => _fbPresetList.find(p => p.name === n)).filter(Boolean);
     const _allCfgs = [null, ..._fallbackPresets];
+    if (_stickyPresetIdx > 0 && Date.now() - _stickyFallbackTs > 300000) {
+      _stickyPresetIdx = 0;
+      console.warn('[Preset] 5分钟已过，重新尝试主预设');
+    }
     let _activeCfgIdx = _stickyPresetIdx;
     function _buildCfg(preset) {
       if (preset) {
@@ -1822,7 +1825,7 @@ export async function sendMessage() {
                   }
                   _res = new Response(_cs2, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
                 }
-                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; _stickyPresetIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
+                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; _stickyPresetIdx = pi; _stickyFallbackTs = Date.now(); toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」（5分钟后自动重试主预设）`); }
                 if (!streamMode) _res = await (cfg.apiFormat === 'anthropic' ? _bufferStreamAnthropic(_res) : _bufferStream(_res));
               } else {
                 const _text = await _res.text();
@@ -1830,7 +1833,7 @@ export async function sendMessage() {
                   if (pi + 1 < _allCfgs.length) toast(`API返回错误，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
                   _res = null; continue outerLoop;
                 }
-                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; _stickyPresetIdx = pi; toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」`); }
+                if (pi > _activeCfgIdx) { _activeCfgIdx = pi; _stickyPresetIdx = pi; _stickyFallbackTs = Date.now(); toast(`🔄 已切换到备用${pi}「${_allCfgs[pi].name}」（5分钟后自动重试主预设）`); }
                 if (cfg.apiFormat === 'anthropic') {
                   try { _res = { ok: true, status: 200, json: async () => anthropicToOpenAIResponse(JSON.parse(_text)) }; }
                   catch(_) { _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers }); }
@@ -2553,58 +2556,4 @@ async function _syncPushContext() {
   }).catch(() => {});
 }
 
-// ======================== 主预设状态监控（公开监控页） ========================
-async function _checkMainHealth() {
-  if (_stickyPresetIdx === 0) return;
-  const { statusUrl, statusType, statusKey, solitudeServerUrl } = settings;
-  if (!statusUrl || !statusKey || !statusType) return;
-  if (Date.now() - _lastRecoveryTs < 900000) return;
-  try {
-    let healthy = false;
-    if (statusType === 'uptime-kuma') {
-      if (!solitudeServerUrl) return;
-      const resp = await fetch(`${solitudeServerUrl}/api/proxy-fetch?url=${encodeURIComponent(statusUrl)}`, { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const beats = data.heartbeatList?.[statusKey];
-      if (beats?.length) {
-        healthy = beats.slice(-3).every(b => b.status === 1);
-      }
-    } else if (statusType === 'success-rate') {
-      const resp = await fetch(statusUrl, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify([statusKey]),
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const item = (data.data || []).find(d => d.model_name === statusKey);
-      if (item && item.total_requests > 0) {
-        const recent = item.slot_data?.slice(-3) || [];
-        healthy = recent.length > 0 && recent.every(s => s.total_requests === 0 || s.success_rate > 80);
-      }
-    }
-    if (healthy) {
-      const prevIdx = _stickyPresetIdx;
-      _stickyPresetIdx = 0;
-      _lastRecoveryTs = Date.now();
-      toast('✅ 主预设已恢复，已自动切回');
-      console.warn(`[StatusMon] 主预设恢复，从备用${prevIdx}切回主预设`);
-    } else {
-      console.warn(`[StatusMon] 主预设仍不可用 (type=${statusType}, key=${statusKey})`);
-    }
-  } catch(e) {
-    console.warn('[StatusMon] 检查失败:', e.message);
-  }
-}
-
-export function startStatusMonitor() {
-  if (_statusTimer) return;
-  _statusTimer = setInterval(_checkMainHealth, 300000 + Math.floor(Math.random() * 60000));
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && _stickyPresetIdx > 0) setTimeout(_checkMainHealth, 3000);
-  });
-  console.warn('[StatusMon] 状态监控已启动');
-}
-
-export function resetStickyPreset() { _stickyPresetIdx = 0; }
+export function resetStickyPreset() { _stickyPresetIdx = 0; _stickyFallbackTs = 0; }
