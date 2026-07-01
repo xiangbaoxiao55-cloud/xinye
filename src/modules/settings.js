@@ -2,7 +2,7 @@ import { $, toast, escHtml, isDarkMode, readFileAsBase64 } from './utils.js';
 import { settings, saveSettings, ensureMemoryState, messages } from './state.js';
 import { dbPut, dbGet, dbClear } from './db.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getImageCurPresetIdx, setImageCurPresetIdx } from './api.js';
-import { digestMemory, renderMemoryBankPreview, archiveMemoryBank } from './memory.js';
+import { digestMemory, renderMemoryBankPreview, archiveMemoryBank, autoSyncArchiveToLocal } from './memory.js';
 import { applyBg, toggleDeco } from './ui.js';
 import { getAiAvatar, getUserAvatar, renderMessages, updateBookmarkBadge, resetStickyPreset } from './chat.js';
 import { setupReminders, resetIdleTimer } from './notifications.js';
@@ -885,6 +885,34 @@ export function initSettings() {
     ensureMemoryState();
     renderMemoryBankPreview();
     await digestMemory();
+  };
+
+  $('#btnSyncMemoryLocal').onclick = async () => {
+    const content = (settings.memoryArchive || $('#setMemoryArchive').value || '').trim();
+    if (!content) { toast('记忆档案为空'); return; }
+    if (!settings.solitudeServerUrl) { toast('请先配置本地服务器地址'); return; }
+    const statusEl = $('#syncMemoryStatus');
+    const btn = $('#btnSyncMemoryLocal');
+    btn.disabled = true;
+    btn.textContent = '⏳ 同步中…';
+    try {
+      const res = await fetch(`${settings.solitudeServerUrl.replace(/\/+$/, '')}/api/memory`, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: content, signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const charCount = content.length;
+      const vMatch = content.match(/^# .+?v(\d+)/m);
+      const ver = vMatch ? `v${vMatch[1]}` : '';
+      statusEl.textContent = `✅ 已同步 ${charCount} 字${ver ? '（' + ver + '）' : ''} → 电脑`;
+      toast(`✅ 记忆档案已同步到电脑（${charCount}字）`);
+    } catch(e) {
+      statusEl.textContent = `❌ 同步失败：${e.message}`;
+      toast(`❌ 同步失败：${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 同步记忆档案到电脑';
+    }
   };
 
   $('#btnClearMood').onclick = async () => {
