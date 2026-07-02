@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8f0"/>
+      <stop offset="60%" stop-color="#fce4ec"/>
+      <stop offset="100%" stop-color="#ffe0b2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+
+  <!-- 左耳外 -->
+  <polygon points="112,240 162,72 252,220" fill="#d94f10"/>
+  <!-- 左耳内粉 -->
+  <polygon points="148,228 170,118 234,215" fill="#ffccaa"/>
+
+  <!-- 右耳外 -->
+  <polygon points="260,220 350,72 400,240" fill="#d94f10"/>
+  <!-- 右耳内粉 -->
+  <polygon points="278,215 342,118 364,228" fill="#ffccaa"/>
+
+  <!-- 头部 橙红 -->
+  <ellipse cx="256" cy="310" rx="155" ry="145" fill="#e05a14"/>
+
+  <!-- 白色吻部 -->
+  <ellipse cx="256" cy="365" rx="108" ry="90" fill="#fff5e8"/>
+
+  <!-- 眼睛暗底 fox marking -->
+  <ellipse cx="193" cy="278" rx="40" ry="34" fill="#1a0e06" opacity="0.22"/>
+  <ellipse cx="319" cy="278" rx="40" ry="34" fill="#1a0e06" opacity="0.22"/>
+
+  <!-- 眼睛 左 -->
+  <ellipse cx="193" cy="276" rx="28" ry="25" fill="#1a0e06"/>
+  <ellipse cx="201" cy="267" rx="9" ry="9" fill="white"/>
+  <ellipse cx="205" cy="271" rx="3.5" ry="3.5" fill="white" opacity="0.6"/>
+  <!-- 眼睛 右 -->
+  <ellipse cx="319" cy="276" rx="28" ry="25" fill="#1a0e06"/>
+  <ellipse cx="327" cy="267" rx="9" ry="9" fill="white"/>
+  <ellipse cx="331" cy="271" rx="3.5" ry="3.5" fill="white" opacity="0.6"/>
+
+  <!-- 腮红 -->
+  <ellipse cx="160" cy="328" rx="30" ry="17" fill="#ffb3c6" opacity="0.5"/>
+  <ellipse cx="352" cy="328" rx="30" ry="17" fill="#ffb3c6" opacity="0.5"/>
+
+  <!-- 鼻子 -->
+  <ellipse cx="256" cy="330" rx="19" ry="14" fill="#1a0e06"/>
+  <ellipse cx="250" cy="326" rx="5" ry="4" fill="white" opacity="0.55"/>
+
+  <!-- 嘴 -->
+  <path d="M237,344 Q256,362 275,344" stroke="#b84010" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M237,344 Q226,355 216,350" stroke="#b84010" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M275,344 Q286,355 296,350" stroke="#b84010" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>

@@ -3,7 +3,7 @@ import { settings, messages } from './state.js';
 import { getSubApiCfg } from './api.js';
 
 // ── Tab 切换状态 ───────────────────────────────────────────────────────────
-let _diaryLoaded = false, _readingLoaded = false;
+let _diaryLoaded = false, _readingLoaded = false, _galleryLoaded = false;
 let _currentTab = 'chat';
 
 export function switchTab(tab) {
@@ -16,13 +16,17 @@ export function switchTab(tab) {
   if (tab === 'reading' && !_readingLoaded) {
     document.getElementById('readingFrame').src = 'reading.html'; _readingLoaded = true;
   }
+  if (tab === 'gallery' && !_galleryLoaded) {
+    document.getElementById('galleryFrame').src = 'gallery.html'; _galleryLoaded = true;
+  }
 
   document.getElementById('diaryOverlayFrame').classList.toggle('open', tab === 'diary');
   document.getElementById('readingOverlayFrame').classList.toggle('open', tab === 'reading');
+  document.getElementById('galleryOverlayFrame').classList.toggle('open', tab === 'gallery');
   const fp = document.getElementById('friendsPanel');
   if (fp) fp.classList.toggle('open', tab === 'friends');
 
-  ['chat','diary','reading','friends'].forEach(t => {
+  ['chat','diary','reading','gallery','friends'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.classList.toggle('active', t === tab);
   });

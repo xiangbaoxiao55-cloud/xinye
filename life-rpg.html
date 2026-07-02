@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人生系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:    #0a0a14;
+  --bg2:   #12122a;
+  --bg3:   #1a1a38;
+  --border: #2a2a5a;
+  --gold:   #ffc107;
+  --gold-d: #b8860b;
+  --glow:   rgba(255,193,7,.25);
+  --text:   #dde1ff;
+  --dim:    #6668aa;
+  --survival:  #4ade80;
+  --body:      #fb923c;
+  --production:#60a5fa;
+  --social:    #f472b6;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Press Start 2P', 'Courier New', monospace;
+  min-height: 100vh;
+  padding: 12px;
+}
+
+.wrap { max-width: 480px; margin: 0 auto; }
+
+/* ── 顶部标题 ── */
+.game-title {
+  text-align: center;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 4px;
+  margin-bottom: 14px;
+}
+
+/* ── 角色面板 ── */
+.player-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.panel-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.lv-block { display: flex; flex-direction: column; gap: 5px; }
+
+.lv-label {
+  font-size: 7px;
+  color: var(--dim);
+  letter-spacing: 3px;
+}
+
+.lv-num {
+  font-size: 28px;
+  color: var(--gold);
+  text-shadow: 0 0 24px var(--glow);
+  line-height: 1;
+}
+
+.pname {
+  font-size: 8px;
+  color: var(--dim);
+}
+
+.right-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.sp-badge {
+  font-size: 8px;
+  color: var(--gold);
+  background: rgba(255,193,7,.1);
+  border: 1px solid var(--gold-d);
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+.today-badge {
+  font-size: 7px;
+  color: var(--dim);
+}
+
+.today-badge b { color: var(--survival); font-weight: normal; }
+
+/* 经验条 */
+.exp-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 7px;
+  color: var(--dim);
+  margin-bottom: 5px;
+}
+
+.exp-track {
+  background: #050510;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  height: 13px;
+  overflow: hidden;
+}
+
+.exp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-d), var(--gold));
+  box-shadow: 0 0 10px var(--glow);
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  position: relative;
+}
+
+.exp-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 45%;
+  background: rgba(255,255,255,.15);
+}
+
+/* ── 添加任务区 ── */
+.add-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.add-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 2px;
+  transition: color .2s;
+  text-align: left;
+}
+
+.add-toggle:hover { color: var(--text); box-shadow: none; background: none; }
+
+.arrow { display: inline-block; transition: transform .2s; }
+.add-toggle.open .arrow { transform: rotate(90deg); }
+
+.add-form {
+  display: none;
+  padding: 0 14px 14px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-form.open { display: flex; }
+
+.form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+input[type="text"],
+input[type="number"],
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 8px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color .2s;
+}
+
+input[type="text"] { flex: 1; min-width: 0; }
+input[type="number"] { width: 64px; }
+select { cursor: pointer; }
+select option { background: var(--bg2); }
+
+input:focus, select:focus { border-color: var(--gold-d); }
+
+.btn-add {
+  background: var(--gold-d);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  color: #0a0a14;
+  font-family: inherit;
+  font-size: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: 1px;
+}
+
+.btn-add:hover {
+  background: var(--gold);
+  box-shadow: 0 0 18px var(--glow);
+}
+
+/* ── 任务列表 ── */
+.quests-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.panel-title {
+  font-size: 8px;
+  color: var(--dim);
+  letter-spacing: 3px;
+  margin-bottom: 14px;
+}
+
+.cat-group { margin-bottom: 14px; }
+.cat-group:last-child { margin-bottom: 0; }
+
+.cat-label {
+  font-size: 7px;
+  letter-spacing: 2px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.survival   { color: var(--survival);   border: 1px solid var(--survival);   background: rgba(74,222,128,.08); }
+.body       { color: var(--body);       border: 1px solid var(--body);       background: rgba(251,146,60,.08); }
+.production { color: var(--production); border: 1px solid var(--production); background: rgba(96,165,250,.08); }
+.social     { color: var(--social);     border: 1px solid var(--social);     background: rgba(244,114,182,.08); }
+
+.task-list { display: flex; flex-direction: column; gap: 6px; }
+
+.task-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color .2s, opacity .3s;
+}
+
+.task-item:hover:not(.done) { border-color: #3a3a7a; }
+
+.task-item.done {
+  opacity: .4;
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+}
+
+.task-check {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  transition: all .2s;
+}
+
+.task-item.done .task-check {
+  border-color: var(--gold);
+  background: rgba(255,193,7,.15);
+  color: var(--gold);
+}
+
+.task-name {
+  flex: 1;
+  font-size: 8px;
+  line-height: 1.8;
+}
+
+.task-item.done .task-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--dim);
+}
+
+.task-exp {
+  font-size: 7px;
+  color: var(--gold-d);
+  white-space: nowrap;
+}
+
+.task-del {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 5px;
+  opacity: 0;
+  transition: opacity .2s;
+  line-height: 1;
+}
+
+.task-item:hover .task-del { opacity: 1; }
+.task-del:hover { color: #ff6b6b; background: none; box-shadow: none; }
+
+.empty-hint {
+  font-size: 7px;
+  color: var(--dim);
+  text-align: center;
+  padding: 10px;
+  opacity: .5;
+}
+
+/* ── 今日记录 ── */
+.log-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.log-list { margin-top: 12px; display: flex; flex-direction: column; gap: 0; }
+
+.log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(42,42,90,.6);
+  gap: 8px;
+}
+
+.log-item:last-child { border-bottom: none; }
+.log-name { color: var(--text); flex: 1; }
+.log-exp  { color: var(--gold); }
+.log-time { color: var(--dim); font-size: 6px; white-space: nowrap; }
+
+.log-empty {
+  font-size: 7px;
+  color: var(--dim);
+  text-align: center;
+  padding: 20px;
+  opacity: .5;
+}
+
+/* ── 升级动画 ── */
+#lvOverlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  pointer-events: none;
+  display: none;
+}
+
+.lv-card {
+  background: var(--bg2);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: 0 0 60px var(--glow), 0 0 120px rgba(255,193,7,.08);
+  animation: lvUp 2.8s forwards;
+}
+
+.lv-up-title {
+  font-size: 11px;
+  color: var(--gold);
+  text-shadow: 0 0 20px var(--glow);
+  margin-bottom: 12px;
+  letter-spacing: 3px;
+}
+
+.lv-new {
+  font-size: 36px;
+  color: var(--gold);
+  text-shadow: 0 0 40px var(--glow);
+}
+
+.lv-sub {
+  font-size: 7px;
+  color: var(--dim);
+  margin-top: 10px;
+}
+
+@keyframes lvUp {
+  0%  { opacity:0; transform:scale(.8); }
+  15% { opacity:1; transform:scale(1.04); }
+  25% { transform:scale(1); }
+  75% { opacity:1; }
+  100%{ opacity:0; }
+}
+
+/* 获得经验浮字 */
+.exp-pop {
+  position: fixed;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: var(--gold);
+  text-shadow: 0 0 12px var(--glow);
+  pointer-events: none;
+  z-index: 300;
+  animation: popUp .9s forwards;
+}
+
+@keyframes popUp {
+  0%   { opacity:1; transform:translateY(0); }
+  100% { opacity:0; transform:translateY(-48px); }
+}
+
+@media (max-width:360px) {
+  .lv-num { font-size:22px; }
+  body { padding:8px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="game-title">✦ LIFE RPG ✦</div>
+
+  <!-- 角色面板 -->
+  <div class="player-panel">
+    <div class="panel-top">
+      <div class="lv-block">
+        <div class="lv-label">LEVEL</div>
+        <div class="lv-num" id="lvNum">1</div>
+        <div class="pname">涂涂</div>
+      </div>
+      <div class="right-block">
+        <div class="sp-badge">SP &nbsp;<span id="spNum">0</span></div>
+        <div class="today-badge">今日完成 <b id="todayCnt">0</b> 件</div>
+      </div>
+    </div>
+    <div class="exp-label">
+      <span>EXP</span>
+      <span id="expTxt">0 / 100</span>
+    </div>
+    <div class="exp-track">
+      <div class="exp-fill" id="expFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- 添加任务 -->
+  <div class="add-panel">
+    <button class="add-toggle" id="addToggle" onclick="toggleAdd()">
+      <span class="arrow">▶</span>&nbsp;添加任务
+    </button>
+    <div class="add-form" id="addForm">
+      <input type="text" id="tName" placeholder="任务名称..." maxlength="28">
+      <div class="form-row">
+        <select id="tCat">
+          <option value="survival">⚡ 生存</option>
+          <option value="body">💪 身体</option>
+          <option value="production">✨ 生产</option>
+          <option value="social">💬 社交</option>
+        </select>
+        <input type="number" id="tExp" value="20" min="1" max="999" title="经验值">
+        <button class="btn-add" onclick="addTask()">+ ADD</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 每日任务 -->
+  <div class="quests-panel">
+    <div class="panel-title">▌ DAILY QUESTS</div>
+    <div id="questsBody"></div>
+  </div>
+
+  <!-- 今日记录 -->
+  <div class="log-panel">
+    <div class="panel-title">▌ TODAY'S LOG</div>
+    <div id="logBody"><div class="log-empty">今天还没有完成记录</div></div>
+  </div>
+
+</div>
+
+<!-- 升级弹层 -->
+<div id="lvOverlay">
+  <div class="lv-card">
+    <div class="lv-up-title">LEVEL&nbsp;UP!</div>
+    <div class="lv-new" id="lvNew">2</div>
+    <div class="lv-sub">获得 1 技能点</div>
+  </div>
+</div>
+
+<script>
+// ─── IndexedDB ───────────────────────────────────────────────
+const DB_NAME = 'LifeRPGDB', DB_VER = 1;
+let db;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('player')) d.createObjectStore('player');
+      if (!d.objectStoreNames.contains('tasks'))  d.createObjectStore('tasks', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('today'))  d.createObjectStore('today');
+    };
+    r.onsuccess = e => { db = e.target.result; res(); };
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+
+const tx = (store, mode = 'readonly') => db.transaction(store, mode).objectStore(store);
+
+function dbGet(store, key)       { return new Promise((r,j) => { const q = tx(store).get(key);       q.onsuccess = () => r(q.result); q.onerror = () => j(q.error); }); }
+function dbPut(store, key, val)  { return new Promise((r,j) => { const q = tx(store,'readwrite').put(val, key); q.onsuccess = () => r(); q.onerror = () => j(q.error); }); }
+function dbGetAll(store)         { return new Promise((r,j) => { const q = tx(store).getAll();        q.onsuccess = () => r(q.result); q.onerror = () => j(q.error); }); }
+function dbDelete(store, key)    { return new Promise((r,j) => { const q = tx(store,'readwrite').delete(key);   q.onsuccess = () => r(); q.onerror = () => j(q.error); }); }
+
+// ─── 状态 ────────────────────────────────────────────────────
+let player = { level: 1, exp: 0, skillPoints: 0 };
+let tasks  = [];
+let today  = { date: '', done: [] }; // done: [{taskId,name,exp,time}]
+
+function maxExp(lv) {
+  if (lv <= 10) return lv * 100;
+  if (lv <= 20) return 1000 + (lv - 10) * 150;
+  if (lv <= 30) return 2500 + (lv - 20) * 200;
+  return 4500 + (lv - 30) * 250;
+}
+
+function todayStr() {
+  return new Date().toLocaleDateString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\//g, '-');
+}
+
+// ─── 初始化 ──────────────────────────────────────────────────
+async function init() {
+  const p = await dbGet('player', 'data');
+  if (p) player = p;
+
+  tasks = await dbGetAll('tasks');
+
+  const date = todayStr();
+  const td   = await dbGet('today', 'data');
+  if (td && td.date === date) {
+    today = td;
+  } else {
+    today = { date, done: [] };
+    await dbPut('today', 'data', today);
+  }
+
+  render();
+}
+
+// ─── 经验 & 升级 ─────────────────────────────────────────────
+async function gainExp(amount, x, y) {
+  popExp(`+${amount}`, x, y);
+  player.exp += amount;
+
+  while (player.exp >= maxExp(player.level)) {
+    player.exp -= maxExp(player.level);
+    player.level++;
+    player.skillPoints++;
+    await savePlayer();
+    showLvUp(player.level);
+    await pause(200);
+  }
+
+  await savePlayer();
+  renderPlayer();
+}
+
+function showLvUp(lv) {
+  const el = document.getElementById('lvOverlay');
+  document.getElementById('lvNew').textContent = lv;
+  el.style.display = 'flex';
+  setTimeout(() => { el.style.display = 'none'; }, 2800);
+}
+
+function popExp(txt, x, y) {
+  const el = document.createElement('div');
+  el.className = 'exp-pop';
+  el.textContent = txt;
+  el.style.cssText = `left:${x - 20}px; top:${y - 10}px;`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+function pause(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function savePlayer() { await dbPut('player', 'data', player); }
+async function saveToday()  { await dbPut('today', 'data', today); }
+
+// ─── 任务操作 ─────────────────────────────────────────────────
+function toggleAdd() {
+  const form = document.getElementById('addForm');
+  const btn  = document.getElementById('addToggle');
+  const open = form.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+
+async function addTask() {
+  const name = document.getElementById('tName').value.trim();
+  if (!name) { document.getElementById('tName').focus(); return; }
+
+  const task = {
+    id: Date.now().toString(),
+    name,
+    cat: document.getElementById('tCat').value,
+    exp: Math.max(1, parseInt(document.getElementById('tExp').value) || 20)
+  };
+
+  tasks.push(task);
+  await dbPut('tasks', task.id, task);
+  document.getElementById('tName').value = '';
+  renderTasks();
+}
+
+async function completeTask(id, clickX, clickY) {
+  const task = tasks.find(t => t.id === id);
+  if (!task || today.done.some(d => d.taskId === id)) return;
+
+  const time = new Date().toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+  today.done.push({ taskId: id, name: task.name, exp: task.exp, time });
+  await saveToday();
+  await gainExp(task.exp, clickX, clickY);
+
+  renderTasks();
+  renderLog();
+}
+
+async function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  today.done = today.done.filter(d => d.taskId !== id);
+  await dbDelete('tasks', id);
+  await saveToday();
+  renderTasks();
+  renderLog();
+}
+
+// ─── 渲染 ────────────────────────────────────────────────────
+const CATS = [
+  { key:'survival',   label:'⚡ 生存', cls:'survival'   },
+  { key:'body',       label:'💪 身体', cls:'body'       },
+  { key:'production', label:'✨ 生产', cls:'production' },
+  { key:'social',     label:'💬 社交', cls:'social'     },
+];
+
+function isDone(id) { return today.done.some(d => d.taskId === id); }
+
+function renderPlayer() {
+  const mx  = maxExp(player.level);
+  const pct = Math.min(100, (player.exp / mx) * 100).toFixed(1);
+  document.getElementById('lvNum').textContent   = player.level;
+  document.getElementById('spNum').textContent   = player.skillPoints;
+  document.getElementById('expTxt').textContent  = `${player.exp} / ${mx}`;
+  document.getElementById('expFill').style.width = pct + '%';
+  document.getElementById('todayCnt').textContent = today.done.length;
+}
+
+function renderTasks() {
+  const body = document.getElementById('questsBody');
+  body.innerHTML = '';
+
+  for (const cat of CATS) {
+    const list = tasks.filter(t => t.cat === cat.key);
+    const g = document.createElement('div');
+    g.className = 'cat-group';
+
+    const h = document.createElement('div');
+    h.className = `cat-label ${cat.cls}`;
+    h.textContent = cat.label;
+    g.appendChild(h);
+
+    const ul = document.createElement('div');
+    ul.className = 'task-list';
+
+    if (!list.length) {
+      ul.innerHTML = '<div class="empty-hint">-- 暂无任务 --</div>';
+    } else {
+      list.forEach(task => {
+        const done = isDone(task.id);
+        const item = document.createElement('div');
+        item.className = `task-item${done ? ' done' : ''}`;
+        item.innerHTML = `
+          <div class="task-check">${done ? '✓' : ''}</div>
+          <div class="task-name">${esc(task.name)}</div>
+          <div class="task-exp">+${task.exp}</div>
+          <button class="task-del" title="删除">✕</button>
+        `;
+
+        if (!done) {
+          item.addEventListener('click', e => {
+            if (e.target.classList.contains('task-del')) return;
+            completeTask(task.id, e.clientX, e.clientY);
+          });
+        }
+
+        item.querySelector('.task-del').addEventListener('click', e => {
+          e.stopPropagation();
+          deleteTask(task.id);
+        });
+
+        ul.appendChild(item);
+      });
+    }
+
+    g.appendChild(ul);
+    body.appendChild(g);
+  }
+
+  document.getElementById('todayCnt').textContent = today.done.length;
+}
+
+function renderLog() {
+  const body = document.getElementById('logBody');
+  if (!today.done.length) {
+    body.innerHTML = '<div class="log-empty">今天还没有完成记录</div>';
+    return;
+  }
+  body.innerHTML = '<div class="log-list">' +
+    today.done.slice().reverse().map(d => `
+      <div class="log-item">
+        <span class="log-name">${esc(d.name)}</span>
+        <span class="log-exp">+${d.exp} EXP</span>
+        <span class="log-time">${d.time}</span>
+      </div>`).join('') +
+    '</div>';
+}
+
+function render() { renderPlayer(); renderTasks(); renderLog(); }
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── 启动 ────────────────────────────────────────────────────
+openDB().then(init);
+</script>
+</body>
+</html>

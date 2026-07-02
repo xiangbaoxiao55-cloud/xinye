@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>风铃</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #08070a;
+  touch-action: none;
+  user-select: none;
+}
+canvas { display: block; width: 100%; height: 100%; }
+#hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(180,170,160,0.3);
+  font: 11px/1 "Georgia", serif;
+  letter-spacing: 3px;
+  pointer-events: none;
+  transition: opacity 3s;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">轻触珠帘</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, dpr;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+
+// === Audio ===
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playChime(freq, vol = 0.2) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, now);
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(vol, now + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 3.2);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 3.2);
+  // shimmer
+  const o2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  o2.type = 'sine';
+  o2.frequency.setValueAtTime(freq * 2.52, now);
+  g2.gain.setValueAtTime(vol * 0.08, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+  o2.connect(g2).connect(audioCtx.destination);
+  o2.start(now); o2.stop(now + 1.8);
+  // tinkle
+  const o3 = audioCtx.createOscillator();
+  const g3 = audioCtx.createGain();
+  o3.type = 'triangle';
+  o3.frequency.setValueAtTime(freq * 4.02, now);
+  g3.gain.setValueAtTime(vol * 0.03, now);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  o3.connect(g3).connect(audioCtx.destination);
+  o3.start(now); o3.stop(now + 0.8);
+}
+
+// === Rope Physics ===
+const STRAND_COUNT = 13;
+const SEGMENTS = 24;
+const GRAVITY = 0.5;
+const ITERATIONS = 10;
+const NOTES = [330,349,392,415,440,494,523,554,587,659,698,784,830];
+
+let strands = [];
+let capY = 0;
+
+class Node {
+  constructor(x, y, pinned) {
+    this.x = x; this.y = y;
+    this.ox = x; this.oy = y;
+    this.pinned = pinned;
+    this.type = 'none';
+    this.radius = 0;
+    this.color = '';
+    this.glow = 0;
+    this.sparkle = 0;
+  }
+}
+
+function createStrands() {
+  strands = [];
+  capY = H * 0.07;
+  const radius = Math.min(W * 0.28, 140);
+  const baseLen = H * 0.72;
+
+  for (let si = 0; si < STRAND_COUNT; si++) {
+    const angle = (si / STRAND_COUNT) * Math.PI * 0.85 - Math.PI * 0.425;
+    const x = W / 2 + Math.sin(angle) * radius;
+    const strandLen = baseLen + (Math.random() - 0.5) * H * 0.15;
+    const segLen = strandLen / SEGMENTS;
+    const nodes = [];
+
+    for (let i = 0; i <= SEGMENTS; i++) {
+      const n = new Node(x, capY + i * segLen, i === 0);
+
+      if (i === SEGMENTS) {
+        // feather at bottom
+        n.type = 'feather';
+        n.radius = 10 + Math.random() * 5;
+        n.color = `hsl(${200 + Math.random()*40}, 25%, ${45+Math.random()*15}%)`;
+      } else if (i > 0 && i % 2 === 0) {
+        // alternating diamond beads and pearl beads
+        if (i % 4 === 0) {
+          n.type = 'diamond';
+          n.radius = 2.5 + Math.random() * 1.5;
+          n.color = `hsl(${210+Math.random()*40}, 40%, ${65+Math.random()*20}%)`;
+        } else {
+          n.type = 'bead';
+          n.radius = 2 + Math.random() * 1.8;
+          const hue = 25 + Math.random() * 35;
+          n.color = `hsl(${hue}, 25%, ${58+Math.random()*15}%)`;
+        }
+      }
+      nodes.push(n);
+    }
+
+    strands.push({
+      nodes, segLen,
+      freq: NOTES[si % NOTES.length],
+      glow: 0, lastHit: 0
+    });
+  }
+}
+
+// === Drop ===
+let dropping = true;
+let dropStart = 0;
+function startDrop() {
+  dropping = true;
+  dropStart = performance.now();
+  for (const s of strands) {
+    const anchor = s.nodes[0];
+    for (let i = 1; i < s.nodes.length; i++) {
+      s.nodes[i].x = anchor.x + (Math.random()-0.5)*0.5;
+      s.nodes[i].y = anchor.y;
+      s.nodes[i].ox = s.nodes[i].x;
+      s.nodes[i].oy = s.nodes[i].y;
+    }
+  }
+}
+
+// === Physics ===
+let windTime = Math.random() * 100;
+
+function simulate() {
+  windTime += 0.003;
+  const wind = Math.sin(windTime) * 0.08 + Math.sin(windTime*2.7) * 0.03;
+  const now = performance.now();
+
+  // drop: release all at once after short delay
+  if (dropping) {
+    const elapsed = now - dropStart;
+    if (elapsed < 200) return; // brief pause then drop
+    if (elapsed > 1500) dropping = false;
+  }
+
+  for (const strand of strands) {
+    // verlet integration
+    for (let i = 1; i < strand.nodes.length; i++) {
+      const n = strand.nodes[i];
+      if (n.pinned) continue;
+      const vx = (n.x - n.ox) * 0.993;
+      const vy = (n.y - n.oy) * 0.993;
+      n.ox = n.x; n.oy = n.y;
+      n.x += vx + wind * 0.02;
+      n.y += vy + GRAVITY;
+    }
+
+    // distance constraints
+    for (let iter = 0; iter < ITERATIONS; iter++) {
+      for (let i = 0; i < strand.nodes.length - 1; i++) {
+        const a = strand.nodes[i];
+        const b = strand.nodes[i + 1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 0.001;
+        const diff = (dist - strand.segLen) / dist * 0.5;
+        if (!a.pinned) { a.x += dx * diff; a.y += dy * diff; }
+        if (!b.pinned) { b.x -= dx * diff; b.y -= dy * diff; }
+      }
+    }
+
+    strand.glow *= 0.97;
+    for (const n of strand.nodes) {
+      n.glow *= 0.96;
+      n.sparkle *= 0.92;
+    }
+  }
+}
+
+// === Interaction ===
+let pointer = { x:0, y:0, vx:0, vy:0, active:false };
+let hintVis = true;
+
+function onDown(e) {
+  initAudio();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  pointer = { x, y, vx:0, vy:0, active:true };
+  if (hintVis) { document.getElementById('hint').style.opacity='0'; hintVis=false; }
+}
+function onMove(e) {
+  if (!pointer.active) return;
+  e.preventDefault();
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  pointer.vx = x - pointer.x;
+  pointer.vy = y - pointer.y;
+  pointer.x = x; pointer.y = y;
+
+  const speed = Math.hypot(pointer.vx, pointer.vy);
+  if (speed < 0.5) return;
+  const now = performance.now();
+
+  for (const strand of strands) {
+    if (now - strand.lastHit < 60) continue;
+    for (let i = 1; i < strand.nodes.length; i++) {
+      const n = strand.nodes[i];
+      const d = Math.hypot(x - n.x, y - n.y);
+      if (d < 35) {
+        // strong push - like a real flick
+        const force = Math.min(speed * 1.2, 30);
+        const nx_ = pointer.vx / speed;
+        const ny_ = pointer.vy / speed;
+        n.x += nx_ * force;
+        n.y += ny_ * force * 0.4;
+        // also push neighbors for a wave effect
+        for (let j = Math.max(1,i-3); j <= Math.min(strand.nodes.length-1,i+3); j++) {
+          const dist = Math.abs(j-i);
+          const falloff = 1 - dist * 0.25;
+          strand.nodes[j].x += nx_ * force * falloff * 0.5;
+          strand.nodes[j].glow = Math.max(strand.nodes[j].glow, falloff);
+          strand.nodes[j].sparkle = 1;
+        }
+        strand.glow = 1;
+        strand.lastHit = now;
+        const vol = Math.min(speed * 0.015, 0.35);
+        playChime(strand.freq, vol);
+        spawnParticles(n.x, n.y, speed);
+        break;
+      }
+    }
+  }
+}
+function onUp() { pointer.active = false; }
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mousemove', onMove);
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', onDown, {passive:false});
+canvas.addEventListener('touchmove', onMove, {passive:false});
+canvas.addEventListener('touchend', onUp);
+
+// === Particles ===
+const particles = [];
+function spawnParticles(x, y, speed) {
+  const count = 4 + Math.floor(speed * 0.4);
+  for (let i = 0; i < Math.min(count, 15); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const v = 0.5 + Math.random() * 2;
+    particles.push({
+      x, y, vx: Math.cos(a)*v, vy: Math.sin(a)*v - 0.5,
+      life: 1, decay: 0.012 + Math.random()*0.008,
+      size: 1.2 + Math.random()*2.5, hue: 200 + Math.random()*60
+    });
+  }
+}
+function updateParticles() {
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life -= p.decay;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+// === Draw ===
+function drawCap() {
+  // wind chime cap - dome shape
+  const cx = W/2, cy = capY;
+  const r = Math.min(W * 0.22, 110);
+  ctx.save();
+
+  // dome body
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r, r * 0.45, 0, Math.PI, 0);
+  ctx.closePath();
+  const grd = ctx.createLinearGradient(cx-r, cy, cx+r, cy);
+  grd.addColorStop(0, '#1a1520');
+  grd.addColorStop(0.3, '#2d2535');
+  grd.addColorStop(0.7, '#2d2535');
+  grd.addColorStop(1, '#1a1520');
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  // rim
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#3a3040';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(180,160,200,0.15)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // decorative ring
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - r*0.15, r*0.7, r*0.25, 0, Math.PI, 0);
+  ctx.strokeStyle = 'rgba(200,180,220,0.08)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  // top hook
+  ctx.beginPath();
+  ctx.arc(cx, cy - r*0.42, 6, 0, Math.PI*2);
+  ctx.fillStyle = '#3a3040';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy - r*0.42 - 10, 8, Math.PI*0.3, Math.PI*0.7);
+  ctx.strokeStyle = '#4a4050';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawStrand(strand) {
+  const nodes = strand.nodes;
+  // rope curve
+  ctx.save();
+  ctx.strokeStyle = `rgba(160,150,140,${0.2 + strand.glow*0.5})`;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(nodes[0].x, nodes[0].y);
+  for (let i = 1; i < nodes.length; i++) {
+    const p = nodes[i-1], c = nodes[i];
+    ctx.quadraticCurveTo(p.x, p.y, (p.x+c.x)/2, (p.y+c.y)/2);
+  }
+  const last = nodes[nodes.length-1];
+  ctx.lineTo(last.x, last.y);
+  ctx.stroke();
+
+  // glow line
+  if (strand.glow > 0.05) {
+    ctx.strokeStyle = `rgba(200,180,255,${strand.glow*0.12})`;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = `rgba(180,150,255,${strand.glow*0.4})`;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(nodes[0].x, nodes[0].y);
+    for (let i = 1; i < nodes.length; i++) {
+      const p = nodes[i-1], c = nodes[i];
+      ctx.quadraticCurveTo(p.x, p.y, (p.x+c.x)/2, (p.y+c.y)/2);
+    }
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+
+  // decorations
+  for (const n of nodes) {
+    if (n.type === 'none') continue;
+    if (n.type === 'feather') drawFeather(n, strand);
+    else if (n.type === 'diamond') drawDiamond(n);
+    else drawBead(n);
+  }
+}
+
+function drawDiamond(n) {
+  ctx.save();
+  ctx.translate(n.x, n.y);
+  const r = n.radius;
+  const sparkle = n.sparkle;
+
+  if (n.glow > 0.01 || sparkle > 0.01) {
+    ctx.shadowColor = `rgba(200,220,255,${Math.max(n.glow, sparkle) * 0.9})`;
+    ctx.shadowBlur = Math.max(n.glow, sparkle) * 16;
+  }
+
+  // diamond shape
+  ctx.beginPath();
+  ctx.moveTo(0, -r*1.4);
+  ctx.lineTo(r, 0);
+  ctx.lineTo(0, r*1.4);
+  ctx.lineTo(-r, 0);
+  ctx.closePath();
+  ctx.fillStyle = n.color;
+  ctx.fill();
+
+  // sparkle highlight
+  ctx.fillStyle = `rgba(255,255,255,${0.3 + sparkle*0.5})`;
+  ctx.beginPath();
+  ctx.moveTo(-r*0.2, -r*0.5);
+  ctx.lineTo(r*0.1, -r*0.2);
+  ctx.lineTo(-r*0.1, r*0.1);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBead(n) {
+  ctx.save();
+  if (n.glow > 0.01) {
+    ctx.shadowColor = `rgba(255,220,150,${n.glow*0.7})`;
+    ctx.shadowBlur = n.glow * 12;
+  }
+  ctx.fillStyle = n.color;
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, n.radius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(255,250,240,${0.25 + n.glow*0.4})`;
+  ctx.beginPath();
+  ctx.arc(n.x - n.radius*0.3, n.y - n.radius*0.3, n.radius*0.35, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawFeather(n, strand) {
+  ctx.save();
+  ctx.translate(n.x, n.y);
+
+  // calculate angle from previous node
+  const prev = strand.nodes[strand.nodes.length - 2];
+  const angle = Math.atan2(n.x - prev.x, n.y - prev.y);
+  ctx.rotate(-angle);
+
+  const r = n.radius;
+  if (n.glow > 0.01) {
+    ctx.shadowColor = `rgba(180,200,255,${n.glow*0.6})`;
+    ctx.shadowBlur = n.glow * 15;
+  }
+
+  // feather shaft
+  ctx.strokeStyle = `rgba(180,170,160,${0.4 + n.glow*0.3})`;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(0, -r*0.3);
+  ctx.lineTo(0, r*2);
+  ctx.stroke();
+
+  // feather barbs - left
+  for (let i = 0; i < 8; i++) {
+    const t = i / 8;
+    const y = -r*0.2 + t * r * 2;
+    const width = r * 0.7 * Math.sin(t * Math.PI);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.quadraticCurveTo(-width*0.6, y + r*0.08, -width, y + r*0.12);
+    ctx.strokeStyle = `rgba(${150+t*50},${160+t*40},${180+t*30},${0.25 + n.glow*0.4})`;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+  // right
+  for (let i = 0; i < 8; i++) {
+    const t = i / 8;
+    const y = -r*0.2 + t * r * 2;
+    const width = r * 0.7 * Math.sin(t * Math.PI);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.quadraticCurveTo(width*0.6, y + r*0.08, width, y + r*0.12);
+    ctx.strokeStyle = `rgba(${150+t*50},${160+t*40},${180+t*30},${0.25 + n.glow*0.4})`;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+
+  // soft fill
+  ctx.beginPath();
+  ctx.ellipse(0, r*0.8, r*0.55, r*1.1, 0, 0, Math.PI*2);
+  ctx.fillStyle = `rgba(${parseInt(n.color.match(/\d+/g)[0])},${parseInt(n.color.match(/\d+/g)[1])*2},${parseInt(n.color.match(/\d+/g)[2])*2},0.06)`;
+  ctx.fillStyle = n.color.replace(')', ',0.08)').replace('hsl', 'hsla');
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.save();
+    ctx.globalAlpha = p.life * 0.75;
+    ctx.fillStyle = `hsl(${p.hue}, 40%, 70%)`;
+    ctx.shadowColor = `hsl(${p.hue}, 50%, 60%)`;
+    ctx.shadowBlur = p.life * 10;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawVignette() {
+  const g = ctx.createRadialGradient(W/2, H*0.2, H*0.1, W/2, H*0.5, H);
+  g.addColorStop(0, 'transparent');
+  g.addColorStop(1, 'rgba(2,1,4,0.85)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ambient sparkle on diamonds
+let sparkleTime = 0;
+function ambientSparkle() {
+  sparkleTime += 0.02;
+  for (const strand of strands) {
+    for (const n of strand.nodes) {
+      if (n.type === 'diamond' && Math.random() < 0.005) {
+        n.sparkle = 0.3 + Math.random() * 0.4;
+      }
+    }
+  }
+}
+
+// === Main ===
+function frame() {
+  ctx.fillStyle = '#08070a';
+  ctx.fillRect(0, 0, W, H);
+
+  simulate();
+  updateParticles();
+  ambientSparkle();
+
+  drawCap();
+  for (const s of strands) drawStrand(s);
+  drawParticles();
+  drawVignette();
+
+  requestAnimationFrame(frame);
+}
+
+createStrands();
+startDrop();
+window.addEventListener('resize', () => { resize(); createStrands(); startDrop(); });
+frame();
+</script>
+</body>
+</html>

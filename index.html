@@ -1054,6 +1054,11 @@
   <iframe id="readingFrame" src="" allow="same-origin"></iframe>
 </div>
 
+<!-- 画廊页面 -->
+<div class="iframe-overlay" id="galleryOverlayFrame">
+  <iframe id="galleryFrame" src="" allow="same-origin"></iframe>
+</div>
+
 <!-- 朋友们面板 -->
 <div class="friends-panel" id="friendsPanel">
   <div class="friends-header">
@@ -1159,6 +1164,9 @@
   </button>
   <button class="tab-btn" id="tab-reading" onclick="switchTab('reading')">
     <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V7a2 2 0 012-2h5v14H6a2 2 0 01-2-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M20 19V7a2 2 0 00-2-2h-5v14h5a2 2 0 002-2z" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.5"/><path d="M11 5q1-2 2 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>共读
+  </button>
+  <button class="tab-btn" id="tab-gallery" onclick="switchTab('gallery')">
+    <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="3" width="8" height="8" rx="2" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="13" width="8" height="8" rx="2" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.3"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor" opacity="0.12" stroke="currentColor" stroke-width="1.3"/><circle cx="7" cy="7" r="1.5" fill="currentColor" opacity="0.4"/></svg></span>画廊
   </button>
   <button class="tab-btn" id="tab-friends" onclick="switchTab('friends')">
     <span class="tab-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="9" r="2.5" fill="currentColor" opacity="0.18" stroke="currentColor" stroke-width="1.3"/><path d="M2 19c0-3.3 3.1-6 7-6s7 2.7 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M17 13c2.2.5 4 2.3 4 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.6"/></svg></span>朋友

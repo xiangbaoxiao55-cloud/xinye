@@ -16,7 +16,7 @@
   --header-h:56px;
 }
 html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
-.app{display:flex;flex-direction:column;height:100%;height:100svh;max-width:600px;margin:0 auto;position:relative}
+.app{display:flex;flex-direction:column;height:100%;height:100svh;max-width:1200px;margin:0 auto;position:relative}
 
 /* ===== Header ===== */
 .header{
@@ -53,47 +53,45 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .search-input::placeholder{color:var(--text-light)}
 .search-input:focus{border-color:var(--pink)}
 
-/* ===== Album tabs ===== */
-.album-bar{
+/* ===== Tag bar ===== */
+.tag-bar{
   display:flex;gap:8px;padding:10px 14px;overflow-x:auto;flex-shrink:0;
   -webkit-overflow-scrolling:touch;scrollbar-width:none;
 }
-.album-bar::-webkit-scrollbar{display:none}
-.album-tab{
+.tag-bar::-webkit-scrollbar{display:none}
+.tag-tab{
   flex-shrink:0;height:34px;padding:0 16px;border-radius:17px;border:1.5px solid var(--border);
   background:var(--card);color:var(--text-mid);font-size:13px;font-weight:600;
   cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;
   transition:all .2s;
 }
-.album-tab.active{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
-.album-tab:active{transform:scale(.95)}
-.album-tab .count{
+.tag-tab.active{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+.tag-tab:active{transform:scale(.95)}
+.tag-tab .count{
   font-size:11px;background:rgba(0,0,0,.08);border-radius:8px;padding:1px 6px;
   min-width:20px;text-align:center;
 }
-.album-tab.active .count{background:rgba(255,255,255,.25)}
+.tag-tab.active .count{background:rgba(255,255,255,.25)}
 
 /* ===== Grid container ===== */
 .grid-wrap{
   flex:1;overflow-y:auto;padding:6px 14px 80px;-webkit-overflow-scrolling:touch;
 }
 
-/* ===== Masonry grid (CSS columns) ===== */
-.masonry{
-  column-count:2;column-gap:10px;
-}
-@media(min-width:400px){.masonry{column-count:3}}
+/* ===== Masonry grid (CSS columns) — responsive ===== */
+.masonry{column-count:2;column-gap:10px}
+@media(min-width:500px){.masonry{column-count:3}}
+@media(min-width:800px){.masonry{column-count:4}}
+@media(min-width:1100px){.masonry{column-count:5}}
 
 /* ===== Gallery card ===== */
 .g-card{
   break-inside:avoid;margin-bottom:10px;border-radius:var(--radius-sm);
   overflow:hidden;background:var(--card);box-shadow:var(--shadow);
-  cursor:pointer;transition:transform .15s;position:relative;
+  cursor:pointer;transition:transform .15s,outline .15s;position:relative;
 }
 .g-card:active{transform:scale(.97)}
-.g-card img{
-  width:100%;display:block;background:var(--bg2);min-height:60px;
-}
+.g-card img{width:100%;display:block;background:var(--bg2);min-height:60px}
 .g-card-info{padding:8px 10px 10px}
 .g-card-prompt{
   font-size:11px;color:var(--text-light);line-height:1.4;
@@ -102,10 +100,9 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 }
 .g-card-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
 .g-card-date{font-size:10px;color:var(--text-light);opacity:.7}
-.g-card-source{
-  font-size:9px;padding:2px 6px;border-radius:6px;font-weight:600;
-}
+.g-card-source{font-size:9px;padding:2px 6px;border-radius:6px;font-weight:600}
 .g-card-source.draw{background:rgba(244,143,177,.2);color:var(--pink-deep)}
+.g-card-source.chat{background:rgba(178,223,219,.4);color:#00796b}
 .g-card-source.imported{background:rgba(255,224,178,.4);color:#e65100}
 .g-card-fav{
   position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;
@@ -116,18 +113,44 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 }
 .g-card-fav.on{color:#ff1744;background:rgba(255,255,255,.85)}
 
-/* ===== Empty state ===== */
-.empty-state{
-  text-align:center;padding:60px 20px;color:var(--text-light);
+/* ===== Multi-select mode ===== */
+.g-card.selected{outline:3px solid var(--pink-deep);outline-offset:-3px}
+.g-card .sel-check{
+  position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.25);
+  display:none;align-items:center;justify-content:center;z-index:3;
+  color:#fff;font-size:14px;font-weight:700;
 }
+.select-mode .g-card .sel-check{display:flex}
+.g-card.selected .sel-check{background:var(--pink-deep);border-color:var(--pink-deep)}
+
+/* Selection action bar */
+.sel-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--card);border-top:1px solid var(--border);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0));
+  display:none;z-index:50;align-items:center;gap:12px;
+  box-shadow:0 -4px 16px rgba(0,0,0,.1);
+}
+.sel-bar.show{display:flex}
+.sel-bar .sel-count{font-size:13px;font-weight:600;flex:1}
+.sel-bar button{
+  height:36px;padding:0 16px;border-radius:18px;border:none;
+  font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:4px;
+}
+.sel-bar .sel-tag{background:var(--pink-light);color:var(--pink-deep)}
+.sel-bar .sel-fav{background:var(--apricot);color:#e65100}
+.sel-bar .sel-cancel{background:var(--bg2);color:var(--text-mid)}
+
+/* ===== Empty state ===== */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-light)}
 .empty-state .icon{font-size:48px;margin-bottom:16px;opacity:.6}
 .empty-state .title{font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text-mid)}
 .empty-state .desc{font-size:13px;line-height:1.6}
 
 /* ===== Load more ===== */
-.load-more{
-  text-align:center;padding:20px;
-}
+.load-more{text-align:center;padding:20px}
 .load-more-btn{
   padding:10px 32px;border-radius:20px;border:1.5px solid var(--border);
   background:var(--card);color:var(--text-mid);font-size:13px;font-weight:600;
@@ -137,14 +160,13 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 
 /* ===== FAB ===== */
 .fab{
-  position:fixed;bottom:28px;right:max(14px,calc((100vw - 600px)/2 + 14px));
+  position:fixed;bottom:28px;right:20px;
   width:52px;height:52px;border-radius:50%;
   background:linear-gradient(135deg,var(--pink),var(--pink-deep));
   color:#fff;font-size:24px;border:none;cursor:pointer;
   box-shadow:0 4px 20px rgba(233,30,99,.4);
   display:flex;align-items:center;justify-content:center;
   z-index:30;transition:transform .2s;
-  padding-bottom:env(safe-area-inset-bottom,0);
 }
 .fab:active{transform:scale(.9)}
 
@@ -157,8 +179,7 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .lightbox.show{opacity:1;pointer-events:auto}
 .lb-top{
   display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0));
-  flex-shrink:0;
+  padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top,0));flex-shrink:0;
 }
 .lb-close{
   width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);
@@ -168,8 +189,7 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .lb-counter{color:rgba(255,255,255,.6);font-size:13px}
 .lb-img-wrap{
   flex:1;display:flex;align-items:center;justify-content:center;
-  overflow:hidden;padding:0 8px;position:relative;
-  touch-action:pan-y pinch-zoom;
+  overflow:hidden;padding:0 8px;position:relative;touch-action:pan-y pinch-zoom;
 }
 .lb-img-wrap img{
   max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;
@@ -178,8 +198,7 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .lb-nav{
   position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;
   border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;
-  font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  z-index:2;
+  font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;
 }
 .lb-nav:active{background:rgba(255,255,255,.25)}
 .lb-nav.prev{left:8px}
@@ -188,7 +207,19 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
   flex-shrink:0;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0));
   background:rgba(0,0,0,.6);backdrop-filter:blur(12px);max-height:40vh;overflow-y:auto;
 }
-.lb-prompt{color:rgba(255,255,255,.85);font-size:13px;line-height:1.6;word-break:break-all;margin-bottom:8px}
+.lb-prompt-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.lb-prompt{color:rgba(255,255,255,.85);font-size:13px;line-height:1.6;word-break:break-all;flex:1}
+.lb-copy{
+  flex-shrink:0;width:32px;height:32px;border-radius:8px;
+  background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.7);
+  font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.lb-copy:active{background:rgba(255,255,255,.3)}
+.lb-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.lb-tag{
+  font-size:11px;padding:3px 10px;border-radius:10px;
+  background:rgba(244,143,177,.2);color:rgba(255,255,255,.8);
+}
 .lb-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
 .lb-meta span{font-size:11px;color:rgba(255,255,255,.5)}
 .lb-actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -216,11 +247,6 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 }
 .modal-overlay.show .modal{transform:translateY(0)}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--text)}
-.modal-close{
-  position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;
-  background:var(--bg2);border:none;color:var(--text-mid);font-size:16px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-}
 
 /* ===== Import modal ===== */
 .import-zone{
@@ -232,44 +258,41 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .import-zone .icon{font-size:36px;margin-bottom:8px;opacity:.5}
 .import-zone .text{font-size:13px;color:var(--text-mid)}
 .import-preview{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.import-thumb{
-  width:72px;height:72px;border-radius:10px;object-fit:cover;
-  border:2px solid var(--border);
-}
+.import-thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid var(--border)}
 .import-btn{
   width:100%;height:44px;border-radius:22px;border:none;
   background:linear-gradient(135deg,var(--pink),var(--pink-deep));
-  color:#fff;font-size:14px;font-weight:700;cursor:pointer;
-  transition:opacity .2s;
+  color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;
 }
 .import-btn:active{opacity:.8}
 .import-btn:disabled{opacity:.4;cursor:default}
 
-/* ===== Album modal ===== */
-.album-list-item{
+/* ===== Tag modal ===== */
+.tag-check-item{
   display:flex;align-items:center;gap:12px;padding:12px;
   border-radius:var(--radius-sm);cursor:pointer;transition:background .15s;
 }
-.album-list-item:active{background:var(--bg2)}
-.album-list-item.active{background:var(--pink-light)}
-.album-list-item .name{flex:1;font-size:14px;font-weight:600}
-.album-list-item .cnt{font-size:12px;color:var(--text-light)}
-.album-input{
+.tag-check-item:active{background:var(--bg2)}
+.tag-check-item .check{
+  width:22px;height:22px;border-radius:6px;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all .15s;flex-shrink:0;
+}
+.tag-check-item.checked .check{background:var(--pink-deep);border-color:var(--pink-deep);color:#fff}
+.tag-check-item .name{flex:1;font-size:14px;font-weight:600}
+.tag-input{
   width:100%;height:44px;border-radius:var(--radius-sm);border:1.5px solid var(--border);
   background:var(--card);padding:0 14px;font-size:14px;color:var(--text);
   outline:none;margin-bottom:12px;
 }
-.album-input:focus{border-color:var(--pink)}
-.album-actions{display:flex;gap:8px}
-.album-actions button{
+.tag-input:focus{border-color:var(--pink)}
+.tag-actions{display:flex;gap:8px}
+.tag-actions button{
   flex:1;height:40px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;
-  border:1.5px solid var(--border);background:var(--card);color:var(--text-mid);
-  transition:all .2s;
+  border:1.5px solid var(--border);background:var(--card);color:var(--text-mid);transition:all .2s;
 }
-.album-actions button.primary{
-  background:var(--pink-deep);color:#fff;border-color:var(--pink-deep);
-}
-.album-actions button:active{transform:scale(.97)}
+.tag-actions button.primary{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+.tag-actions button:active{transform:scale(.97)}
 
 /* ===== Toast ===== */
 .toast{
@@ -292,8 +315,8 @@ html.dark{
 html.dark body{background:var(--bg)}
 html.dark .header{background:rgba(30,15,20,.85)}
 html.dark .search-input{background:var(--bg2);border-color:var(--border)}
-html.dark .album-tab{background:var(--bg2);border-color:var(--border);color:var(--text-mid)}
-html.dark .album-tab.active{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
+html.dark .tag-tab{background:var(--bg2);border-color:var(--border);color:var(--text-mid)}
+html.dark .tag-tab.active{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
 html.dark .g-card{background:var(--card)}
 html.dark .g-card img{background:var(--bg2)}
 html.dark .g-card-fav{background:rgba(255,255,255,.1)}
@@ -301,11 +324,11 @@ html.dark .g-card-fav.on{background:rgba(255,26,68,.2);color:#ff1744}
 html.dark .modal{background:var(--card)}
 html.dark .import-zone{border-color:var(--border)}
 html.dark .import-zone:hover,.import-zone.dragover{border-color:var(--pink);background:rgba(244,143,177,.1)}
-html.dark .album-input{background:var(--bg2)}
-html.dark .album-list-item:active{background:var(--bg)}
-html.dark .album-list-item.active{background:rgba(244,143,177,.15)}
+html.dark .tag-input{background:var(--bg2)}
+html.dark .tag-check-item:active{background:var(--bg)}
 html.dark .load-more-btn{background:var(--bg2);border-color:var(--border);color:var(--text-mid)}
 html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
+html.dark .sel-bar{background:var(--card);border-color:var(--border)}
 </style>
 </head>
 <body>
@@ -313,7 +336,10 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
   <!-- Header -->
   <div class="header">
     <button class="btn-back" onclick="goBack()">‹</button>
-    <div class="header-title">🖼️ 我们的画廊</div>
+    <div class="header-title" id="headerTitle">🖼️ 我们的画廊</div>
+    <button class="btn-icon-sm" id="btnSelect" onclick="toggleSelectMode()" title="多选">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </button>
     <button class="btn-icon-sm" id="btnSearch" onclick="toggleSearch()" title="搜索">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
     </button>
@@ -327,16 +353,12 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
     <input class="search-input" id="searchInput" type="text" placeholder="搜索 prompt 关键词..." oninput="onSearchInput()">
   </div>
 
-  <!-- Album tabs -->
-  <div class="album-bar" id="albumBar">
-    <!-- Rendered by JS -->
-  </div>
+  <!-- Tag bar -->
+  <div class="tag-bar" id="tagBar"></div>
 
   <!-- Grid -->
   <div class="grid-wrap" id="gridWrap">
-    <div class="masonry" id="masonry">
-      <!-- Cards rendered by JS -->
-    </div>
+    <div class="masonry" id="masonry"></div>
     <div class="load-more" id="loadMore" style="display:none">
       <button class="load-more-btn" onclick="loadNextPage()">加载更多 ✨</button>
     </div>
@@ -345,7 +367,15 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
 </div>
 
 <!-- FAB -->
-<button class="fab" onclick="showImportModal()">＋</button>
+<button class="fab" id="fab" onclick="showImportModal()">＋</button>
+
+<!-- Selection bar -->
+<div class="sel-bar" id="selBar">
+  <span class="sel-count" id="selCount">已选 0 张</span>
+  <button class="sel-tag" onclick="batchTag()">🏷️ 标签</button>
+  <button class="sel-fav" onclick="batchFav()">❤️ 收藏</button>
+  <button class="sel-cancel" onclick="toggleSelectMode()">取消</button>
+</div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
@@ -360,7 +390,11 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
     <button class="lb-nav next" onclick="lbNext(event)">›</button>
   </div>
   <div class="lb-bottom" id="lbBottom">
-    <div class="lb-prompt" id="lbPrompt"></div>
+    <div class="lb-prompt-row">
+      <div class="lb-prompt" id="lbPrompt"></div>
+      <button class="lb-copy" id="lbCopy" onclick="copyPrompt()" title="复制 prompt">📋</button>
+    </div>
+    <div class="lb-tags" id="lbTags"></div>
     <div class="lb-meta" id="lbMeta"></div>
     <div class="lb-actions" id="lbActions"></div>
   </div>
@@ -382,11 +416,11 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
   </div>
 </div>
 
-<!-- Album picker modal (for assigning images) -->
-<div class="modal-overlay" id="albumModal">
+<!-- Tag modal (multi-purpose) -->
+<div class="modal-overlay" id="tagModal">
   <div class="modal" style="position:relative">
-    <div class="modal-title" id="albumModalTitle">选择相册</div>
-    <div id="albumModalContent"></div>
+    <div class="modal-title" id="tagModalTitle">标签</div>
+    <div id="tagModalContent"></div>
   </div>
 </div>
 
@@ -398,7 +432,6 @@ html.dark .fab{box-shadow:0 4px 20px rgba(233,30,99,.25)}
 //  炘也和兔宝的画廊 💙
 // =============================
 
-// ===== Config =====
 const PAGE_SIZE = 20;
 const THUMB_SIZE = 300;
 const MAX_IMG_SIZE = 1500;
@@ -406,17 +439,20 @@ const IMG_QUALITY = 0.8;
 const THUMB_QUALITY = 0.6;
 
 // ===== State =====
-let _galleryDB = null;
-let _drawDB = null;
-let _allImages = [];      // merged sorted array of metadata
-let _displayImages = [];   // after filter/search
+let _gdb = null;       // GalleryDB
+let _drawDB = null;    // DrawDB (read-only)
+let _chatDB = null;    // XinyeChatDB (read-only)
+let _allImages = [];
+let _displayImages = [];
 let _shownCount = 0;
-let _currentAlbum = 'all'; // 'all' | 'fav' | albumId
+let _currentTag = 'all'; // 'all' | 'fav' | tagId
 let _searchQuery = '';
 let _searchTimer = null;
 let _lbIndex = -1;
-let _importFiles = [];     // pending files for import
+let _importFiles = [];
 let _swipeStartX = 0;
+let _selectMode = false;
+let _selected = new Set(); // set of item ids
 
 // ===== Utilities =====
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8) }
@@ -425,6 +461,7 @@ function fmtDate(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -433,23 +470,30 @@ function toast(msg) {
   el._t = setTimeout(() => el.classList.remove('show'), 2000);
 }
 
-// ===== IndexedDB: GalleryDB =====
+// ================================
+//  IndexedDB
+// ================================
+
+// GalleryDB v2 — tags system (multi-tag per image)
 function openGalleryDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('GalleryDB', 1);
+    const req = indexedDB.open('GalleryDB', 2);
     req.onupgradeneeded = e => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains('images')) {
-        const s = db.createObjectStore('images', { keyPath: 'id' });
-        s.createIndex('byAlbum', 'albumId', { unique: false });
-        s.createIndex('byDate', 'createdAt', { unique: false });
+      const oldVer = e.oldVersion;
+      if (oldVer < 1) {
+        // Fresh install
+        const imgs = db.createObjectStore('images', { keyPath: 'id' });
+        imgs.createIndex('byDate', 'createdAt', { unique: false });
+        db.createObjectStore('tags', { keyPath: 'id' });
+        db.createObjectStore('drawMeta', { keyPath: 'drawId' });
       }
-      if (!db.objectStoreNames.contains('albums')) {
-        db.createObjectStore('albums', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('drawMeta')) {
-        const dm = db.createObjectStore('drawMeta', { keyPath: 'drawId' });
-        dm.createIndex('byAlbum', 'albumId', { unique: false });
+      if (oldVer === 1) {
+        // Migrate from v1: albums → tags, albumId → tags[]
+        // Delete old stores and recreate (no data exists yet realistically)
+        if (db.objectStoreNames.contains('albums')) db.deleteObjectStore('albums');
+        if (!db.objectStoreNames.contains('tags')) db.createObjectStore('tags', { keyPath: 'id' });
+        // drawMeta & images stores already exist, schema change is soft (tags[] field)
       }
     };
     req.onsuccess = e => resolve(e.target.result);
@@ -457,111 +501,131 @@ function openGalleryDB() {
   });
 }
 
-// ===== IndexedDB: DrawDB (read-only) =====
+// DrawDB v4 (read-only)
 function openDrawDBReadOnly() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('DrawDB', 4);
-    req.onupgradeneeded = e => {
-      // Abort! We don't want to create/modify stores in DrawDB
-      e.target.transaction.abort();
-      reject(new Error('DrawDB not found or version mismatch'));
-    };
+    req.onupgradeneeded = e => { e.target.transaction.abort(); reject(new Error('DrawDB not found')); };
     req.onsuccess = e => resolve(e.target.result);
     req.onerror = e => reject(e.target.error);
   });
 }
 
-// ===== Load all DrawDB images (metadata only, no imageData) =====
+// XinyeChatDB v4 (read-only) — chat-generated images
+function openChatDBReadOnly() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('XinyeChatDB', 4);
+    req.onupgradeneeded = e => { e.target.transaction.abort(); reject(new Error('ChatDB not found')); };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// ================================
+//  Data loading
+// ================================
+
+// DrawDB gallery images (metadata only)
 async function loadDrawImagesMeta() {
-  try {
-    if (!_drawDB) _drawDB = await openDrawDBReadOnly();
-  } catch { return []; }
+  try { if (!_drawDB) _drawDB = await openDrawDBReadOnly(); } catch { return []; }
   return new Promise((resolve, reject) => {
     const tx = _drawDB.transaction('gallery', 'readonly');
-    const store = tx.objectStore('gallery');
     const results = [];
-    const req = store.openCursor();
+    const req = tx.objectStore('gallery').openCursor();
     req.onsuccess = e => {
-      const cursor = e.target.result;
-      if (cursor) {
-        const v = cursor.value;
+      const c = e.target.result;
+      if (c) {
+        const v = c.value;
         results.push({
-          id: v.id,
-          source: 'draw',
-          prompt: v.prompt || '',
-          negPrompt: v.negPrompt || '',
-          personaName: v.personaName || null,
-          rating: v.rating || 0,
-          tags: v.tags || [],
-          createdAt: v.createdAt || 0,
+          id: v.id, source: 'draw',
+          prompt: v.prompt || '', negPrompt: v.negPrompt || '',
+          personaName: v.personaName || null, rating: v.rating || 0,
+          drawTags: v.tags || [], createdAt: v.createdAt || 0,
           params: v.params || {},
-          // No imageData — load on demand
         });
-        cursor.continue();
-      } else {
-        resolve(results);
-      }
+        c.continue();
+      } else resolve(results);
     };
     req.onerror = e => reject(e.target.error);
   });
 }
 
-// ===== Load single DrawDB image's full data =====
+// Single DrawDB image data
 async function loadDrawImageData(id) {
-  try {
-    if (!_drawDB) _drawDB = await openDrawDBReadOnly();
-  } catch { return null; }
+  try { if (!_drawDB) _drawDB = await openDrawDBReadOnly(); } catch { return null; }
   return new Promise((resolve, reject) => {
     const tx = _drawDB.transaction('gallery', 'readonly');
     const req = tx.objectStore('gallery').get(id);
+    req.onsuccess = e => resolve(e.target.result ? e.target.result.imageData : null);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// Chat-generated images from XinyeChatDB
+async function loadChatImages() {
+  try { if (!_chatDB) _chatDB = await openChatDBReadOnly(); } catch { return []; }
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const tx = _chatDB.transaction('messages', 'readonly');
+    const req = tx.objectStore('messages').openCursor();
     req.onsuccess = e => {
-      const v = e.target.result;
-      resolve(v ? v.imageData : null);
+      const c = e.target.result;
+      if (c) {
+        const msg = c.value;
+        if (msg.isGenImage && msg.genImageData && !msg.genImageData.startsWith('__HTTP_URL__:')) {
+          // Extract prompt from content
+          let prompt = '';
+          const m = (msg.content || '').match(/提示词[：:]([\s\S]+?)$/);
+          if (m) prompt = m[1].trim();
+          results.push({
+            id: 'chat_' + msg.id,
+            chatMsgId: msg.id,
+            source: 'chat',
+            prompt,
+            createdAt: msg.time || 0,
+          });
+        }
+        c.continue();
+      } else resolve(results);
     };
     req.onerror = e => reject(e.target.error);
   });
 }
 
-// ===== Load DrawDB thumbnail (downscale at display time) =====
-// For DrawDB images we load the full data lazily into an <img>, relying on
-// the browser to handle display.  To save memory we generate a small thumbnail
-// URL via canvas when the card scrolls into view.
-const _thumbCache = new Map();
-
-async function getThumbUrl(item) {
-  if (item.source === 'imported') return item.thumbnail || item.imageData;
-  if (_thumbCache.has(item.id)) return _thumbCache.get(item.id);
-  // Load full data
-  const data = await loadDrawImageData(item.id);
-  if (!data) return '';
-  // Downscale to thumbnail
-  const thumb = await resizeImage(data, THUMB_SIZE, THUMB_QUALITY);
-  _thumbCache.set(item.id, thumb);
-  return thumb;
+// Load single chat image data
+async function loadChatImageData(chatMsgId) {
+  try { if (!_chatDB) _chatDB = await openChatDBReadOnly(); } catch { return null; }
+  return new Promise((resolve, reject) => {
+    const tx = _chatDB.transaction('messages', 'readonly');
+    const req = tx.objectStore('messages').get(chatMsgId);
+    req.onsuccess = e => {
+      const msg = e.target.result;
+      if (msg && msg.genImageData) {
+        // If it's an HTTP URL, try to use it directly
+        if (msg.genImageData.startsWith('http')) resolve(msg.genImageData);
+        else resolve(msg.genImageData);
+      } else resolve(null);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
 }
 
-// ===== Load all imported images =====
+// Imported images from GalleryDB
 async function loadImportedImages() {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+  if (!_gdb) _gdb = await openGalleryDB();
   return new Promise((resolve, reject) => {
-    const tx = _galleryDB.transaction('images', 'readonly');
+    const tx = _gdb.transaction('images', 'readonly');
     const req = tx.objectStore('images').getAll();
-    req.onsuccess = e => {
-      const items = (e.target.result || []).map(v => ({
-        ...v,
-        source: 'imported',
-      }));
-      resolve(items);
-    };
+    req.onsuccess = e => resolve((e.target.result || []).map(v => ({ ...v, source: 'imported' })));
     req.onerror = e => reject(e.target.error);
   });
 }
 
-// ===== Load draw metadata (favorites, album assignments) =====
+// Draw metadata (tags, favorites for draw/chat images)
 async function loadDrawMeta() {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+  if (!_gdb) _gdb = await openGalleryDB();
   return new Promise((resolve, reject) => {
-    const tx = _galleryDB.transaction('drawMeta', 'readonly');
+    const tx = _gdb.transaction('drawMeta', 'readonly');
     const req = tx.objectStore('drawMeta').getAll();
     req.onsuccess = e => {
       const map = {};
@@ -572,378 +636,349 @@ async function loadDrawMeta() {
   });
 }
 
-// ===== Load all albums =====
-async function loadAlbums() {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+// Tags
+async function loadTags() {
+  if (!_gdb) _gdb = await openGalleryDB();
   return new Promise((resolve, reject) => {
-    const tx = _galleryDB.transaction('albums', 'readonly');
-    const req = tx.objectStore('albums').getAll();
+    const tx = _gdb.transaction('tags', 'readonly');
+    const req = tx.objectStore('tags').getAll();
     req.onsuccess = e => resolve(e.target.result || []);
     req.onerror = e => reject(e.target.error);
   });
 }
 
-// ===== Merge & sort all images =====
+// Merge all images
 async function loadAllImages() {
   document.getElementById('loadingEl').style.display = '';
-  const [drawImages, importedImages, drawMetaMap] = await Promise.all([
-    loadDrawImagesMeta(),
-    loadImportedImages(),
-    loadDrawMeta(),
+  const [drawImgs, chatImgs, importedImgs, metaMap] = await Promise.all([
+    loadDrawImagesMeta(), loadChatImages(), loadImportedImages(), loadDrawMeta(),
   ]);
-  // Apply draw metadata
-  drawImages.forEach(img => {
-    const meta = drawMetaMap[img.id];
+  // Apply metadata to draw & chat images
+  [...drawImgs, ...chatImgs].forEach(img => {
+    const meta = metaMap[img.id];
     if (meta) {
-      img.albumId = meta.albumId || null;
+      img.tags = meta.tags || [];
       img.favorite = !!meta.favorite;
     } else {
-      img.albumId = null;
+      img.tags = [];
       img.favorite = false;
     }
   });
-  // Ensure imported images have favorite field
-  importedImages.forEach(img => {
+  importedImgs.forEach(img => {
+    img.tags = img.tags || [];
     img.favorite = !!img.favorite;
   });
-  // Merge and sort by date (newest first)
-  _allImages = [...drawImages, ...importedImages].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  _allImages = [...drawImgs, ...chatImgs, ...importedImgs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   document.getElementById('loadingEl').style.display = 'none';
 }
 
-// ===== Filter images by album & search =====
+// Filter by tag & search
 function filterImages() {
   let list = _allImages;
-  // Filter by album
-  if (_currentAlbum === 'fav') {
+  if (_currentTag === 'fav') {
     list = list.filter(i => i.favorite);
-  } else if (_currentAlbum !== 'all') {
-    list = list.filter(i => i.albumId === _currentAlbum);
+  } else if (_currentTag !== 'all') {
+    list = list.filter(i => (i.tags || []).includes(_currentTag));
   }
-  // Filter by search
   if (_searchQuery) {
     const q = _searchQuery.toLowerCase();
     list = list.filter(i => {
-      const prompt = (i.prompt || '').toLowerCase();
-      const note = (i.note || '').toLowerCase();
-      const persona = (i.personaName || '').toLowerCase();
-      const tags = (i.tags || []).join(' ').toLowerCase();
-      return prompt.includes(q) || note.includes(q) || persona.includes(q) || tags.includes(q);
+      const p = (i.prompt || '').toLowerCase();
+      const n = (i.note || '').toLowerCase();
+      const pn = (i.personaName || '').toLowerCase();
+      const t = (i.drawTags || []).join(' ').toLowerCase();
+      return p.includes(q) || n.includes(q) || pn.includes(q) || t.includes(q);
     });
   }
   _displayImages = list;
   _shownCount = 0;
 }
 
-// ===== Image compression =====
+// ================================
+//  Image helpers
+// ================================
 function resizeImage(dataUrl, maxSize, quality) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
       if (w > maxSize || h > maxSize) {
-        const ratio = Math.min(maxSize / w, maxSize / h);
-        w = Math.round(w * ratio);
-        h = Math.round(h * ratio);
+        const r = Math.min(maxSize / w, maxSize / h);
+        w = Math.round(w * r); h = Math.round(h * r);
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
 }
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+function fileToDataUrl(f) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(f);
   });
 }
 
-// ===== Import images =====
+// Thumbnail cache
+const _thumbCache = new Map();
+async function getThumbUrl(item) {
+  if (item.source === 'imported') return item.thumbnail || item.imageData;
+  if (_thumbCache.has(item.id)) return _thumbCache.get(item.id);
+  let data;
+  if (item.source === 'draw') data = await loadDrawImageData(item.id);
+  else if (item.source === 'chat') data = await loadChatImageData(item.chatMsgId);
+  if (!data) return '';
+  // For http URLs (rare), use directly
+  if (typeof data === 'string' && data.startsWith('http')) {
+    _thumbCache.set(item.id, data);
+    return data;
+  }
+  const thumb = await resizeImage(data, THUMB_SIZE, THUMB_QUALITY);
+  _thumbCache.set(item.id, thumb);
+  return thumb;
+}
+
+// Get full image data
+async function getFullImageData(item) {
+  if (item.source === 'imported') return item.imageData;
+  if (item.source === 'draw') return await loadDrawImageData(item.id);
+  if (item.source === 'chat') return await loadChatImageData(item.chatMsgId);
+  return null;
+}
+
+// ================================
+//  Import
+// ================================
 async function importImages(files) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+  if (!_gdb) _gdb = await openGalleryDB();
   const items = [];
-  for (const file of files) {
-    const raw = await fileToDataUrl(file);
+  for (const f of files) {
+    const raw = await fileToDataUrl(f);
     const imageData = await resizeImage(raw, MAX_IMG_SIZE, IMG_QUALITY);
     const thumbnail = await resizeImage(raw, THUMB_SIZE, THUMB_QUALITY);
-    const item = {
-      id: uid(),
-      imageData,
-      thumbnail,
-      note: '',
-      albumId: null,
-      favorite: false,
-      createdAt: file.lastModified || Date.now(),
-    };
-    items.push(item);
+    items.push({
+      id: uid(), imageData, thumbnail,
+      note: '', tags: [], favorite: false,
+      createdAt: f.lastModified || Date.now(),
+    });
   }
-  // Save to DB
-  const tx = _galleryDB.transaction('images', 'readwrite');
-  const store = tx.objectStore('images');
-  for (const item of items) store.put(item);
-  await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  const tx = _gdb.transaction('images', 'readwrite');
+  const s = tx.objectStore('images');
+  for (const item of items) s.put(item);
+  await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   return items.length;
 }
 
-// ===== Album CRUD =====
-async function createAlbum(name) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
-  const album = { id: uid(), name, cover: null, createdAt: Date.now() };
-  const tx = _galleryDB.transaction('albums', 'readwrite');
-  tx.objectStore('albums').put(album);
-  await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-  return album;
+// ================================
+//  Tag CRUD
+// ================================
+async function createTag(name) {
+  if (!_gdb) _gdb = await openGalleryDB();
+  const tag = { id: uid(), name, createdAt: Date.now() };
+  const tx = _gdb.transaction('tags', 'readwrite');
+  tx.objectStore('tags').put(tag);
+  await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
+  return tag;
 }
 
-async function renameAlbum(id, name) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
-  const tx = _galleryDB.transaction('albums', 'readwrite');
-  const store = tx.objectStore('albums');
-  const album = await new Promise(r => { const req = store.get(id); req.onsuccess = () => r(req.result); });
-  if (album) { album.name = name; store.put(album); }
-  await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+async function renameTag(id, name) {
+  if (!_gdb) _gdb = await openGalleryDB();
+  const tx = _gdb.transaction('tags', 'readwrite');
+  const s = tx.objectStore('tags');
+  const tag = await new Promise(r => { const q = s.get(id); q.onsuccess = () => r(q.result); });
+  if (tag) { tag.name = name; s.put(tag); }
+  await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
 }
 
-async function deleteAlbum(id) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
-  // Remove album
-  const tx1 = _galleryDB.transaction('albums', 'readwrite');
-  tx1.objectStore('albums').delete(id);
-  await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = rej; });
-  // Unassign images from this album
-  const tx2 = _galleryDB.transaction(['images', 'drawMeta'], 'readwrite');
-  const imgStore = tx2.objectStore('images');
-  const dmStore = tx2.objectStore('drawMeta');
-  // Images
-  const imgReq = imgStore.index('byAlbum').openCursor(IDBKeyRange.only(id));
-  imgReq.onsuccess = e => {
-    const c = e.target.result;
-    if (c) { c.value.albumId = null; imgStore.put(c.value); c.continue(); }
+async function deleteTag(id) {
+  if (!_gdb) _gdb = await openGalleryDB();
+  const tx = _gdb.transaction('tags', 'readwrite');
+  tx.objectStore('tags').delete(id);
+  await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
+  // Remove tag from all images
+  const tx2 = _gdb.transaction(['images', 'drawMeta'], 'readwrite');
+  const imgS = tx2.objectStore('images');
+  const dmS = tx2.objectStore('drawMeta');
+  const removeTagFrom = (store) => {
+    const req = store.openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) {
+        const v = c.value;
+        if (v.tags && v.tags.includes(id)) {
+          v.tags = v.tags.filter(t => t !== id);
+          store.put(v);
+        }
+        c.continue();
+      }
+    };
   };
-  // Draw meta
-  const dmReq = dmStore.index('byAlbum').openCursor(IDBKeyRange.only(id));
-  dmReq.onsuccess = e => {
-    const c = e.target.result;
-    if (c) { c.value.albumId = null; dmStore.put(c.value); c.continue(); }
-  };
-  await new Promise((res, rej) => { tx2.oncomplete = res; tx2.onerror = rej; });
+  removeTagFrom(imgS);
+  removeTagFrom(dmS);
+  await new Promise((r, j) => { tx2.oncomplete = r; tx2.onerror = j; });
 }
 
-// ===== Assign image to album =====
-async function assignToAlbum(imageId, source, albumId) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+// Assign/remove tags for an image
+async function setImageTags(imageId, source, tagIds) {
+  if (!_gdb) _gdb = await openGalleryDB();
   if (source === 'imported') {
-    const tx = _galleryDB.transaction('images', 'readwrite');
-    const store = tx.objectStore('images');
-    const item = await new Promise(r => { const req = store.get(imageId); req.onsuccess = () => r(req.result); });
-    if (item) { item.albumId = albumId; store.put(item); }
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    const tx = _gdb.transaction('images', 'readwrite');
+    const s = tx.objectStore('images');
+    const item = await new Promise(r => { const q = s.get(imageId); q.onsuccess = () => r(q.result); });
+    if (item) { item.tags = tagIds; s.put(item); }
+    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   } else {
-    const tx = _galleryDB.transaction('drawMeta', 'readwrite');
-    const store = tx.objectStore('drawMeta');
-    const existing = await new Promise(r => { const req = store.get(imageId); req.onsuccess = () => r(req.result); });
-    const meta = existing || { drawId: imageId, albumId: null, favorite: false };
-    meta.albumId = albumId;
-    store.put(meta);
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    const tx = _gdb.transaction('drawMeta', 'readwrite');
+    const s = tx.objectStore('drawMeta');
+    const existing = await new Promise(r => { const q = s.get(imageId); q.onsuccess = () => r(q.result); });
+    const meta = existing || { drawId: imageId, tags: [], favorite: false };
+    meta.tags = tagIds;
+    s.put(meta);
+    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   }
-  // Update in-memory
   const img = _allImages.find(i => i.id === imageId);
-  if (img) img.albumId = albumId;
+  if (img) img.tags = tagIds;
 }
 
-// ===== Toggle favorite =====
+// Toggle favorite
 async function toggleFavorite(imageId, source) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
+  if (!_gdb) _gdb = await openGalleryDB();
   let newFav;
   if (source === 'imported') {
-    const tx = _galleryDB.transaction('images', 'readwrite');
-    const store = tx.objectStore('images');
-    const item = await new Promise(r => { const req = store.get(imageId); req.onsuccess = () => r(req.result); });
-    if (item) { item.favorite = !item.favorite; newFav = item.favorite; store.put(item); }
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    const tx = _gdb.transaction('images', 'readwrite');
+    const s = tx.objectStore('images');
+    const item = await new Promise(r => { const q = s.get(imageId); q.onsuccess = () => r(q.result); });
+    if (item) { item.favorite = !item.favorite; newFav = item.favorite; s.put(item); }
+    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   } else {
-    const tx = _galleryDB.transaction('drawMeta', 'readwrite');
-    const store = tx.objectStore('drawMeta');
-    const existing = await new Promise(r => { const req = store.get(imageId); req.onsuccess = () => r(req.result); });
-    const meta = existing || { drawId: imageId, albumId: null, favorite: false };
-    meta.favorite = !meta.favorite;
-    newFav = meta.favorite;
-    store.put(meta);
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    const tx = _gdb.transaction('drawMeta', 'readwrite');
+    const s = tx.objectStore('drawMeta');
+    const existing = await new Promise(r => { const q = s.get(imageId); q.onsuccess = () => r(q.result); });
+    const meta = existing || { drawId: imageId, tags: [], favorite: false };
+    meta.favorite = !meta.favorite; newFav = meta.favorite;
+    s.put(meta);
+    await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   }
-  // Update in-memory
   const img = _allImages.find(i => i.id === imageId);
   if (img) img.favorite = newFav;
   return newFav;
 }
 
-// ===== Delete imported image =====
+// Delete imported image
 async function deleteImportedImage(id) {
-  if (!_galleryDB) _galleryDB = await openGalleryDB();
-  const tx = _galleryDB.transaction('images', 'readwrite');
+  if (!_gdb) _gdb = await openGalleryDB();
+  const tx = _gdb.transaction('images', 'readwrite');
   tx.objectStore('images').delete(id);
-  await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  await new Promise((r, j) => { tx.oncomplete = r; tx.onerror = j; });
   _allImages = _allImages.filter(i => i.id !== id);
   _thumbCache.delete(id);
 }
 
-// ===== Download image =====
+// Download
 async function downloadImage(item) {
-  let data;
-  if (item.source === 'imported') {
-    data = item.imageData;
-  } else {
-    data = await loadDrawImageData(item.id);
-  }
-  if (!data) { toast('图片数据加载失败'); return; }
+  const data = await getFullImageData(item);
+  if (!data) { toast('图片加载失败'); return; }
   const a = document.createElement('a');
-  a.href = data;
-  a.download = `gallery_${item.id}.jpg`;
-  a.click();
+  a.href = data; a.download = `gallery_${item.id}.jpg`; a.click();
   toast('已保存 💙');
 }
 
 // ================================
-//  UI Rendering
+//  UI: Tag bar
 // ================================
+async function renderTagBar() {
+  const tags = await loadTags();
+  const bar = document.getElementById('tagBar');
+  const allC = _allImages.length;
+  const favC = _allImages.filter(i => i.favorite).length;
+  const tagCounts = {};
+  tags.forEach(t => { tagCounts[t.id] = 0; });
+  _allImages.forEach(i => (i.tags || []).forEach(t => { if (tagCounts[t] !== undefined) tagCounts[t]++; }));
 
-// ===== Render album tabs =====
-async function renderAlbumBar() {
-  const albums = await loadAlbums();
-  const bar = document.getElementById('albumBar');
-  // Count images per album
-  const allCount = _allImages.length;
-  const favCount = _allImages.filter(i => i.favorite).length;
-  const albumCounts = {};
-  albums.forEach(a => { albumCounts[a.id] = 0; });
-  _allImages.forEach(i => {
-    if (i.albumId && albumCounts[i.albumId] !== undefined) albumCounts[i.albumId]++;
-  });
-
-  let html = '';
-  html += `<button class="album-tab ${_currentAlbum === 'all' ? 'active' : ''}" onclick="switchAlbum('all')">全部 <span class="count">${allCount}</span></button>`;
-  html += `<button class="album-tab ${_currentAlbum === 'fav' ? 'active' : ''}" onclick="switchAlbum('fav')">❤️ <span class="count">${favCount}</span></button>`;
-  albums.forEach(a => {
-    html += `<button class="album-tab ${_currentAlbum === a.id ? 'active' : ''}" onclick="switchAlbum('${a.id}')" oncontextmenu="event.preventDefault();showAlbumEdit('${a.id}','${a.name.replace(/'/g, "\\'")}')">
-      ${a.name} <span class="count">${albumCounts[a.id] || 0}</span>
+  let h = `<button class="tag-tab ${_currentTag==='all'?'active':''}" onclick="switchTag('all')">全部 <span class="count">${allC}</span></button>`;
+  h += `<button class="tag-tab ${_currentTag==='fav'?'active':''}" onclick="switchTag('fav')">❤️ <span class="count">${favC}</span></button>`;
+  tags.forEach(t => {
+    h += `<button class="tag-tab ${_currentTag===t.id?'active':''}" onclick="switchTag('${t.id}')" oncontextmenu="event.preventDefault();showTagEdit('${t.id}','${t.name.replace(/'/g,"\\'")}')">
+      ${esc(t.name)} <span class="count">${tagCounts[t.id]||0}</span>
     </button>`;
   });
-  html += `<button class="album-tab" onclick="showNewAlbumInput()">＋ 新建</button>`;
-  bar.innerHTML = html;
+  h += `<button class="tag-tab" onclick="showNewTagInput()">＋ 新建</button>`;
+  bar.innerHTML = h;
 }
 
-function switchAlbum(albumId) {
-  _currentAlbum = albumId;
-  filterImages();
-  renderGrid();
-  renderAlbumBar();
+function switchTag(tagId) {
+  _currentTag = tagId;
+  filterImages(); renderGrid(); renderTagBar();
 }
 
-// ===== Render masonry grid =====
+// ================================
+//  UI: Masonry Grid
+// ================================
 function renderGrid() {
   const masonry = document.getElementById('masonry');
   const batch = _displayImages.slice(0, _shownCount + PAGE_SIZE);
   _shownCount = batch.length;
 
-  let html = '';
   if (batch.length === 0) {
-    html = `<div class="empty-state">
+    masonry.innerHTML = `<div class="empty-state">
       <div class="icon">🖼️</div>
       <div class="title">${_searchQuery ? '没有找到匹配的图' : '还没有图片'}</div>
-      <div class="desc">${_searchQuery ? '换个关键词试试？' : '点右下角 ＋ 导入你的图片<br>画图台的图也会自动出现哦'}</div>
+      <div class="desc">${_searchQuery ? '换个关键词试试？' : '点右下角 ＋ 导入图片<br>画图台和聊天画的图也会自动出现'}</div>
     </div>`;
   } else {
-    batch.forEach((item, idx) => {
-      const promptText = item.prompt || item.note || '';
-      const promptSnippet = promptText.length > 60 ? promptText.slice(0, 60) + '...' : promptText;
-      const sourceLabel = item.source === 'draw'
-        ? '<span class="g-card-source draw">画图台</span>'
-        : '<span class="g-card-source imported">导入</span>';
-      html += `<div class="g-card" onclick="openLightbox(${idx})" data-idx="${idx}">
-        <img data-id="${item.id}" data-source="${item.source}" loading="lazy" alt="">
-        <button class="g-card-fav ${item.favorite ? 'on' : ''}" onclick="event.stopPropagation();onCardFav(${idx})">♥</button>
-        ${promptSnippet ? `<div class="g-card-info">
-          <div class="g-card-prompt">${esc(promptSnippet)}</div>
-          <div class="g-card-bottom">
-            <span class="g-card-date">${fmtDate(item.createdAt)}</span>
-            ${sourceLabel}
-          </div>
-        </div>` : `<div class="g-card-info"><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${sourceLabel}</div></div>`}
-      </div>`;
-    });
+    masonry.innerHTML = batch.map((item, idx) => cardHtml(item, idx)).join('');
   }
-
-  masonry.innerHTML = html;
-
-  // Show/hide load more
-  const loadMoreEl = document.getElementById('loadMore');
-  loadMoreEl.style.display = _shownCount < _displayImages.length ? '' : 'none';
-
-  // Lazy-load thumbnails via IntersectionObserver
+  document.getElementById('loadMore').style.display = _shownCount < _displayImages.length ? '' : 'none';
   lazyLoadThumbs();
 }
 
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function cardHtml(item, idx) {
+  const p = item.prompt || item.note || '';
+  const ps = p.length > 60 ? p.slice(0,60)+'...' : p;
+  const src = item.source === 'draw' ? '<span class="g-card-source draw">画图台</span>'
+    : item.source === 'chat' ? '<span class="g-card-source chat">聊天</span>'
+    : '<span class="g-card-source imported">导入</span>';
+  const sel = _selected.has(item.id) ? ' selected' : '';
+  return `<div class="g-card${sel}" data-idx="${idx}" data-id="${item.id}" onclick="onCardClick(${idx},event)">
+    <div class="sel-check">${_selected.has(item.id)?'✓':''}</div>
+    <img data-id="${item.id}" data-source="${item.source}" loading="lazy" alt="">
+    <button class="g-card-fav ${item.favorite?'on':''}" onclick="event.stopPropagation();onCardFav(${idx})">♥</button>
+    ${ps ? `<div class="g-card-info"><div class="g-card-prompt">${esc(ps)}</div><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${src}</div></div>`
+    : `<div class="g-card-info"><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${src}</div></div>`}
+  </div>`;
+}
 
 function loadNextPage() {
   const masonry = document.getElementById('masonry');
   const start = _shownCount;
   const batch = _displayImages.slice(start, start + PAGE_SIZE);
   _shownCount = start + batch.length;
-
   batch.forEach((item, i) => {
-    const idx = start + i;
-    const promptText = item.prompt || item.note || '';
-    const promptSnippet = promptText.length > 60 ? promptText.slice(0, 60) + '...' : promptText;
-    const sourceLabel = item.source === 'draw'
-      ? '<span class="g-card-source draw">画图台</span>'
-      : '<span class="g-card-source imported">导入</span>';
-    const card = document.createElement('div');
-    card.className = 'g-card';
-    card.setAttribute('data-idx', idx);
-    card.onclick = () => openLightbox(idx);
-    card.innerHTML = `
-      <img data-id="${item.id}" data-source="${item.source}" loading="lazy" alt="">
-      <button class="g-card-fav ${item.favorite ? 'on' : ''}" onclick="event.stopPropagation();onCardFav(${idx})">♥</button>
-      ${promptSnippet ? `<div class="g-card-info">
-        <div class="g-card-prompt">${esc(promptSnippet)}</div>
-        <div class="g-card-bottom">
-          <span class="g-card-date">${fmtDate(item.createdAt)}</span>
-          ${sourceLabel}
-        </div>
-      </div>` : `<div class="g-card-info"><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${sourceLabel}</div></div>`}`;
-    masonry.appendChild(card);
+    const div = document.createElement('div');
+    div.innerHTML = cardHtml(item, start + i);
+    masonry.appendChild(div.firstElementChild);
   });
-
   document.getElementById('loadMore').style.display = _shownCount < _displayImages.length ? '' : 'none';
   lazyLoadThumbs();
 }
 
-// ===== Lazy thumbnail loading =====
+// Lazy thumbnails
 let _thumbObserver;
 function lazyLoadThumbs() {
   if (!_thumbObserver) {
-    _thumbObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const img = entry.target;
-          const id = img.dataset.id;
-          const source = img.dataset.source;
-          if (img.src && img.src !== location.href) return; // already loaded
-          const item = _allImages.find(i => i.id === id);
-          if (!item) return;
-          getThumbUrl(item).then(url => {
-            if (url) img.src = url;
-          });
+    _thumbObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (en.isIntersecting) {
+          const img = en.target;
+          if (img.src && img.src !== location.href) return;
+          const item = _allImages.find(i => i.id === img.dataset.id);
+          if (item) getThumbUrl(item).then(u => { if (u) img.src = u; });
           _thumbObserver.unobserve(img);
         }
       });
@@ -954,16 +989,68 @@ function lazyLoadThumbs() {
   });
 }
 
-// ===== Card favorite toggle =====
+// Card click
+function onCardClick(idx, e) {
+  if (_selectMode) {
+    e.preventDefault();
+    const item = _displayImages[idx];
+    if (!item) return;
+    if (_selected.has(item.id)) _selected.delete(item.id);
+    else _selected.add(item.id);
+    const card = document.querySelector(`.g-card[data-idx="${idx}"]`);
+    if (card) {
+      card.classList.toggle('selected', _selected.has(item.id));
+      card.querySelector('.sel-check').textContent = _selected.has(item.id) ? '✓' : '';
+    }
+    document.getElementById('selCount').textContent = `已选 ${_selected.size} 张`;
+  } else {
+    openLightbox(idx);
+  }
+}
+
+// Card favorite
 async function onCardFav(idx) {
   const item = _displayImages[idx];
   if (!item) return;
-  const newFav = await toggleFavorite(item.id, item.source);
-  // Update button
+  const nf = await toggleFavorite(item.id, item.source);
   const card = document.querySelector(`.g-card[data-idx="${idx}"] .g-card-fav`);
-  if (card) card.classList.toggle('on', newFav);
-  toast(newFav ? '已收藏 ❤️' : '取消收藏');
-  renderAlbumBar();
+  if (card) card.classList.toggle('on', nf);
+  toast(nf ? '已收藏 ❤️' : '取消收藏');
+  renderTagBar();
+}
+
+// ================================
+//  Multi-select mode
+// ================================
+function toggleSelectMode() {
+  _selectMode = !_selectMode;
+  _selected.clear();
+  document.getElementById('masonry').classList.toggle('select-mode', _selectMode);
+  document.getElementById('selBar').classList.toggle('show', _selectMode);
+  document.getElementById('fab').style.display = _selectMode ? 'none' : '';
+  document.getElementById('selCount').textContent = '已选 0 张';
+  document.getElementById('headerTitle').textContent = _selectMode ? '选择图片' : '🖼️ 我们的画廊';
+  // Clear selection UI
+  document.querySelectorAll('.g-card.selected').forEach(c => {
+    c.classList.remove('selected');
+    c.querySelector('.sel-check').textContent = '';
+  });
+}
+
+async function batchFav() {
+  if (!_selected.size) { toast('先选几张图吧'); return; }
+  for (const id of _selected) {
+    const item = _allImages.find(i => i.id === id);
+    if (item && !item.favorite) await toggleFavorite(item.id, item.source);
+  }
+  toast(`已收藏 ${_selected.size} 张 ❤️`);
+  toggleSelectMode();
+  renderTagBar();
+}
+
+async function batchTag() {
+  if (!_selected.size) { toast('先选几张图吧'); return; }
+  showTagPicker(null); // null = batch mode
 }
 
 // ================================
@@ -973,30 +1060,15 @@ async function openLightbox(idx) {
   _lbIndex = idx;
   const item = _displayImages[idx];
   if (!item) return;
-
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lbImg');
-
-  // Show lightbox first with loading state
-  img.src = '';
-  img.style.opacity = '0.3';
+  img.src = ''; img.style.opacity = '0.3';
   lb.classList.add('show');
   document.body.style.overflow = 'hidden';
-
   updateLbInfo(item);
   updateLbCounter();
-
-  // Load full image
-  let data;
-  if (item.source === 'imported') {
-    data = item.imageData;
-  } else {
-    data = await loadDrawImageData(item.id);
-  }
-  if (data) {
-    img.src = data;
-    img.style.opacity = '1';
-  }
+  const data = await getFullImageData(item);
+  if (data) { img.src = data; img.style.opacity = '1'; }
 }
 
 function closeLightbox() {
@@ -1006,100 +1078,92 @@ function closeLightbox() {
   _lbIndex = -1;
 }
 
-async function lbPrev(e) {
-  e && e.stopPropagation();
-  if (_lbIndex <= 0) return;
-  await openLightbox(_lbIndex - 1);
-}
-
-async function lbNext(e) {
-  e && e.stopPropagation();
-  if (_lbIndex >= _displayImages.length - 1) return;
-  await openLightbox(_lbIndex + 1);
-}
+async function lbPrev(e) { e&&e.stopPropagation(); if (_lbIndex>0) await openLightbox(_lbIndex-1); }
+async function lbNext(e) { e&&e.stopPropagation(); if (_lbIndex<_displayImages.length-1) await openLightbox(_lbIndex+1); }
 
 function updateLbCounter() {
-  document.getElementById('lbCounter').textContent = `${_lbIndex + 1} / ${_displayImages.length}`;
+  document.getElementById('lbCounter').textContent = `${_lbIndex+1} / ${_displayImages.length}`;
 }
 
-function updateLbInfo(item) {
-  // Prompt
-  document.getElementById('lbPrompt').textContent = item.prompt || item.note || '';
+async function updateLbInfo(item) {
+  const promptText = item.prompt || item.note || '';
+  document.getElementById('lbPrompt').textContent = promptText;
+  document.getElementById('lbCopy').style.display = promptText ? '' : 'none';
+
+  // Tags
+  const allTags = await loadTags();
+  const tagMap = {}; allTags.forEach(t => { tagMap[t.id] = t.name; });
+  const tagsEl = document.getElementById('lbTags');
+  tagsEl.innerHTML = (item.tags || []).map(tid => `<span class="lb-tag">${esc(tagMap[tid]||tid)}</span>`).join('');
 
   // Meta
   const meta = document.getElementById('lbMeta');
-  let metaHtml = `<span>${fmtDate(item.createdAt)}</span>`;
+  let mh = `<span>${fmtDate(item.createdAt)}</span>`;
   if (item.source === 'draw') {
-    metaHtml += `<span>🎨 画图台</span>`;
-    if (item.personaName) metaHtml += `<span>👤 ${esc(item.personaName)}</span>`;
-    if (item.rating) metaHtml += `<span>${'⭐'.repeat(item.rating)}</span>`;
-    if (item.params && item.params.size) metaHtml += `<span>📐 ${item.params.size}</span>`;
+    mh += '<span>🎨 画图台</span>';
+    if (item.personaName) mh += `<span>👤 ${esc(item.personaName)}</span>`;
+    if (item.rating) mh += `<span>${'⭐'.repeat(item.rating)}</span>`;
+    if (item.params && item.params.size) mh += `<span>📐 ${item.params.size}</span>`;
+  } else if (item.source === 'chat') {
+    mh += '<span>💬 聊天画图</span>';
   } else {
-    metaHtml += `<span>📥 导入</span>`;
+    mh += '<span>📥 导入</span>';
   }
-  meta.innerHTML = metaHtml;
+  meta.innerHTML = mh;
 
   // Actions
   const acts = document.getElementById('lbActions');
-  let actHtml = `
-    <button class="lb-act" onclick="lbToggleFav()">
-      ${item.favorite ? '❤️ 已收藏' : '🤍 收藏'}
-    </button>
-    <button class="lb-act" onclick="lbAssignAlbum()">📁 相册</button>
-    <button class="lb-act" onclick="lbDownload()">💾 保存</button>
-  `;
-  if (item.source === 'imported') {
-    actHtml += `<button class="lb-act danger" onclick="lbDelete()">🗑️ 删除</button>`;
-  }
-  acts.innerHTML = actHtml;
+  let ah = `<button class="lb-act" onclick="lbToggleFav()">${item.favorite?'❤️ 已收藏':'🤍 收藏'}</button>`;
+  ah += `<button class="lb-act" onclick="lbTagPicker()">🏷️ 标签</button>`;
+  ah += `<button class="lb-act" onclick="lbDownload()">💾 保存</button>`;
+  if (item.source === 'imported') ah += `<button class="lb-act danger" onclick="lbDelete()">🗑️ 删除</button>`;
+  acts.innerHTML = ah;
+}
+
+function copyPrompt() {
+  const text = document.getElementById('lbPrompt').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => toast('已复制 prompt 📋')).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('已复制 prompt 📋');
+  });
 }
 
 async function lbToggleFav() {
-  const item = _displayImages[_lbIndex];
-  if (!item) return;
+  const item = _displayImages[_lbIndex]; if (!item) return;
   await toggleFavorite(item.id, item.source);
   item.favorite = !item.favorite;
-  updateLbInfo(item);
-  renderAlbumBar();
-  // Also update card in grid
+  updateLbInfo(item); renderTagBar();
   const card = document.querySelector(`.g-card[data-idx="${_lbIndex}"] .g-card-fav`);
   if (card) card.classList.toggle('on', item.favorite);
   toast(item.favorite ? '已收藏 ❤️' : '取消收藏');
 }
 
-async function lbDownload() {
-  const item = _displayImages[_lbIndex];
-  if (item) await downloadImage(item);
-}
+async function lbDownload() { const item = _displayImages[_lbIndex]; if (item) await downloadImage(item); }
 
 async function lbDelete() {
   const item = _displayImages[_lbIndex];
   if (!item || item.source !== 'imported') return;
   if (!confirm('确定删除这张图片吗？')) return;
   await deleteImportedImage(item.id);
-  filterImages();
-  closeLightbox();
-  renderGrid();
-  renderAlbumBar();
+  filterImages(); closeLightbox(); renderGrid(); renderTagBar();
   toast('已删除');
 }
 
-function lbAssignAlbum() {
-  showAlbumPicker(_displayImages[_lbIndex]);
-}
+function lbTagPicker() { showTagPicker(_displayImages[_lbIndex]); }
 
-// ===== Lightbox swipe =====
-document.getElementById('lbImgWrap').addEventListener('touchstart', e => {
-  _swipeStartX = e.touches[0].clientX;
-}, { passive: true });
+// Swipe
+document.getElementById('lbImgWrap').addEventListener('touchstart', e => { _swipeStartX = e.touches[0].clientX; }, { passive: true });
 document.getElementById('lbImgWrap').addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - _swipeStartX;
-  if (Math.abs(dx) > 50) {
-    if (dx > 0) lbPrev(); else lbNext();
-  }
+  if (Math.abs(dx) > 50) { dx > 0 ? lbPrev() : lbNext(); }
 });
 
-// ===== Keyboard nav =====
+// Keyboard
 document.addEventListener('keydown', e => {
   if (_lbIndex < 0) return;
   if (e.key === 'ArrowLeft') lbPrev();
@@ -1117,18 +1181,14 @@ function toggleSearch() {
     document.getElementById('searchInput').focus();
   } else {
     document.getElementById('searchInput').value = '';
-    _searchQuery = '';
-    filterImages();
-    renderGrid();
+    _searchQuery = ''; filterImages(); renderGrid();
   }
 }
-
 function onSearchInput() {
   clearTimeout(_searchTimer);
   _searchTimer = setTimeout(() => {
     _searchQuery = document.getElementById('searchInput').value.trim();
-    filterImages();
-    renderGrid();
+    filterImages(); renderGrid();
   }, 300);
 }
 
@@ -1142,179 +1202,190 @@ function showImportModal() {
   document.getElementById('importFile').value = '';
   document.getElementById('importModal').classList.add('show');
 }
-
-function hideImportModal() {
-  document.getElementById('importModal').classList.remove('show');
-  _importFiles = [];
-}
+function hideImportModal() { document.getElementById('importModal').classList.remove('show'); _importFiles = []; }
 
 function onFilesSelected(e) {
   const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-  _importFiles = files;
-  renderImportPreview();
+  if (files.length) { _importFiles = files; renderImportPreview(); }
 }
 
-async function renderImportPreview() {
-  const container = document.getElementById('importPreview');
-  container.innerHTML = '';
+function renderImportPreview() {
+  const c = document.getElementById('importPreview');
+  c.innerHTML = '';
   const btn = document.getElementById('importBtn');
   btn.disabled = !_importFiles.length;
   btn.textContent = `导入 ${_importFiles.length} 张图片`;
-
-  for (const file of _importFiles.slice(0, 12)) {
-    const url = URL.createObjectURL(file);
+  _importFiles.slice(0, 12).forEach(f => {
     const img = document.createElement('img');
-    img.className = 'import-thumb';
-    img.src = url;
-    container.appendChild(img);
-  }
+    img.className = 'import-thumb'; img.src = URL.createObjectURL(f);
+    c.appendChild(img);
+  });
   if (_importFiles.length > 12) {
-    const more = document.createElement('div');
-    more.className = 'import-thumb';
-    more.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--bg2);font-size:13px;color:var(--text-mid)';
-    more.textContent = `+${_importFiles.length - 12}`;
-    container.appendChild(more);
+    const d = document.createElement('div');
+    d.className = 'import-thumb';
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--bg2);font-size:13px;color:var(--text-mid)';
+    d.textContent = `+${_importFiles.length-12}`;
+    c.appendChild(d);
   }
 }
 
 async function doImport() {
   const btn = document.getElementById('importBtn');
-  btn.disabled = true;
-  btn.textContent = '导入中...';
+  btn.disabled = true; btn.textContent = '导入中...';
   try {
     const count = await importImages(_importFiles);
     hideImportModal();
     toast(`成功导入 ${count} 张图片 💙`);
-    await loadAllImages();
-    filterImages();
-    renderGrid();
-    renderAlbumBar();
+    await loadAllImages(); filterImages(); renderGrid(); renderTagBar();
   } catch (err) {
     toast('导入失败: ' + err.message);
-    btn.disabled = false;
-    btn.textContent = `导入 ${_importFiles.length} 张图片`;
+    btn.disabled = false; btn.textContent = `导入 ${_importFiles.length} 张图片`;
   }
 }
 
 // Drag & drop
-const importZone = document.getElementById('importZone');
-importZone.addEventListener('dragover', e => { e.preventDefault(); importZone.classList.add('dragover'); });
-importZone.addEventListener('dragleave', () => importZone.classList.remove('dragover'));
-importZone.addEventListener('drop', e => {
-  e.preventDefault();
-  importZone.classList.remove('dragover');
+const iz = document.getElementById('importZone');
+iz.addEventListener('dragover', e => { e.preventDefault(); iz.classList.add('dragover'); });
+iz.addEventListener('dragleave', () => iz.classList.remove('dragover'));
+iz.addEventListener('drop', e => {
+  e.preventDefault(); iz.classList.remove('dragover');
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-  if (files.length) {
-    _importFiles = files;
-    renderImportPreview();
-  }
+  if (files.length) { _importFiles = files; renderImportPreview(); }
 });
 
-// Close modals on overlay click
-document.getElementById('importModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) hideImportModal();
-});
-document.getElementById('albumModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) hideAlbumModal();
-});
+// Close modals on overlay
+document.getElementById('importModal').addEventListener('click', e => { if (e.target === e.currentTarget) hideImportModal(); });
+document.getElementById('tagModal').addEventListener('click', e => { if (e.target === e.currentTarget) hideTagModal(); });
 
 // ================================
-//  Album Management
+//  Tag Management
 // ================================
-function showNewAlbumInput() {
-  const modal = document.getElementById('albumModal');
-  document.getElementById('albumModalTitle').textContent = '新建相册';
-  document.getElementById('albumModalContent').innerHTML = `
-    <input class="album-input" id="newAlbumName" placeholder="相册名称..." autofocus>
-    <div class="album-actions">
-      <button onclick="hideAlbumModal()">取消</button>
-      <button class="primary" onclick="doCreateAlbum()">创建</button>
-    </div>
-  `;
+function showNewTagInput() {
+  const modal = document.getElementById('tagModal');
+  document.getElementById('tagModalTitle').textContent = '新建标签';
+  document.getElementById('tagModalContent').innerHTML = `
+    <input class="tag-input" id="newTagName" placeholder="标签名称..." autofocus>
+    <div class="tag-actions">
+      <button onclick="hideTagModal()">取消</button>
+      <button class="primary" onclick="doCreateTag()">创建</button>
+    </div>`;
   modal.classList.add('show');
-  setTimeout(() => { const inp = document.getElementById('newAlbumName'); if (inp) inp.focus(); }, 300);
+  setTimeout(() => { const i = document.getElementById('newTagName'); if (i) i.focus(); }, 300);
 }
 
-async function doCreateAlbum() {
-  const name = document.getElementById('newAlbumName').value.trim();
-  if (!name) { toast('请输入相册名称'); return; }
-  await createAlbum(name);
-  hideAlbumModal();
-  await renderAlbumBar();
-  toast(`相册「${name}」已创建 📁`);
+async function doCreateTag() {
+  const name = document.getElementById('newTagName').value.trim();
+  if (!name) { toast('请输入标签名称'); return; }
+  await createTag(name);
+  hideTagModal(); await renderTagBar();
+  toast(`标签「${name}」已创建 🏷️`);
 }
 
-function showAlbumEdit(id, name) {
-  const modal = document.getElementById('albumModal');
-  document.getElementById('albumModalTitle').textContent = `管理相册「${name}」`;
-  document.getElementById('albumModalContent').innerHTML = `
-    <input class="album-input" id="editAlbumName" value="${name}">
-    <div class="album-actions">
-      <button style="border-color:rgba(255,80,80,.3);color:#e53935" onclick="doDeleteAlbum('${id}')">删除</button>
-      <button onclick="hideAlbumModal()">取消</button>
-      <button class="primary" onclick="doRenameAlbum('${id}')">保存</button>
-    </div>
-  `;
+function showTagEdit(id, name) {
+  const modal = document.getElementById('tagModal');
+  document.getElementById('tagModalTitle').textContent = `管理标签「${name}」`;
+  document.getElementById('tagModalContent').innerHTML = `
+    <input class="tag-input" id="editTagName" value="${name}">
+    <div class="tag-actions">
+      <button style="border-color:rgba(255,80,80,.3);color:#e53935" onclick="doDeleteTag('${id}')">删除</button>
+      <button onclick="hideTagModal()">取消</button>
+      <button class="primary" onclick="doRenameTag('${id}')">保存</button>
+    </div>`;
   modal.classList.add('show');
-  setTimeout(() => { const inp = document.getElementById('editAlbumName'); if (inp) { inp.focus(); inp.select(); } }, 300);
+  setTimeout(() => { const i = document.getElementById('editTagName'); if (i) { i.focus(); i.select(); } }, 300);
 }
 
-async function doRenameAlbum(id) {
-  const name = document.getElementById('editAlbumName').value.trim();
+async function doRenameTag(id) {
+  const name = document.getElementById('editTagName').value.trim();
   if (!name) { toast('名称不能为空'); return; }
-  await renameAlbum(id, name);
-  hideAlbumModal();
-  await renderAlbumBar();
+  await renameTag(id, name); hideTagModal(); await renderTagBar();
   toast('已重命名 ✨');
 }
 
-async function doDeleteAlbum(id) {
-  if (!confirm('确定删除这个相册吗？（图片不会被删除）')) return;
-  await deleteAlbum(id);
-  hideAlbumModal();
-  if (_currentAlbum === id) _currentAlbum = 'all';
-  filterImages();
-  renderGrid();
-  await renderAlbumBar();
-  toast('相册已删除');
+async function doDeleteTag(id) {
+  if (!confirm('确定删除这个标签吗？（图片不会被删除）')) return;
+  await deleteTag(id); hideTagModal();
+  if (_currentTag === id) _currentTag = 'all';
+  // Remove from in-memory
+  _allImages.forEach(i => { if (i.tags) i.tags = i.tags.filter(t => t !== id); });
+  filterImages(); renderGrid(); await renderTagBar();
+  toast('标签已删除');
 }
 
-// ===== Album picker (assign image to album) =====
-let _albumPickerItem = null;
-async function showAlbumPicker(item) {
-  if (!item) return;
-  _albumPickerItem = item;
-  const albums = await loadAlbums();
-  const modal = document.getElementById('albumModal');
-  document.getElementById('albumModalTitle').textContent = '归入相册';
-  let html = `<div class="album-list-item ${!item.albumId ? 'active' : ''}" onclick="doAssignAlbum(null)">
-    <span class="name">不归入任何相册</span>
-  </div>`;
-  albums.forEach(a => {
-    html += `<div class="album-list-item ${item.albumId === a.id ? 'active' : ''}" onclick="doAssignAlbum('${a.id}')">
-      <span class="name">${esc(a.name)}</span>
+// Tag picker — multi-check for single image or batch
+let _tagPickerItem = null; // null = batch mode
+async function showTagPicker(item) {
+  _tagPickerItem = item;
+  const tags = await loadTags();
+  const modal = document.getElementById('tagModal');
+  const isBatch = !item;
+  document.getElementById('tagModalTitle').textContent = isBatch
+    ? `为 ${_selected.size} 张图片打标签` : '选择标签（可多选）';
+
+  // Determine current tags
+  const currentTags = isBatch ? [] : (item.tags || []);
+
+  let h = '';
+  tags.forEach(t => {
+    const checked = currentTags.includes(t.id);
+    h += `<div class="tag-check-item ${checked?'checked':''}" onclick="toggleTagCheck(this,'${t.id}')">
+      <div class="check">${checked?'✓':''}</div>
+      <span class="name">${esc(t.name)}</span>
     </div>`;
   });
-  document.getElementById('albumModalContent').innerHTML = html;
+  h += `<div style="margin-top:12px"><input class="tag-input" id="quickTagName" placeholder="或输入新标签名直接创建..."></div>`;
+  h += `<div class="tag-actions" style="margin-top:12px">
+    <button onclick="hideTagModal()">取消</button>
+    <button class="primary" onclick="doApplyTags()">确定</button>
+  </div>`;
+  document.getElementById('tagModalContent').innerHTML = h;
   modal.classList.add('show');
 }
 
-async function doAssignAlbum(albumId) {
-  if (!_albumPickerItem) return;
-  await assignToAlbum(_albumPickerItem.id, _albumPickerItem.source, albumId);
-  hideAlbumModal();
-  filterImages();
-  renderGrid();
-  renderAlbumBar();
-  // Update lightbox if open
-  if (_lbIndex >= 0) updateLbInfo(_displayImages[_lbIndex]);
-  toast(albumId ? '已归入相册 📁' : '已移出相册');
+function toggleTagCheck(el, tagId) {
+  el.classList.toggle('checked');
+  el.querySelector('.check').textContent = el.classList.contains('checked') ? '✓' : '';
 }
 
-function hideAlbumModal() {
-  document.getElementById('albumModal').classList.remove('show');
-  _albumPickerItem = null;
+async function doApplyTags() {
+  // Collect checked tag IDs
+  const checked = [];
+  document.querySelectorAll('#tagModalContent .tag-check-item.checked').forEach(el => {
+    const id = el.getAttribute('onclick').match(/'([^']+)'/)[1];
+    checked.push(id);
+  });
+  // Quick-create tag if typed
+  const quickName = document.getElementById('quickTagName').value.trim();
+  if (quickName) {
+    const newTag = await createTag(quickName);
+    checked.push(newTag.id);
+  }
+
+  if (_tagPickerItem) {
+    // Single image
+    await setImageTags(_tagPickerItem.id, _tagPickerItem.source, checked);
+    hideTagModal();
+    if (_lbIndex >= 0) updateLbInfo(_displayImages[_lbIndex]);
+  } else {
+    // Batch mode
+    for (const id of _selected) {
+      const item = _allImages.find(i => i.id === id);
+      if (item) {
+        // Merge: add checked tags without removing existing ones
+        const merged = [...new Set([...(item.tags||[]), ...checked])];
+        await setImageTags(item.id, item.source, merged);
+      }
+    }
+    hideTagModal();
+    toggleSelectMode();
+    toast(`已为 ${_selected.size || checked.length} 张图片打标签 🏷️`);
+  }
+  filterImages(); renderGrid(); renderTagBar();
+}
+
+function hideTagModal() {
+  document.getElementById('tagModal').classList.remove('show');
+  _tagPickerItem = null;
 }
 
 // ================================
@@ -1323,8 +1394,8 @@ function hideAlbumModal() {
 function applyDark(on) {
   document.documentElement.classList.toggle('dark', on);
   document.getElementById('btnDark').innerHTML = on
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>`;
+    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/></svg>';
 }
 function toggleDark() {
   const on = !document.documentElement.classList.contains('dark');
@@ -1333,11 +1404,8 @@ function toggleDark() {
 }
 (function initDark() {
   const saved = localStorage.getItem('gallery_dark');
-  if (saved !== null) {
-    applyDark(saved === '1');
-  } else if (window.matchMedia('(prefers-color-scheme:dark)').matches) {
-    applyDark(true);
-  }
+  if (saved !== null) applyDark(saved === '1');
+  else if (window.matchMedia('(prefers-color-scheme:dark)').matches) applyDark(true);
 })();
 
 // ================================
@@ -1353,13 +1421,10 @@ function goBack() {
   }
 }
 
-// ===== Scroll to load more =====
+// Scroll to load more
 document.getElementById('gridWrap').addEventListener('scroll', function() {
-  const el = this;
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
-    if (_shownCount < _displayImages.length) {
-      loadNextPage();
-    }
+  if (this.scrollTop + this.clientHeight >= this.scrollHeight - 200) {
+    if (_shownCount < _displayImages.length) loadNextPage();
   }
 });
 
@@ -1367,17 +1432,10 @@ document.getElementById('gridWrap').addEventListener('scroll', function() {
 //  Init
 // ================================
 async function init() {
-  try {
-    _galleryDB = await openGalleryDB();
-  } catch (err) {
-    console.error('GalleryDB error:', err);
-  }
+  try { _gdb = await openGalleryDB(); } catch(e) { console.error('GalleryDB:', e); }
   await loadAllImages();
-  filterImages();
-  renderGrid();
-  await renderAlbumBar();
+  filterImages(); renderGrid(); await renderTagBar();
 }
-
 init();
 </script>
 </body>
