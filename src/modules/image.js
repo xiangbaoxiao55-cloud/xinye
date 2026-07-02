@@ -403,13 +403,59 @@ function renderImgPreviews() {
   preview.classList.add('show');
 }
 
+async function handleImageFiles(files) {
+  let added = 0;
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    window.pendingImages.push(await compressImageToBase64(file));
+    added++;
+  }
+  if (added) renderImgPreviews();
+  return added;
+}
+
 export function initImageUpload() {
   window.pendingImages = [];
   document.getElementById('btnImg').onclick = () => document.getElementById('fileInputChatImg').click();
   document.getElementById('fileInputChatImg').onchange = async function() {
     if (!this.files.length) return;
-    for (const file of this.files) { window.pendingImages.push(await compressImageToBase64(file)); }
-    renderImgPreviews();
+    await handleImageFiles(this.files);
     this.value = '';
   };
+
+  /* ── 粘贴图片 ── */
+  const userInput = document.getElementById('userInput');
+  userInput.addEventListener('paste', async (e) => {
+    const items = [...(e.clipboardData?.items || [])];
+    const imgFiles = items.filter(it => it.type.startsWith('image/')).map(it => it.getAsFile()).filter(Boolean);
+    if (!imgFiles.length) return;          // 纯文本粘贴走默认逻辑
+    e.preventDefault();                    // 阻止图片以乱码插入textarea
+    await handleImageFiles(imgFiles);
+  });
+
+  /* ── 拖拽图片 ── */
+  const inputArea = document.querySelector('.input-area');
+  if (inputArea) {
+    let dragCounter = 0;                   // 用计数器精确追踪拖入/拖出
+
+    inputArea.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if (++dragCounter === 1) inputArea.classList.add('drag-over');
+    });
+    inputArea.addEventListener('dragover', (e) => {
+      e.preventDefault();                  // 必须，否则drop不触发
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    inputArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      if (--dragCounter <= 0) { dragCounter = 0; inputArea.classList.remove('drag-over'); }
+    });
+    inputArea.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      inputArea.classList.remove('drag-over');
+      const files = e.dataTransfer?.files;
+      if (files?.length) await handleImageFiles(files);
+    });
+  }
 }

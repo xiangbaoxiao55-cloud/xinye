@@ -98,6 +98,7 @@
   overflow-y:auto;
 }
 .input-area textarea:focus{border-color:var(--pink-deep);background:rgba(255,255,255,.7)}
+.input-area.drag-over{outline:2px dashed var(--pink-deep);outline-offset:-4px;background:rgba(233,30,99,.06)}
 .input-area textarea::placeholder{color:#cba4a4}
 .btn-send{
   width:44px;height:44px;border:none;border-radius:50%;
