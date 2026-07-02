@@ -453,7 +453,7 @@ chatArea.addEventListener('scroll', async () => {
   }
 });
 
-chatArea.addEventListener('click', e => {
+chatArea.addEventListener('click', async e => {
   if (e.target.matches('.gen-img, .bubble-img')) {
     const src = e.target.dataset.src || e.target.src;
     if (src) {
@@ -482,8 +482,8 @@ chatArea.addEventListener('click', e => {
       if (src.startsWith('data:')) {
         const mime = src.match(/:(.*?);/)?.[1] || 'image/png';
         const ext = mime.includes('jpeg') ? '.jpg' : '.png';
-        const u8 = Uint8Array.from(atob(src.split(',')[1]), c => c.charCodeAt(0));
-        _doDownload(new Blob([u8], { type: mime }), ext);
+        const blob = await fetch(src).then(r => r.blob());
+        _doDownload(blob, ext);
         _doDownload(txtBlob, '.txt');
         toast('已保存');
       } else {

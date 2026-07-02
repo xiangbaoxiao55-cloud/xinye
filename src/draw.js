@@ -443,10 +443,8 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   console.log(`[${ts()}] → edits | ${preset.name} | ${size} | refs=${refB64s.length} | n=${n} | ${url}/images/edits\n         prompt: ${prompt.slice(0,80)}`);
   const fd=new FormData();
   for(let i=0;i<refB64s.length;i++){
-    const raw=refB64s[i].replace(/^data:image\/\w+;base64,/,'');
-    const bin=atob(raw);const bytes=new Uint8Array(bin.length);
-    for(let j=0;j<bin.length;j++) bytes[j]=bin.charCodeAt(j);
-    fd.append('image[]',new Blob([bytes],{type:'image/png'}),`ref${i}.png`);
+    const blob=await fetch(refB64s[i]).then(r=>r.blob());
+    fd.append('image[]',blob,`ref${i}.png`);
   }
   fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
