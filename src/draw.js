@@ -1097,6 +1097,41 @@ async function masterSuggest(userInput){
   return result;
 }
 
+// ── 灵感系统提示（DALL-E 3优化） ────────────────────────────
+const INSPIRE_SYSTEM=`你是一位专精AI画图prompt工程的画面设计师。你写的英文prompt将直接喂给DALL-E 3生成图片——所以每个词都必须有明确的视觉对应物。
+
+核心原则：
+1. 视觉优先——不写"love fills the air"，写"warm golden hour sunlight streaming through curtains, casting long soft shadows"
+2. 具体胜过抽象——不写"beautiful scene"，写"watercolor illustration with wet-on-wet blending, muted pastel tones"
+3. 结构清晰——按这个顺序组织prompt：
+   ① 艺术风格/媒介（digital illustration / oil painting / watercolor / soft cel-shading / cinematic photography style...）
+   ② 主体：两人的具体动作、姿势、表情、穿着（不要笼统"a couple"，要写清楚谁在做什么）
+   ③ 场景环境：具体的物件、材质、空间感（"worn wooden kitchen counter with scattered flour" 而不是 "a kitchen"）
+   ④ 光影色调：光源方向、色温、明暗对比（"warm side lighting from a desk lamp, deep blue shadows"）
+   ⑤ 构图视角：镜头角度和景别（"low angle shot" / "overhead view" / "close-up" / "wide establishing shot"）
+4. 控制在60-120个英文词——太短缺细节，太长重点被稀释
+5. 重要元素放最前面——DALL-E 3对prompt开头权重最高
+
+画面是一对情侣（一男一女）的故事。每次都要做出不一样的选择——不同画风、构图、氛围、色调、视角。
+
+禁止：废墟、破败建筑、灰暗脏旧环境、废土风；日本元素（神社、和服等）；不要把艺术家名字放进prompt`;
+
+const INSPIRE_FORMAT=`\n\n请输出：
+1. 一句中文（15字内）概括这个画面
+2. 英文prompt（60-120词，纯视觉描述，给DALL-E 3用的——参考下面的好坏对比）
+3. 英文prompt的中文翻译
+
+❌ 坏prompt示范："A romantic scene of two lovers sharing a tender moment under the rain, their love keeping them warm despite the cold weather, feeling peaceful and connected"
+→ 问题：全是抽象情感词，没有视觉细节，DALL-E画不出来
+
+✅ 好prompt示范："Soft watercolor illustration, a young man holding an umbrella over a woman on a rainy cobblestone street, her hand reaching up to catch raindrops, both wearing oversized knit sweaters, warm amber streetlamp light reflecting in shallow puddles, cool blue-grey sky with soft bokeh rain, eye-level medium shot, gentle and intimate mood"
+→ 优点：有画风、有具体动作、有环境细节、有光影色调、有构图
+
+格式：
+画面：xxx
+Prompt: xxx
+中文：xxx`;
+
 async function masterInspire(){
   // 以"两人情境moment"为核心，不再硬拼三个独立维度
   const moments=[
@@ -1138,21 +1173,10 @@ async function masterInspire(){
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
 
-  const _inspireBase=`你是一位懂构图、懂情感、懂审美的AI画面设计师。画面是一对情侣（一男一女）的故事。
-
-你的任务是自主设计一幅完整的画面，从零开始思考：
-- 这是什么情境、什么情绪、什么时刻？
-- 画面风格选什么最合适？（水彩、平涂、赛璐璐、插画、柔光、厚涂、线稿……自己决定）
-- 构图怎么排？视角是俯视/侧面/背影/特写/全景？
-- 光从哪里来？色调是暖是冷？整体氛围是什么感觉？
-- 两人在做什么？肢体关系怎么样？有没有细节和故事感？
-
-每次都要做出不一样的选择——不要每次都是同一种画风、同一种构图、同一种氛围。
-
-禁止：废墟、破败建筑、灰暗脏旧环境、废土风；不要出现日本元素（神社、和服等）；不要写成tag堆砌`;
+  const sys=S.masterPersona?`${S.masterPersona}\n\n${INSPIRE_SYSTEM}`:INSPIRE_SYSTEM;
   const msgs=[
-    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_inspireBase}`:_inspireBase},
-    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（写成完整的画面描述，不限字数，不要tag罗列。包含：两人的具体动作和空间关系、场景细节、光影、色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx`}
+    {role:'system',content:sys},
+    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}${INSPIRE_FORMAT}`}
   ];
   return callMaster(msgs);
 }
@@ -1197,24 +1221,12 @@ async function masterInspireFree(){
   const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile}`:'';
   const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
   const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
-  const _base=`你是一位懂构图、懂情感、懂审美的AI画面设计师。画面是一对情侣（一男一女）的故事。
-
-你的任务是自主设计一幅完整的画面，从零开始思考：
-- 这是什么情境、什么情绪、什么时刻？
-- 画面风格选什么最合适？（水彩、平涂、赛璐璐、插画、柔光、厚涂、线稿……自己决定）
-- 构图怎么排？视角是俯视/侧面/背影/特写/全景？
-- 光从哪里来？色调是暖是冷？整体氛围是什么感觉？
-- 两人在做什么？肢体关系怎么样？有没有细节和故事感？
-
-每次都要做出不一样的选择——不要每次都是同一种画风、同一种构图、同一种氛围。
-
-禁止：废墟、破败建筑、灰暗脏旧环境、废土风；不要出现日本元素（神社、和服等）；不要写成tag堆砌；不要把艺术家名字或hyperrealistic放进prompt`;
-  const promptFormat='\n\n请输出：\n1. 一句中文说明这个画面（15字内）\n2. 完整的英文prompt（写成连贯的画面描述，不限字数。包含：两人具体动作和关系、场景、光影色调、画面风格）\n3. 英文prompt的中文翻译\n\n格式：\n画面：xxx\nPrompt: xxx\n中文：xxx';
+  const sys=S.masterPersona?`${S.masterPersona}\n\n${INSPIRE_SYSTEM}`:INSPIRE_SYSTEM;
   const userContent=freeRoam
-    ?`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个美好的、有情感的两人画面。可以是任何场景、氛围、风格——惊喜我。${promptFormat}`
-    :`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n美学方向：「${muse}」。以此为灵感起点，构思一个具体的两人画面。${promptFormat}`;
+    ?`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个美好的、有情感的两人画面。可以是任何场景、氛围、风格——惊喜我。${INSPIRE_FORMAT}`
+    :`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n美学方向：「${muse}」。以此为灵感起点，构思一个具体的两人画面。${INSPIRE_FORMAT}`;
   const msgs=[
-    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_base}`:_base},
+    {role:'system',content:sys},
     {role:'user',content:userContent}
   ];
   const text=await callMaster(msgs);
@@ -1228,12 +1240,33 @@ function _removeFromHistory(msg){
   const idx=S.masterHistory.findIndex(m=>m.role===msg.role&&m.content===msg.content);
   if(idx>=0){S.masterHistory.splice(idx,1);db.setSetting('masterHistory',S.masterHistory)}
 }
+function _extractPromptLine(text){
+  const m=text.match(/Prompt:\s*(.+?)(?:\n中文：|$)/s);
+  return m?m[1].trim():null;
+}
 function addMasterMsg(role,text,isTemp=false){
   const chat=document.getElementById('master-chat');
   const el=document.createElement('div');
   el.className=`master-msg master-msg-${role}${isTemp?' temp':''}`;
   el.innerHTML=miniMd(text);
   if(!isTemp){
+    // 如果是assistant消息且包含Prompt:行，加「填入工作台」按钮
+    if(role==='assistant'){
+      const extracted=_extractPromptLine(text);
+      if(extracted){
+        const fill=document.createElement('button');
+        fill.className='msg-del msg-fill';fill.textContent='▶ 填入';fill.title='填入工作台';
+        fill.onclick=e=>{
+          e.stopPropagation();
+          const ta=document.getElementById('final-prompt-edit');
+          if(ta){ta.value=extracted;ta.dispatchEvent(new Event('input'))}
+          switchTab('studio');
+          toast('已填入工作台 ✓');
+          fill.textContent='✓';setTimeout(()=>fill.textContent='▶ 填入',1500);
+        };
+        el.appendChild(fill);
+      }
+    }
     const del=document.createElement('button');
     del.className='msg-del';del.textContent='✕';del.title='删除这条';
     del.onclick=e=>{e.stopPropagation();el.remove();_removeFromHistory({role,content:text})};

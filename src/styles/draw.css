@@ -305,9 +305,11 @@ textarea:focus{border-color:var(--purple)}
   opacity:0;transition:.15s;line-height:1;
 }
 .master-msg .msg-del:nth-last-child(2){right:28px;}
+.master-msg .msg-del:nth-last-child(3){right:52px;}
 .master-msg-assistant .msg-del{color:rgba(255,255,255,.3)}
 .master-msg:hover .msg-del{opacity:1}
 .master-msg .msg-del:hover{color:var(--err)!important;opacity:1}
+.master-msg .msg-fill:hover{color:var(--purple)!important;opacity:1}
 #master-input-area{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
 #master-input{flex:1;padding:10px 12px;border-radius:var(--r)}
 
