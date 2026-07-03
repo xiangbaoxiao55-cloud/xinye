@@ -619,10 +619,17 @@ export function renderMdHtml(text) {
   // 清理未闭合/空的代码块围栏，避免渲染出灰色空块
   // 1) 空代码块：```...``` 中间只有空白
   text = text.replace(/```[a-z]*\s*```/g, '');
-  // 2) 末尾孤零零的 ```（未闭合），marked 会把后续全当代码
-  //    数一数 ``` 出现次数，奇数=未闭合→去掉最后那个
-  const fenceCount = (text.match(/^```/gm) || []).length;
-  if (fenceCount % 2 === 1) text = text.replace(/\n?```[a-z]*\s*$/, '');
+  // 2) 落单的 ```（未闭合），marked 会把它之后的全部内容当代码块
+  //    数一数 ``` 出现次数，奇数=有一个没配对→定位最后一个围栏行并删掉
+  //    （注意：孤儿围栏可能出现在消息中间，不一定在末尾，不能只用 $ 锚定末尾）
+  const fenceMatches = [...text.matchAll(/^```[a-z]*[ \t]*$/gm)];
+  if (fenceMatches.length % 2 === 1) {
+    const last = fenceMatches[fenceMatches.length - 1];
+    const start = last.index;
+    let end = start + last[0].length;
+    if (text[end] === '\n') end++;
+    text = text.slice(0, start) + text.slice(end);
+  }
   if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
     const html = marked.parse(text);
     return DOMPurify.sanitize(html, {
