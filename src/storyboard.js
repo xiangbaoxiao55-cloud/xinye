@@ -1612,10 +1612,10 @@ function toggleAgentPanel() {
     panel.classList.add('visible');
     wrap.classList.add('agent-open');
     fab.classList.add('active');
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       const msgBox = document.getElementById('agent-messages');
       msgBox.scrollTop = msgBox.scrollHeight;
-    });
+    }, 50);
     document.getElementById('agent-input').focus();
   }
 }
