@@ -2510,7 +2510,7 @@ function _updateClearBtn(){
 async function restoreTaskCards(){
   const tasks=await db.all('tasks');
   if(!tasks.length) return;
-  tasks.sort((a,b)=>a.createdAt-b.createdAt);
+  tasks.sort((a,b)=>b.createdAt-a.createdAt);
   const res=document.getElementById('draw-results');
   for(const t of tasks){
     const taskWrap=document.createElement('div');
