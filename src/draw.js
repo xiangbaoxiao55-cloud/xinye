@@ -2040,6 +2040,7 @@ function switchTab(tab){
   document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
   document.querySelectorAll('.tab-pane').forEach(el=>el.classList.toggle('active',el.id===`tab-${tab}`));
   if(tab==='gallery') renderGallery();
+  if(tab==='master') setTimeout(()=>{const c=document.getElementById('master-chat');if(c)c.scrollTop=c.scrollHeight;},50);
 }
 const closeModal=id=>{document.getElementById(id).style.display='none'};
 function openLightbox(src){
