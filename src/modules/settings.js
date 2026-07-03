@@ -884,7 +884,7 @@ export function initSettings() {
     await digestMemory();
   };
 
-  $('#btnSyncMemoryLocal').onclick = async () => {
+  if ($('#btnSyncMemoryLocal')) $('#btnSyncMemoryLocal').onclick = async () => {
     const content = (settings.memoryArchive || $('#setMemoryArchive').value || '').trim();
     if (!content) { toast('记忆档案为空'); return; }
     if (!settings.solitudeServerUrl) { toast('请先配置本地服务器地址'); return; }
