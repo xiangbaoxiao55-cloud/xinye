@@ -616,6 +616,13 @@ if (typeof marked !== 'undefined') {
 
 export function renderMdHtml(text) {
   text = text.replace(/<#[\d.]+#?>/g, '');
+  // 清理未闭合/空的代码块围栏，避免渲染出灰色空块
+  // 1) 空代码块：```...``` 中间只有空白
+  text = text.replace(/```[a-z]*\s*```/g, '');
+  // 2) 末尾孤零零的 ```（未闭合），marked 会把后续全当代码
+  //    数一数 ``` 出现次数，奇数=未闭合→去掉最后那个
+  const fenceCount = (text.match(/^```/gm) || []).length;
+  if (fenceCount % 2 === 1) text = text.replace(/\n?```[a-z]*\s*$/, '');
   if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
     const html = marked.parse(text);
     return DOMPurify.sanitize(html, {
