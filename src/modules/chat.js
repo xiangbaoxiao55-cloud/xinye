@@ -676,7 +676,7 @@ export function linkifyEl(el, text) {
     cleaned = cleaned
       .replace(/\[[一-龥]{1,4}\]/g, '')
       .replace(/[（(][一-龥][一-鿿\s]{0,3}[）)]/g, '')
-      .replace(/\s{2,}/g, ' ').trim();
+      .replace(/[^\S\n]{2,}/g, ' ').trim();
   }
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
   if (typeof renderMathInElement !== 'undefined') {
