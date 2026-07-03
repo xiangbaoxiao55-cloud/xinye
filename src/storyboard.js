@@ -1612,6 +1612,8 @@ function toggleAgentPanel() {
     panel.classList.add('visible');
     wrap.classList.add('agent-open');
     fab.classList.add('active');
+    const msgBox = document.getElementById('agent-messages');
+    msgBox.scrollTop = msgBox.scrollHeight;
     document.getElementById('agent-input').focus();
   }
 }
