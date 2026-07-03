@@ -998,6 +998,12 @@ function showCanvasContextMenu(x, y, e) {
 
 function showCardContextMenu(x, y, cardId) {
   S.ctxCardId = cardId;
+  // 右键的卡片如果不在选区里，自动加入（防止框选后右键丢选区）
+  if (!S.selectedIds.includes(cardId)) {
+    S.selectedIds.push(cardId);
+    const el = document.querySelector(`.sb-card[data-id="${cardId}"]`);
+    if (el) el.classList.add('selected');
+  }
   const menu = document.getElementById('card-ctx-menu');
   menu.classList.remove('hidden');
   menu.style.left = x + 'px';
@@ -1007,21 +1013,27 @@ function showCardContextMenu(x, y, cardId) {
   const card = S.cards.find(c => c.id === cardId);
   menu.querySelector('[data-action="download"]').style.display = card?.imageData ? '' : 'none';
   menu.querySelector('[data-action="regenerate"]').style.display = card?.type === 'generate' ? '' : 'none';
-  const selWithImg = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData && c.id !== cardId);
-  const selCount = selWithImg.length;
+
+  // 所有选中的有图卡片（含右键卡片自身）——用于 gen-from
+  const allSelImg = S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData);
+  const allSelCount = allSelImg.length;
+  // 排除右键卡片自身的——用于 add-refs（右键卡片是目标，其他是参考源）
+  const refsForTarget = allSelImg.filter(c => c.id !== cardId);
+  const refsCount = refsForTarget.length;
+
   const genBtn = menu.querySelector('[data-action="gen-from"]');
-  genBtn.style.display = (card?.imageData || selCount > 0) ? '' : 'none';
-  genBtn.textContent = selCount > 1 ? `🎨 以 ${selCount} 张图生图` : '🎨 以此生图';
+  genBtn.style.display = allSelCount > 0 ? '' : 'none';
+  genBtn.textContent = allSelCount > 1 ? `🎨 以 ${allSelCount} 张图生图` : '🎨 以此生图';
 
   const addRefsBtn = menu.querySelector('[data-action="add-refs"]');
   const isTarget = card?.type === 'generate';
-  addRefsBtn.style.display = (selCount > 0 && isTarget) ? '' : 'none';
+  addRefsBtn.style.display = (refsCount > 0 && isTarget) ? '' : 'none';
+  if (refsCount > 0) addRefsBtn.textContent = `📌 将 ${refsCount} 张图设为参考图`;
 
   const pdfBtn = menu.querySelector('[data-action="export-pdf"]');
   const pdfCount = S.selectedIds.length > 1 ? S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).length : (card?.imageData ? 1 : 0);
   pdfBtn.style.display = pdfCount > 0 ? '' : 'none';
   pdfBtn.textContent = pdfCount > 1 ? `📄 导出PDF (${pdfCount}张)` : '📄 导出PDF';
-  if (selCount > 0) addRefsBtn.textContent = `📌 将 ${selCount} 张图设为参考图`;
 }
 
 function clampMenuPosition(menu) {
