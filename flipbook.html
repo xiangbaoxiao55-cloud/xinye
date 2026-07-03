@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>故事书架</title>
+<link rel="stylesheet" href="./src/styles/flipbook.css">
+</head>
+<body>
+
+<!-- ── 书架视图 ── -->
+<div id="bookshelf-view">
+  <div id="shelf-topbar" class="topbar">
+    <div class="topbar-left">
+      <a href="./storyboard.html" class="topbar-back" title="回故事板">←</a>
+      <span class="topbar-title">📚 我的故事书架</span>
+    </div>
+    <div class="topbar-right">
+      <button id="btn-dark" title="切换主题">🌙</button>
+    </div>
+  </div>
+  <div id="shelf-container"></div>
+  <div id="shelf-empty" class="hidden">
+    <div class="empty-icon">📖</div>
+    <p class="empty-title">还没有故事呢</p>
+    <p class="empty-sub">去故事板创作你的第一个故事吧！</p>
+    <a href="./storyboard.html" class="btn-primary">去创作 ✨</a>
+  </div>
+</div>
+
+<!-- ── 翻页阅读器 ── -->
+<div id="flipbook-view" class="hidden">
+  <div id="flip-topbar" class="topbar">
+    <div class="topbar-left">
+      <button id="btn-back-shelf" class="topbar-back" title="回书架">←</button>
+      <span id="flip-title" class="topbar-title">故事</span>
+    </div>
+    <div class="topbar-right">
+      <span id="page-indicator">1 / 1</span>
+      <button id="btn-controls" title="阅读设置">⚙</button>
+      <button id="btn-fullscreen" title="全屏">⛶</button>
+    </div>
+  </div>
+
+  <div id="flip-stage">
+    <div id="flip-book"></div>
+    <button id="flip-prev" class="flip-nav flip-nav-left" title="上一页">‹</button>
+    <button id="flip-next" class="flip-nav flip-nav-right" title="下一页">›</button>
+    <!-- 自动播放进度条 -->
+    <div id="autoplay-bar" class="hidden"><div id="autoplay-progress"></div></div>
+  </div>
+
+  <!-- 控制面板（底部抽屉） -->
+  <div id="controls-overlay" class="hidden"></div>
+  <div id="controls-panel" class="hidden">
+    <div class="ctrl-header">
+      <span>📖 阅读设置</span>
+      <button id="ctrl-close">✕</button>
+    </div>
+    <div class="ctrl-body">
+      <div class="ctrl-group">
+        <label>📖 布局</label>
+        <div class="ctrl-toggle" id="ctrl-layout">
+          <button data-val="single" class="active">单页</button>
+          <button data-val="double">双页</button>
+        </div>
+      </div>
+      <div class="ctrl-group">
+        <label>📐 方向</label>
+        <div class="ctrl-toggle" id="ctrl-orient">
+          <button data-val="auto" class="active">自动</button>
+          <button data-val="landscape">横版</button>
+          <button data-val="portrait">竖版</button>
+        </div>
+      </div>
+      <div class="ctrl-group">
+        <label>⚡ 翻页动画 <span id="flip-speed-label" class="ctrl-val">0.6s</span></label>
+        <input type="range" id="ctrl-flip-speed" min="200" max="1500" value="600" step="50">
+      </div>
+      <div class="ctrl-group">
+        <label>▶ 自动翻页</label>
+        <div class="ctrl-row">
+          <button id="btn-autoplay" class="btn-sm">▶ 播放</button>
+          <input type="range" id="ctrl-interval" min="1" max="15" value="3" step="0.5">
+          <span id="interval-label" class="ctrl-val">3s</span>
+        </div>
+      </div>
+      <div class="ctrl-group">
+        <label>🎵 背景音乐</label>
+        <div class="ctrl-row">
+          <button id="btn-upload-music" class="btn-sm">选择音频</button>
+          <button id="btn-music-toggle" class="btn-sm hidden">⏸ 暂停</button>
+        </div>
+        <div class="ctrl-row music-row hidden" id="music-controls">
+          <span id="music-name" class="ctrl-hint"></span>
+          <input type="range" id="ctrl-volume" min="0" max="1" value="0.5" step="0.05">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- 隐藏元素 -->
+<input type="file" id="music-upload" accept="audio/*" style="display:none">
+<audio id="bg-music" loop></audio>
+
+<script src="./src/flipbook.js"></script>
+</body>
+</html>

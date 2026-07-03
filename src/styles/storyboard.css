@@ -42,6 +42,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 #zoom-label{color:var(--sub);font-size:12px;min-width:40px;text-align:center}
 #topbar button{background:none;border:1px solid var(--border);color:var(--sub);width:32px;height:32px;border-radius:var(--rs);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s}
 #topbar button:hover{color:var(--text);border-color:var(--purple);background:var(--hover)}
+.topbar-btn-link{text-decoration:none;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--rs);border:1px solid var(--border);font-size:16px;color:var(--sub);transition:.15s}
+.topbar-btn-link:hover{border-color:var(--purple);background:var(--hover)}
 
 /* ── Canvas ──────────────────────────────────────────── */
 #canvas-wrap{

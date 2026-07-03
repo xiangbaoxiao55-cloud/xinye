@@ -1,0 +1,622 @@
+/* ── 故事书架 + 翻页书 样式 ────────────────────────────────────── */
+
+/* ── 变量 ─────────────────────────────────────────────────────── */
+:root {
+  --bg: #121018;
+  --surface: #1a1625;
+  --card: #221d30;
+  --border: #3d3558;
+  --text: #e2d9f3;
+  --text-mid: #b0a3c8;
+  --text-light: #8b7fa8;
+  --purple: #8b5cf6;
+  --purple-light: #a78bfa;
+  --purple-deep: #7c3aed;
+  --pink: #ec4899;
+  --page-bg: #2a2440;
+  --topbar-h: 52px;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --flip-speed: 0.6s;
+  --shelf-wood: linear-gradient(180deg, #3a2810 0%, #4a3520 30%, #5a4530 60%, #3a2810 100%);
+  --shelf-front: linear-gradient(180deg, #5a4530 0%, #6a5540 50%, #4a3520 100%);
+}
+
+html.light {
+  --bg: #fff8f3;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --border: #f0ddd5;
+  --text: #5d3a2e;
+  --text-mid: #8d6e63;
+  --text-light: #b0857a;
+  --page-bg: #fffef9;
+  --shelf-wood: linear-gradient(180deg, #8B6914 0%, #A0782C 30%, #C4A265 60%, #8B6914 100%);
+  --shelf-front: linear-gradient(180deg, #A0782C 0%, #C4A265 50%, #8B6914 100%);
+}
+
+/* ── 基础重置 ─────────────────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.hidden { display: none !important; }
+
+/* ── 顶栏 ─────────────────────────────────────────────────────── */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--topbar-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(18, 16, 24, 0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+html.light .topbar {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.topbar-left, .topbar-right {
+  display: flex; align-items: center; gap: 10px;
+}
+.topbar-back {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); text-decoration: none; font-size: 18px;
+  cursor: pointer; transition: .15s;
+}
+.topbar-back:hover { border-color: var(--purple); color: var(--purple); }
+button.topbar-back { font-family: inherit; }
+
+.topbar-title {
+  font-size: 15px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 50vw;
+}
+
+.topbar-right button {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text); font-size: 16px; cursor: pointer; transition: .15s;
+}
+.topbar-right button:hover { border-color: var(--purple); }
+.topbar-right span { font-size: 12px; color: var(--text-light); }
+
+/* ── 书架视图 ─────────────────────────────────────────────────── */
+#bookshelf-view {
+  padding-top: calc(var(--topbar-h) + 20px);
+  min-height: 100vh;
+}
+
+#shelf-container {
+  max-width: 960px; margin: 0 auto; padding: 0 20px 60px;
+}
+
+.shelf-row { margin-bottom: 0; }
+
+.shelf-books {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 24px 20px;
+  padding: 20px 16px 16px;
+  align-items: end;
+}
+
+/* 木头架子 */
+.shelf-plank {
+  height: 18px;
+  background: var(--shelf-front);
+  border-radius: 0 0 4px 4px;
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.4),
+    inset 0 -2px 4px rgba(0,0,0,0.25),
+    inset 0 2px 4px rgba(255,255,255,0.08);
+  margin: 0 4px 36px;
+  position: relative;
+}
+.shelf-plank::before {
+  content: '';
+  position: absolute; top: -4px; left: 0; right: 0; height: 4px;
+  background: var(--shelf-wood);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ── 书本 ─────────────────────────────────────────────────────── */
+.book-item {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s;
+}
+.book-item:hover { transform: translateY(-10px) scale(1.03); }
+.book-item:active { transform: translateY(-6px) scale(1.01); }
+
+.book-body {
+  position: relative;
+  width: 100%; height: 190px;
+  transform-style: preserve-3d;
+  transform: perspective(800px) rotateY(-6deg);
+  transition: transform 0.3s;
+}
+.book-item:hover .book-body {
+  transform: perspective(800px) rotateY(-2deg);
+}
+
+.book-cover {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  border-radius: 2px 8px 8px 2px;
+  box-shadow:
+    3px 3px 10px rgba(0,0,0,0.4),
+    inset -4px 0 10px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+.book-cover::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%, rgba(0,0,0,0.15) 100%);
+}
+
+/* 书脊 */
+.book-spine {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 16px;
+  border-radius: 2px 0 0 2px;
+  transform: rotateY(90deg) translateX(-8px);
+  transform-origin: right center;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  overflow: hidden; padding: 6px 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  letter-spacing: 1px;
+}
+
+/* 页边 */
+.book-pages {
+  position: absolute; right: -4px; top: 5px; bottom: 5px; width: 4px;
+  background: repeating-linear-gradient(
+    180deg, #f5f0e6 0px, #f5f0e6 1px, #e8e0d0 1px, #e8e0d0 2px
+  );
+  border-radius: 0 2px 2px 0;
+  box-shadow: 1px 0 3px rgba(0,0,0,0.2);
+}
+
+/* 页数徽章 */
+.book-badge {
+  position: absolute; bottom: -6px; right: -2px;
+  background: var(--purple);
+  color: #fff; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px;
+  min-width: 22px; text-align: center;
+  box-shadow: 0 2px 6px rgba(139,92,246,0.4);
+  z-index: 2;
+}
+
+/* 书名 */
+.book-label {
+  margin-top: 10px;
+  font-size: 12px; text-align: center;
+  color: var(--text-mid);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 打开动画 */
+.book-item.opening {
+  animation: bookOpen 0.5s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes bookOpen {
+  0% { transform: scale(1); opacity: 1; }
+  60% { transform: scale(1.15) translateY(-12px); opacity: 1; }
+  100% { transform: scale(2.5) translateY(-30px); opacity: 0; }
+}
+
+/* ── 空状态 ───────────────────────────────────────────────────── */
+#shelf-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+  padding: 80px 30px; gap: 12px;
+}
+.empty-icon { font-size: 64px; margin-bottom: 8px; opacity: 0.7; }
+.empty-title { font-size: 20px; font-weight: 600; color: var(--text); }
+.empty-sub { font-size: 14px; color: var(--text-light); }
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 24px; border-radius: var(--radius-sm);
+  background: var(--purple); color: #fff;
+  font-size: 14px; font-weight: 600;
+  border: none; cursor: pointer; text-decoration: none;
+  margin-top: 8px; transition: .15s;
+}
+.btn-primary:hover { background: var(--purple-deep); transform: translateY(-1px); }
+
+/* ── 翻页阅读器 ──────────────────────────────────────────────── */
+#flipbook-view {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+}
+
+#flip-stage {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(var(--topbar-h) + 12px) 12px 12px;
+  position: relative;
+  overflow: hidden;
+  perspective: 1800px;
+}
+
+/* ── 翻页书容器 ──────────────────────────────────────────────── */
+#flip-book {
+  position: relative;
+  transform-style: preserve-3d;
+  /* 尺寸由JS动态设定 */
+}
+
+#flip-book.double-mode {
+  /* 双页模式，宽度翻倍 */
+}
+
+/* ── 单个页面（叶子） ─────────────────────────────────────────── */
+.flip-page {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  transition: transform var(--flip-speed) ease-in-out;
+  cursor: pointer;
+}
+
+/* 已翻过的页 */
+.flip-page.flipped {
+  transform: rotateY(-180deg);
+}
+
+/* 翻页中间态 */
+.flip-page.flipping {
+  transition: none;
+}
+
+/* 页面正面 */
+.page-front {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  background: var(--page-bg);
+  border-radius: 0 4px 4px 0;
+  overflow: hidden;
+  box-shadow:
+    inset -2px 0 8px rgba(0,0,0,0.08),
+    2px 0 10px rgba(0,0,0,0.15);
+}
+
+/* 页面背面 */
+.page-back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  background: var(--page-bg);
+  border-radius: 4px 0 0 4px;
+  overflow: hidden;
+  box-shadow:
+    inset 2px 0 8px rgba(0,0,0,0.08),
+    -2px 0 10px rgba(0,0,0,0.15);
+}
+
+/* 纸张质感 */
+.page-front::before, .page-back::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.06) 0%,
+    transparent 40%,
+    rgba(0,0,0,0.03) 100%
+  );
+  pointer-events: none;
+}
+
+/* 翻页阴影 */
+.page-front::after {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 0; width: 40px;
+  background: linear-gradient(to left, rgba(0,0,0,0.1) 0%, transparent 100%);
+  pointer-events: none; z-index: 2;
+  opacity: 0.6;
+}
+.page-back::after {
+  content: '';
+  position: absolute; top: 0; left: 0; bottom: 0; width: 40px;
+  background: linear-gradient(to right, rgba(0,0,0,0.1) 0%, transparent 100%);
+  pointer-events: none; z-index: 2;
+  opacity: 0.6;
+}
+
+/* 页面内容 */
+.page-content {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px;
+}
+.page-content img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  border-radius: 2px;
+  user-select: none; -webkit-user-drag: none;
+}
+
+/* 页码 */
+.page-number {
+  position: absolute; bottom: 8px;
+  font-size: 11px; color: var(--text-light);
+  z-index: 3; opacity: 0.7;
+}
+.page-front .page-number { right: 12px; }
+.page-back .page-number { left: 12px; }
+
+/* 空白页 */
+.page-blank {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-light); font-size: 14px; opacity: 0.5;
+}
+
+/* ── 封面页 ───────────────────────────────────────────────────── */
+.page-cover .page-front {
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-deep) 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.cover-title {
+  font-size: 22px; font-weight: 700; color: #fff;
+  text-align: center; padding: 20px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  line-height: 1.4;
+}
+
+/* ── 翻页导航按钮 ─────────────────────────────────────────────── */
+.flip-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 80px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: var(--text); font-size: 28px;
+  cursor: pointer; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  transition: .2s; opacity: 0;
+}
+html.light .flip-nav {
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.1);
+}
+#flip-stage:hover .flip-nav { opacity: 1; }
+.flip-nav:hover { background: rgba(139,92,246,0.2); border-color: var(--purple); }
+.flip-nav:disabled { opacity: 0.2; cursor: not-allowed; }
+.flip-nav-left { left: 10px; }
+.flip-nav-right { right: 10px; }
+
+/* 自动播放进度条 */
+#autoplay-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: rgba(255,255,255,0.1); z-index: 20;
+}
+#autoplay-progress {
+  height: 100%; width: 0;
+  background: var(--purple);
+  transition: width linear;
+}
+
+/* ── 控制面板 ─────────────────────────────────────────────────── */
+#controls-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.4);
+}
+#controls-panel {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 310;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 30px rgba(0,0,0,0.3);
+  max-height: 75vh; overflow-y: auto;
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+#controls-panel.hidden {
+  transform: translateY(100%);
+}
+
+.ctrl-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px; font-weight: 600;
+}
+.ctrl-header button {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.ctrl-body { padding: 12px 20px 28px; }
+
+.ctrl-group {
+  margin-bottom: 18px;
+}
+.ctrl-group label {
+  display: block; font-size: 13px; font-weight: 600;
+  color: var(--text-mid); margin-bottom: 8px;
+}
+.ctrl-val {
+  font-weight: 400; color: var(--purple-light); margin-left: 6px;
+}
+
+/* 切换按钮组 */
+.ctrl-toggle {
+  display: flex; gap: 0; border-radius: var(--radius-sm); overflow: hidden;
+  border: 1px solid var(--border);
+}
+.ctrl-toggle button {
+  flex: 1; padding: 8px 12px;
+  background: transparent; border: none;
+  color: var(--text-light); font-size: 13px;
+  cursor: pointer; transition: .15s;
+}
+.ctrl-toggle button + button { border-left: 1px solid var(--border); }
+.ctrl-toggle button.active {
+  background: var(--purple); color: #fff; font-weight: 600;
+}
+.ctrl-toggle button:not(.active):hover {
+  background: rgba(139,92,246,0.12);
+}
+.ctrl-toggle button:disabled {
+  opacity: 0.35; cursor: not-allowed;
+}
+
+.ctrl-row {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.ctrl-hint {
+  font-size: 12px; color: var(--text-light);
+  margin-top: 4px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+
+.btn-sm {
+  padding: 6px 14px; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); font-size: 13px;
+  cursor: pointer; transition: .15s; white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--purple); }
+.btn-sm.playing {
+  background: var(--purple); color: #fff; border-color: var(--purple);
+}
+
+/* 滑块 */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 4px;
+  background: var(--border); border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--purple); cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 6px rgba(139,92,246,0.3);
+}
+
+.music-row { margin-top: 8px; }
+
+/* ── Toast ────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 60px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 10px 24px; border-radius: 24px;
+  background: rgba(30, 25, 45, 0.92);
+  color: #e2d9f3; font-size: 13px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  opacity: 0; pointer-events: none;
+  transition: .3s; z-index: 9999;
+  white-space: nowrap;
+}
+html.light #toast {
+  background: rgba(255,255,255,0.92);
+  color: #5d3a2e;
+}
+#toast.show {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+
+/* ── 加载动画 ─────────────────────────────────────────────────── */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(18,16,24,0.9);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+}
+.loading-spinner {
+  width: 48px; height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--purple);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.loading-text { font-size: 14px; color: var(--text-mid); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 双页模式 ─────────────────────────────────────────────────── */
+#flip-book.double-mode .flip-page {
+  width: 50%;
+}
+#flip-book.double-mode .flip-page.left-leaf {
+  transform-origin: right center;
+  left: 0;
+}
+#flip-book.double-mode .flip-page.right-leaf {
+  transform-origin: left center;
+  left: 50%;
+}
+#flip-book.double-mode .page-front {
+  border-radius: 4px 0 0 4px;
+}
+#flip-book.double-mode .page-back {
+  border-radius: 0 4px 4px 0;
+}
+
+/* 双页中缝阴影 */
+#flip-book.double-mode::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 20px; transform: translateX(-50%);
+  background: linear-gradient(90deg,
+    rgba(0,0,0,0.12) 0%, transparent 30%,
+    transparent 70%, rgba(0,0,0,0.12) 100%
+  );
+  z-index: 50; pointer-events: none;
+}
+
+/* ── 响应式 ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .shelf-books {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px 12px; padding: 16px 10px 12px;
+  }
+  .book-body { height: 160px; }
+  .book-label { font-size: 11px; }
+
+  .flip-nav { width: 36px; height: 60px; font-size: 22px; }
+  .flip-nav-left { left: 4px; }
+  .flip-nav-right { right: 4px; }
+
+  #flip-stage { padding: calc(var(--topbar-h) + 6px) 6px 6px; }
+
+  #controls-panel { max-height: 85vh; }
+
+  .topbar-title { font-size: 14px; max-width: 40vw; }
+}
+
+@media (max-width: 420px) {
+  .shelf-books { grid-template-columns: repeat(2, 1fr); }
+  .book-body { height: 180px; }
+}
+
+@media (min-width: 900px) {
+  .shelf-books {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  #controls-panel {
+    max-width: 480px; left: auto; right: 20px;
+    border-radius: 20px 20px 0 0;
+  }
+}
