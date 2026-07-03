@@ -664,10 +664,11 @@ export function linkifyEl(el, text) {
     .replace(/[^\S\n]{2,}/g, ' ')
     .trim();
   if (settings.ttsType === 'mimo') {
-    // 过滤 Mimo 风格标签：[叹气] / (撒娇 委屈) / （轻柔）等，只含中文+空格的短标签
+    // 过滤 Mimo 风格标签：[叹气] / (撒娇 委屈) / （轻柔）等
+    // 只匹配≤4个中文字的短标签，避免误删正常内容如（精确到文件和位置）
     cleaned = cleaned
-      .replace(/\[[一-龥]{1,10}\]/g, '')
-      .replace(/[（(][一-龥][一-鿿\s]{0,12}[）)]/g, '')
+      .replace(/\[[一-龥]{1,4}\]/g, '')
+      .replace(/[（(][一-龥][一-鿿\s]{0,3}[）)]/g, '')
       .replace(/\s{2,}/g, ' ').trim();
   }
   el.innerHTML = thinkHtml + (cleaned ? renderMdHtml(cleaned) : '');
