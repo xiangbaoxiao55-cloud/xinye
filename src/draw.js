@@ -318,7 +318,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
     const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
-    if(imgs.length) db.put('tasks',{id:taskId,prompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
+    if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
     setStatus('失败','err');
@@ -2546,9 +2546,9 @@ async function restoreTaskCards(){
     }
     const promptEl=taskWrap.querySelector('.draw-task-prompt');
     let expanded=false;
-    promptEl.onclick=()=>{expanded=!expanded;promptEl.textContent=expanded?t.prompt:promptShort;promptEl.style.webkitLineClamp=expanded?'unset':'2'};
+    promptEl.onclick=()=>{expanded=!expanded;promptEl.textContent=expanded?(t.fullPrompt||t.prompt):promptShort;promptEl.style.webkitLineClamp=expanded?'unset':'2'};
     taskWrap.querySelector('.draw-task-del').onclick=()=>{taskWrap.remove();db.del('tasks',t.id);_updateClearBtn()};
-    taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(t.prompt).then(()=>toast('Prompt已复制 ✓'));
+    taskWrap.querySelector('.draw-task-copy').onclick=()=>navigator.clipboard.writeText(t.fullPrompt||t.prompt).then(()=>toast('Prompt已复制 ✓'));
     taskWrap.querySelector('.draw-task-reroll').onclick=()=>{
       const existingEdit=taskWrap.querySelector('.draw-task-edit');
       if(existingEdit){existingEdit.remove();return;}
