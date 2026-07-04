@@ -39,7 +39,8 @@ const F = {
   totalPages: 0,
   isFlipping: false,
   // 设置
-  layout: 'single',
+  layout: 'double',
+  numLeaves: 0,
   orientation: 'auto',
   flipSpeed: 600,
   autoplay: false,
@@ -228,6 +229,7 @@ async function openBook(projectId) {
   F.currentProject = project;
   F.currentPage = 0;
   F.totalPages = sorted.length;
+  F.numLeaves = Math.ceil(sorted.length / 2);
 
   // 切换视图
   $('bookshelf-view').classList.add('hidden');
@@ -270,10 +272,11 @@ function renderFlipbook() {
   book.style.height = dim.height + 'px';
 
   if (F.layout === 'single') {
-    renderSinglePages(book, dim);
+    book.classList.add('single-mode');
+    renderSinglePages(book);
   } else {
     book.classList.add('double-mode');
-    renderDoublePages(book, dim);
+    renderDoublePages(book);
   }
 
   // 设置翻页速度CSS变量
@@ -283,31 +286,29 @@ function renderFlipbook() {
   updateNavButtons();
 }
 
+// ── 单页模式：卡片翻转，一次看一张图，居中 ──────────────────────
 function renderSinglePages(book) {
   const total = F.pages.length;
 
   for (let i = 0; i < total; i++) {
-    const page = F.pages[i];
     const leaf = document.createElement('div');
     leaf.className = 'flip-page';
     leaf.dataset.index = i;
-
-    // z-index: 未翻的页越前面z越高
     leaf.style.zIndex = total - i;
 
     // 正面：当前页图片
     const front = document.createElement('div');
     front.className = 'page-front';
     front.innerHTML = `
-      <div class="page-content"><img src="${page.imageData}" alt=""></div>
+      <div class="page-content"><img src="${F.pages[i].imageData}" alt="" loading="lazy"></div>
       <div class="page-number">${i + 1}</div>`;
 
-    // 背面：下一页图片（或空白）
+    // 背面：下一页图片（翻转动画过渡用）
     const back = document.createElement('div');
     back.className = 'page-back';
     if (i + 1 < total) {
       back.innerHTML = `
-        <div class="page-content"><img src="${F.pages[i + 1].imageData}" alt=""></div>
+        <div class="page-content"><img src="${F.pages[i + 1].imageData}" alt="" loading="lazy"></div>
         <div class="page-number">${i + 2}</div>`;
     } else {
       back.innerHTML = '<div class="page-content page-blank">— 完 —</div>';
@@ -316,21 +317,11 @@ function renderSinglePages(book) {
     leaf.appendChild(front);
     leaf.appendChild(back);
 
-    // 已翻的页加 flipped
     if (i < F.currentPage) {
       leaf.classList.add('flipped');
       leaf.style.zIndex = i;
     }
 
-    // 点击翻页
-    leaf.addEventListener('click', e => {
-      const rect = leaf.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      if (clickX < rect.width / 2) flipPrev();
-      else flipNext();
-    });
-
-    // transitionend 解锁
     leaf.addEventListener('transitionend', () => {
       F.isFlipping = false;
       updateNavButtons();
@@ -338,32 +329,43 @@ function renderSinglePages(book) {
 
     book.appendChild(leaf);
   }
+
+  // 点击翻页：左半=上一页，右半=下一页
+  book.onclick = e => {
+    const rect = book.getBoundingClientRect();
+    if (e.clientX - rect.left < rect.width / 2) flipPrev();
+    else flipNext();
+  };
 }
 
+// ── 双页模式：书籍展开，两两配对叶子 ────────────────────────────
 function renderDoublePages(book) {
-  // 双页模式：一次显示两页，翻页翻一对
-  // 简化实现：用单页模式渲染，但book容器加宽，每页占50%
-  const total = F.pages.length;
+  const N = F.pages.length;
+  const numLeaves = F.numLeaves;
 
-  for (let i = 0; i < total; i++) {
-    const page = F.pages[i];
+  for (let j = 0; j < numLeaves; j++) {
+    const frontIdx = j * 2;       // 右页图片
+    const backIdx  = j * 2 + 1;   // 左页图片（翻过去后可见）
+
     const leaf = document.createElement('div');
     leaf.className = 'flip-page';
-    leaf.dataset.index = i;
-    leaf.style.zIndex = total - i;
+    leaf.dataset.index = j;
+    leaf.style.zIndex = numLeaves - j;
 
+    // 正面（未翻时在右侧可见）
     const front = document.createElement('div');
     front.className = 'page-front';
     front.innerHTML = `
-      <div class="page-content"><img src="${page.imageData}" alt=""></div>
-      <div class="page-number">${i + 1}</div>`;
+      <div class="page-content"><img src="${F.pages[frontIdx].imageData}" alt="" loading="lazy"></div>
+      <div class="page-number">${frontIdx + 1}</div>`;
 
+    // 背面（翻过后在左侧可见）
     const back = document.createElement('div');
     back.className = 'page-back';
-    if (i + 1 < total) {
+    if (backIdx < N) {
       back.innerHTML = `
-        <div class="page-content"><img src="${F.pages[i + 1].imageData}" alt=""></div>
-        <div class="page-number">${i + 2}</div>`;
+        <div class="page-content"><img src="${F.pages[backIdx].imageData}" alt="" loading="lazy"></div>
+        <div class="page-number">${backIdx + 1}</div>`;
     } else {
       back.innerHTML = '<div class="page-content page-blank">— 完 —</div>';
     }
@@ -371,17 +373,10 @@ function renderDoublePages(book) {
     leaf.appendChild(front);
     leaf.appendChild(back);
 
-    if (i < F.currentPage) {
+    if (j < F.currentPage) {
       leaf.classList.add('flipped');
-      leaf.style.zIndex = i;
+      leaf.style.zIndex = j;
     }
-
-    leaf.addEventListener('click', e => {
-      const rect = leaf.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      if (clickX < rect.width / 2) flipPrev();
-      else flipNext();
-    });
 
     leaf.addEventListener('transitionend', () => {
       F.isFlipping = false;
@@ -390,6 +385,13 @@ function renderDoublePages(book) {
 
     book.appendChild(leaf);
   }
+
+  // 点击翻页：左半=上一页，右半=下一页
+  book.onclick = e => {
+    const rect = book.getBoundingClientRect();
+    if (e.clientX - rect.left < rect.width / 2) flipPrev();
+    else flipNext();
+  };
 }
 
 // ── 计算书本尺寸 ─────────────────────────────────────────────────
@@ -397,51 +399,36 @@ function calculateDimensions() {
   const stage = $('flip-stage');
   const stageW = stage.clientWidth - 30;
   const stageH = stage.clientHeight - 20;
-  let w, h;
+
+  // 先算单页尺寸
+  let pageW, pageH;
 
   if (F.orientation === 'landscape') {
-    // 横版 3:2
-    w = Math.min(stageW, stageH * 1.5);
-    h = w / 1.5;
+    pageH = stageH;
+    pageW = pageH * 1.5;
   } else if (F.orientation === 'portrait') {
-    // 竖版 2:3
-    h = Math.min(stageH, stageW * 1.5);
-    w = h / 1.5;
+    pageH = stageH;
+    pageW = pageH / 1.5;
   } else {
     // 自动：根据第一张图的比例
     const first = F.pages[0];
-    if (first && first.imageData) {
-      // 尝试从已缓存的尺寸推断
-      const sizeStr = first.size || '';
-      const match = sizeStr.match(/(\d+)x(\d+)/);
-      if (match) {
-        const imgW = parseInt(match[1]);
-        const imgH = parseInt(match[2]);
-        const aspect = imgW / imgH;
-        if (aspect > 1) {
-          w = Math.min(stageW, stageH * aspect);
-          h = w / aspect;
-        } else {
-          h = Math.min(stageH, stageW / aspect);
-          w = h * aspect;
-        }
-      } else {
-        // 默认 3:4
-        h = Math.min(stageH, stageW * 1.33);
-        w = h / 1.33;
-      }
+    const sizeStr = (first && first.size) || '';
+    const match = sizeStr.match(/(\d+)x(\d+)/);
+    if (match) {
+      const aspect = parseInt(match[1]) / parseInt(match[2]);
+      pageH = stageH;
+      pageW = pageH * aspect;
     } else {
-      h = Math.min(stageH, stageW * 1.33);
-      w = h / 1.33;
+      pageH = stageH;
+      pageW = pageH * 0.75; // 默认 3:4
     }
   }
 
-  // 双页模式宽度翻倍
-  if (F.layout === 'double') {
-    w = Math.min(w * 2, stageW);
-  }
+  // 双页=2倍页宽（书籍展开），单页=1倍
+  let w = F.layout === 'double' ? pageW * 2 : pageW;
+  let h = pageH;
 
-  // 确保不超出屏幕
+  // 确保不超出舞台
   if (w > stageW) { const s = stageW / w; w *= s; h *= s; }
   if (h > stageH) { const s = stageH / h; w *= s; h *= s; }
 
@@ -449,8 +436,12 @@ function calculateDimensions() {
 }
 
 // ── 翻页核心 ─────────────────────────────────────────────────────
+function _maxPage() {
+  return F.layout === 'double' ? F.numLeaves : F.pages.length - 1;
+}
+
 function flipNext() {
-  if (F.isFlipping || F.currentPage >= F.pages.length - 1) return;
+  if (F.isFlipping || F.currentPage >= _maxPage()) return;
   flipTo(F.currentPage + 1);
 }
 
@@ -460,15 +451,15 @@ function flipPrev() {
 }
 
 function flipTo(targetPage, animated = true) {
-  if (targetPage < 0 || targetPage >= F.pages.length) return;
+  const max = _maxPage();
+  if (targetPage < 0 || targetPage > max) return;
   if (targetPage === F.currentPage) return;
 
   const book = $('flip-book');
   const leaves = book.querySelectorAll('.flip-page');
-  const forward = targetPage > F.currentPage;
+  const total = leaves.length;
 
   if (!animated) {
-    // 不动画，直接设定状态
     F.currentPage = targetPage;
     leaves.forEach((leaf, i) => {
       if (i < targetPage) {
@@ -476,7 +467,7 @@ function flipTo(targetPage, animated = true) {
         leaf.style.zIndex = i;
       } else {
         leaf.classList.remove('flipped');
-        leaf.style.zIndex = F.pages.length - i;
+        leaf.style.zIndex = total - i;
       }
     });
     updatePageIndicator();
@@ -484,51 +475,60 @@ function flipTo(targetPage, animated = true) {
     return;
   }
 
+  const forward = targetPage > F.currentPage;
   F.isFlipping = true;
 
   if (forward) {
-    // 翻到下一页：当前页的leaf翻转
     const leaf = leaves[F.currentPage];
     if (!leaf) { F.isFlipping = false; return; }
-
-    // 调整z-index使翻页的叶子在最上面
-    leaf.style.zIndex = F.pages.length + 1;
+    leaf.style.zIndex = total + 1;
     leaf.classList.add('flipped');
-
-    // 翻完后修正z-index
     setTimeout(() => {
       leaf.style.zIndex = F.currentPage;
-      // 确保下一页的z-index正确
       const nextLeaf = leaves[targetPage];
-      if (nextLeaf) nextLeaf.style.zIndex = F.pages.length - targetPage;
+      if (nextLeaf) nextLeaf.style.zIndex = total - targetPage;
     }, F.flipSpeed);
   } else {
-    // 翻回上一页：目标页的leaf取消翻转
     const leaf = leaves[targetPage];
     if (!leaf) { F.isFlipping = false; return; }
-
-    leaf.style.zIndex = F.pages.length + 1;
+    leaf.style.zIndex = total + 1;
     leaf.classList.remove('flipped');
-
     setTimeout(() => {
-      leaf.style.zIndex = F.pages.length - targetPage;
+      leaf.style.zIndex = total - targetPage;
     }, F.flipSpeed);
   }
 
   F.currentPage = targetPage;
   updatePageIndicator();
 
-  // 预加载前后页
-  preloadImages(Math.max(0, targetPage - 1), Math.min(F.pages.length, targetPage + 4));
+  // 预加载
+  const preStart = F.layout === 'double' ? Math.max(0, targetPage * 2 - 2) : Math.max(0, targetPage - 1);
+  const preEnd = F.layout === 'double' ? Math.min(F.pages.length, targetPage * 2 + 6) : Math.min(F.pages.length, targetPage + 4);
+  preloadImages(preStart, preEnd);
 }
 
 function updatePageIndicator() {
-  $('page-indicator').textContent = `${F.currentPage + 1} / ${F.pages.length}`;
+  const N = F.pages.length;
+  let text;
+  if (F.layout === 'double') {
+    const k = F.currentPage;
+    if (k === 0) {
+      text = `1 / ${N}`;
+    } else if (k >= F.numLeaves) {
+      text = `${N} / ${N}`;
+    } else {
+      const rightPage = Math.min(k * 2 + 1, N);
+      text = `${k * 2}~${rightPage} / ${N}`;
+    }
+  } else {
+    text = `${F.currentPage + 1} / ${N}`;
+  }
+  $('page-indicator').textContent = text;
 }
 
 function updateNavButtons() {
   $('flip-prev').disabled = F.currentPage <= 0;
-  $('flip-next').disabled = F.currentPage >= F.pages.length - 1;
+  $('flip-next').disabled = F.currentPage >= _maxPage();
 }
 
 // ── 图片预加载 ───────────────────────────────────────────────────
@@ -555,7 +555,16 @@ function initControls() {
       if (val === F.layout) return;
       layoutBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // 切换模式时把当前图片位置转换过来
+      const oldLayout = F.layout;
       F.layout = val;
+      if (oldLayout === 'single' && val === 'double') {
+        // 单页→双页：图片索引→展开索引
+        F.currentPage = Math.floor(F.currentPage / 2);
+      } else if (oldLayout === 'double' && val === 'single') {
+        // 双页→单页：展开索引→图片索引
+        F.currentPage = Math.min(F.currentPage * 2, F.pages.length - 1);
+      }
       savePrefs();
       if (F.currentProject) renderFlipbook();
     });
@@ -703,10 +712,9 @@ function startAutoplay() {
     });
 
     _autoTimer = setTimeout(() => {
-      if (F.currentPage < F.pages.length - 1) {
+      if (F.currentPage < _maxPage()) {
         flipNext();
       } else {
-        // 循环回第一页
         flipTo(0, false);
       }
       if (F.autoplay) tick();

@@ -93,39 +93,51 @@ button.topbar-back { font-family: inherit; }
 #bookshelf-view {
   padding-top: calc(var(--topbar-h) + 20px);
   min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%),
+    var(--bg);
 }
 
 #shelf-container {
-  max-width: 960px; margin: 0 auto; padding: 0 20px 60px;
+  max-width: 1000px; margin: 0 auto; padding: 20px 24px 60px;
 }
 
 .shelf-row { margin-bottom: 0; }
 
 .shelf-books {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 24px 20px;
-  padding: 20px 16px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 28px 24px;
+  padding: 24px 20px 18px;
   align-items: end;
 }
 
 /* 木头架子 */
 .shelf-plank {
-  height: 18px;
+  height: 22px;
   background: var(--shelf-front);
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 6px 6px;
   box-shadow:
-    0 4px 12px rgba(0,0,0,0.4),
-    inset 0 -2px 4px rgba(0,0,0,0.25),
-    inset 0 2px 4px rgba(255,255,255,0.08);
-  margin: 0 4px 36px;
+    0 6px 20px rgba(0,0,0,0.45),
+    0 2px 6px rgba(0,0,0,0.3),
+    inset 0 -3px 6px rgba(0,0,0,0.3),
+    inset 0 2px 4px rgba(255,255,255,0.1);
+  margin: 0 0 40px;
   position: relative;
 }
 .shelf-plank::before {
   content: '';
-  position: absolute; top: -4px; left: 0; right: 0; height: 4px;
+  position: absolute; top: -6px; left: 0; right: 0; height: 6px;
   background: var(--shelf-wood);
-  border-radius: 2px 2px 0 0;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.15);
+}
+/* 架子底部阴影（投射到墙面） */
+.shelf-plank::after {
+  content: '';
+  position: absolute; bottom: -12px; left: 5%; right: 5%;
+  height: 10px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%);
 }
 
 /* ── 书本 ─────────────────────────────────────────────────────── */
@@ -139,10 +151,10 @@ button.topbar-back { font-family: inherit; }
 
 .book-body {
   position: relative;
-  width: 100%; height: 190px;
+  width: 100%; height: 200px;
   transform-style: preserve-3d;
-  transform: perspective(800px) rotateY(-6deg);
-  transition: transform 0.3s;
+  transform: perspective(800px) rotateY(-8deg);
+  transition: transform 0.35s ease;
 }
 .book-item:hover .book-body {
   transform: perspective(800px) rotateY(-2deg);
@@ -151,58 +163,64 @@ button.topbar-back { font-family: inherit; }
 .book-cover {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
-  border-radius: 2px 8px 8px 2px;
+  border-radius: 3px 10px 10px 3px;
   box-shadow:
-    3px 3px 10px rgba(0,0,0,0.4),
-    inset -4px 0 10px rgba(0,0,0,0.2);
+    4px 4px 14px rgba(0,0,0,0.5),
+    1px 1px 4px rgba(0,0,0,0.3),
+    inset -5px 0 12px rgba(0,0,0,0.25);
   overflow: hidden;
 }
 .book-cover::after {
   content: '';
   position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%, rgba(0,0,0,0.15) 100%);
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.15) 0%,
+    transparent 40%,
+    rgba(0,0,0,0.12) 70%,
+    rgba(0,0,0,0.2) 100%
+  );
 }
 
 /* 书脊 */
 .book-spine {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 16px;
-  border-radius: 2px 0 0 2px;
-  transform: rotateY(90deg) translateX(-8px);
+  position: absolute; left: 0; top: 0; bottom: 0; width: 18px;
+  border-radius: 3px 0 0 3px;
+  transform: rotateY(90deg) translateX(-9px);
   transform-origin: right center;
   writing-mode: vertical-rl; text-orientation: mixed;
   display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 600;
-  color: rgba(255,255,255,0.85);
-  overflow: hidden; padding: 6px 0;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  letter-spacing: 1px;
+  font-size: 10px; font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  overflow: hidden; padding: 8px 0;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  letter-spacing: 1.5px;
 }
 
 /* 页边 */
 .book-pages {
-  position: absolute; right: -4px; top: 5px; bottom: 5px; width: 4px;
+  position: absolute; right: -5px; top: 6px; bottom: 6px; width: 5px;
   background: repeating-linear-gradient(
-    180deg, #f5f0e6 0px, #f5f0e6 1px, #e8e0d0 1px, #e8e0d0 2px
+    180deg, #f5f0e6 0px, #f5f0e6 1px, #e8dfd0 1px, #e8dfd0 2px
   );
-  border-radius: 0 2px 2px 0;
-  box-shadow: 1px 0 3px rgba(0,0,0,0.2);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.25);
 }
 
 /* 页数徽章 */
 .book-badge {
-  position: absolute; bottom: -6px; right: -2px;
+  position: absolute; bottom: -8px; right: -4px;
   background: var(--purple);
   color: #fff; font-size: 10px; font-weight: 700;
-  padding: 2px 7px; border-radius: 10px;
-  min-width: 22px; text-align: center;
-  box-shadow: 0 2px 6px rgba(139,92,246,0.4);
+  padding: 3px 8px; border-radius: 12px;
+  min-width: 24px; text-align: center;
+  box-shadow: 0 2px 8px rgba(139,92,246,0.5);
   z-index: 2;
 }
 
 /* 书名 */
 .book-label {
-  margin-top: 10px;
-  font-size: 12px; text-align: center;
+  margin-top: 12px;
+  font-size: 13px; text-align: center; font-weight: 500;
   color: var(--text-mid);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -257,20 +275,14 @@ button.topbar-back { font-family: inherit; }
 #flip-book {
   position: relative;
   transform-style: preserve-3d;
-  /* 尺寸由JS动态设定 */
 }
 
-#flip-book.double-mode {
-  /* 双页模式，宽度翻倍 */
-}
-
-/* ── 单个页面（叶子） ─────────────────────────────────────────── */
+/* ── 单个页面（叶子）─ 基础 ───────────────────────────────────── */
 .flip-page {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  height: 100%;
   transform-style: preserve-3d;
-  transform-origin: left center;
   transition: transform var(--flip-speed) ease-in-out;
   cursor: pointer;
 }
@@ -280,9 +292,27 @@ button.topbar-back { font-family: inherit; }
   transform: rotateY(-180deg);
 }
 
-/* 翻页中间态 */
-.flip-page.flipping {
-  transition: none;
+/* ── 单页模式：卡片翻转，居中显示一张图 ─────────────────────── */
+#flip-book.single-mode .flip-page {
+  left: 0;
+  width: 100%;
+  transform-origin: center center;
+}
+#flip-book.single-mode .page-front,
+#flip-book.single-mode .page-back {
+  border-radius: 8px;
+}
+#flip-book.single-mode .page-front::after,
+#flip-book.single-mode .page-back::after {
+  display: none; /* 单页不需要翻页阴影 */
+}
+#flip-book.single-mode .page-front .page-number {
+  right: auto; left: 50%;
+  transform: translateX(-50%);
+}
+#flip-book.single-mode .page-back .page-number {
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* 页面正面 */
@@ -554,36 +584,43 @@ html.light #toast {
 .loading-text { font-size: 14px; color: var(--text-mid); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── 双页模式 ─────────────────────────────────────────────────── */
+/* ── 双页模式：书籍展开，叶子在右半翻向左半 ──────────────────── */
 #flip-book.double-mode .flip-page {
   width: 50%;
-}
-#flip-book.double-mode .flip-page.left-leaf {
-  transform-origin: right center;
-  left: 0;
-}
-#flip-book.double-mode .flip-page.right-leaf {
-  transform-origin: left center;
   left: 50%;
+  transform-origin: left center; /* 书脊在中间 */
 }
 #flip-book.double-mode .page-front {
-  border-radius: 4px 0 0 4px;
+  border-radius: 0 6px 6px 0; /* 右页右侧圆角 */
 }
 #flip-book.double-mode .page-back {
-  border-radius: 0 4px 4px 0;
+  border-radius: 6px 0 0 6px; /* 左页左侧圆角 */
 }
 
-/* 双页中缝阴影 */
+/* 双页书脊阴影 */
 #flip-book.double-mode::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 50%;
-  width: 20px; transform: translateX(-50%);
+  width: 28px; transform: translateX(-50%);
   background: linear-gradient(90deg,
-    rgba(0,0,0,0.12) 0%, transparent 30%,
-    transparent 70%, rgba(0,0,0,0.12) 100%
+    rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.06) 25%,
+    transparent 50%,
+    rgba(0,0,0,0.06) 75%, rgba(0,0,0,0.18) 100%
   );
   z-index: 50; pointer-events: none;
+}
+
+/* 双页底色 */
+#flip-book.double-mode::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0; right: 0;
+  background: var(--page-bg);
+  border-radius: 6px;
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.25),
+    0 1px 4px rgba(0,0,0,0.15);
 }
 
 /* ── 响应式 ───────────────────────────────────────────────────── */
@@ -592,7 +629,7 @@ html.light #toast {
     grid-template-columns: repeat(3, 1fr);
     gap: 16px 12px; padding: 16px 10px 12px;
   }
-  .book-body { height: 160px; }
+  .book-body { height: 170px; }
   .book-label { font-size: 11px; }
 
   .flip-nav { width: 36px; height: 60px; font-size: 22px; }
