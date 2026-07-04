@@ -1,11 +1,11 @@
 // ── Flipbook.js — 故事书架 + 翻页阅读器 ─────────────────────────
 
-// ── DB（复用 StoryboardDB v1）────────────────────────────────────
+// ── DB（复用 StoryboardDB v2）────────────────────────────────────
 class SBDatabase {
   constructor() { this.db = null; }
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open('StoryboardDB', 1);
+      const r = indexedDB.open('StoryboardDB', 2);
       r.onupgradeneeded = e => {
         const db = e.target.result;
         if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects', { keyPath: 'id' });
@@ -14,6 +14,10 @@ class SBDatabase {
           s.createIndex('byProject', 'projectId', { unique: false });
         }
         if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('stories')) {
+          const s = db.createObjectStore('stories', { keyPath: 'id' });
+          s.createIndex('byProject', 'projectId', { unique: false });
+        }
       };
       r.onsuccess = e => { this.db = e.target.result; res(); };
       r.onerror = e => rej(e.target.error);
@@ -32,8 +36,9 @@ const db = new SBDatabase();
 
 // ── 状态 ─────────────────────────────────────────────────────────
 const F = {
-  projects: [],        // [{id, name, coverImage, pageCount, updatedAt}]
-  currentProject: null,
+  books: [],           // [{id, name, type:'project'|'story', coverImage, pageCount, updatedAt, projectId?}]
+  currentBook: null,
+  currentType: null,   // 'project' or 'story'
   pages: [],           // sorted image cards
   currentPage: 0,
   totalPages: 0,
@@ -119,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  await loadAllProjects();
+  await loadAllBooks();
   renderBookshelf();
 
   // 事件绑定
@@ -137,28 +142,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTouch();
   window.addEventListener('resize', onResize);
 
-  // URL参数直接打开某本书
+  // URL参数直接打开
   const params = new URLSearchParams(location.search);
-  const pid = params.get('project');
-  if (pid) openBook(pid);
+  const storyId = params.get('story');
+  const projectId = params.get('project');
+  if (storyId) openStory(storyId);
+  else if (projectId) openProject(projectId);
 });
 
 // ══════════════════════════════════════════════════════════════════
 //  书架模块
 // ══════════════════════════════════════════════════════════════════
 
-async function loadAllProjects() {
-  const projects = await db.all('projects');
+async function loadAllBooks() {
   const result = [];
 
+  // 加载项目（完整画布）
+  const projects = await db.all('projects');
   for (const proj of projects) {
+    if (proj.id === '__ASSETS__') continue; // 跳过资产库
     const cards = await db.byIndex('cards', 'byProject', proj.id);
     const imageCards = cards.filter(c => c.imageData && c.type === 'generate' && c.status === 'done');
-    if (!imageCards.length) continue; // 跳过没有图片的项目
+    if (!imageCards.length) continue;
 
     const sorted = sortCardsByPosition(imageCards);
     result.push({
       id: proj.id,
+      type: 'project',
       name: proj.name || '未命名故事',
       coverImage: sorted[0].imageData,
       pageCount: sorted.length,
@@ -166,16 +176,38 @@ async function loadAllProjects() {
     });
   }
 
+  // 加载故事书（导出的精选）
+  const stories = await db.all('stories');
+  for (const story of stories) {
+    const proj = await db.get('projects', story.projectId);
+    if (!proj) continue;
+
+    const allCards = await db.byIndex('cards', 'byProject', story.projectId);
+    const storyCards = story.cardIds.map(id => allCards.find(c => c.id === id)).filter(c => c && c.imageData);
+    if (!storyCards.length) continue;
+
+    result.push({
+      id: story.id,
+      type: 'story',
+      name: story.name || '未命名故事书',
+      coverImage: storyCards[0].imageData,
+      pageCount: storyCards.length,
+      updatedAt: story.createdAt || 0,
+      projectId: story.projectId,
+      projectName: proj.name,
+    });
+  }
+
   // 按更新时间倒序
   result.sort((a, b) => b.updatedAt - a.updatedAt);
-  F.projects = result;
+  F.books = result;
 }
 
 function renderBookshelf() {
   const container = $('shelf-container');
   const empty = $('shelf-empty');
 
-  if (!F.projects.length) {
+  if (!F.books.length) {
     container.innerHTML = '';
     empty.classList.remove('hidden');
     return;
@@ -184,19 +216,24 @@ function renderBookshelf() {
 
   // 每行放一排书，不固定数量，用CSS grid自适应
   let html = '<div class="shelf-row"><div class="shelf-books">';
-  F.projects.forEach((proj, i) => {
+  F.books.forEach((book, i) => {
     const spineColor = SPINE_COLORS[i % SPINE_COLORS.length];
+    const icon = book.type === 'story' ? '📚' : '🎬';
+    const subtitle = book.type === 'story' ? `来自：${escHtml(book.projectName)}` : '';
     html += `
-      <div class="book-item" data-id="${proj.id}" onclick="onBookClick(this,'${proj.id}')">
+      <div class="book-item ${book.type === 'story' ? 'story-book' : ''}" data-id="${book.id}" data-type="${book.type}" onclick="onBookClick(this,'${book.id}','${book.type}')">
         <div class="book-body">
-          <div class="book-cover" style="background-image:url('${proj.coverImage}')"></div>
-          <div class="book-spine" style="background:linear-gradient(90deg,${spineColor},${spineColor}dd)">${escHtml(proj.name)}</div>
+          <div class="book-cover" style="background-image:url('${book.coverImage}')"></div>
+          <div class="book-spine" style="background:linear-gradient(90deg,${spineColor},${spineColor}dd)">${icon} ${escHtml(book.name)}</div>
           <div class="book-pages"></div>
-          <div class="book-badge">${proj.pageCount}</div>
+          <div class="book-badge">${book.pageCount}</div>
         </div>
-        <div class="book-label">${escHtml(proj.name)}</div>
+        <div class="book-label">${escHtml(book.name)}${subtitle ? `<br><small style="opacity:0.6;font-size:11px">${subtitle}</small>` : ''}</div>
       </div>`;
   });
+  html += '</div></div>';
+  container.innerHTML = html;
+}
   html += '</div><div class="shelf-plank"></div></div>';
   container.innerHTML = html;
 }
@@ -216,7 +253,15 @@ async function onBookClick(el, projectId) {
 //  翻页阅读器
 // ══════════════════════════════════════════════════════════════════
 
-async function openBook(projectId) {
+function onBookClick(el, id, type) {
+  el.classList.add('book-opening');
+  setTimeout(() => {
+    if (type === 'story') openStory(id);
+    else openProject(id);
+  }, 300);
+}
+
+async function openProject(projectId) {
   const project = await db.get('projects', projectId);
   if (!project) { toast('找不到这个项目'); return; }
 
@@ -226,7 +271,8 @@ async function openBook(projectId) {
 
   const sorted = sortCardsByPosition(imageCards);
   F.pages = sorted;
-  F.currentProject = project;
+  F.currentBook = project;
+  F.currentType = 'project';
   F.currentPage = 0;
   F.totalPages = sorted.length;
   F.numLeaves = Math.ceil(sorted.length / 2);
@@ -237,6 +283,30 @@ async function openBook(projectId) {
   $('flip-title').textContent = project.name || '故事';
 
   renderFlipbook();
+}
+
+async function openStory(storyId) {
+  const story = await db.get('stories', storyId);
+  if (!story) { toast('找不到这个故事书'); return; }
+
+  const allCards = await db.byIndex('cards', 'byProject', story.projectId);
+  const storyCards = story.cardIds.map(id => allCards.find(c => c.id === id)).filter(c => c && c.imageData);
+  if (!storyCards.length) { toast('故事书没有图片'); return; }
+
+  F.pages = storyCards;
+  F.currentBook = story;
+  F.currentType = 'story';
+  F.currentPage = 0;
+  F.totalPages = storyCards.length;
+  F.numLeaves = Math.ceil(storyCards.length / 2);
+
+  // 切换视图
+  $('bookshelf-view').classList.add('hidden');
+  $('flipbook-view').classList.remove('hidden');
+  $('flip-title').textContent = story.name || '故事';
+
+  renderFlipbook();
+}
   updatePageIndicator();
   updateNavButtons();
 
