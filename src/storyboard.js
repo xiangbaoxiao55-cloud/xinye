@@ -471,9 +471,19 @@ function renderCardIdle(el, card) {
   const refs = normalizeRefs(card);
   let refHtml = '';
   if (refs.length === 1) {
-    refHtml = `<div class="sb-ref-thumb"><img src="${refs[0]}" alt="参考"><button class="sb-ref-remove" title="移除参考">✕</button></div>`;
+    refHtml = `<div class="sb-ref-thumb">
+      <img src="${refs[0]}" alt="参考">
+      <button class="sb-ref-remove-single" data-index="0" title="移除">✕</button>
+    </div>`;
   } else if (refs.length > 1) {
-    refHtml = `<div class="sb-ref-strip">${refs.map((r,i) => `<img src="${r}" alt="参考${i+1}">`).join('')}<button class="sb-ref-remove" title="移除全部参考">✕</button></div>`;
+    refHtml = `<div class="sb-ref-strip">
+      ${refs.map((r,i) => `
+        <div class="sb-ref-item">
+          <img src="${r}" alt="参考${i+1}">
+          <button class="sb-ref-remove-single" data-index="${i}" title="移除">✕</button>
+        </div>
+      `).join('')}
+    </div>`;
   }
 
   el.innerHTML = `
@@ -482,7 +492,7 @@ function renderCardIdle(el, card) {
       <span>${refs.length ? '参考图 ×' + refs.length : '双击或输入prompt'}</span>
     </div>
     <div class="sb-card-prompt">
-      <textarea placeholder="描述你想要的画面...">${card.prompt || ''}</textarea>
+      <textarea placeholder="描述你想要的画面...">${card._editingPrompt !== undefined ? card._editingPrompt : (card.prompt || '')}</textarea>
       <div class="sb-card-params">
         <select class="p-size">
           ${SB_SIZES.map(s => `<option value="${s.v}"${card.size === s.v ? ' selected' : ''}>${s.l}</option>`).join('')}
@@ -494,7 +504,7 @@ function renderCardIdle(el, card) {
     </div>`;
 
   const ta = el.querySelector('textarea');
-  ta.addEventListener('input', () => { card.prompt = ta.value; scheduleSave(); });
+  ta.addEventListener('input', () => { card._editingPrompt = ta.value; });
   ta.addEventListener('keydown', e => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
@@ -510,15 +520,24 @@ function renderCardIdle(el, card) {
   el.querySelector('.sb-card-gen').addEventListener('click', () => doGenerate(card, el));
   const cancelBtn = el.querySelector('.sb-card-cancel');
   if (cancelBtn) cancelBtn.addEventListener('click', () => {
+    delete card._editingPrompt;
     card.status = 'done';
     renderCardUpdate(card, el);
   });
-  const rmBtn = el.querySelector('.sb-ref-remove');
-  if (rmBtn) rmBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    delete card.refImageData;
-    renderCardUpdate(card, el);
-    scheduleSave();
+
+  el.querySelectorAll('.sb-ref-remove-single').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const index = parseInt(e.target.dataset.index);
+      if (Array.isArray(card.refImageData)) {
+        card.refImageData.splice(index, 1);
+        if (card.refImageData.length === 0) delete card.refImageData;
+      } else {
+        delete card.refImageData;
+      }
+      renderCardUpdate(card, el);
+      scheduleSave();
+    });
   });
 }
 
@@ -640,7 +659,9 @@ function initCardDrag(el, card) {
 
 // ── Generate Image ───────────────────────────────────────────────
 async function doGenerate(card, el) {
-  if (!card.prompt?.trim()) {
+  const editedPrompt = card._editingPrompt !== undefined ? card._editingPrompt : card.prompt;
+
+  if (!editedPrompt?.trim()) {
     toast('先输入 prompt 描述画面', 'warn');
     return;
   }
@@ -650,12 +671,12 @@ async function doGenerate(card, el) {
   }
 
   const presetId = el.querySelector('.p-preset')?.value || S.curDrawId;
-  const editedPrompt = card.prompt;
   const editedNeg = card.negPrompt;
   const editedSize = card.size;
   const editedRefs = normalizeRefs(card);
 
   if (card.imageData) {
+    delete card._editingPrompt;
     card.status = 'done';
     renderCardUpdate(card, el);
 
@@ -687,11 +708,13 @@ async function doGenerate(card, el) {
     return;
   }
 
+  card.prompt = editedPrompt;
+  delete card._editingPrompt;
   card.status = 'generating';
   el = renderCardUpdate(card, el);
 
   try {
-    const imageData = await drawWithFallback(card.prompt, card.negPrompt, card.size, presetId, editedRefs);
+    const imageData = await drawWithFallback(editedPrompt, card.negPrompt, card.size, presetId, editedRefs);
     card.imageData = imageData;
     card.status = 'done';
     renderCardUpdate(card, el);

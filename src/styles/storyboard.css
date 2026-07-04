@@ -90,8 +90,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 .sb-ref-thumb img{width:100%;height:100%;object-fit:cover;opacity:.6}
 .sb-ref-strip{position:relative;width:100%;height:100%;display:flex;overflow:hidden}
 .sb-ref-strip img{flex:1;min-width:0;height:100%;object-fit:cover;opacity:.6}
-.sb-ref-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
-.sb-ref-remove:hover{background:var(--err)}
+.sb-ref-item{position:relative;flex:1;min-width:0}
+.sb-ref-item img{width:100%;height:100%;object-fit:cover;opacity:.6}
+.sb-ref-remove-single{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.sb-ref-remove-single:hover{background:var(--err)}
 
 /* Card: image display */
 .sb-card-image{position:relative;background:#000}
