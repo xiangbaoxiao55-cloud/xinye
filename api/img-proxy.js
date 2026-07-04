@@ -6,6 +6,16 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
+  // 来源校验：只允许自己站点和本地开发环境
+  const origin = req.headers['origin'] || '';
+  const referer = req.headers['referer'] || '';
+  const source = origin || referer;
+  const allowed = source &&
+    (source.includes('xinye-phi.vercel.app') ||
+     source.includes('localhost') ||
+     source.includes('192.168.1.'));
+  if (!allowed) { res.status(403).json({ error: 'forbidden' }); return; }
+
   const { url } = req.query;
   if (!url) { res.status(400).json({ error: 'missing url' }); return; }
 
