@@ -6,3 +6,8 @@ CLAUDE.md
 chat-app/
 omemo-v1.1.0-Windows一鍵包/
 index.html.bak
+
+# 敏感/无关数据不入库
+data/cmd_config.json
+data/dashboard.zip
+debug.log
