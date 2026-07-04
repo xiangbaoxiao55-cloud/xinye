@@ -1934,7 +1934,7 @@ document.querySelectorAll('#project-ctx-menu button').forEach(btn => {
       renderProjectGrid();
       toast('项目已复制');
     } else if (action === 'delete') {
-      if (!confirm(\`确定删除项目"\${(await db.get('projects', projectId)).name}"？\`)) return;
+      if (!confirm(`确定删除项目"${(await db.get('projects', projectId)).name}"？`)) return;
       await db.del('projects', projectId);
       const cards = await db.byIndex('cards', 'byProject', projectId);
       for (const card of cards) await db.del('cards', card.id);
