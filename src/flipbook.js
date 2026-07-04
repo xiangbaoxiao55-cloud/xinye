@@ -280,6 +280,11 @@ async function openProject(projectId) {
   $('flip-title').textContent = project.name || '故事';
 
   renderFlipbook();
+  updatePageIndicator();
+  updateNavButtons();
+
+  // 预加载图片
+  preloadImages(0, Math.min(5, F.pages.length));
 }
 
 async function openStory(storyId) {
@@ -303,7 +308,6 @@ async function openStory(storyId) {
   $('flip-title').textContent = story.name || '故事';
 
   renderFlipbook();
-}
   updatePageIndicator();
   updateNavButtons();
 
