@@ -12,6 +12,7 @@ debug.log
 123.png
 *.md
 xinye_inpaint_workflow.json
+archive/
 
 # 放行运行时需要的 data/ 文件（sw.js 预缓存 + draw.js fetch）
 !data/style_library.json
