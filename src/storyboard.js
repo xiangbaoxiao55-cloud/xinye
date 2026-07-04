@@ -5,7 +5,7 @@ class SBDatabase {
   constructor(){this.db=null}
   open(){
     return new Promise((res,rej)=>{
-      const r=indexedDB.open('StoryboardDB',1);
+      const r=indexedDB.open('StoryboardDB',2);
       r.onupgradeneeded=e=>{
         const db=e.target.result;
         if(!db.objectStoreNames.contains('projects')) db.createObjectStore('projects',{keyPath:'id'});
@@ -14,6 +14,10 @@ class SBDatabase {
           s.createIndex('byProject','projectId',{unique:false});
         }
         if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings',{keyPath:'key'});
+        if(!db.objectStoreNames.contains('stories')) {
+          const s=db.createObjectStore('stories',{keyPath:'id'});
+          s.createIndex('byProject','projectId',{unique:false});
+        }
       };
       r.onsuccess=e=>{this.db=e.target.result;res()};
       r.onerror=e=>rej(e.target.error);
@@ -38,6 +42,7 @@ const ts = () => new Date().toTimeString().slice(0,8);
 let _lastDragEnd = 0;
 
 let S = {
+  view: 'selector', // 'selector' or 'canvas'
   projectId: null,
   projectName: '未命名项目',
   cards: [],
@@ -58,6 +63,8 @@ let S = {
   curMasterId: null,
   agentHistory: [],
   agentAttachedImages: [],
+  // project selector
+  ctxProjectId: null,
 };
 
 const SB_SIZES = [
@@ -74,17 +81,8 @@ const SB_SIZES = [
 document.addEventListener('DOMContentLoaded', async () => {
   await db.open();
   loadDrawConfig();
-  await loadOrCreateProject();
-  initCanvas();
-  initTopbar();
-  initFAB();
-  initContextMenus();
-  initLightbox();
-  initKeyboard();
-  renderAllCards();
-  updateZoomLabel();
-  initAgent();
-  loadAgentChat();
+  await ensureAssetsProject();
+  showProjectSelector();
 });
 
 function loadDrawConfig() {
@@ -94,6 +92,21 @@ function loadDrawConfig() {
   S.defaultSize = localStorage.getItem('sb_defaultSize') || '1536x2048';
   S.masterPresets = JSON.parse(localStorage.getItem('draw_masterPresets') || '[]');
   S.curMasterId = localStorage.getItem('draw_curMasterId') || S.masterPresets[0]?.id || null;
+}
+
+async function ensureAssetsProject() {
+  let assets = await db.get('projects', '__ASSETS__');
+  if (!assets) {
+    await db.put('projects', {
+      id: '__ASSETS__',
+      name: '📦 资产库',
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  }
 }
 
 async function loadOrCreateProject() {
@@ -288,6 +301,13 @@ async function onCanvasDrop(e) {
 
 // ── Topbar ───────────────────────────────────────────────────────
 function initTopbar() {
+  document.getElementById('btn-back-projects').onclick = () => {
+    doSave();
+    showProjectSelector();
+  };
+
+  document.getElementById('btn-project-menu').onclick = toggleProjectDropdown;
+
   document.getElementById('project-name').addEventListener('change', e => {
     S.projectName = e.target.value || '未命名项目';
     scheduleSave();
@@ -350,6 +370,7 @@ function initFAB() {
     const pos = screenToCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
     addGenerateCard(pos.x - 120, pos.y - 100);
   });
+  document.getElementById('fab-assets').addEventListener('click', openAssetsModal);
   document.getElementById('fab-upload').addEventListener('click', () => {
     const fileInput = document.getElementById('file-upload');
     fileInput._mode = 'canvas';
@@ -361,6 +382,22 @@ function initFAB() {
     addTextCard(pos.x - 120, pos.y - 60);
   });
   document.getElementById('file-upload').addEventListener('change', onFileUpload);
+
+  document.getElementById('assets-close').onclick = closeAssetsModal;
+  document.getElementById('assets-add').onclick = addSelectedAssets;
+  document.getElementById('modal-assets').addEventListener('click', e => {
+    if (e.target.id === 'modal-assets') closeAssetsModal();
+  });
+  document.getElementById('assets-grid').addEventListener('click', e => {
+    if (e.target.closest('.asset-item')) updateAssetsSelectedCount();
+  });
+
+  document.getElementById('story-close').onclick = closeStoryModal;
+  document.getElementById('story-cancel').onclick = closeStoryModal;
+  document.getElementById('story-export').onclick = doExportStory;
+  document.getElementById('modal-story').addEventListener('click', e => {
+    if (e.target.id === 'modal-story') closeStoryModal();
+  });
 }
 
 // ── Cards ────────────────────────────────────────────────────────
@@ -994,6 +1031,12 @@ function initContextMenus() {
           : card.imageData ? [card] : [];
         if (selCards.length) showPdfPreview(selCards);
         else toast('没有可导出的图片');
+      } else if (action === 'export-story') {
+        const selCards = S.selectedIds.length > 1 ? S.selectedIds : [card.id];
+        openStoryExportModal(selCards);
+      } else if (action === 'add-to-assets') {
+        const selCards = S.selectedIds.length > 1 ? S.selectedIds : [card.id];
+        addToAssets(selCards);
       } else if (action === 'delete') {
         deleteCard(card.id);
       }
@@ -1731,3 +1774,368 @@ async function doSave() {
     document.getElementById('save-status').className = 'save-pending';
   }
 }
+
+// ── Project Selector ─────────────────────────────────────────────
+async function showProjectSelector() {
+  S.view = 'selector';
+  document.getElementById('project-selector').classList.remove('hidden');
+  document.getElementById('topbar').classList.add('hidden');
+  document.getElementById('canvas-wrap').classList.add('hidden');
+  document.getElementById('fab-group').classList.add('hidden');
+  
+  await renderProjectGrid();
+  
+  document.getElementById('ps-new-project').onclick = createNewProject;
+  document.addEventListener('click', hideProjectContextMenu);
+}
+
+async function renderProjectGrid() {
+  const projects = await db.all('projects');
+  const grid = document.getElementById('ps-grid');
+  grid.innerHTML = '';
+  
+  const assets = projects.find(p => p.id === '__ASSETS__');
+  if (assets) {
+    const cardsCount = (await db.byIndex('cards', 'byProject', '__ASSETS__')).length;
+    const card = createProjectCard(assets, cardsCount, true);
+    grid.appendChild(card);
+  }
+  
+  const regular = projects.filter(p => p.id !== '__ASSETS__').sort((a,b) => b.updatedAt - a.updatedAt);
+  for (const proj of regular) {
+    const cardsCount = (await db.byIndex('cards', 'byProject', proj.id)).length;
+    const card = createProjectCard(proj, cardsCount, false);
+    grid.appendChild(card);
+  }
+}
+
+function createProjectCard(proj, cardsCount, isAssets) {
+  const card = document.createElement('div');
+  card.className = 'ps-card' + (isAssets ? ' assets' : '');
+  card.dataset.id = proj.id;
+  
+  const icon = isAssets ? '📦' : '🎬';
+  const time = new Date(proj.updatedAt).toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'});
+  
+  card.innerHTML = `
+    <div class="ps-card-icon">${icon}</div>
+    <div class="ps-card-name">${proj.name}</div>
+    <div class="ps-card-meta">
+      <span>${cardsCount} 张卡片</span>
+      <span class="ps-card-time">${time}</span>
+    </div>
+  `;
+  
+  card.addEventListener('click', () => enterProject(proj.id));
+  card.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (proj.id === '__ASSETS__') return;
+    showProjectContextMenu(e.clientX, e.clientY, proj.id);
+  });
+  
+  return card;
+}
+
+async function enterProject(projectId) {
+  const proj = await db.get('projects', projectId);
+  if (!proj) return;
+  
+  S.projectId = proj.id;
+  S.projectName = proj.name;
+  S.panX = proj.panX || 0;
+  S.panY = proj.panY || 0;
+  S.zoom = proj.zoom || 1;
+  S.cards = await db.byIndex('cards', 'byProject', proj.id);
+  S.view = 'canvas';
+  
+  document.getElementById('project-selector').classList.add('hidden');
+  document.getElementById('topbar').classList.remove('hidden');
+  document.getElementById('canvas-wrap').classList.remove('hidden');
+  document.getElementById('fab-group').classList.remove('hidden');
+  
+  document.getElementById('project-name').value = proj.name;
+  localStorage.setItem('sb_lastProjectId', proj.id);
+  
+  if (!window._canvasInitialized) {
+    initCanvas();
+    initTopbar();
+    initFAB();
+    initContextMenus();
+    initLightbox();
+    initKeyboard();
+    initAgent();
+    window._canvasInitialized = true;
+  }
+  
+  renderAllCards();
+  updateZoomLabel();
+  applyTransform();
+  loadAgentChat();
+}
+
+async function createNewProject() {
+  const name = prompt('新项目名称', '未命名项目');
+  if (!name) return;
+  
+  const projectId = uid();
+  await db.put('projects', {
+    id: projectId,
+    name,
+    panX: window.innerWidth / 2,
+    panY: window.innerHeight / 2,
+    zoom: 1,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+  
+  enterProject(projectId);
+}
+
+function showProjectContextMenu(x, y, projectId) {
+  S.ctxProjectId = projectId;
+  const menu = document.getElementById('project-ctx-menu');
+  menu.classList.remove('hidden');
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+function hideProjectContextMenu() {
+  document.getElementById('project-ctx-menu').classList.add('hidden');
+}
+
+document.querySelectorAll('#project-ctx-menu button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const action = btn.dataset.action;
+    const projectId = S.ctxProjectId;
+    
+    if (action === 'rename') {
+      const proj = await db.get('projects', projectId);
+      const newName = prompt('重命名项目', proj.name);
+      if (newName && newName !== proj.name) {
+        proj.name = newName;
+        proj.updatedAt = Date.now();
+        await db.put('projects', proj);
+        renderProjectGrid();
+      }
+    } else if (action === 'duplicate') {
+      const proj = await db.get('projects', projectId);
+      const cards = await db.byIndex('cards', 'byProject', projectId);
+      const newId = uid();
+      await db.put('projects', {
+        ...proj,
+        id: newId,
+        name: proj.name + ' 副本',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+      for (const card of cards) {
+        await db.put('cards', { ...card, id: uid(), projectId: newId });
+      }
+      renderProjectGrid();
+      toast('项目已复制');
+    } else if (action === 'delete') {
+      if (!confirm(\`确定删除项目"\${(await db.get('projects', projectId)).name}"？\`)) return;
+      await db.del('projects', projectId);
+      const cards = await db.byIndex('cards', 'byProject', projectId);
+      for (const card of cards) await db.del('cards', card.id);
+      renderProjectGrid();
+      toast('项目已删除');
+    }
+    
+    hideProjectContextMenu();
+  });
+});
+
+// ── Topbar Project Switcher ──────────────────────────────────────
+async function toggleProjectDropdown() {
+  const dropdown = document.getElementById('project-dropdown');
+  if (!dropdown.classList.contains('hidden')) {
+    dropdown.classList.add('hidden');
+    return;
+  }
+  
+  const projects = await db.all('projects');
+  const regular = projects.filter(p => p.id !== '__ASSETS__').sort((a,b) => b.updatedAt - a.updatedAt);
+  
+  dropdown.innerHTML = regular.map(p => `
+    <button data-id="${p.id}" class="${p.id === S.projectId ? 'current' : ''}">${p.name}</button>
+  `).join('') + '<hr><button data-action="new">➕ 新建项目</button>';
+  
+  dropdown.querySelectorAll('button').forEach(btn => {
+    btn.onclick = async () => {
+      if (btn.dataset.action === 'new') {
+        await doSave();
+        createNewProject();
+      } else {
+        const id = btn.dataset.id;
+        if (id !== S.projectId) {
+          await doSave();
+          enterProject(id);
+        }
+      }
+      dropdown.classList.add('hidden');
+    };
+  });
+  
+  const rect = document.getElementById('btn-project-menu').getBoundingClientRect();
+  dropdown.style.left = rect.left + 'px';
+  dropdown.style.top = (rect.bottom + 4) + 'px';
+  dropdown.classList.remove('hidden');
+}
+
+// ── Assets Library ───────────────────────────────────────────────
+async function openAssetsModal() {
+  if (S.projectId === '__ASSETS__') {
+    toast('资产库不能再添加资产库内容', 'warn');
+    return;
+  }
+  
+  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  const grid = document.getElementById('assets-grid');
+  grid.innerHTML = '';
+  
+  if (assetCards.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--dim);padding:40px">资产库为空<br>在资产库项目中添加常用素材</div>';
+  } else {
+    for (const card of assetCards) {
+      if (!card.imageData) continue;
+      const item = document.createElement('div');
+      item.className = 'asset-item';
+      item.dataset.id = card.id;
+      item.innerHTML = `
+        <img src="${card.imageData}" alt="">
+        <div class="asset-check">✓</div>
+      `;
+      item.onclick = () => item.classList.toggle('selected');
+      grid.appendChild(item);
+    }
+  }
+  
+  updateAssetsSelectedCount();
+  document.getElementById('modal-assets').classList.remove('hidden');
+}
+
+function closeAssetsModal() {
+  document.getElementById('modal-assets').classList.add('hidden');
+}
+
+function updateAssetsSelectedCount() {
+  const count = document.querySelectorAll('.asset-item.selected').length;
+  document.getElementById('assets-selected-count').textContent = count ? `已选 ${count} 张` : '';
+  document.getElementById('assets-add').disabled = count === 0;
+}
+
+async function addSelectedAssets() {
+  const selectedIds = Array.from(document.querySelectorAll('.asset-item.selected')).map(el => el.dataset.id);
+  if (!selectedIds.length) return;
+  
+  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  const toAdd = assetCards.filter(c => selectedIds.includes(c.id));
+  
+  const viewCenter = screenToCanvas(window.innerWidth/2, window.innerHeight/2);
+  let offsetX = viewCenter.x - (toAdd.length * 150);
+  
+  for (const card of toAdd) {
+    const newCard = {
+      ...card,
+      id: uid(),
+      projectId: S.projectId,
+      x: offsetX,
+      y: viewCenter.y - 140,
+      createdAt: Date.now()
+    };
+    delete newCard._editingPrompt;
+    S.cards.push(newCard);
+    renderCard(newCard);
+    offsetX += 300;
+  }
+  
+  scheduleSave();
+  closeAssetsModal();
+  toast(`已添加 ${toAdd.length} 张卡片`);
+}
+
+async function addToAssets(cardIds) {
+  if (S.projectId === '__ASSETS__') {
+    toast('已在资产库中', 'warn');
+    return;
+  }
+  
+  const toAdd = S.cards.filter(c => cardIds.includes(c.id) && c.imageData);
+  if (!toAdd.length) {
+    toast('没有可添加的图片', 'warn');
+    return;
+  }
+  
+  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  let maxX = Math.max(0, ...assetCards.map(c => c.x + (c.width || 280)));
+  
+  for (const card of toAdd) {
+    const assetCard = {
+      ...card,
+      id: uid(),
+      projectId: '__ASSETS__',
+      x: maxX + 20,
+      y: 100,
+      createdAt: Date.now()
+    };
+    delete assetCard._editingPrompt;
+    await db.put('cards', assetCard);
+    maxX += (card.width || 280) + 20;
+  }
+  
+  toast(`已添加 ${toAdd.length} 张卡片到资产库`);
+}
+
+// ── Story Export ─────────────────────────────────────────────────
+function openStoryExportModal(cardIds) {
+  const cards = S.cards.filter(c => cardIds.includes(c.id) && c.imageData);
+  if (!cards.length) {
+    toast('没有可导出的图片', 'warn');
+    return;
+  }
+  
+  window._storyExportCards = cardIds;
+  document.getElementById('story-name').value = S.projectName;
+  document.getElementById('story-cards-count').textContent = `已选 ${cards.length} 张图片（按选中顺序）`;
+  document.getElementById('modal-story').classList.remove('hidden');
+  document.getElementById('story-name').focus();
+}
+
+function closeStoryModal() {
+  document.getElementById('modal-story').classList.add('hidden');
+}
+
+async function doExportStory() {
+  const name = document.getElementById('story-name').value.trim();
+  if (!name) {
+    toast('请输入故事书名称', 'warn');
+    return;
+  }
+  
+  const cardIds = window._storyExportCards || [];
+  if (!cardIds.length) return;
+  
+  const storyId = uid();
+  await db.put('stories', {
+    id: storyId,
+    name,
+    projectId: S.projectId,
+    cardIds,
+    createdAt: Date.now()
+  });
+  
+  closeStoryModal();
+  toast('故事书已导出 ✨');
+  
+  setTimeout(() => {
+    window.location.href = `./flipbook.html?story=${storyId}`;
+  }, 1000);
+}
+
+// ── Global Event Listeners ───────────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('#btn-project-menu, #project-dropdown')) {
+    document.getElementById('project-dropdown')?.classList.add('hidden');
+  }
+});

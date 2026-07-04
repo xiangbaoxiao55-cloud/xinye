@@ -371,3 +371,108 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--sub)}
+
+/* ── Project Selector ────────────────────────────────── */
+#project-selector{
+  position:fixed;inset:0;z-index:400;
+  background:var(--bg);overflow-y:auto;
+}
+.ps-container{
+  max-width:1200px;margin:0 auto;padding:40px 20px;
+}
+.ps-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:32px;
+}
+.ps-header h1{font-size:28px;font-weight:600;margin:0}
+.ps-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:20px;
+}
+.ps-card{
+  position:relative;
+  background:var(--card);border:2px solid var(--border);border-radius:var(--r);
+  padding:16px;cursor:pointer;transition:.2s;
+  display:flex;flex-direction:column;gap:10px;
+}
+.ps-card:hover{border-color:var(--purple);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.ps-card.assets{border-color:var(--purple);background:linear-gradient(135deg,rgba(139,92,246,.05),rgba(168,85,247,.08))}
+.ps-card.assets:hover{border-color:var(--pink)}
+.ps-card-icon{font-size:32px;margin-bottom:4px}
+.ps-card-name{font-size:16px;font-weight:600;color:var(--text)}
+.ps-card-meta{font-size:12px;color:var(--sub);display:flex;gap:12px}
+.ps-card-time{opacity:.8}
+
+#project-ctx-menu{
+  position:fixed;z-index:500;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:4px 0;min-width:140px;box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+#project-ctx-menu button{
+  display:block;width:100%;text-align:left;
+  background:none;border:none;color:var(--text);padding:8px 16px;font-size:13px;cursor:pointer;
+}
+#project-ctx-menu button:hover{background:var(--hover)}
+#project-ctx-menu hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* ── Topbar Enhancements ─────────────────────────────── */
+.project-switcher{display:flex;align-items:center;gap:4px}
+.btn-dropdown{
+  background:none;border:1px solid var(--border);border-radius:var(--rs);
+  color:var(--sub);font-size:10px;padding:4px 8px;cursor:pointer;transition:.15s;
+}
+.btn-dropdown:hover{border-color:var(--purple);color:var(--text)}
+
+#project-dropdown{
+  position:fixed;z-index:150;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:4px 0;min-width:200px;max-height:400px;overflow-y:auto;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+#project-dropdown button{
+  display:block;width:100%;text-align:left;
+  background:none;border:none;color:var(--text);padding:8px 16px;font-size:13px;cursor:pointer;
+}
+#project-dropdown button:hover{background:var(--hover)}
+#project-dropdown button.current{color:var(--purple);font-weight:600}
+#project-dropdown hr{border:none;border-top:1px solid var(--border);margin:4px 0}
+
+/* ── Assets Modal ────────────────────────────────────── */
+.modal-assets-box{max-width:800px;max-height:80vh;display:flex;flex-direction:column}
+.assets-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:12px;padding:4px;overflow-y:auto;flex:1;
+}
+.asset-item{
+  position:relative;cursor:pointer;border:2px solid transparent;
+  border-radius:var(--rs);overflow:hidden;transition:.15s;
+}
+.asset-item:hover{border-color:var(--purple)}
+.asset-item.selected{border-color:var(--purple);box-shadow:0 0 0 2px var(--purple)}
+.asset-item img{width:100%;display:block;aspect-ratio:1}
+.asset-check{
+  position:absolute;top:4px;right:4px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--purple);color:#fff;font-size:12px;
+  display:none;align-items:center;justify-content:center;
+}
+.asset-item.selected .asset-check{display:flex}
+.assets-actions{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+}
+.assets-actions span{font-size:13px;color:var(--sub)}
+
+/* ── Story Export Modal ──────────────────────────────── */
+.story-hint{font-size:12px;color:var(--sub);margin-top:8px}
+.story-actions{
+  display:flex;gap:10px;margin-top:16px;
+}
+.story-actions button{flex:1}
+.btn-secondary{
+  background:transparent;color:var(--text);border:1px solid var(--border);
+  padding:8px 16px;border-radius:var(--r);cursor:pointer;font-size:14px;transition:.15s;
+}
+.btn-secondary:hover{border-color:var(--purple);background:rgba(var(--purple-rgb),.1)}
