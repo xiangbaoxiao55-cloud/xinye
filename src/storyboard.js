@@ -2094,8 +2094,8 @@ function openStoryExportModal(cardIds) {
     toast('没有可导出的图片', 'warn');
     return;
   }
-  
-  window._storyExportCards = cardIds;
+
+  window._storyExportCards = cards.map(c => c.id);
   document.getElementById('story-name').value = S.projectName;
   document.getElementById('story-cards-count').textContent = `已选 ${cards.length} 张图片（按选中顺序）`;
   document.getElementById('modal-story').classList.remove('hidden');
