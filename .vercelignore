@@ -1,0 +1,17 @@
+# 阻止非站点内容被 Vercel 公开部署
+tools/
+scripts/
+data/
+love things/
+xinye_aizhuochong/
+omemo-v1.1.0-Windows一鍵包/
+chat-app/
+dist/
+node_modules/
+debug.log
+123.png
+*.md
+xinye_inpaint_workflow.json
+
+# 放行运行时需要的 data/ 文件（sw.js 预缓存 + draw.js fetch）
+!data/style_library.json
