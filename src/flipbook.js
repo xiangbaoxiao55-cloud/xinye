@@ -234,9 +234,6 @@ function renderBookshelf() {
   html += '</div></div>';
   container.innerHTML = html;
 }
-  html += '</div><div class="shelf-plank"></div></div>';
-  container.innerHTML = html;
-}
 
 function escHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
