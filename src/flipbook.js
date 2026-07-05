@@ -145,9 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // URL参数直接打开
   const params = new URLSearchParams(location.search);
   const storyId = params.get('story');
-  const projectId = params.get('project');
   if (storyId) openStory(storyId);
-  else if (projectId) openProject(projectId);
 });
 
 // ══════════════════════════════════════════════════════════════════
@@ -157,26 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadAllBooks() {
   const result = [];
 
-  // 加载项目（完整画布）
-  const projects = await db.all('projects');
-  for (const proj of projects) {
-    if (proj.id === '__ASSETS__') continue; // 跳过资产库
-    const cards = await db.byIndex('cards', 'byProject', proj.id);
-    const imageCards = cards.filter(c => c.imageData && c.type === 'generate' && c.status === 'done');
-    if (!imageCards.length) continue;
-
-    const sorted = sortCardsByPosition(imageCards);
-    result.push({
-      id: proj.id,
-      type: 'project',
-      name: proj.name || '未命名故事',
-      coverImage: sorted[0].imageData,
-      pageCount: sorted.length,
-      updatedAt: proj.updatedAt || proj.createdAt || 0,
-    });
-  }
-
-  // 加载故事书（导出的精选）
+  // 只加载故事书（导出的精选），不加载项目书
   const stories = await db.all('stories');
   for (const story of stories) {
     const proj = await db.get('projects', story.projectId);
@@ -255,8 +234,7 @@ async function onBookClick(el, projectId) {
 function onBookClick(el, id, type) {
   el.classList.add('book-opening');
   setTimeout(() => {
-    if (type === 'story') openStory(id);
-    else openProject(id);
+    openStory(id);
   }, 300);
 }
 
@@ -267,52 +245,17 @@ function onBookRightClick(e, id, type) {
   const book = F.books.find(b => b.id === id);
   if (!book) return;
 
-  const msg = type === 'story'
-    ? `确定要删除故事书《${book.name}》吗？\n\n原项目和图片不受影响，只删除书架上的这本书。`
-    : `确定要从书架移除《${book.name}》吗？\n\n原项目和图片不受影响。`;
-
+  const msg = `确定要删除故事书《${book.name}》吗？\n\n原项目和图片不受影响，只删除书架上的这本书。`;
   if (!confirm(msg)) return;
 
-  if (type === 'story') {
-    db.delete('stories', id).then(() => {
-      loadBookshelf();
+  db.delete('stories', id).then(() => {
+    loadAllBooks().then(() => {
+      renderBookshelf();
       toast('已删除故事书');
     });
-  } else {
-    // project类型的书不真删，只是从展示中移除（未来可能加"收藏"机制）
-    toast('项目书暂不支持删除', 'warn');
-  }
+  });
 }
 
-
-async function openProject(projectId) {
-  const project = await db.get('projects', projectId);
-  if (!project) { toast('找不到这个项目'); return; }
-
-  const allCards = await db.byIndex('cards', 'byProject', projectId);
-  const imageCards = allCards.filter(c => c.imageData && c.type === 'generate' && c.status === 'done');
-  if (!imageCards.length) { toast('这本书还没有图片'); return; }
-
-  const sorted = sortCardsByPosition(imageCards);
-  F.pages = sorted;
-  F.currentBook = project;
-  F.currentType = 'project';
-  F.currentPage = 0;
-  F.totalPages = sorted.length;
-  F.numLeaves = Math.ceil(sorted.length / 2);
-
-  // 切换视图
-  $('bookshelf-view').classList.add('hidden');
-  $('flipbook-view').classList.remove('hidden');
-  $('flip-title').textContent = project.name || '故事';
-
-  renderFlipbook();
-  updatePageIndicator();
-  updateNavButtons();
-
-  // 预加载图片
-  preloadImages(0, Math.min(5, F.pages.length));
-}
 
 async function openStory(storyId) {
   const story = await db.get('stories', storyId);
