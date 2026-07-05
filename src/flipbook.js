@@ -643,11 +643,22 @@ function initControls() {
   intervalSlider.value = F.autoInterval;
   intervalLabel.textContent = F.autoInterval + 's';
   intervalSlider.addEventListener('input', () => {
-    F.autoInterval = parseFloat(intervalSlider.value);
+    F.autoInterval = parseInt(intervalSlider.value);
     intervalLabel.textContent = F.autoInterval + 's';
     savePrefs();
     if (F.autoplay) { stopAutoplay(); startAutoplay(); }
   });
+
+  function adjustInterval(delta) {
+    const val = Math.min(15, Math.max(1, F.autoInterval + delta));
+    F.autoInterval = val;
+    intervalSlider.value = val;
+    intervalLabel.textContent = val + 's';
+    savePrefs();
+    if (F.autoplay) { stopAutoplay(); startAutoplay(); }
+  }
+  $('btn-interval-minus').onclick = () => adjustInterval(-1);
+  $('btn-interval-plus').onclick = () => adjustInterval(1);
 
   // 自动翻页按钮
   $('btn-autoplay').onclick = toggleAutoplay;
@@ -755,10 +766,18 @@ function startAutoplay() {
     _autoTimer = setTimeout(() => {
       if (F.currentPage < _maxPage()) {
         flipNext();
+        if (F.autoplay) tick();
       } else {
-        flipTo(0, false);
+        // 翻到最后一页，停止播放和音乐
+        F.autoplay = false;
+        stopAutoplay();
+        $('btn-autoplay').textContent = '▶ 播放';
+        $('btn-autoplay').classList.remove('playing');
+        const audio = $('bg-music');
+        if (!audio.paused) { audio.pause(); audio.currentTime = 0; }
+        $('btn-music-toggle').textContent = '▶ 播放';
+        $('btn-music-toggle').classList.remove('playing');
       }
-      if (F.autoplay) tick();
     }, F.autoInterval * 1000);
   }
 

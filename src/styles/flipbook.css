@@ -528,6 +528,9 @@ html.light .flip-nav {
 .btn-sm.playing {
   background: var(--purple); color: #fff; border-color: var(--purple);
 }
+.btn-interval-adj {
+  padding: 6px 10px; min-width: 32px; font-size: 15px;
+}
 
 /* 滑块 */
 input[type="range"] {
