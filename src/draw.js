@@ -36,6 +36,7 @@ class DrawDB {
   get(s,k){return this._p(this._tx(s).get(k))}
   put(s,o){return this._p(this._tx(s,'readwrite').put(o))}
   del(s,k){return this._p(this._tx(s,'readwrite').delete(k))}
+  galleryMeta(){return new Promise((res,rej)=>{const items=[];const req=this._tx('gallery').openCursor();req.onsuccess=e=>{const cursor=e.target.result;if(cursor){const {imageData,...meta}=cursor.value;items.push(meta);cursor.continue();}else res(items);};req.onerror=e=>rej(e.target.error);});}
   async getSetting(k,def=null){const r=await this.get('settings',k);return r?r.value:def}
   setSetting(k,v){return this.put('settings',{key:k,value:v})}
   async tokensByCategory(){
@@ -64,6 +65,7 @@ const S={
 
 let _galItems=[];
 let _galShown=30;
+let _galObserver=null;
 const GAL_PAGE=30;
 
 const CAT={
@@ -511,7 +513,7 @@ function clearTokens(){
 }
 
 async function _refreshPendingCount(){
-  const allItems=await db.all('gallery');
+  const allItems=await db.galleryMeta();
   const pending=allItems.filter(i=>!S.allAnalyzedIds.has(i.id)).length;
   const el=document.getElementById('gallery-pending-label');
   if(el) el.textContent=pending>0?`${pending} 张待分析`:'';
@@ -1354,7 +1356,7 @@ async function renderGallery(){
   const fp=document.getElementById('filter-persona')?.value||'';
   const fr=parseInt(document.getElementById('filter-rating')?.value||'0');
   const ft=(document.getElementById('filter-tag')?.value||'').trim().toLowerCase();
-  const allItems=await db.all('gallery');
+  const allItems=await db.galleryMeta();
   let items=[...allItems];
   if(fp) items=items.filter(i=>i.personaId===fp);
   if(fr) items=items.filter(i=>(i.rating||0)>=fr);
@@ -1379,8 +1381,17 @@ async function renderGallery(){
 
 function _paintGallery(){
   const grid=document.getElementById('gallery-grid');
+  if(_galObserver){_galObserver.disconnect();_galObserver=null;}
   grid.innerHTML='';
   if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';_updateBatchBar();return}
+  _galObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting) continue;
+      const img=entry.target;
+      _galObserver.unobserve(img);
+      db.get('gallery',img.dataset.id).then(r=>{if(r) img.src=r.imageData;});
+    }
+  },{rootMargin:'200px'});
   const analyzedSet=S.allAnalyzedIds;
   const selecting=S.gallerySelecting;
   for(const item of _galItems.slice(0,_galShown)){
@@ -1393,7 +1404,8 @@ function _paintGallery(){
         :'<div class="gallery-badge new-img">NEW</div>';
     const cb=selecting?`<label class="gal-cb"><input type="checkbox" ${S.gallerySelected.has(item.id)?'checked':''}><span class="gal-check"></span></label>`:'';
     const delBtn=selecting?'':'<button class="gal-quick-del" title="删除">✕</button>';
-    el.innerHTML=`<img src="${item.imageData}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    el.innerHTML=`<img data-id="${item.id}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    _galObserver.observe(el.querySelector('img'));
     const qdel=el.querySelector('.gal-quick-del');
     if(qdel) qdel.addEventListener('click',e=>{e.stopPropagation();_quickDeleteGallery(item)});
     if(selecting){
@@ -1617,18 +1629,20 @@ async function openTemplates(){
 }
 
 // ── Detail Modal ──────────────────────────────────────────────
-function openDetail(item){
-  S.curDetail=item;
-  document.getElementById('detail-image').src=item.imageData;
-  document.getElementById('detail-persona').textContent=item.personaName||'无模板';
-  document.getElementById('detail-date').textContent=fmt(item.createdAt);
-  document.getElementById('detail-prompt').value=item.prompt||'';
-  document.getElementById('detail-neg').value=item.negPrompt||'';
-  document.getElementById('detail-params').textContent=`尺寸：${item.params?.size||'—'}`;
+async function openDetail(item){
+  const full=await db.get('gallery',item.id);
+  if(!full) return;
+  S.curDetail=full;
+  document.getElementById('detail-image').src=full.imageData;
+  document.getElementById('detail-persona').textContent=full.personaName||'无模板';
+  document.getElementById('detail-date').textContent=fmt(full.createdAt);
+  document.getElementById('detail-prompt').value=full.prompt||'';
+  document.getElementById('detail-neg').value=full.negPrompt||'';
+  document.getElementById('detail-params').textContent=`尺寸：${full.params?.size||'—'}`;
   document.getElementById('btn-save-detail-prompt').style.display='none';
-  renderStars(item.rating||0);
-  renderDetailTags(item.tags||[]);
-  renderDetailStyles(item.styles||[]);
+  renderStars(full.rating||0);
+  renderDetailTags(full.tags||[]);
+  renderDetailStyles(full.styles||[]);
   document.getElementById('modal-detail').style.display='flex';
 }
 function renderStars(cur){
