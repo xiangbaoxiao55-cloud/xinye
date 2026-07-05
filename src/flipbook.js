@@ -248,7 +248,7 @@ function onBookRightClick(e, id, type) {
   const msg = `确定要删除故事书《${book.name}》吗？\n\n原项目和图片不受影响，只删除书架上的这本书。`;
   if (!confirm(msg)) return;
 
-  db.delete('stories', id).then(() => {
+  db.del('stories', id).then(() => {
     loadAllBooks().then(() => {
       renderBookshelf();
       toast('已删除故事书');
