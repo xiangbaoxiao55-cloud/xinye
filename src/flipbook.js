@@ -221,7 +221,9 @@ function renderBookshelf() {
     const icon = book.type === 'story' ? '📚' : '🎬';
     const subtitle = book.type === 'story' ? `来自：${escHtml(book.projectName)}` : '';
     html += `
-      <div class="book-item ${book.type === 'story' ? 'story-book' : ''}" data-id="${book.id}" data-type="${book.type}" onclick="onBookClick(this,'${book.id}','${book.type}')">
+      <div class="book-item ${book.type === 'story' ? 'story-book' : ''}" data-id="${book.id}" data-type="${book.type}"
+           onclick="onBookClick(this,'${book.id}','${book.type}')"
+           oncontextmenu="onBookRightClick(event,'${book.id}','${book.type}')">
         <div class="book-body">
           <div class="book-cover" style="background-image:url('${book.coverImage}')"></div>
           <div class="book-spine" style="background:linear-gradient(90deg,${spineColor},${spineColor}dd)">${icon} ${escHtml(book.name)}</div>
@@ -257,6 +259,31 @@ function onBookClick(el, id, type) {
     else openProject(id);
   }, 300);
 }
+
+function onBookRightClick(e, id, type) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const book = F.books.find(b => b.id === id);
+  if (!book) return;
+
+  const msg = type === 'story'
+    ? `确定要删除故事书《${book.name}》吗？\n\n原项目和图片不受影响，只删除书架上的这本书。`
+    : `确定要从书架移除《${book.name}》吗？\n\n原项目和图片不受影响。`;
+
+  if (!confirm(msg)) return;
+
+  if (type === 'story') {
+    db.delete('stories', id).then(() => {
+      loadBookshelf();
+      toast('已删除故事书');
+    });
+  } else {
+    // project类型的书不真删，只是从展示中移除（未来可能加"收藏"机制）
+    toast('项目书暂不支持删除', 'warn');
+  }
+}
+
 
 async function openProject(projectId) {
   const project = await db.get('projects', projectId);

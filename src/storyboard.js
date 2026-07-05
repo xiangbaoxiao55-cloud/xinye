@@ -2095,9 +2095,16 @@ function openStoryExportModal(cardIds) {
     return;
   }
 
-  window._storyExportCards = cards.map(c => c.id);
+  const ROW_GAP = 20;
+  const sorted = cards.slice().sort((a, b) => {
+    const rowA = Math.round(a.y / ROW_GAP);
+    const rowB = Math.round(b.y / ROW_GAP);
+    return rowA !== rowB ? rowA - rowB : a.x - b.x;
+  });
+
+  window._storyExportCards = sorted.map(c => c.id);
   document.getElementById('story-name').value = S.projectName;
-  document.getElementById('story-cards-count').textContent = `已选 ${cards.length} 张图片（按选中顺序）`;
+  document.getElementById('story-cards-count').textContent = `已选 ${cards.length} 张图片（按画布位置排序）`;
   document.getElementById('modal-story').classList.remove('hidden');
   document.getElementById('story-name').focus();
 }
