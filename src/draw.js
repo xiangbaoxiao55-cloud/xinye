@@ -2456,12 +2456,6 @@ function bindEvents(){
     input.focus();
     toast('🎲 已填入，可编辑后发送');
   };
-  document.getElementById('btn-inspire-free').onclick=()=>{
-    const input=document.getElementById('master-input');
-    input.value=_rollInspireDice();
-    input.focus();
-    toast('🎲 已填入，可编辑后发送');
-  };
   document.getElementById('master-input').onkeydown=e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
   };
