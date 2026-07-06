@@ -358,10 +358,17 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
   if(negPrompt) body.negative_prompt=negPrompt;
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
-  const r=await fetch(`${url}/images/generations`,{
-    method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
-    body:JSON.stringify(body),signal:_ac.signal
-  }).finally(()=>clearTimeout(_at));
+  const targetUrl=`${url}/images/generations`;
+  const opts={method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify(body),signal:_ac.signal};
+  let r;
+  try{r=await fetch(targetUrl,opts)}catch(e){
+    if(!S.localServer) throw e;
+    console.log(`[${ts()}] generations 直连失败(${e.message})，走本地代理重试`);
+    const h={...opts.headers,'X-Real-Target':targetUrl,'X-Real-Key':key};
+    delete h['Authorization'];
+    r=await fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
+  }
+  clearTimeout(_at);
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
@@ -452,9 +459,14 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
   if(negPrompt) fd.append('negative_prompt',negPrompt);
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
-  const r=await fetch(`${url}/images/edits`,{
-    method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal
-  }).finally(()=>clearTimeout(_at));
+  const targetUrl=`${url}/images/edits`;
+  let r;
+  try{r=await fetch(targetUrl,{method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal})}catch(e){
+    if(!S.localServer) throw e;
+    console.log(`[${ts()}] edits 直连失败(${e.message})，走本地代理重试`);
+    r=await fetch(`${S.localServer}/api/proxy-image-edits`,{method:'POST',headers:{'X-Api-Url':targetUrl,'X-Api-Key':key},body:fd,signal:_ac.signal});
+  }
+  clearTimeout(_at);
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
