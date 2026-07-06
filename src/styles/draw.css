@@ -310,6 +310,18 @@ textarea:focus{border-color:var(--purple)}
 .master-msg:hover .msg-del{opacity:1}
 .master-msg .msg-del:hover{color:var(--err)!important;opacity:1}
 .master-msg .msg-fill:hover{color:var(--purple)!important;opacity:1}
+#master-img-preview{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;
+  background:var(--card);border-radius:var(--r);margin-bottom:4px;
+}
+#master-img-preview img{max-height:80px;max-width:120px;border-radius:6px;object-fit:cover}
+#master-img-preview .preview-rm{
+  background:transparent;border:none;color:var(--sub);font-size:14px;cursor:pointer;
+  padding:2px 6px;border-radius:4px;
+}
+#master-img-preview .preview-rm:hover{color:var(--err)}
+#btn-master-img{padding:8px 10px;font-size:16px;line-height:1;flex-shrink:0}
+.master-msg .msg-img{max-height:100px;max-width:160px;border-radius:6px;margin-bottom:4px;display:block}
 #master-input-area{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
 #master-input{flex:1;padding:10px 12px;border-radius:var(--r)}
 

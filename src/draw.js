@@ -533,6 +533,16 @@ async function _refreshPendingCount(){
 
 const dlImg=url=>{const a=document.createElement('a');a.href=url;a.download=`draw_${Date.now()}.png`;a.click()};
 
+const _shrinkImg=(dataUrl,maxDim=768,quality=0.7)=>new Promise(res=>{
+  const img=new Image();img.onload=()=>{
+    let{width:w,height:h}=img;
+    if(w>maxDim||h>maxDim){const r=Math.min(maxDim/w,maxDim/h);w=Math.round(w*r);h=Math.round(h*r)}
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    res(c.toDataURL('image/jpeg',quality).replace(/^data:image\/\w+;base64,/,''));
+  };img.src=dataUrl;
+});
+
 // ── Master API ────────────────────────────────────────────────
 async function callMaster(messages){
   if(!S.masterPresets.length) throw new Error('请先在设置里添加大师API预设');
@@ -944,6 +954,8 @@ async function loadAestheticProfile(){
   }
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
+  S.masterLastImg=await db.getSetting('masterLastImg',null)||null;
+  S.masterPendingImg=null;
   S._inspireRecentMoments=await db.getSetting('inspireRecentMoments',[])||[];
   S._inspireRecentLenses=await db.getSetting('inspireRecentLenses',[])||[];
   const el=document.getElementById('master-insight-content');
@@ -953,7 +965,8 @@ async function loadAestheticProfile(){
     for(const m of S.masterHistory){
       const div=document.createElement('div');
       div.className=`master-msg master-msg-${m.role}`;
-      div.innerHTML=miniMd(m.content);
+      if(m._hasImage) div.insertAdjacentHTML('beforeend','<span style="opacity:.6;font-size:12px">🖼️ 附图</span><br>');
+      div.insertAdjacentHTML('beforeend',miniMd(m.content));
       const del=document.createElement('button');
       del.className='msg-del';del.textContent='✕';del.title='删除这条';
       del.onclick=e=>{e.stopPropagation();div.remove();_removeFromHistory(m)};
@@ -990,17 +1003,8 @@ async function analyzePreference(){
 
   const newCount=sample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
 
-  const _shrink=(dataUrl,maxDim=768,quality=0.7)=>new Promise(res=>{
-    const img=new Image();img.onload=()=>{
-      let{width:w,height:h}=img;
-      if(w>maxDim||h>maxDim){const r=Math.min(maxDim/w,maxDim/h);w=Math.round(w*r);h=Math.round(h*r)}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      res(c.toDataURL('image/jpeg',quality).replace(/^data:image\/\w+;base64,/,''));
-    };img.src=dataUrl;
-  });
   const imgBlocks=await Promise.all(sample.map(async g=>{
-    const b64=await _shrink(g.imageData);
+    const b64=await _shrinkImg(g.imageData);
     return{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}};
   }));
   const pendingAfter=unanalyzed.length-newCount;
@@ -1099,13 +1103,40 @@ async function masterSuggest(userInput){
   const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
   if(charDesc) ctx.push('当前选中角色：'+charDesc);
   const _suggestBase='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
+  const history=S.masterHistory.slice(-10).map(m=>({role:m.role,content:m.content}));
+  const hasNewImg=!!S.masterPendingImg;
+  const imgB64=hasNewImg?S.masterPendingImg:S.masterLastImg;
+  const userText=`${ctx.join('\n')}\n\n用户想法：${userInput}`;
+  let userContent;
+  if(imgB64){
+    const imgBlock={type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}};
+    if(hasNewImg){
+      userContent=[imgBlock,{type:'text',text:userText}];
+    }else{
+      history.unshift(
+        {role:'user',content:[imgBlock,{type:'text',text:'[参考图片]'}]},
+        {role:'assistant',content:'好的，我已看到这张参考图片。'}
+      );
+      userContent=userText;
+    }
+  }else{
+    userContent=userText;
+  }
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_suggestBase}`:_suggestBase},
-    ...S.masterHistory.slice(-10),
-    {role:'user',content:`${ctx.join('\n')}\n\n用户想法：${userInput}`}
+    ...history,
+    {role:'user',content:userContent}
   ];
   const result=await callMaster(msgs);
-  S.masterHistory.push({role:'user',content:userInput},{role:'assistant',content:result});
+  const histEntry={role:'user',content:userInput};
+  if(hasNewImg){
+    histEntry._hasImage=true;
+    S.masterLastImg=S.masterPendingImg;
+    db.setSetting('masterLastImg',S.masterPendingImg);
+    S.masterPendingImg=null;
+    document.getElementById('master-img-preview').style.display='none';
+  }
+  S.masterHistory.push(histEntry,{role:'assistant',content:result});
   if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
   db.setSetting('masterHistory',S.masterHistory);
   return result;
@@ -1258,11 +1289,18 @@ function _extractPromptLine(text){
   const m=text.match(/Prompt:\s*(.+?)(?:\n中文：|$)/s);
   return m?m[1].trim():null;
 }
-function addMasterMsg(role,text,isTemp=false){
+function addMasterMsg(role,text,isTemp=false,imgB64=null){
   const chat=document.getElementById('master-chat');
   const el=document.createElement('div');
   el.className=`master-msg master-msg-${role}${isTemp?' temp':''}`;
-  el.innerHTML=miniMd(text);
+  if(imgB64&&role==='user'){
+    const img=document.createElement('img');
+    img.className='msg-img';img.src='data:image/jpeg;base64,'+imgB64;
+    el.appendChild(img);
+  }
+  const txtDiv=document.createElement('div');
+  txtDiv.innerHTML=miniMd(text);
+  el.appendChild(txtDiv);
   if(!isTemp){
     // 如果是assistant消息且包含Prompt:行，加「填入工作台」按钮
     if(role==='assistant'){
@@ -2465,6 +2503,9 @@ function bindEvents(){
       document.getElementById('master-chat').innerHTML='';
       S.masterHistory=[];
       db.setSetting('masterHistory',[]);
+      S.masterLastImg=null;S.masterPendingImg=null;
+      db.setSetting('masterLastImg',null);
+      document.getElementById('master-img-preview').style.display='none';
     }
   };
   document.getElementById('master-insight-card').querySelector('.insight-header').onclick=e=>{
@@ -2488,7 +2529,8 @@ function bindEvents(){
     const text=input.value.trim();
     if(!text||S.masterBusy) return;
     S.masterBusy=true;input.value='';
-    addMasterMsg('user',text);
+    const imgB64=S.masterPendingImg||null;
+    addMasterMsg('user',text,false,imgB64);
     const tmp=addMasterMsg('assistant','思考中...✨',true);
     try{const r=await masterSuggest(text);tmp.remove();addMasterMsg('assistant',r)}
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
@@ -2523,6 +2565,24 @@ function bindEvents(){
   };
   document.getElementById('master-input').onkeydown=e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
+  };
+  document.getElementById('btn-master-img').onclick=()=>document.getElementById('master-img-input').click();
+  document.getElementById('master-img-input').onchange=async e=>{
+    const f=e.target.files[0];if(!f) return;
+    e.target.value='';
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      const b64=await _shrinkImg(ev.target.result,800,0.8);
+      S.masterPendingImg=b64;
+      const prev=document.getElementById('master-img-preview');
+      prev.querySelector('img').src='data:image/jpeg;base64,'+b64;
+      prev.style.display='flex';
+    };
+    reader.readAsDataURL(f);
+  };
+  document.getElementById('master-img-preview').querySelector('.preview-rm').onclick=()=>{
+    S.masterPendingImg=null;
+    document.getElementById('master-img-preview').style.display='none';
   };
   document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.style.display='none'}));
 }
