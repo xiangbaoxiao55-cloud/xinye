@@ -797,6 +797,11 @@ export async function sendMessage() {
     } catch (e) { toast('⚠️ 识图失败，直接发原图给炘也'); }
   }
 
+  if (imgs.length) {
+    window.chatLastUserImage = imgs[0];
+    dbPut('images', 'chatLastUserImage', imgs[0]).catch(() => {});
+  }
+
   window.isRequesting = true;
   window._requestingAt = Date.now();
   btnSend.disabled = true;
@@ -953,6 +958,7 @@ export async function sendMessage() {
     }
     const n = Math.max(1, settings.contextCount || 20);
     const recent = messages.slice(-n);
+    const _injectLastImg = !imgs.length && !!window.chatLastUserImage;
 
     let healthStr = null;
     try {
@@ -1051,6 +1057,16 @@ export async function sendMessage() {
         }
       }
       _apiMeta.push({ label: role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也'), time: m.time });
+    }
+
+    if (_injectLastImg) {
+      const _firstUserIdx = apiMsgs.findIndex(m => m.role === 'user');
+      if (_firstUserIdx >= 0) {
+        apiMsgs.splice(_firstUserIdx, 0,
+          { role: 'user', content: [{ type: 'image_url', image_url: { url: window.chatLastUserImage } }, { type: 'text', text: '[参考图片]' }] },
+          { role: 'assistant', content: '好的，我看到了。' }
+        );
+      }
     }
 
     let baseUrl = (settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
