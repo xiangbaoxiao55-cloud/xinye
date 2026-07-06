@@ -1824,7 +1824,16 @@ export async function sendMessage() {
             const ctrl = new AbortController();
             const tid = setTimeout(() => ctrl.abort(), 300000);
             const _pfa = _proxyFetchArgs(cfg);
-            _res = await fetch(_pfa.fetchUrl, { method: 'POST', headers: _pfa.headers, body: bodyStr, signal: ctrl.signal });
+            try {
+              _res = await fetch(_pfa.fetchUrl, { method: 'POST', headers: _pfa.headers, body: bodyStr, signal: ctrl.signal });
+            } catch(_directErr) {
+              if (_directErr.name !== 'AbortError' && !cfg.useLocalProxy && settings.solitudeServerUrl) {
+                console.log(`[_apiFetch] 直连失败(${_directErr.message})，走本地代理重试`);
+                toast('直连失败，走本地代理…');
+                const _proxyBase = settings.solitudeServerUrl.replace(/\/+$/, '');
+                _res = await fetch(`${_proxyBase}/api/llm-proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Real-Target': _pfa.fetchUrl, 'X-Real-Key': cfg.apiKey }, body: bodyStr, signal: ctrl.signal });
+              } else { throw _directErr; }
+            }
             clearTimeout(tid);
             if (_res.ok) {
               if (bodyObj.stream) {

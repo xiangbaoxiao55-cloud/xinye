@@ -85,7 +85,15 @@ export async function mainApiFetch(bodyWithoutModel) {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 120000);
         const _fa = _buildFetchArgs(cfg);
-        _res = await fetch(_fa.url, { method: 'POST', headers: _fa.headers, body: bodyStr, signal: ctrl.signal });
+        try {
+          _res = await fetch(_fa.url, { method: 'POST', headers: _fa.headers, body: bodyStr, signal: ctrl.signal });
+        } catch(_directErr) {
+          if (_directErr.name !== 'AbortError' && !cfg.useLocalProxy && settings.solitudeServerUrl) {
+            console.log(`[mainApiFetch] 直连失败(${_directErr.message})，走本地代理重试`);
+            const _pb = settings.solitudeServerUrl.replace(/\/+$/, '');
+            _res = await fetch(`${_pb}/api/llm-proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Real-Target': _fa.url, 'X-Real-Key': cfg.apiKey }, body: bodyStr, signal: ctrl.signal });
+          } else { throw _directErr; }
+        }
         clearTimeout(tid);
         if (_res.ok) {
           if (_res.body) {
@@ -148,7 +156,15 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 60000);
-        _res = await fetch(cfg.url, { method: 'POST', headers, body: bodyStr, signal: ctrl.signal });
+        try {
+          _res = await fetch(cfg.url, { method: 'POST', headers, body: bodyStr, signal: ctrl.signal });
+        } catch(_directErr) {
+          if (_directErr.name !== 'AbortError' && settings.solitudeServerUrl) {
+            console.log(`[subApiFetch] 直连失败(${_directErr.message})，走本地代理重试`);
+            const _pb = settings.solitudeServerUrl.replace(/\/+$/, '');
+            _res = await fetch(`${_pb}/api/llm-proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey }, body: bodyStr, signal: ctrl.signal });
+          } else { throw _directErr; }
+        }
         clearTimeout(tid);
         if (_res.ok) {
           if (_res.body) {
