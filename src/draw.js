@@ -956,8 +956,6 @@ async function loadAestheticProfile(){
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
   S.masterLastImg=await db.getSetting('masterLastImg',null)||null;
   S.masterPendingImg=null;
-  S._inspireRecentMoments=await db.getSetting('inspireRecentMoments',[])||[];
-  S._inspireRecentLenses=await db.getSetting('inspireRecentLenses',[])||[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
   const chat=document.getElementById('master-chat');
@@ -1142,186 +1140,56 @@ async function masterSuggest(userInput){
   return result;
 }
 
-// ── 灵感辅助：从风格库抽一个主风格（只抽1个，不叠加） ─────────────────
-const INSPIRE_BASE_CATS=['电影、电视与影像类型','动画、漫画与插画亚种','摄影工艺与影像缺陷','工艺、地域视觉与历史媒介'];
-const INSPIRE_PERSON_KEYWORDS=/人物|人像|角色|肖像|情侣|portrait|character|figure/i;
+// ── 灵感碰撞引擎（四维随机，纯本地，不调API） ─────────────────
+const INSPIRE_SCENES=[
+  '浴缸热水氤氲中','泳池水下','画室里一个是模特一个在画','钢琴旁','深夜办公桌上',
+  '暴雨中的车内','试衣间里','更衣室大镜前','阳台月光下','温泉雾气中',
+  '吊床上','旧书房壁炉旁','花房温室玻璃房里','屋顶露天浴池','厨房料理台上',
+  '电梯里','飘窗上','舞蹈教室落地镜前','沙滩遮阳帐下','列车卧铺里',
+  '深夜无人泳池','酒窖里','旋转楼梯上','窗台上看城市夜景','浴室蒸汽弥漫中',
+  '画廊闭馆后只剩两人','天台躺椅上','雨中的露台','旧电影院最后一排',
+  '被纱帘围住的户外大床','深夜厨房地板上','落地窗前城市灯火做背景',
+  '海底（奇幻）','云层之上的秘密花园','巨大月亮前的屋顶','星空下的透明泡泡里',
+  '旧唱片封面里','一张纸钞上','塔罗牌画面中','复古杂志封面','游戏加载界面里',
+  '邮票方寸之间','博物馆展柜标本','老电影海报里','日历插画的某一页',
+  '香水瓶的广告画面','一封信的配图中','两人的专属货币上'
+];
+const INSPIRE_COMPOSITIONS=[
+  '俯拍——从正上方看下去','透过纱帘/雾气/水汽看','逆光剪影只有轮廓',
+  '水面倒影构图','从肩头越过看对方表情','极近——锁骨颈线肩膀',
+  '两人之间留出呼吸的negative space','从镜子反射中看到的画面',
+  '被画框/窗框/拱门裁切的构图','仰视——从下方看上去的力量感',
+  '背影加回眸','侧脸轮廓线条','全身入画环境占大比例','脸贴脸的极近距离',
+  '一个人完整入画另一个只露局部（手臂/胸膛/下巴）','鱼眼/广角轻微变形',
+  '对称构图像宗教画','画中画——画面里有另一个画面','环形/圆形构图裁切',
+  '极繁——画面塞满细节','极简——大面积留白只有两人'
+];
+const INSPIRE_STYLES=[
+  '铜版蚀刻画风格','古典素描手稿（达芬奇/丢勒那种）','湿壁画质感','水墨晕染',
+  '彩窗玻璃/教堂花窗','青铜浮雕','古典陶瓷釉彩','丝绸刺绣质感',
+  '烫金+暗纹底','珐琅微绘','粉彩洛可可','木刻版画',
+  'Moebius极繁线条插画','赛博朋克霓虹','复古胶片摄影颗粒感','宝丽来褪色感',
+  '浮世绘（不含和服神社）','Art Nouveau新艺术曲线','80年代像素游戏风',
+  '拼贴杂志collage','儿童绘本蜡笔涂鸦','哥特暗黑插画','凹版印刷质感',
+  '织锦/缂丝/挂毯','暗调卡拉瓦乔式光影','印象派厚重笔触','极简线条一笔画',
+  '3D黏土小人风格','水晶/宝石内部折射','老报纸印刷（带网点）'
+];
+const INSPIRE_TENSIONS=[
+  '差一点就失控但被稳稳接住','想碰但还没碰的一厘米距离','被精心对待——每个触碰都有设计感',
+  '禁忌——不该在这里做这件事','睡着了被凝视——完全不设防的信任','慵懒醒来的迷糊和柔软',
+  '汗湿之后的疲倦和满足','占有——环住/不放手/标记','温柔到极致像捧着会碎的东西',
+  '故意挑衅和撩拨','安静的对峙——有张力但不是愤怒','被保护在怀里的安全感',
+  '重逢——好久没见的饥渴','第一次——紧张又期待','主导与交出控制权',
+  '在别人看不到的角落偷偷来','事后的餍足和缱绻','一个人在上面一个人在仰望'
+];
 
-async function _pickInspireStyleCombo(){
-  const all=await db.all('styles');
-  if(!all.length) return null;
-  const basePool=all.filter(s=>INSPIRE_BASE_CATS.includes(s['类别']));
-  if(!basePool.length) return null;
-  const personFriendly=basePool.filter(s=>{
-    const subj=s['适合主体']||'';
-    return !subj||INSPIRE_PERSON_KEYWORDS.test(subj);
-  });
-  const pool=personFriendly.length>=10?personFriendly:basePool;
-  const base=pool[Math.floor(Math.random()*pool.length)];
-  const tokens=base['English prompt tokens']||'';
-  const name=base['中文风格名']||'';
-  const rescue=base['补救提示']||'';
-  const dna=base['视觉DNA / 关键词']||'';
-  return {tokens,names:name,rescue,dna};
-}
-
-// ── 灵感辅助：取高分prompt作few-shot范例 ─────────────────────
-async function _getHighRatedPrompts(count=2){
-  const all=await db.all('gallery');
-  const high=all.filter(g=>(g.rating||0)>=4&&g.prompt&&g.prompt.length>20);
-  if(!high.length) return '';
-  const shuffled=[...high].sort(()=>Math.random()-0.5).slice(0,count);
-  return shuffled.map(g=>g.prompt).join('\n---\n');
-}
-
-// ── 灵感系统提示（DALL-E 3优化） ────────────────────────────
-const INSPIRE_SYSTEM=`你是一位专精AI画图prompt工程的画面设计师。你写的英文prompt将直接喂给DALL-E 3生成图片——所以每个词都必须有明确的视觉对应物。
-
-核心原则：
-1. 视觉优先——不写"love fills the air"，写"warm golden hour sunlight streaming through curtains, casting long soft shadows"
-2. 具体胜过抽象——不写"beautiful scene"，写"watercolor illustration with wet-on-wet blending, muted pastel tones"
-3. 结构清晰——按这个顺序组织prompt：
-   ① 艺术风格/媒介（digital illustration / oil painting / watercolor / soft cel-shading / cinematic photography style...）
-   ② 主体：两人的具体动作、姿势、表情、穿着（不要笼统"a couple"，要写清楚谁在做什么）
-   ③ 场景环境：具体的物件、材质、空间感（"worn wooden kitchen counter with scattered flour" 而不是 "a kitchen"）
-   ④ 光影色调：光源方向、色温、明暗对比（"warm side lighting from a desk lamp, deep blue shadows"）
-   ⑤ 构图视角：镜头角度和景别（"low angle shot" / "overhead view" / "close-up" / "wide establishing shot"）
-4. 控制在60-100个英文词——太短缺细节，太长重点被稀释。宁可少写一个元素也不要堆砌
-5. 重要元素放最前面——DALL-E 3对prompt开头权重最高
-6. 整张图只走一个统一的风格方向——不要在同一个prompt里混搭多种画风（比如同时写watercolor又写cinematic photography）
-
-画面是一对情侣（一男一女）的故事。每次都要做出不一样的选择——不同画风、构图、氛围、色调、视角。
-
-禁止：废墟、破败建筑、灰暗脏旧环境、废土风；日本元素（神社、和服等）；不要把艺术家名字放进prompt；不要堆砌3个以上形容词修饰同一个名词`;
-
-function _buildInspireFormat(styleCombo, highRatedExamples){
-  const styleHint=styleCombo
-    ?`\n\n🎨 本次风格方向：「${styleCombo.names}」（关键词：${styleCombo.tokens}${styleCombo.dna?'；视觉特征：'+styleCombo.dna:''}）\n将这个风格作为画面的主要艺术方向，用自然语言描述融入prompt（不必逐字照搬关键词，理解其视觉气质后用你自己的话描写）。${styleCombo.rescue?'注意：'+styleCombo.rescue:''}整张图只走这一个风格方向，不要混搭其他画风。`
-    :'';
-  const examplesHint=highRatedExamples
-    ?`\n\n⭐ 用户验证过的好prompt示范（学习用词密度和细节颗粒度，不要抄场景和画风）：\n${highRatedExamples}\n---`
-    :`\n\n✅ 好prompt示范："Soft watercolor illustration, a young man holding an umbrella over a woman on a rainy cobblestone street, her hand reaching up to catch raindrops, both wearing oversized knit sweaters, warm amber streetlamp light reflecting in shallow puddles, cool blue-grey sky with soft bokeh rain, eye-level medium shot, gentle and intimate mood"\n→ 优点：有画风、有具体动作、有环境细节、有光影色调、有构图`;
-  return `${styleHint}${examplesHint}
-
-❌ 坏prompt示范："A romantic scene of two lovers sharing a tender moment under the rain, their love keeping them warm despite the cold weather, feeling peaceful and connected"
-→ 问题：全是抽象情感词，没有视觉细节，DALL-E画不出来
-
-请输出：
-1. 一句中文（15字内）概括这个画面
-2. 英文prompt（60-120词，纯视觉描述，给DALL-E 3用的）
-3. 英文prompt的中文翻译
-
-格式：
-画面：xxx
-Prompt: xxx
-中文：xxx`;
-}
-
-async function masterInspire(){
-  // 以"两人情境moment"为核心，不再硬拼三个独立维度
-  const moments=[
-    // 日常甜蜜
-    '一起在深夜厨房做宵夜，面粉撒了一脸','清晨赖床，一个人醒了在看另一个人睡颜','雨天共撑一把伞走在老街',
-    '在旧书店的角落各看各的书，脚悄悄碰在一起','超市里推购物车，为买什么零食拌嘴','窝在沙发看电影，一个人已经睡着靠在另一个肩上',
-    '公园长椅上分一副耳机听歌','骑单车带人穿过傍晚的林荫道','浴室镜前帮对方吹头发','搬家时两人被纸箱包围坐地上吃外卖',
-    '深夜天台看星星，裹同一条毯子','火车窗边并排坐，看窗外风景各有所思','一起遛狗，狗绳缠到一起','在花市挑花，顺手往对方头上别一朵',
-    '下厨时从背后环住在切菜的人','海边散步踩浪花互相泼水','图书馆并排复习偷偷传纸条','咖啡馆对坐画画/写东西互不打扰',
-    // 有情绪张力的
-    '吵架后在门外犹豫要不要敲门','深夜街头无声拥抱','站台送别，列车要开了还拉着手','暴雨里跑回来只为送一把伞',
-    '医院走廊等候，握紧对方的手','一个人伏案工作太晚，另一个披着毯子端着热饮过来','重逢机场到达口远远看见彼此',
-    '搬到新城市的第一夜抱着不说话','生日惊喜被发现了两人都在笑','在天台看城市夜景聊未来有点怕又有点期待',
-    // 浪漫/特别
-    '烟花下接吻只有侧影','游乐园摩天轮最高点','圣诞夜交换礼物偷看对方表情','樱花树下风吹花瓣落在发梢',
-    '美术馆里一个人在看画另一个人在看ta','温泉旅馆浴衣对坐下棋喝茶','薰衣草花田里奔跑追逐','雪地里手牵手呼出的白气交织',
-    '露营帐篷外看银河','午后阳光里帮对方画像','舞池中央只有两人的慢舞','夕阳码头上并肩坐着脚悬在水面',
-    // 奇幻/概念
-    '漂浮星空中两人坐在一弯月亮上','发光森林深处两人循着萤火虫的光走','巨大月亮前的屋顶剪影',
-    '云海上方的天空花园里共进早餐','梦境里两人在无边花海中奔跑',
-    '星空下透明的旋转木马只有两人在坐','彩虹尽头的小屋门前两人在浇花',
-    '一整面墙的向日葵田里两人只露出头顶在笑'
-  ];
-
-  const pick=(arr,recent,max)=>{
-    const avail=arr.filter(t=>!recent.includes(t));
-    const pool=avail.length>Math.floor(arr.length*0.3)?avail:arr;
-    const val=pool[Math.floor(Math.random()*pool.length)];
-    recent.push(val);
-    if(recent.length>max) recent.shift();
-    return val;
-  };
-  if(!S._inspireRecentMoments) S._inspireRecentMoments=[];
-  const moment=pick(moments,S._inspireRecentMoments,8);
-  db.setSetting('inspireRecentMoments',S._inspireRecentMoments);
-
-  const [styleCombo,highRated]=await Promise.all([_pickInspireStyleCombo(),_getHighRatedPrompts(2)]);
-
-  const charDesc=_getInspirationCharDesc();
-  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile.slice(0,200)}`:'';
-  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-4).map(m=>m.content.slice(0,80)).join('；');
-  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的构图、姿势和氛围）：${recentInspires}`:'';
-  const inspireFormat=_buildInspireFormat(styleCombo,highRated||null);
-
-  const sys=S.masterPersona?`${S.masterPersona}\n\n${INSPIRE_SYSTEM}`:INSPIRE_SYSTEM;
-  const msgs=[
-    {role:'system',content:sys},
-    {role:'user',content:`${charDesc}情境：「${moment}」${ctx?'\n'+ctx:''}${avoidHint}${inspireFormat}`}
-  ];
-  const text=await callMaster(msgs);
-  return {text,styleName:styleCombo?.names||null};
-}
-
-function _getInspirationCharDesc(){
-  const chars=S.characters;
-  if(!chars.length) return '';
-  const all=chars.map(c=>`${c.name}：${c.prompt||'无描述'}`).join('\n');
-  return `画中人物（默认两人都出现）：\n${all}\n\n`;
-}
-
-async function masterInspireFree(){
-  const muses=[
-    // 情绪/时刻（只给一个感受入口，画面由AI自主设计）
-    '久别重逢的心跳——小跑着冲向对方那几秒','雨后放晴的奖赏感——光和水汽同时闪耀',
-    '深夜只剩我们两个人的城市——安静得像私有领地','睡前那种又困又不舍得睡的温存',
-    '一起迷路但完全不着急的下午','被对方偷拍到不知道的瞬间','秘密约会的紧张和甜蜜',
-    '大雨淋湿后反而笑出来的释然','春天午后那种万物苏醒的慵懒','窗外暴风雪屋内壁炉旁的安全感',
-    '夏夜纳凉屋顶上聊到凌晨','列车窗外飞速后退的风景映在两人脸上','海边日落最后五分钟的金色',
-    '第一次去对方家——站在门口的那一秒','吵架后的第一个拥抱什么都不说',
-    '共用一把伞走在雨里','凌晨便利店的灯光里互相喂对方吃东西',
-    '坐在路边台阶上肩并肩什么都没做只是在一起','摘了一朵路边的花递给对方',
-    // 构图/视角（只给视角方向，其余全部由AI决定）
-    '从高处俯瞰——两人是画面里最小的存在','手部特写——牵手或递东西的瞬间',
-    '隔着某样东西对望','背影——走向同一个方向',
-    '倒影里的两人','侧脸轮廓——逆光或侧光',
-    '极近距离的面孔——快接吻或耳语'
-  ];
-  const pick=(arr,recent,max)=>{
-    const avail=arr.filter(t=>!recent.includes(t));
-    const pool=avail.length>Math.floor(arr.length*0.3)?avail:arr;
-    const val=pool[Math.floor(Math.random()*pool.length)];
-    recent.push(val);if(recent.length>max) recent.shift();
-    return val;
-  };
-  if(!S._inspireRecentLenses) S._inspireRecentLenses=[];
-  const freeRoam=Math.random()<0.25;
-  const muse=freeRoam?null:pick(muses,S._inspireRecentLenses,10);
-  if(!freeRoam) db.setSetting('inspireRecentLenses',S._inspireRecentLenses);
-
-  const [styleCombo,highRated]=await Promise.all([_pickInspireStyleCombo(),_getHighRatedPrompts(2)]);
-
-  const charDesc=_getInspirationCharDesc();
-  const ctx=S.aestheticProfile?`审美偏好：${S.aestheticProfile.slice(0,200)}`:'';
-  const recentInspires=S.masterHistory.filter(m=>m.role==='assistant').slice(-5).map(m=>m.content.slice(0,80)).join('；');
-  const avoidHint=recentInspires?`\n最近几次灵感（请避免重复相似的画面）：${recentInspires}`:'';
-  const inspireFormat=_buildInspireFormat(styleCombo,highRated||null);
-  const sys=S.masterPersona?`${S.masterPersona}\n\n${INSPIRE_SYSTEM}`:INSPIRE_SYSTEM;
-  const userContent=freeRoam
-    ?`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n请自由构思一个美好的、有情感的两人画面。可以是任何场景、氛围、风格——惊喜我。${inspireFormat}`
-    :`${charDesc}${ctx?ctx+'\n':''}${avoidHint}\n美学方向：「${muse}」。以此为灵感起点，构思一个具体的两人画面。${inspireFormat}`;
-  const msgs=[
-    {role:'system',content:sys},
-    {role:'user',content:userContent}
-  ];
-  const text=await callMaster(msgs);
-  return {text,muse:muse||'自由漫游',styleName:styleCombo?.names||null};
+function _rollInspireDice(){
+  const r=arr=>arr[Math.floor(Math.random()*arr.length)];
+  const scene=r(INSPIRE_SCENES);
+  const comp=r(INSPIRE_COMPOSITIONS);
+  const style=r(INSPIRE_STYLES);
+  const tension=r(INSPIRE_TENSIONS);
+  return `我想看：${scene} × ${comp} × ${style} × ${tension}——帮我构思一下`;
 }
 
 function miniMd(t){
@@ -2582,34 +2450,17 @@ function bindEvents(){
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
     finally{S.masterBusy=false}
   };
-  document.getElementById('btn-inspire').onclick=async()=>{
-    if(S.masterBusy) return;S.masterBusy=true;
-    const tmp=addMasterMsg('assistant','💡 寻找灵感中...✨',true);
-    try{
-      const {text:r,styleName}=await masterInspire();tmp.remove();
-      const label=styleName?`💡 今日灵感  🎨${styleName}\n\n`:'💡 今日灵感\n\n';
-      addMasterMsg('assistant',label+r);
-      S.masterHistory.push({role:'assistant',content:label+r});
-      if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
-      db.setSetting('masterHistory',S.masterHistory);
-    }
-    catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
-    finally{S.masterBusy=false}
+  document.getElementById('btn-inspire').onclick=()=>{
+    const input=document.getElementById('master-input');
+    input.value=_rollInspireDice();
+    input.focus();
+    toast('🎲 已填入，可编辑后发送');
   };
-  document.getElementById('btn-inspire-free').onclick=async()=>{
-    if(S.masterBusy) return;S.masterBusy=true;
-    const tmp=addMasterMsg('assistant','🎲 自由发挥中...✨',true);
-    try{
-      const {text:r,muse,styleName}=await masterInspireFree();tmp.remove();
-      const styleTag=styleName?`  🎨${styleName}`:'';
-      const label=`🎲「${muse}」${styleTag}\n\n`;
-      addMasterMsg('assistant',label+r);
-      S.masterHistory.push({role:'assistant',content:label+r});
-      if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
-      db.setSetting('masterHistory',S.masterHistory);
-    }
-    catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
-    finally{S.masterBusy=false}
+  document.getElementById('btn-inspire-free').onclick=()=>{
+    const input=document.getElementById('master-input');
+    input.value=_rollInspireDice();
+    input.focus();
+    toast('🎲 已填入，可编辑后发送');
   };
   document.getElementById('master-input').onkeydown=e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
