@@ -2566,6 +2566,21 @@ function bindEvents(){
   document.getElementById('master-input').onkeydown=e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
   };
+  document.getElementById('master-input').addEventListener('paste',async e=>{
+    const item=Array.from(e.clipboardData.items).find(i=>i.type.startsWith('image/'));
+    if(!item) return;
+    e.preventDefault();
+    const file=item.getAsFile();
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      const b64=await _shrinkImg(ev.target.result,800,0.8);
+      S.masterPendingImg=b64;
+      const prev=document.getElementById('master-img-preview');
+      prev.querySelector('img').src='data:image/jpeg;base64,'+b64;
+      prev.style.display='flex';
+    };
+    reader.readAsDataURL(file);
+  });
   document.getElementById('btn-master-img').onclick=()=>document.getElementById('master-img-input').click();
   document.getElementById('master-img-input').onchange=async e=>{
     const f=e.target.files[0];if(!f) return;
