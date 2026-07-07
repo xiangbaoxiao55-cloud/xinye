@@ -1632,8 +1632,15 @@ export async function sendMessage() {
               }
             }
             const _imgData = await _imgRes.json();
-            console.log(`[${_imgTs()}][画图tool] ✓ 出图 | ${_pName}`);
             console.log('[画图tool] API返回:', JSON.stringify(_imgData).slice(0, 200));
+            if (_imgData.error) {
+              const _em = _imgData.error.message || JSON.stringify(_imgData.error);
+              console.error(`[画图tool] ✗ 失败 | ${_pName} |`, _em);
+              _lastImgErr = '画图失败：' + _em;
+              if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」失败，切换下一个预设...`); continue imgPresetLoop; }
+              return _lastImgErr;
+            }
+            console.log(`[${_imgTs()}][画图tool] ✓ 出图 | ${_pName}`);
             return await _showImg(_imgData) || '画图API没返回图片';
           } catch(e) {
             console.error(`[画图tool] ✗ 失败 | ${_pName} |`, e.message);
@@ -1651,6 +1658,11 @@ export async function sendMessage() {
                     return _lastImgErr;
                   }
                   const _d2 = await _r2.json();
+                  if (_d2.error) {
+                    _lastImgErr = '画图失败（重试）：' + (_d2.error.message || JSON.stringify(_d2.error));
+                    if (_pIdx < _imgCfgs.length - 1) { toast(`「${_pName}」重试也失败，切换下一个预设...`); continue imgPresetLoop; }
+                    return _lastImgErr;
+                  }
                   console.log(`[${_imgTs()}][画图tool] ✓ 出图(重试) | ${_pName}`);
                   return await _showImg(_d2) || '画图API没返回图片';
                 } catch(_e2) {
