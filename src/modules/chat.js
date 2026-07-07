@@ -1831,18 +1831,6 @@ export async function sendMessage() {
         const _buildBody = () => cfg.apiFormat === 'anthropic' ? JSON.stringify(convertRequestBody(bodyObj)) : JSON.stringify(bodyObj);
         if (cfg.apiFormat !== 'anthropic' && bodyObj.stream) bodyObj.stream_options = { include_usage: true };
         bodyStr = _buildBody();
-        if (bodyStr.length > 45000) {
-          let _tMsgs = [...msgs];
-          let _cs = _tMsgs.findIndex(m => m.role !== 'system');
-          if (_cs < 0) _cs = _tMsgs.length;
-          const _origLen = _tMsgs.length;
-          while (bodyStr.length > 45000 && _tMsgs.length - _cs > 2) {
-            _tMsgs.splice(_cs, 1);
-            bodyObj.messages = _tMsgs;
-            bodyStr = _buildBody();
-          }
-          if (_tMsgs.length < _origLen) { console.warn(`[_apiFetch] body过大(${bodyStr.length}ch)，裁剪${_origLen - _tMsgs.length}条历史`); toast(`上下文过大，自动精简了${_origLen - _tMsgs.length}条历史`); }
-        }
         for (let _a = 0; _a < 2; _a++) {
           if (_a > 0) { toast('重试中…'); await new Promise(r => setTimeout(r, 4000)); }
           try {
