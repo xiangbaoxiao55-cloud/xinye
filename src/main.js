@@ -353,6 +353,7 @@ if (window.visualViewport) {
     const fov = document.getElementById('friendChatOverlay');
     if (fov && fov.classList.contains('open')) return; // 朋友聊天自己处理
     document.documentElement.style.setProperty('--vvh', window.visualViewport.height + 'px');
+    if (window.visualViewport.offsetTop > 0) window.scrollTo(0, 0);
   };
   window.visualViewport.addEventListener('resize', _updateVVH);
   window.visualViewport.addEventListener('scroll', _updateVVH);
@@ -388,7 +389,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.07.07-2007';
+  if (_verEl) _verEl.textContent = 'v2026.07.07-2017';
 
   await openDB();
   await migrateFromLocalStorage();
