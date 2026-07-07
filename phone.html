@@ -1282,6 +1282,12 @@ const PAGE = 20;
 
 async function openApp(app) {
   _currentApp = app;
+  try {
+    const _v = JSON.parse(localStorage.getItem('xinye_phone_visit_pending') || '{"time":"","apps":[]}');
+    if (!_v.time) _v.time = new Date().toISOString();
+    if (!_v.apps.includes(app)) _v.apps.push(app);
+    localStorage.setItem('xinye_phone_visit_pending', JSON.stringify(_v));
+  } catch(_e) {}
   appTitle.textContent = APP_TITLES[app] || app;
   appContent.innerHTML = '';
   tabBar.style.display = app === 'memo' ? 'flex' : 'none';
