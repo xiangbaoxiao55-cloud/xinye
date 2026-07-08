@@ -197,6 +197,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       ${styleLabel}${styleRefLabel}
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
+        <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）">⏹ 停止备用</button>
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
         <button class="draw-task-copy" title="复制完整prompt">📋</button>
         <button class="draw-task-save" title="存为模版">💾</button>
@@ -287,7 +288,10 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       promptEl.textContent=expanded?fullPrompt:promptShort;
       promptEl.style.webkitLineClamp=expanded?'unset':'2';
     };
-    const jobs=Array.from({length:n},()=>_doSingleDraw(fullPrompt,negPrompt,size,refs));
+    const cancelled={value:false};
+    const stopBtn=taskWrap.querySelector('.draw-task-stop');
+    stopBtn.onclick=()=>{cancelled.value=true;stopBtn.textContent='已停止';stopBtn.disabled=true;};
+    const jobs=Array.from({length:n},()=>_doSingleDraw(fullPrompt,negPrompt,size,refs,cancelled));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
     let done=0;
@@ -313,6 +317,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none';
       return imgData;
     }));
+    stopBtn.style.display='none';
     const ok=results.filter(r=>r.status==='fulfilled').length;
     const fail=results.filter(r=>r.status==='rejected').length;
     if(ok>0 && fail===0) setStatus(`✓ ${ok}张完成`);
@@ -328,13 +333,14 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   }
 }
 
-async function _doSingleDraw(prompt,negPrompt,size,refs){
+async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
   const presets=S.drawPresets;
   let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
   if(startIdx<0) startIdx=0;
   let lastErr;
   for(let i=0;i<presets.length;i++){
     const preset=presets[(startIdx+i)%presets.length];
+    if(i>0 && cancelled?.value) throw new Error('已停止备用切换');
     if(i>0 && preset.skipFallback) continue;
     try{
       if(i>0) toast(`切备用"${preset.name}"...`,'warn');
