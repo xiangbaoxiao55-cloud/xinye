@@ -71,20 +71,26 @@ export function normalizeMemoryEntry(entry, kind = 'archived') {
 }
 
 export function ensureMemoryBank(raw) {
+  if (raw && typeof raw === 'object' && raw._normalized) return raw;
   const bank = raw && typeof raw === 'object' ? raw : {};
-  return {
+  const result = {
     version: 1,
+    _normalized: true,
     pinned: Array.isArray(bank.pinned) ? bank.pinned.map(item => normalizeMemoryEntry(item, 'pinned')).filter(Boolean) : [],
     recent: Array.isArray(bank.recent) ? bank.recent.map(item => normalizeMemoryEntry(item, 'recent')).filter(Boolean) : [],
     archived: Array.isArray(bank.archived) ? bank.archived.map(item => normalizeMemoryEntry(item, 'archived')).filter(Boolean) : [],
     lastDigestAt: bank.lastDigestAt || 0,
     lastProcessedIndex: typeof bank.lastProcessedIndex === 'number' ? bank.lastProcessedIndex : -1,
+    lastProcessedTime: typeof bank.lastProcessedTime === 'number' ? bank.lastProcessedTime : 0,
     lastAutoExtractAt: bank.lastAutoExtractAt || 0,
   };
+  return result;
 }
 
 export function ensureMemoryState() {
-  settings.memoryBank = ensureMemoryBank(settings.memoryBank);
+  if (!settings.memoryBank || !settings.memoryBank._normalized) {
+    settings.memoryBank = ensureMemoryBank(settings.memoryBank);
+  }
   return settings.memoryBank;
 }
 

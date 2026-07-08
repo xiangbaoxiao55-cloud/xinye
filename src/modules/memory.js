@@ -844,23 +844,29 @@ export function openMemoryViewer() {
 
 export function skipMemoryCursorToEnd() {
   const bank = ensureMemoryState();
-  const old = bank.lastProcessedIndex;
-  bank.lastProcessedIndex = messages.length - 1;
+  const lastMsg = [...messages].reverse().find(m => m.time > 1e12);
+  const newTime = lastMsg ? lastMsg.time : Date.now();
+  const oldTime = bank.lastProcessedTime || 0;
+  bank.lastProcessedTime = newTime;
+  bank.lastProcessedIndex = -999;
   saveSettings();
   const el = document.getElementById('memoryExtractStatus');
-  if (el) el.textContent = `⏭️ 游标已跳至末尾：#${old} → #${bank.lastProcessedIndex}，只提取之后新消息`;
+  if (el) el.textContent = `⏭️ 游标已跳至末尾：${oldTime ? new Date(oldTime).toLocaleDateString() : '无'} → ${new Date(newTime).toLocaleDateString()}`;
   toast(`✅ 游标已跳到末尾，从现在起只提取新消息`);
 }
 
 export function resetMemoryCursor() {
   const n = parseInt(document.getElementById('memoryCursorReset')?.value || '500');
   const bank = ensureMemoryState();
-  const newIdx = Math.max(-1, messages.length - n - 1);
-  const old = bank.lastProcessedIndex;
-  bank.lastProcessedIndex = newIdx;
+  const targetIdx = Math.max(0, messages.length - n - 1);
+  const targetMsg = messages[targetIdx];
+  const newTime = targetMsg?.time > 1e12 ? targetMsg.time : Date.now() - n * 60000;
+  const oldTime = bank.lastProcessedTime || 0;
+  bank.lastProcessedTime = newTime;
+  bank.lastProcessedIndex = -999;
   saveSettings();
   const el = document.getElementById('memoryExtractStatus');
-  if (el) el.textContent = `🔄 游标已重置：#${old} → #${newIdx}（将重扫最近${Math.min(n, messages.length)}条消息）`;
+  if (el) el.textContent = `🔄 游标已重置：${new Date(oldTime || Date.now()).toLocaleDateString()} → ${new Date(newTime).toLocaleDateString()}（将重扫最近${Math.min(n, messages.length)}条消息）`;
   toast(`✅ 游标重置完成，下次发消息开始重新提取最近${Math.min(n, messages.length)}条`);
 }
 
@@ -875,7 +881,8 @@ export async function manualExtractBatch() {
     await updateMoodState();
     if (el) {
       const bank = ensureMemoryState();
-      el.textContent = `⚡ 手动提取完成 · 游标#${bank.lastProcessedIndex}`;
+      const cursorStr = bank.lastProcessedTime ? new Date(bank.lastProcessedTime).toLocaleDateString() : '无';
+      el.textContent = `⚡ 手动提取完成 · 游标${cursorStr}`;
     }
   } catch(e) {
     if (el) el.textContent = `⚡ 手动提取失败: ${e.message}`;
@@ -913,9 +920,9 @@ export function renderMemoryViewer() {
 
   const statsEl = document.getElementById('memViewerStats');
   const lastExtract = bank.lastAutoExtractAt ? new Date(bank.lastAutoExtractAt).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '从未';
-  const cursor = bank.lastProcessedIndex >= 0 ? bank.lastProcessedIndex : -1;
+  const cursorStr = bank.lastProcessedTime ? new Date(bank.lastProcessedTime).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '未启动';
   const normalCount = bank.archived.length + (bank.recent?.length || 0);
-  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 普通 ${normalCount} · 显示 ${pool.length} 条 | 游标 #${cursor} | 末次提取 ${lastExtract}`;
+  if (statsEl) statsEl.textContent = `钉住 ${bank.pinned.length} · 普通 ${normalCount} · 显示 ${pool.length} 条 | 游标 ${cursorStr} | 末次提取 ${lastExtract}`;
 
   const listEl = document.getElementById('memViewerList');
   if (!listEl) return;
@@ -1509,6 +1516,8 @@ export async function saveOneMemoryToBank(bank, parsed, msgTime) {
 }
 
 // ── updateMoodState（自动提取记忆） ──────────────────────────────────────────
+let _extractFailCount = 0;
+
 export async function updateMoodState() {
   const sub = getSubApiCfg();
   if (!sub.apiKey) {
@@ -1520,28 +1529,36 @@ export async function updateMoodState() {
     const bank = ensureMemoryState();
     const EXTRACT_INTERVAL = 20;
 
-    if (bank.lastProcessedIndex >= messages.length) {
-      const newIdx = Math.max(-1, messages.length - 1 - 30);
-      console.log(`[Memory Extract] 游标#${bank.lastProcessedIndex}越界（总消息${messages.length}条），回退到#${newIdx}重新提取`);
-      bank.lastProcessedIndex = newIdx;
+    // ── 游标迁移：旧index→时间戳（一次性） ──
+    if (!bank.lastProcessedTime && bank.lastProcessedIndex >= 0) {
+      const refMsg = messages[bank.lastProcessedIndex];
+      if (refMsg && refMsg.time > 1e12) {
+        bank.lastProcessedTime = refMsg.time;
+        console.log(`[Memory Extract] 游标迁移：index#${bank.lastProcessedIndex} → time ${new Date(bank.lastProcessedTime).toLocaleString()}`);
+      } else {
+        const recent = [...messages].reverse().find(m => m.time > 1e12);
+        bank.lastProcessedTime = recent ? recent.time - 86400000 : Date.now() - 86400000 * 7;
+        console.log(`[Memory Extract] 游标迁移（无精确匹配）→ time ${new Date(bank.lastProcessedTime).toLocaleString()}`);
+      }
       await saveSettings();
     }
-    const nextStart = bank.lastProcessedIndex + 1;
-    const available = messages.length - 2 - nextStart;
-    if (available < EXTRACT_INTERVAL) {
-      console.log(`[Memory Extract] 新消息不足，跳过。游标#${bank.lastProcessedIndex}，总消息${messages.length}条，还差${EXTRACT_INTERVAL - available}条`);
+
+    const cursorTime = bank.lastProcessedTime || 0;
+    const unprocessed = messages.filter(m => m.time > cursorTime && m.time < Date.now() - 5000);
+    if (unprocessed.length < EXTRACT_INTERVAL) {
+      console.log(`[Memory Extract] 新消息不足(${unprocessed.length}/${EXTRACT_INTERVAL})，游标time=${new Date(cursorTime).toLocaleString()}，跳过`);
       return;
     }
 
-    const batchEnd = Math.min(nextStart + 20, messages.length - 2);
-    const toProcess = messages.slice(nextStart, batchEnd);
-    if (toProcess.length < 2) { await saveSettings(); return; }
+    const toProcess = unprocessed.slice(0, 20);
+    if (toProcess.length < 2) return;
+    const batchLastTime = toProcess[toProcess.length - 1].time;
 
-    console.log(`[Memory Extract] 开始提取，处理消息 #${nextStart}~#${batchEnd-1}（共${toProcess.length}条），游标将推进到 #${batchEnd-1}`);
+    console.log(`[Memory Extract] 开始提取，处理${toProcess.length}条消息（${new Date(toProcess[0].time).toLocaleString()} ~ ${new Date(batchLastTime).toLocaleString()}）`);
 
     const existingSummaries = [
       ...bank.pinned.map(m => m.content),
-      ...bank.archived.slice(0, 20).map(m => m.content),
+      ...bank.archived.slice(-20).map(m => m.content),
     ].filter(Boolean).slice(0, 30).join('\n');
 
     const chatText = toProcess.map(m =>
@@ -1555,7 +1572,7 @@ ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从${settings.aiName || '炘也'}（我）的第一视角写，用"我"和"${settings.userName || '兔宝'}"，不用第三人称","emotion":"当时情绪，4字以内","weight":3,"arousal":0.5,"valence":0.0}]}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从${settings.aiName || '炘也'}（我）的第一视角写，用"我"和"${settings.userName || '兔宝'}"，不用第三人称","emotion":"当时情绪，4字以内","weight":2,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight：1=日常闲聊/普通信息，2=有长期记录价值（有情感、有约定、重大时刻、关系进展）。只填1或2，不填其他值。
 arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
@@ -1565,12 +1582,22 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
 
     const res = await subApiFetch({ messages: [{ role: 'system', content: '你是一个JSON输出工具。直接输出JSON，不要任何分析过程、不要思考、不要解释。' }, { role: 'user', content: prompt }], temperature: 0.3, max_tokens: 4000, stream: false }, 'gpt-4o-mini');
+
+    // ── await结束，重新获取bank引用（防止被ensureMemoryState克隆掉包） ──
+    const bankNow = settings.memoryBank;
+
     if (!res || !res.ok) {
-      console.warn(`[Memory Extract] 副API请求失败(${res?.status})，游标不前进，下次重试`);
+      _extractFailCount++;
+      console.warn(`[Memory Extract] 副API请求失败(${res?.status})，连续失败${_extractFailCount}次，游标不前进`);
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 自动提取：副API失败(${res?.status})，游标保持#${bank.lastProcessedIndex}`;
+      if (el) el.textContent = `🤖 自动提取：副API失败(${res?.status})，连续${_extractFailCount}次`;
+      if (_extractFailCount >= 3) {
+        toast('⚠️ 记忆提取连续3次失败，请检查副API配置');
+      }
       await saveSettings(); return;
     }
+    _extractFailCount = 0;
+
     const data = await res.json();
     const msg = data?.choices?.[0]?.message || {};
     let raw = (msg.content || msg.text || '').trim();
@@ -1581,7 +1608,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     if (!raw) {
       console.warn('[Memory Extract] 副API返回空内容，完整响应：', JSON.stringify(data?.choices?.[0]));
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 自动提取：返回空内容，游标保持#${bank.lastProcessedIndex}`;
+      if (el) el.textContent = `🤖 自动提取：返回空内容，游标保持`;
       await saveSettings(); return;
     }
     const match = raw.match(/\{[\s\S]*\}/);
@@ -1592,38 +1619,47 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       await saveSettings(); return;
     }
 
-    bank.lastProcessedIndex = batchEnd - 1;
+    bankNow.lastProcessedTime = batchLastTime;
+    bankNow.lastProcessedIndex = -999;
 
     if (parsed.save && Array.isArray(parsed.memories) && parsed.memories.length > 0) {
       const msgTime = [...toProcess].reverse().find(m => m.time && m.time > 1e12)?.time || Date.now();
-      console.log(`[Memory Extract] msgTime=${new Date(msgTime).toLocaleString()}，批次最后消息time=${toProcess[toProcess.length-1]?.time}`);
+      let newCount = 0, mergeCount = 0;
       for (const mem of parsed.memories) {
-        await saveOneMemoryToBank(bank, mem, msgTime);
+        const before = bankNow.archived.length + bankNow.pinned.length;
+        await saveOneMemoryToBank(bankNow, mem, msgTime);
+        const after = bankNow.archived.length + bankNow.pinned.length;
+        if (after > before) newCount++; else mergeCount++;
       }
-      bank.lastAutoExtractAt = Date.now();
-      archiveMemoryBank(bank);
+      bankNow.lastAutoExtractAt = Date.now();
+      archiveMemoryBank(bankNow);
       renderMemoryBankPreview();
       const now = new Date();
       const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      console.log(`[Memory Extract] ✅ 提取${parsed.memories.length}条：${parsed.memories.map(m => `「${m.summary}」`).join('，')}`);
+      console.log(`[Memory Extract] ✅ 提取完成：新增${newCount}条，合并${mergeCount}条 → ${parsed.memories.map(m => `「${m.summary}」`).join('，')}`);
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 末次提取：${ts} · 游标#${bank.lastProcessedIndex} · 写入${parsed.memories.length}条`;
+      if (el) el.textContent = `🤖 末次提取：${ts} · +${newCount}条 合并${mergeCount}条 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`;
     } else {
-      console.log(`[Memory Extract] 判定不值得记，游标推至#${bank.lastProcessedIndex}`);
+      console.log(`[Memory Extract] 判定不值得记，游标推至 ${new Date(batchLastTime).toLocaleString()}`);
       renderMemoryBankPreview();
       const el = document.getElementById('memoryExtractStatus');
       if (el) {
         const now = new Date();
         const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        el.textContent = `🤖 末次提取：${ts} · 游标#${bank.lastProcessedIndex} · 判定不值得记`;
+        el.textContent = `🤖 末次提取：${ts} · 判定不值得记 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`;
       }
     }
 
+    settings.lastExtractLog = { time: Date.now(), result: parsed.save ? `+${parsed.memories?.length || 0}` : 'skip', cursor: bankNow.lastProcessedTime };
     await saveSettings();
   } catch(e) {
-    console.warn('[Memory Extract] 提取失败（游标未前进）', e);
+    _extractFailCount++;
+    console.warn('[Memory Extract] 提取异常（游标未前进）', e);
     const el = document.getElementById('memoryExtractStatus');
     if (el) el.textContent = `🤖 自动提取异常：${e.message}`;
+    if (_extractFailCount >= 3) {
+      toast('⚠️ 记忆提取连续异常，请检查副API');
+    }
   }
 }
 

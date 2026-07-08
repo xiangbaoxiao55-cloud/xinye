@@ -522,7 +522,9 @@ export async function doImport(jsonText) {
     }
     const importedSettings = await dbGet('settings', 'main');
     if (importedSettings?.memoryBank) {
-      importedSettings.memoryBank.lastProcessedIndex = msgList.length - 1;
+      const lastMsg = msgList[msgList.length - 1];
+      importedSettings.memoryBank.lastProcessedTime = lastMsg?.time > 1e12 ? lastMsg.time : Date.now();
+      importedSettings.memoryBank.lastProcessedIndex = -999;
       await dbPut('settings', 'main', importedSettings);
     }
   }
