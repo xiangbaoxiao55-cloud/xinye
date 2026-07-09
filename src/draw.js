@@ -197,7 +197,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       ${styleLabel}${styleRefLabel}
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
-        <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）">⏹ 停止备用</button>
+        <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）">■ 停止</button>
         <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
         <button class="draw-task-copy" title="复制完整prompt">📋</button>
         <button class="draw-task-save" title="存为模版">💾</button>
