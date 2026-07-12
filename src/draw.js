@@ -467,7 +467,10 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/edits`;
   let r;
-  try{r=await fetch(targetUrl,{method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal})}catch(e){
+  try{
+    r=await fetch(targetUrl,{method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal});
+    if(S.localServer&&r.ok&&!r.headers.get('content-type')?.includes('json')) throw new Error('CF拦截(非JSON响应)');
+  }catch(e){
     if(!S.localServer) throw e;
     console.log(`[${ts()}] edits 直连失败(${e.message})，走本地代理重试`);
     r=await fetch(`${S.localServer}/api/proxy-image-edits`,{method:'POST',headers:{'X-Api-Url':targetUrl,'X-Api-Key':key},body:fd,signal:_ac.signal});
