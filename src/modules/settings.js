@@ -352,6 +352,7 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     <span data-a="check" style="font-size:15px;min-width:18px;color:var(--pink-deep);cursor:pointer;user-select:none" title="切换为当前使用">${isActive ? '✓' : '○'}</span>
     <span style="flex:1;font-size:13px;font-weight:${isActive ? '600' : '400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name || '未命名'}</span>
     <button data-a="rename" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">✏</button>
+    <button data-a="copy" title="复制预设" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">复</button>
     <button data-a="up" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▲</button>
     <button data-a="dn" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▼</button>
     <button data-a="toggle" style="padding:2px 8px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">展开</button>
@@ -406,6 +407,15 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     const presets = getImagePresets();
     const n = prompt('改名：', presets[idx]?.name || '');
     if (n?.trim()) { presets[idx].name = n.trim(); setImagePresets(presets); renderImagePresets(); }
+  };
+  hdr.querySelector('[data-a="copy"]').onclick = () => {
+    const presets = getImagePresets();
+    if (presets.length >= 10) { toast('画图预设最多10个'); return; }
+    const copy = { ...presets[idx], name: (presets[idx].name || '未命名') + ' 副本' };
+    presets.splice(idx + 1, 0, copy);
+    setImagePresets(presets);
+    renderImagePresets();
+    toast(`已复制画图预设「${presets[idx].name}」✓`);
   };
   hdr.querySelector('[data-a="up"]').onclick = () => {
     const presets = getImagePresets();

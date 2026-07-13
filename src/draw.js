@@ -1718,6 +1718,7 @@ function _buildPresetCard(preset,isActive,type){
     <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
     <span class="preset-name" title="点击切换">${preset.name||'未命名'}</span>
     <button class="btn-tiny" data-a="rename" title="改名" style="padding:2px 5px">✏</button>
+    <button class="btn-tiny" data-a="copy" title="复制预设" style="padding:2px 5px">复</button>
     <button class="btn-tiny" data-a="up" title="上移" style="padding:2px 5px">▲</button>
     <button class="btn-tiny" data-a="dn" title="下移" style="padding:2px 5px">▼</button>
     <button class="btn-tiny" data-a="toggle">展开</button>
@@ -1732,6 +1733,15 @@ function _buildPresetCard(preset,isActive,type){
     if(!cur) return;
     const n=prompt('改名：',cur.name||'');
     if(n?.trim()){cur.name=n.trim();savePresetsToLS();renderDrawPresets();renderMasterPresets()}
+  };
+  hdr.querySelector('[data-a="copy"]').onclick=()=>{
+    const arr=type==='draw'?S.drawPresets:S.masterPresets;
+    const idx=arr.findIndex(p=>p.id===preset.id);
+    if(idx<0) return;
+    const copy={...arr[idx],id:uid(),name:(arr[idx].name||'未命名')+' 副本'};
+    arr.splice(idx+1,0,copy);
+    savePresetsToLS();renderDrawPresets();renderMasterPresets();
+    toast(`已复制预设"${arr[idx].name}" ✓`);
   };
   const _movePreset=(delta)=>{
     const arr=type==='draw'?S.drawPresets:S.masterPresets;
