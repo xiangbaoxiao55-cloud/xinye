@@ -2499,12 +2499,13 @@ function bindEvents(){
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
   };
   document.getElementById('master-input').addEventListener('paste',async e=>{
-    const items=Array.from(e.clipboardData.items).filter(i=>i.type.startsWith('image/'));
+    const items=Array.from(e.clipboardData.items).filter(i=>i.kind==='file'&&i.type.startsWith('image/'));
     if(!items.length) return;
     e.preventDefault();
     for(const item of items){
       if(S.masterPendingImgs.length>=5) break;
       const file=item.getAsFile();
+      if(!file) continue;
       const b64=await new Promise(res=>{const r=new FileReader();r.onload=ev=>_shrinkImg(ev.target.result,800,0.8).then(res);r.readAsDataURL(file)});
       S.masterPendingImgs.push(b64);
     }
