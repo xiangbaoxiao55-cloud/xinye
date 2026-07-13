@@ -964,7 +964,7 @@ async function loadAestheticProfile(){
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
   S.masterLastImg=await db.getSetting('masterLastImg',null)||null;
-  S.masterPendingImg=null;
+  S.masterPendingImgs=[];
   const el=document.getElementById('master-insight-content');
   if(el&&S.aestheticProfile) el.innerHTML=miniMd(S.aestheticProfile);
   const chat=document.getElementById('master-chat');
@@ -1111,21 +1111,18 @@ async function masterSuggest(userInput){
   if(charDesc) ctx.push('当前选中角色：'+charDesc);
   const _suggestBase='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
   const history=S.masterHistory.slice(-10).map(m=>({role:m.role,content:m.content}));
-  const hasNewImg=!!S.masterPendingImg;
-  const imgB64=hasNewImg?S.masterPendingImg:S.masterLastImg;
+  const hasNewImgs=S.masterPendingImgs.length>0;
   const userText=`${ctx.join('\n')}\n\n用户想法：${userInput}`;
   let userContent;
-  if(imgB64){
-    const imgBlock={type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}};
-    if(hasNewImg){
-      userContent=[imgBlock,{type:'text',text:userText}];
-    }else{
-      history.unshift(
-        {role:'user',content:[imgBlock,{type:'text',text:'[参考图片]'}]},
-        {role:'assistant',content:'好的，我已看到这张参考图片。'}
-      );
-      userContent=userText;
-    }
+  if(hasNewImgs){
+    const imgBlocks=S.masterPendingImgs.map(b64=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}}));
+    userContent=[...imgBlocks,{type:'text',text:userText}];
+  }else if(S.masterLastImg){
+    history.unshift(
+      {role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:S.masterLastImg}},{type:'text',text:'[参考图片]'}]},
+      {role:'assistant',content:'好的，我已看到这张参考图片。'}
+    );
+    userContent=userText;
   }else{
     userContent=userText;
   }
@@ -1136,12 +1133,12 @@ async function masterSuggest(userInput){
   ];
   const result=await callMaster(msgs);
   const histEntry={role:'user',content:userInput};
-  if(hasNewImg){
+  if(hasNewImgs){
     histEntry._hasImage=true;
-    S.masterLastImg=S.masterPendingImg;
-    db.setSetting('masterLastImg',S.masterPendingImg);
-    S.masterPendingImg=null;
-    document.getElementById('master-img-preview').style.display='none';
+    S.masterLastImg=S.masterPendingImgs[S.masterPendingImgs.length-1];
+    db.setSetting('masterLastImg',S.masterLastImg);
+    S.masterPendingImgs=[];
+    _renderMasterImgPreview();
   }
   S.masterHistory.push(histEntry,{role:'assistant',content:result});
   if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
@@ -1212,14 +1209,37 @@ function _extractPromptLine(text){
   const m=text.match(/Prompt:\s*(.+?)(?:\n中文：|$)/s);
   return m?m[1].trim():null;
 }
-function addMasterMsg(role,text,isTemp=false,imgB64=null){
+function _renderMasterImgPreview(){
+  const prev=document.getElementById('master-img-preview');
+  if(!prev) return;
+  prev.innerHTML='';
+  if(!S.masterPendingImgs.length){prev.style.display='none';return;}
+  prev.style.display='flex';
+  S.masterPendingImgs.forEach((b64,i)=>{
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;display:inline-block';
+    const img=document.createElement('img');
+    img.src='data:image/jpeg;base64,'+b64;
+    img.style.cssText='width:60px;height:60px;object-fit:cover;border-radius:6px;display:block';
+    const rm=document.createElement('button');
+    rm.className='preview-rm';rm.textContent='✕';
+    rm.style.cssText='position:absolute;top:-4px;right:-4px;width:16px;height:16px;font-size:10px;line-height:1;padding:0;border-radius:50%;background:var(--err,#e57373);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center';
+    rm.onclick=()=>{S.masterPendingImgs.splice(i,1);_renderMasterImgPreview()};
+    wrap.append(img,rm);prev.appendChild(wrap);
+  });
+}
+
+function addMasterMsg(role,text,isTemp=false,imgs=null){
   const chat=document.getElementById('master-chat');
   const el=document.createElement('div');
   el.className=`master-msg master-msg-${role}${isTemp?' temp':''}`;
-  if(imgB64&&role==='user'){
-    const img=document.createElement('img');
-    img.className='msg-img';img.src='data:image/jpeg;base64,'+imgB64;
-    el.appendChild(img);
+  if(imgs&&role==='user'){
+    const imgArr=Array.isArray(imgs)?imgs:[imgs];
+    imgArr.forEach(b64=>{
+      const img=document.createElement('img');
+      img.className='msg-img';img.src='data:image/jpeg;base64,'+b64;
+      el.appendChild(img);
+    });
   }
   const txtDiv=document.createElement('div');
   txtDiv.innerHTML=miniMd(text);
@@ -2436,9 +2456,9 @@ function bindEvents(){
       document.getElementById('master-chat').innerHTML='';
       S.masterHistory=[];
       db.setSetting('masterHistory',[]);
-      S.masterLastImg=null;S.masterPendingImg=null;
+      S.masterLastImg=null;S.masterPendingImgs=[];
       db.setSetting('masterLastImg',null);
-      document.getElementById('master-img-preview').style.display='none';
+      _renderMasterImgPreview();
     }
   };
   document.getElementById('master-insight-card').querySelector('.insight-header').onclick=e=>{
@@ -2462,8 +2482,8 @@ function bindEvents(){
     const text=input.value.trim();
     if(!text||S.masterBusy) return;
     S.masterBusy=true;input.value='';
-    const imgB64=S.masterPendingImg||null;
-    addMasterMsg('user',text,false,imgB64);
+    const imgs=S.masterPendingImgs.length?[...S.masterPendingImgs]:null;
+    addMasterMsg('user',text,false,imgs);
     const tmp=addMasterMsg('assistant','思考中...✨',true);
     try{const r=await masterSuggest(text);tmp.remove();addMasterMsg('assistant',r)}
     catch(e){tmp.remove();addMasterMsg('assistant','出错了：'+e.message)}
@@ -2479,37 +2499,27 @@ function bindEvents(){
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
   };
   document.getElementById('master-input').addEventListener('paste',async e=>{
-    const item=Array.from(e.clipboardData.items).find(i=>i.type.startsWith('image/'));
-    if(!item) return;
+    const items=Array.from(e.clipboardData.items).filter(i=>i.type.startsWith('image/'));
+    if(!items.length) return;
     e.preventDefault();
-    const file=item.getAsFile();
-    const reader=new FileReader();
-    reader.onload=async ev=>{
-      const b64=await _shrinkImg(ev.target.result,800,0.8);
-      S.masterPendingImg=b64;
-      const prev=document.getElementById('master-img-preview');
-      prev.querySelector('img').src='data:image/jpeg;base64,'+b64;
-      prev.style.display='flex';
-    };
-    reader.readAsDataURL(file);
+    for(const item of items){
+      if(S.masterPendingImgs.length>=5) break;
+      const file=item.getAsFile();
+      const b64=await new Promise(res=>{const r=new FileReader();r.onload=ev=>_shrinkImg(ev.target.result,800,0.8).then(res);r.readAsDataURL(file)});
+      S.masterPendingImgs.push(b64);
+    }
+    _renderMasterImgPreview();
   });
   document.getElementById('btn-master-img').onclick=()=>document.getElementById('master-img-input').click();
   document.getElementById('master-img-input').onchange=async e=>{
-    const f=e.target.files[0];if(!f) return;
+    const files=Array.from(e.target.files);if(!files.length) return;
     e.target.value='';
-    const reader=new FileReader();
-    reader.onload=async ev=>{
-      const b64=await _shrinkImg(ev.target.result,800,0.8);
-      S.masterPendingImg=b64;
-      const prev=document.getElementById('master-img-preview');
-      prev.querySelector('img').src='data:image/jpeg;base64,'+b64;
-      prev.style.display='flex';
-    };
-    reader.readAsDataURL(f);
-  };
-  document.getElementById('master-img-preview').querySelector('.preview-rm').onclick=()=>{
-    S.masterPendingImg=null;
-    document.getElementById('master-img-preview').style.display='none';
+    for(const f of files){
+      if(S.masterPendingImgs.length>=5) break;
+      const b64=await new Promise(res=>{const r=new FileReader();r.onload=ev=>_shrinkImg(ev.target.result,800,0.8).then(res);r.readAsDataURL(f)});
+      S.masterPendingImgs.push(b64);
+    }
+    _renderMasterImgPreview();
   };
   document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.style.display='none'}));
 }
