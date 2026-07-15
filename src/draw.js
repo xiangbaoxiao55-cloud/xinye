@@ -325,7 +325,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
-    const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value.img);
+    const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
     if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
