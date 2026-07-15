@@ -416,7 +416,7 @@ async function _fetchWithProxy(url){
   return fetch(url);
 }
 
-async function _pollAsyncJob(baseUrl,key,jobId,maxMs=300000){
+async function _pollAsyncJob(baseUrl,key,jobId,maxMs=1200000){
   const pollUrl=`${baseUrl}/images/async-generations/${jobId}`;
   const deadline=Date.now()+maxMs;
   while(Date.now()<deadline){
@@ -437,7 +437,7 @@ async function _pollAsyncJob(baseUrl,key,jobId,maxMs=300000){
     }
     if(job.status==='failed') throw new Error(`生成失败: ${job.error_message||job.error_code||'未知错误'}`);
   }
-  throw new Error('异步任务超时（5分钟）');
+  throw new Error('异步任务超时（20分钟）');
 }
 
 async function _callChat(preset,prompt,n){
