@@ -296,11 +296,12 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     body.innerHTML='';
     let done=0;
     const results=await Promise.allSettled(jobs.map(async p=>{
-      const imgData=await p;
+      const {img:imgData,presetName}=await p;
       done++;
       setStatus(`${done}/${n} 完成`);
       const wrap=document.createElement('div');
       wrap.className='result-image-wrapper';
+      if(presetName){const tag=document.createElement('div');tag.className='result-preset-tag';tag.textContent=presetName;wrap.appendChild(tag);}
       const img=document.createElement('img');
       img.src=imgData;img.className='result-image';img.style.cursor='zoom-in';
       img.onclick=()=>openLightbox(imgData);
@@ -324,7 +325,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
-    const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
+    const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value.img);
     if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
@@ -351,7 +352,7 @@ async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
       else if(preset.format==='chat') images=await _callChat(preset,prompt,1);
       else images=await _callGenerations(preset,prompt,negPrompt,size,1);
       console.log(`[${ts()}] ✅ "${preset.name}" 出图`);
-      return images[0];
+      return {img:images[0],presetName:preset.name};
     }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 预设"${preset.name}"失败:`,err.message)}
   }
   throw lastErr||new Error('所有预设均失败');

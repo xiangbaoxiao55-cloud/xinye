@@ -179,6 +179,7 @@ textarea:focus{border-color:var(--purple)}
   opacity:0;transition:.2s;
 }
 .result-image-wrapper:hover .result-actions{opacity:1}
+.result-preset-tag{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;pointer-events:none;max-width:80%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;backdrop-filter:blur(2px)}
 .loading{color:var(--sub);font-size:14px;padding:16px}
 .loading-spinner{
   width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--purple);
