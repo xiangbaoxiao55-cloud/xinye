@@ -361,12 +361,15 @@ async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
 async function _callGenerations(preset,prompt,negPrompt,size,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
-  console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
+  const isAsync=!!preset.asyncMode;
+  console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | async=${isAsync} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
   if(negPrompt) body.negative_prompt=negPrompt;
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/generations`;
-  const opts={method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify(body),signal:_ac.signal};
+  const hdrs={'Content-Type':'application/json','Authorization':`Bearer ${key}`};
+  if(isAsync) hdrs['X-Async-Mode']='true';
+  const opts={method:'POST',headers:hdrs,body:JSON.stringify(body),signal:_ac.signal};
   let r;
   try{r=await fetch(targetUrl,opts)}catch(e){
     if(!S.localServer) throw e;
@@ -376,6 +379,13 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
     r=await fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
   }
   clearTimeout(_at);
+  if(isAsync&&r.status===202){
+    const d=await r.json();
+    const jobId=d.job_id;
+    if(!jobId) throw new Error('异步模式未返回job_id');
+    console.log(`[${ts()}] 异步任务已提交: ${jobId}，开始轮询…`);
+    return await _pollAsyncJob(url,key,jobId);
+  }
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
@@ -398,6 +408,30 @@ async function _fetchWithProxy(url){
     console.warn(`[${ts()}] proxy-fetch失败(${r.status})，直接获取: ${url}`);
   }
   return fetch(url);
+}
+
+async function _pollAsyncJob(baseUrl,key,jobId,maxMs=300000){
+  const pollUrl=`${baseUrl}/images/async-generations/${jobId}`;
+  const deadline=Date.now()+maxMs;
+  while(Date.now()<deadline){
+    await new Promise(r=>setTimeout(r,2000));
+    const pr=await fetch(pollUrl,{headers:{'Authorization':`Bearer ${key}`}});
+    if(!pr.ok) throw new Error(`轮询失败 HTTP ${pr.status}`);
+    const pd=await pr.json();
+    const job=pd.data||pd;
+    console.log(`[${ts()}] 轮询 ${jobId}: ${job.status}`);
+    if(job.status==='done'){
+      if(!job.result_urls?.length) throw new Error('任务完成但无图片URL');
+      const results=[];
+      for(const imgUrl of job.result_urls){
+        const rb=await _fetchWithProxy(imgUrl);
+        results.push(await f2b(new File([await rb.blob()],'img.png')));
+      }
+      return results;
+    }
+    if(job.status==='failed') throw new Error(`生成失败: ${job.error_message||job.error_code||'未知错误'}`);
+  }
+  throw new Error('异步任务超时（5分钟）');
 }
 
 async function _callChat(preset,prompt,n){
@@ -456,7 +490,8 @@ async function _callNvidia(preset,prompt,size,n){
 async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
-  console.log(`[${ts()}] → edits | ${preset.name} | ${size} | refs=${refB64s.length} | n=${n} | ${url}/images/edits\n         prompt: ${prompt.slice(0,80)}`);
+  const isAsync=!!preset.asyncMode;
+  console.log(`[${ts()}] → edits | ${preset.name} | ${size} | refs=${refB64s.length} | n=${n} | async=${isAsync} | ${url}/images/edits\n         prompt: ${prompt.slice(0,80)}`);
   const fd=new FormData();
   for(let i=0;i<refB64s.length;i++){
     const blob=await fetch(refB64s[i]).then(r=>r.blob());
@@ -467,16 +502,25 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   if(negPrompt) fd.append('negative_prompt',negPrompt);
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/edits`;
+  const hdrs={'Authorization':`Bearer ${key}`};
+  if(isAsync) hdrs['X-Async-Mode']='true';
   let r;
   try{
-    r=await fetch(targetUrl,{method:'POST',headers:{'Authorization':`Bearer ${key}`},body:fd,signal:_ac.signal});
-    if(S.localServer&&r.ok&&!r.headers.get('content-type')?.includes('json')) throw new Error('CF拦截(非JSON响应)');
+    r=await fetch(targetUrl,{method:'POST',headers:hdrs,body:fd,signal:_ac.signal});
+    if(!isAsync&&S.localServer&&r.ok&&!r.headers.get('content-type')?.includes('json')) throw new Error('CF拦截(非JSON响应)');
   }catch(e){
     if(!S.localServer) throw e;
     console.log(`[${ts()}] edits 直连失败(${e.message})，走本地代理重试`);
-    r=await fetch(`${S.localServer}/api/proxy-image-edits`,{method:'POST',headers:{'X-Api-Url':targetUrl,'X-Api-Key':key},body:fd,signal:_ac.signal});
+    r=await fetch(`${S.localServer}/api/proxy-image-edits`,{method:'POST',headers:{'X-Api-Url':targetUrl,'X-Api-Key':key,...(isAsync?{'X-Extra-Headers':JSON.stringify({'X-Async-Mode':'true'})}:{})},body:fd,signal:_ac.signal});
   }
   clearTimeout(_at);
+  if(isAsync&&r.status===202){
+    const d=await r.json();
+    const jobId=d.job_id;
+    if(!jobId) throw new Error('异步模式未返回job_id');
+    console.log(`[${ts()}] 异步任务已提交: ${jobId}，开始轮询…`);
+    return await _pollAsyncJob(url,key,jobId);
+  }
   if(!r.ok) throw new Error(`HTTP ${r.status}: ${await r.text()}`);
   const d=await r.json();
   if(d.data?.[0]?.b64_json) return d.data.map(i=>`data:image/png;base64,${i.b64_json}`);
@@ -1813,6 +1857,13 @@ function _buildPresetCard(preset,isActive,type){
         跳过自动备用（保留在列表但失败时不轮询）
       </label>
     </div>
+    ${type==='draw'?`<div class="preset-row" style="gap:8px;align-items:center">
+      <label style="min-width:40px;text-align:right">异步</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
+        <input type="checkbox" data-f="asyncMode" ${preset.asyncMode?'checked':''} style="width:auto;flex:none">
+        异步出图（适合65535.space等长耗时站子，提交后轮询结果）
+      </label>
+    </div>`:''}
     <div class="preset-body-actions">
       <button class="btn-primary btn-sm" data-a="save">保存</button>
       <button class="btn-outline btn-sm" data-a="use">保存并切换</button>
