@@ -2611,7 +2611,7 @@ async function restoreTaskCards(){
       <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
     </div><div class="draw-task-body"></div>`;
     const body=taskWrap.querySelector('.draw-task-body');
-    for(const imgData of t.images){
+    for(const imgData of (t.images||[]).filter(Boolean)){
       const wrap=document.createElement('div');wrap.className='result-image-wrapper';
       const img=document.createElement('img');img.src=imgData;img.className='result-image';img.style.cursor='zoom-in';
       img.onclick=()=>openLightbox(imgData);
