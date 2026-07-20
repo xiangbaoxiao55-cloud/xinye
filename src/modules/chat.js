@@ -1916,6 +1916,24 @@ export async function sendMessage() {
     if (_toolDefs.length > 0) {
       const loopMsgs = [...apiMsgs];
 
+      function _trimLoopMsgs() {
+        const LIMIT = 40000;
+        let total = 0;
+        for (const m of loopMsgs) total += JSON.stringify(m.content || '').length + (m.tool_calls ? JSON.stringify(m.tool_calls).length : 0);
+        if (total <= LIMIT) return;
+        let sysEnd = 0;
+        while (sysEnd < loopMsgs.length && loopMsgs[sysEnd].role === 'system') sysEnd++;
+        let toolStart = loopMsgs.length;
+        for (let i = sysEnd; i < loopMsgs.length; i++) {
+          if (loopMsgs[i].role === 'tool' || (loopMsgs[i].role === 'assistant' && loopMsgs[i].tool_calls)) { toolStart = i; break; }
+        }
+        const canTrim = toolStart - sysEnd;
+        if (canTrim <= 2) return;
+        const removeCount = Math.min(Math.ceil(canTrim * 0.5), canTrim - 2);
+        console.warn(`[ToolLoop] 消息过大(${total}字符)，裁剪${removeCount}条历史`);
+        loopMsgs.splice(sysEnd, removeCount);
+      }
+
       function _parseXmlToolCalls(content) {
         if (!content) return null;
         console.warn('[XMLParse] checking content len=', content.length, 'has<tool_call>:', content.includes('<tool_call>'), 'first100:', content.slice(0,100));
@@ -2225,6 +2243,7 @@ export async function sendMessage() {
             return;
           }
           for (let _tr = 1; _tr < 4; _tr++) {
+            _trimLoopMsgs();
             const _r2 = await _apiFetch(loopMsgs, true, false);
             if (!_r2 || !_r2.ok) break;
             const _d2 = await _r2.json();
@@ -2252,6 +2271,7 @@ export async function sendMessage() {
               }
             } else { break; }
           }
+          _trimLoopMsgs();
           const _rf = await _apiFetch(loopMsgs, false, false);
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
           const _df = await _rf.json();
@@ -2367,6 +2387,7 @@ export async function sendMessage() {
         }
         let _m2FinalContent = null;
         for (let _tr = 1; _tr < 4; _tr++) {
+          _trimLoopMsgs();
           const _r2 = await _apiFetch(loopMsgs, true, false);
           if (!_r2 || !_r2.ok) break;
           const _d2 = await _r2.json();
@@ -2394,6 +2415,7 @@ export async function sendMessage() {
           window.maybeTTS?.(_ft, _nm.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         } else {
+          _trimLoopMsgs();
           const _rf = await _apiFetch(loopMsgs, false, true);
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
           const parsedFinal = await _liveStream(_rf);
