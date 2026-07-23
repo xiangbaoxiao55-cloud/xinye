@@ -1900,7 +1900,7 @@ export async function sendMessage() {
                   _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
                 }
               }
-              return _res;
+              return { response: _res, usedModel: cfg.model, usedPresetName: _allCfgs[pi]?.name || '' };
             }
           } catch(fe) {
             if (fe.name === 'AbortError') { toast('请求超时…'); _res = null; }
@@ -1909,7 +1909,7 @@ export async function sendMessage() {
         }
         if (pi + 1 < _allCfgs.length) toast(`API无响应，尝试备用${pi+1}「${_allCfgs[pi+1].name}」…`);
       }
-      return _res;
+      return { response: _res, usedModel: settings.model || 'gpt-4o', usedPresetName: '' };
     }
 
     console.warn('[ToolDefs]', _toolDefs.map(t=>t.function.name).join(', '));
@@ -2087,7 +2087,7 @@ export async function sendMessage() {
         return { content: _content, think: _think, tool_calls: _tcs.length ? _tcs : null, aiMsg: _aiMsg, bubbleEl: _bubbleEl, usage: _streamUsage2 };
       }
 
-      async function _finalizeMsg(parsed, loopMsgs) {
+      async function _finalizeMsg(parsed, loopMsgs, usedModel) {
         let finalText = parsed.content || (parsed.think ? '' : '（没有收到回复）');
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
@@ -2097,7 +2097,7 @@ export async function sendMessage() {
           typing.classList.remove('show');
           const aiMsg = await addMessage('assistant', finalText);
           await appendMsgDOM(aiMsg);
-          try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
+          try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, aiMsg.id);
         } else {
           if (!finalText.trim() && !parsed.think) finalText = '（没有收到回复）';
@@ -2106,14 +2106,14 @@ export async function sendMessage() {
           if (idx >= 0) messages[idx].content = finalText;
           try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
           try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
-          try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
+          try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, parsed.aiMsg.id);
         }
         rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
       }
 
       if (!settings.streamMode) {
-        async function _showNonStream(text, msgList, usage) {
+        async function _showNonStream(text, msgList, usage, usedModel) {
           text = await parseAndSaveSelfMemories(text);
           if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
           typing.classList.remove('show');
@@ -2121,11 +2121,11 @@ export async function sendMessage() {
           await appendMsgDOM(_nm);
           const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
           try { linkifyEl(_nb, text); window.applyStickerTags?.(_nb); } catch(_e) {}
-          try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, settings.model || ''); } catch(_e) {}
+          try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(text, _nm.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         }
-        const _r1 = await _apiFetch(loopMsgs, true, false);
+        const { response: _r1, usedModel: _uMod1 } = await _apiFetch(loopMsgs, true, false);
         if (!_r1 || !_r1.ok) {
           let em = `API 错误 (${_r1 ? _r1.status : '无响应'})`;
           try { const j = await _r1.json(); em = j.error?.message || em; } catch(_) {}
@@ -2151,7 +2151,7 @@ export async function sendMessage() {
           const _thk1 = _m1?.reasoning_content || _m1?.thinking || '';
           let reply = _m1?.content || (_thk1 ? '' : '（没有收到回复）');
           if (_thk1) reply = `<thinking>${_thk1}</thinking>\n${reply}`;
-          await _showNonStream(reply, loopMsgs, _d1.usage);
+          await _showNonStream(reply, loopMsgs, _d1.usage, _uMod1);
         } else {
           loopMsgs.push({ role: 'assistant', content: _m1.content || null, tool_calls: _m1.tool_calls });
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
@@ -2179,7 +2179,7 @@ export async function sendMessage() {
                     ? `[系统：你刚给${_uN1}画了一张图（"${_ip1.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
                     : `[系统：你刚才给${_uN1}画图，但失败了（${(_imgErrStr1 || _imgResult1 || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                   try {
-                    const _rr1 = await _apiFetch([{ role: 'system', content: _rs1 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt1 }], false, false);
+                    const { response: _rr1 } = await _apiFetch([{ role: 'system', content: _rs1 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt1 }], false, false);
                     if (_rr1 && _rr1.ok) { const _rd1 = await _rr1.json(); const _rep1 = _rd1.choices?.[0]?.message?.content?.trim(); if (_rep1) { const _am1 = await addMessage('assistant', _rep1); await dbPut(activeStore(), null, _am1); await appendMsgDOM(_am1); scrollBottom(); window.maybeTTS?.(_rep1, _am1.id); } }
                   } catch (_re1) { console.warn('[画图回应]', _re1.message); }
                 }
@@ -2202,13 +2202,13 @@ export async function sendMessage() {
               const _speakContent = window._speakText || _m1.content || '';
               window._speakText = '';
               if (_speakContent) {
-                await _showNonStream(_speakContent, loopMsgs, _d1.usage);
+                await _showNonStream(_speakContent, loopMsgs, _d1.usage, _uMod1);
               } else {
-                const _rSpeak = await _apiFetch(loopMsgs, false, false);
+                const { response: _rSpeak, usedModel: _uModSpeak } = await _apiFetch(loopMsgs, false, false);
                 if (_rSpeak && _rSpeak.ok) {
                   const _dSpeak = await _rSpeak.json();
                   const _mSpeak = _dSpeak.choices?.[0]?.message;
-                  if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage);
+                  if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage, _uModSpeak);
                 }
               }
             }
@@ -2230,7 +2230,7 @@ export async function sendMessage() {
                       ? `[系统：你刚给${_uNS}画了一张图（"${_ipS.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
                       : `[系统：你刚才给${_uNS}画图，但失败了（${(_imgErrStrS || _imgResultS || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                     try {
-                      const _rrS = await _apiFetch([{ role: 'system', content: _rsS }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rtS }], false, false);
+                      const { response: _rrS } = await _apiFetch([{ role: 'system', content: _rsS }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rtS }], false, false);
                       if (_rrS && _rrS.ok) { const _rdS = await _rrS.json(); const _repS = _rdS.choices?.[0]?.message?.content?.trim(); if (_repS) { const _amS = await addMessage('assistant', _repS); await dbPut(activeStore(), null, _amS); await appendMsgDOM(_amS); scrollBottom(); window.maybeTTS?.(_repS, _amS.id); } }
                     } catch (_reS) { console.warn('[画图回应]', _reS.message); }
                   }
@@ -2242,10 +2242,10 @@ export async function sendMessage() {
             }
             return;
           }
-          let _loopFinalMsg = null, _loopFinalUsage = null;
+          let _loopFinalMsg = null, _loopFinalUsage = null, _loopFinalModel = '';
           for (let _tr = 1; _tr < 4; _tr++) {
             _trimLoopMsgs();
-            const _r2 = await _apiFetch(loopMsgs, true, false);
+            const { response: _r2, usedModel: _uMod2 } = await _apiFetch(loopMsgs, true, false);
             if (!_r2 || !_r2.ok) break;
             const _d2 = await _r2.json();
             const _m2 = _d2.choices?.[0]?.message;
@@ -2270,27 +2270,27 @@ export async function sendMessage() {
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
               }
-            } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; break; }
+            } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; _loopFinalModel = _uMod2; break; }
           }
           if (_loopFinalMsg?.content) {
             const _thkL = _loopFinalMsg.reasoning_content || _loopFinalMsg.thinking || '';
             let finalText = _loopFinalMsg.content || '';
             if (_thkL) finalText = `<thinking>${_thkL}</thinking>\n${finalText}`;
-            await _showNonStream(finalText, loopMsgs, _loopFinalUsage);
+            await _showNonStream(finalText, loopMsgs, _loopFinalUsage, _loopFinalModel);
           } else {
             _trimLoopMsgs();
-            const _rf = await _apiFetch(loopMsgs, false, false);
+            const { response: _rf, usedModel: _uModF } = await _apiFetch(loopMsgs, false, false);
             if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
             const _df = await _rf.json();
             const _mf = _df.choices?.[0]?.message;
             const _thkF = _mf?.reasoning_content || _mf?.thinking || '';
             let finalText = _mf?.content || (_thkF ? '' : '（没有收到回复）');
             if (_thkF) finalText = `<thinking>${_thkF}</thinking>\n${finalText}`;
-            await _showNonStream(finalText, loopMsgs, _df.usage);
+            await _showNonStream(finalText, loopMsgs, _df.usage, _uModF);
           }
         }
       } else {
-        const _r1 = await _apiFetch(loopMsgs, true, true);
+        const { response: _r1, usedModel: _uMod1 } = await _apiFetch(loopMsgs, true, true);
         if (!_r1 || !_r1.ok) {
           let em = `API 错误 (${_r1 ? _r1.status : '无响应'})`;
           try { const j = await _r1.json(); em = j.error?.message || em; } catch(_) {}
@@ -2298,7 +2298,7 @@ export async function sendMessage() {
         }
         let parsed = await _liveStream(_r1);
         if (!parsed.tool_calls) {
-          await _finalizeMsg(parsed, loopMsgs); return;
+          await _finalizeMsg(parsed, loopMsgs, _uMod1); return;
         }
         const _onlyImgTool = parsed.tool_calls.every(tc => tc.name === 'generate_image');
         if (parsed.aiMsg && parsed.content) {
@@ -2329,7 +2329,7 @@ export async function sendMessage() {
                   ? `[系统：你刚给${_uN}画了一张图（"${_ip.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
                   : `[系统：你刚才给${_uN}画图，但失败了（${(_imgErrStr || _imgResult || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                 try {
-                  const _rr = await _apiFetch([{ role: 'system', content: _rs }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt }], false, false);
+                  const { response: _rr } = await _apiFetch([{ role: 'system', content: _rs }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt }], false, false);
                   if (_rr && _rr.ok) { const _rd = await _rr.json(); const _rep = _rd.choices?.[0]?.message?.content?.trim(); if (_rep) { const _am = await addMessage('assistant', _rep); await dbPut(activeStore(), null, _am); await appendMsgDOM(_am); scrollBottom(); window.maybeTTS?.(_rep, _am.id); } }
                 } catch (_re) { console.warn('[画图回应]', _re.message); }
               }
@@ -2353,12 +2353,12 @@ export async function sendMessage() {
             window._speakText = '';
             if (_speakContent) {
               const _fakeMsg = { content: _speakContent, think: parsed.think, aiMsg: parsed.aiMsg, bubbleEl: parsed.bubbleEl, usage: parsed.usage };
-              await _finalizeMsg(_fakeMsg, loopMsgs);
+              await _finalizeMsg(_fakeMsg, loopMsgs, _uMod1);
             } else {
-              const _rSpeak = await _apiFetch(loopMsgs, false, true);
+              const { response: _rSpeak, usedModel: _uModSpeak } = await _apiFetch(loopMsgs, false, true);
               if (_rSpeak && _rSpeak.ok) {
                 const _pSpeak = await _liveStream(_rSpeak);
-                await _finalizeMsg(_pSpeak, loopMsgs);
+                await _finalizeMsg(_pSpeak, loopMsgs, _uModSpeak);
               }
             }
           }
@@ -2381,7 +2381,7 @@ export async function sendMessage() {
                     ? `[系统：你刚给${_uN2}画了一张图（"${_ip2.slice(0, 80)}"），图已展示。自然说一句，30字以内。]`
                     : `[系统：你刚才给${_uN2}画图，但失败了（${(_imgErrStr2 || _imgResult2 || '未知错误').slice(0, 50)}）。自然说一两句话，不要暴露技术细节，40字以内。]`;
                   try {
-                    const _rr2 = await _apiFetch([{ role: 'system', content: _rs2 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt2 }], false, false);
+                    const { response: _rr2 } = await _apiFetch([{ role: 'system', content: _rs2 }, ...messages.slice(-4).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })), { role: 'user', content: _rt2 }], false, false);
                     if (_rr2 && _rr2.ok) { const _rd2 = await _rr2.json(); const _rep2 = _rd2.choices?.[0]?.message?.content?.trim(); if (_rep2) { const _am2 = await addMessage('assistant', _rep2); await dbPut(activeStore(), null, _am2); await appendMsgDOM(_am2); scrollBottom(); window.maybeTTS?.(_rep2, _am2.id); } }
                   } catch (_re2) { console.warn('[画图回应]', _re2.message); }
                 }
@@ -2393,10 +2393,10 @@ export async function sendMessage() {
           }
           return;
         }
-        let _m2FinalContent = null;
+        let _m2FinalContent = null, _loopFinalModel2 = '';
         for (let _tr = 1; _tr < 4; _tr++) {
           _trimLoopMsgs();
-          const _r2 = await _apiFetch(loopMsgs, true, false);
+          const { response: _r2, usedModel: _uMod2 } = await _apiFetch(loopMsgs, true, false);
           if (!_r2 || !_r2.ok) break;
           const _d2 = await _r2.json();
           const _m2 = _d2.choices?.[0]?.message;
@@ -2409,6 +2409,7 @@ export async function sendMessage() {
             }
           } else {
             _m2FinalContent = _m2?.content || null;
+            _loopFinalModel2 = _uMod2;
             break;
           }
         }
@@ -2419,20 +2420,20 @@ export async function sendMessage() {
           await appendMsgDOM(_nm);
           const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
           try { linkifyEl(_nb, _ft); window.applyStickerTags?.(_nb); } catch(_e) {}
-          try { saveTokenLog(_nm.id, loopMsgs, _ft, {}, _apiMeta, settings.model || ''); } catch(_e) {}
+          try { saveTokenLog(_nm.id, loopMsgs, _ft, {}, _apiMeta, _loopFinalModel2 || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(_ft, _nm.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         } else {
           _trimLoopMsgs();
-          const _rf = await _apiFetch(loopMsgs, false, true);
+          const { response: _rf, usedModel: _uModF } = await _apiFetch(loopMsgs, false, true);
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
           const parsedFinal = await _liveStream(_rf);
-          await _finalizeMsg(parsedFinal, loopMsgs);
+          await _finalizeMsg(parsedFinal, loopMsgs, _uModF);
         }
       }
 
     } else if (!settings.streamMode) {
-      const _r = await _apiFetch(apiMsgs, false, false);
+      const { response: _r, usedModel: _uMod } = await _apiFetch(apiMsgs, false, false);
       if (!_r || !_r.ok) {
         let em = `API 错误 (${_r ? _r.status : '无响应'})`;
         try { const j = await _r.json(); em = j.error?.message || em; } catch(_) {}
@@ -2446,12 +2447,12 @@ export async function sendMessage() {
       typing.classList.remove('show');
       const aiMsg = await addMessage('assistant', reply);
       await appendMsgDOM(aiMsg);
-      try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, data.model || settings.model || ''); } catch(_e) {}
+      try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, _uMod || data.model || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(reply, aiMsg.id);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
 
     } else {
-      const _r = await _apiFetch(apiMsgs, false, true);
+      const { response: _r, usedModel: _uMod } = await _apiFetch(apiMsgs, false, true);
       if (!_r || !_r.ok) {
         let em = `API 错误 (${_r ? _r.status : '无响应'})`;
         try { const j = await _r.json(); em = j.error?.message || em; } catch(_) {}
@@ -2508,7 +2509,7 @@ export async function sendMessage() {
       if (idx >= 0) messages[idx].content = fullText;
       try { await updateMessage(aiMsg.id, fullText); } catch(_e) {}
       try { if (fullText) { linkifyEl(bubbleEl, fullText); window.applyStickerTags?.(bubbleEl); } } catch(_e) {}
-      try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, settings.model || ''); } catch(_e) {}
+      try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, _uMod || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(fullText, aiMsg.id);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
     }
