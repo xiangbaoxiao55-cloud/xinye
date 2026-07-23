@@ -2242,6 +2242,7 @@ export async function sendMessage() {
             }
             return;
           }
+          let _loopFinalMsg = null, _loopFinalUsage = null;
           for (let _tr = 1; _tr < 4; _tr++) {
             _trimLoopMsgs();
             const _r2 = await _apiFetch(loopMsgs, true, false);
@@ -2269,17 +2270,24 @@ export async function sendMessage() {
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
               }
-            } else { break; }
+            } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; break; }
           }
-          _trimLoopMsgs();
-          const _rf = await _apiFetch(loopMsgs, false, false);
-          if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
-          const _df = await _rf.json();
-          const _mf = _df.choices?.[0]?.message;
-          const _thkF = _mf?.reasoning_content || _mf?.thinking || '';
-          let finalText = _mf?.content || (_thkF ? '' : '（没有收到回复）');
-          if (_thkF) finalText = `<thinking>${_thkF}</thinking>\n${finalText}`;
-          await _showNonStream(finalText, loopMsgs, _df.usage);
+          if (_loopFinalMsg?.content) {
+            const _thkL = _loopFinalMsg.reasoning_content || _loopFinalMsg.thinking || '';
+            let finalText = _loopFinalMsg.content || '';
+            if (_thkL) finalText = `<thinking>${_thkL}</thinking>\n${finalText}`;
+            await _showNonStream(finalText, loopMsgs, _loopFinalUsage);
+          } else {
+            _trimLoopMsgs();
+            const _rf = await _apiFetch(loopMsgs, false, false);
+            if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
+            const _df = await _rf.json();
+            const _mf = _df.choices?.[0]?.message;
+            const _thkF = _mf?.reasoning_content || _mf?.thinking || '';
+            let finalText = _mf?.content || (_thkF ? '' : '（没有收到回复）');
+            if (_thkF) finalText = `<thinking>${_thkF}</thinking>\n${finalText}`;
+            await _showNonStream(finalText, loopMsgs, _df.usage);
+          }
         }
       } else {
         const _r1 = await _apiFetch(loopMsgs, true, true);
