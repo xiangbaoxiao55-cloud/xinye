@@ -629,30 +629,26 @@ function truncate(s, n) {
 async function exportToGallery(card) {
   if (!card.imageData) { toast('没有图片可导出', 'warn'); return; }
   try {
-    const img = new Image();
-    img.src = card.imageData;
-    await img.decode();
-    const max = 300, ratio = Math.min(max / img.width, max / img.height, 1);
-    const cv = document.createElement('canvas');
-    cv.width = img.width * ratio; cv.height = img.height * ratio;
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    const thumbnail = cv.toDataURL('image/jpeg', 0.6);
-
     const db = await new Promise((res, rej) => {
-      const req = indexedDB.open('GalleryDB', 2);
+      const req = indexedDB.open('DrawDB', 4);
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
       req.onupgradeneeded = e => {
         const d = e.target.result;
-        if (!d.objectStoreNames.contains('images')) d.createObjectStore('images', { keyPath: 'id' });
-        if (!d.objectStoreNames.contains('tags')) d.createObjectStore('tags', { keyPath: 'id' });
-        if (!d.objectStoreNames.contains('drawMeta')) d.createObjectStore('drawMeta', { keyPath: 'drawId' });
+        if (!d.objectStoreNames.contains('gallery')) {
+          const s = d.createObjectStore('gallery', { keyPath: 'id' });
+          s.createIndex('byPersona', 'personaId', { unique: false });
+          s.createIndex('byRating', 'rating', { unique: false });
+          s.createIndex('byDate', 'createdAt', { unique: false });
+        }
       };
     });
-    const tx = db.transaction('images', 'readwrite');
-    tx.objectStore('images').put({
-      id: uid(), imageData: card.imageData, thumbnail,
-      note: card.prompt || '', tags: [], favorite: false, createdAt: Date.now()
+    const tx = db.transaction('gallery', 'readwrite');
+    tx.objectStore('gallery').put({
+      id: uid(), personaId: null, personaName: null,
+      imageData: card.imageData, prompt: card.prompt || '', negPrompt: '',
+      params: { size: card.size || '' }, rating: 0, tags: [],
+      createdAt: Date.now()
     });
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
     db.close();
