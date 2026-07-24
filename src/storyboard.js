@@ -535,6 +535,7 @@ function renderCardIdle(el, card) {
           ${SB_SIZES.map(s => `<option value="${s.v}"${card.size === s.v ? ' selected' : ''}>${s.l}</option>`).join('')}
         </select>
         <select class="p-preset">${presetOpts || '<option value="">无预设</option>'}</select>
+        <label class="p-count-label">张<input type="number" class="p-count" min="1" max="8" value="${card.count || 1}"></label>
         <button class="sb-card-gen">生成 ▶</button>
         ${card.imageData ? '<button class="sb-card-cancel">取消</button>' : ''}
       </div>
@@ -552,6 +553,10 @@ function renderCardIdle(el, card) {
   el.querySelector('.p-size').addEventListener('change', e => {
     card.size = e.target.value;
     scheduleSave();
+  });
+  el.querySelector('.p-count').addEventListener('change', e => {
+    card.count = Math.max(1, Math.min(8, parseInt(e.target.value) || 1));
+    e.target.value = card.count;
   });
 
   el.querySelector('.sb-card-gen').addEventListener('click', () => doGenerate(card, el));
@@ -711,57 +716,102 @@ async function doGenerate(card, el) {
   const editedNeg = card.negPrompt;
   const editedSize = card.size;
   const editedRefs = normalizeRefs(card);
+  const count = Math.max(1, Math.min(8, parseInt(el.querySelector('.p-count')?.value) || card.count || 1));
 
   if (card.imageData) {
     delete card._editingPrompt;
     card.status = 'done';
     renderCardUpdate(card, el);
 
-    const newCard = {
-      id: uid(), projectId: S.projectId, type: 'generate',
-      x: card.x + (card.width || 280) + 20, y: card.y,
-      width: card.width || 280, prompt: editedPrompt, negPrompt: editedNeg || '',
-      size: editedSize || S.defaultSize, imageData: null, status: 'generating',
-      refImageData: editedRefs.length ? [...editedRefs] : undefined, createdAt: Date.now(),
-    };
-    S.cards.push(newCard);
-    renderCard(newCard);
+    const newCards = [];
+    for (let i = 0; i < count; i++) {
+      const nc = {
+        id: uid(), projectId: S.projectId, type: 'generate',
+        x: card.x + ((card.width || 280) + 20) * (i + 1), y: card.y,
+        width: card.width || 280, prompt: editedPrompt, negPrompt: editedNeg || '',
+        size: editedSize || S.defaultSize, imageData: null, status: 'generating',
+        refImageData: editedRefs.length ? [...editedRefs] : undefined, createdAt: Date.now(),
+      };
+      S.cards.push(nc);
+      renderCard(nc);
+      newCards.push(nc);
+    }
     scheduleSave();
 
-    const newEl = document.querySelector(`.sb-card[data-id="${newCard.id}"]`);
-    try {
-      const imageData = await drawWithFallback(editedPrompt, editedNeg, editedSize, presetId, editedRefs);
-      newCard.imageData = imageData;
-      newCard.status = 'done';
-      renderCardUpdate(newCard, newEl);
-      dlImg(imageData);
-      toast('生成完成 ✨');
-      scheduleSave();
-    } catch (err) {
-      newCard.status = 'idle';
-      renderCardUpdate(newCard, newEl);
-      toast(err.message, 'error');
-    }
+    await Promise.allSettled(newCards.map(async nc => {
+      const ncEl = document.querySelector(`.sb-card[data-id="${nc.id}"]`);
+      try {
+        const imageData = await drawWithFallback(editedPrompt, editedNeg, editedSize, presetId, editedRefs);
+        nc.imageData = imageData;
+        nc.status = 'done';
+        renderCardUpdate(nc, ncEl);
+        dlImg(imageData);
+      } catch (err) {
+        nc.status = 'idle';
+        renderCardUpdate(nc, ncEl);
+        toast(err.message, 'error');
+      }
+    }));
+    toast(`生成完成 ✨ (${newCards.filter(c => c.status === 'done').length}/${count})`);
+    scheduleSave();
     return;
   }
 
   card.prompt = editedPrompt;
   delete card._editingPrompt;
-  card.status = 'generating';
-  el = renderCardUpdate(card, el);
 
-  try {
-    const imageData = await drawWithFallback(editedPrompt, card.negPrompt, card.size, presetId, editedRefs);
-    card.imageData = imageData;
-    card.status = 'done';
-    renderCardUpdate(card, el);
-    dlImg(imageData);
-    toast('生成完成 ✨');
+  if (count <= 1) {
+    card.status = 'generating';
+    el = renderCardUpdate(card, el);
+    try {
+      const imageData = await drawWithFallback(editedPrompt, card.negPrompt, card.size, presetId, editedRefs);
+      card.imageData = imageData;
+      card.status = 'done';
+      renderCardUpdate(card, el);
+      dlImg(imageData);
+      toast('生成完成 ✨');
+      scheduleSave();
+    } catch (err) {
+      card.status = 'idle';
+      renderCardUpdate(card, el);
+      toast(err.message, 'error');
+    }
+  } else {
+    card.status = 'generating';
+    el = renderCardUpdate(card, el);
+    const extraCards = [];
+    for (let i = 1; i < count; i++) {
+      const nc = {
+        id: uid(), projectId: S.projectId, type: 'generate',
+        x: card.x + ((card.width || 280) + 20) * i, y: card.y,
+        width: card.width || 280, prompt: editedPrompt, negPrompt: editedNeg || '',
+        size: editedSize || S.defaultSize, imageData: null, status: 'generating',
+        refImageData: editedRefs.length ? [...editedRefs] : undefined, createdAt: Date.now(),
+      };
+      S.cards.push(nc);
+      renderCard(nc);
+      extraCards.push(nc);
+    }
     scheduleSave();
-  } catch (err) {
-    card.status = 'idle';
-    renderCardUpdate(card, el);
-    toast(err.message, 'error');
+
+    const allCards = [card, ...extraCards];
+    await Promise.allSettled(allCards.map(async (c, i) => {
+      const cEl = i === 0 ? el : document.querySelector(`.sb-card[data-id="${c.id}"]`);
+      try {
+        const imageData = await drawWithFallback(editedPrompt, editedNeg, editedSize, presetId, editedRefs);
+        c.imageData = imageData;
+        c.status = 'done';
+        renderCardUpdate(c, cEl);
+        dlImg(imageData);
+      } catch (err) {
+        c.status = 'idle';
+        renderCardUpdate(c, cEl);
+        toast(err.message, 'error');
+      }
+    }));
+    toast(`生成完成 ✨ (${allCards.filter(c => c.status === 'done').length}/${count})`);
+    scheduleSave();
+  }
   }
 }
 
