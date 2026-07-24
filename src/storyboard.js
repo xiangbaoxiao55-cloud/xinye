@@ -854,7 +854,6 @@ async function doGenerate(card, el) {
     toast(`生成完成 ✨ (${allCards.filter(c => c.status === 'done').length}/${count})`);
     scheduleSave();
   }
-  }
 }
 
 function renderCardUpdate(card, el) {
