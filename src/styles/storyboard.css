@@ -158,6 +158,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;cursor:pointer;
 }
 .sb-card-info-prompt:hover{color:var(--text)}
+.sb-card-export{
+  background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;
+  opacity:.6;transition:opacity .15s;
+}
+.sb-card-export:hover{opacity:1}
 
 /* Card: text type */
 .sb-card-text textarea{

@@ -42,16 +42,22 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 /* ===== Search bar ===== */
 .search-bar{
   overflow:hidden;max-height:0;transition:max-height .3s ease,padding .3s ease;
-  padding:0 14px;background:var(--bg);
+  padding:0 14px;background:var(--bg);display:flex;gap:8px;align-items:center;
 }
 .search-bar.show{max-height:60px;padding:8px 14px 10px}
 .search-input{
-  width:100%;height:40px;border-radius:20px;border:1.5px solid var(--border);
+  flex:1;height:40px;border-radius:20px;border:1.5px solid var(--border);
   background:var(--card);padding:0 16px;font-size:14px;color:var(--text);
   outline:none;transition:border-color .2s;
 }
 .search-input::placeholder{color:var(--text-light)}
 .search-input:focus{border-color:var(--pink)}
+.month-filter{
+  height:40px;border-radius:20px;border:1.5px solid var(--border);
+  background:var(--card);padding:0 12px;font-size:13px;color:var(--text);
+  outline:none;cursor:pointer;white-space:nowrap;
+}
+.month-filter:focus{border-color:var(--pink)}
 
 /* ===== Tag bar ===== */
 .tag-bar{
@@ -315,6 +321,7 @@ html.dark{
 html.dark body{background:var(--bg)}
 html.dark .header{background:rgba(30,15,20,.85)}
 html.dark .search-input{background:var(--bg2);border-color:var(--border)}
+html.dark .month-filter{background:var(--bg2);border-color:var(--border)}
 html.dark .tag-tab{background:var(--bg2);border-color:var(--border);color:var(--text-mid)}
 html.dark .tag-tab.active{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
 html.dark .g-card{background:var(--card)}
@@ -351,6 +358,9 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
   <!-- Search -->
   <div class="search-bar" id="searchBar">
     <input class="search-input" id="searchInput" type="text" placeholder="搜索 prompt 关键词..." oninput="onSearchInput()">
+    <select class="month-filter" id="monthFilter" onchange="onMonthFilter()">
+      <option value="">全部时间</option>
+    </select>
   </div>
 
   <!-- Tag bar -->
@@ -447,6 +457,7 @@ let _displayImages = [];
 let _shownCount = 0;
 let _currentTag = 'all'; // 'all' | 'fav' | tagId
 let _searchQuery = '';
+let _monthFilter = ''; // 'YYYY-MM' or ''
 let _searchTimer = null;
 let _lbIndex = -1;
 let _importFiles = [];
@@ -680,6 +691,13 @@ function filterImages() {
   } else if (_currentTag !== 'all') {
     list = list.filter(i => (i.tags || []).includes(_currentTag));
   }
+  if (_monthFilter) {
+    list = list.filter(i => {
+      const d = new Date(i.createdAt);
+      const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      return ym === _monthFilter;
+    });
+  }
   if (_searchQuery) {
     const q = _searchQuery.toLowerCase();
     list = list.filter(i => {
@@ -725,22 +743,33 @@ function fileToDataUrl(f) {
   });
 }
 
-// Thumbnail cache
+// Thumbnail cache (LRU-ish, max 200)
 const _thumbCache = new Map();
+const THUMB_CACHE_MAX = 200;
+function thumbCacheSet(id, val) {
+  if (_thumbCache.size >= THUMB_CACHE_MAX) {
+    const first = _thumbCache.keys().next().value;
+    _thumbCache.delete(first);
+  }
+  _thumbCache.set(id, val);
+}
 async function getThumbUrl(item) {
   if (item.source === 'imported') return item.thumbnail || item.imageData;
-  if (_thumbCache.has(item.id)) return _thumbCache.get(item.id);
+  if (_thumbCache.has(item.id)) {
+    const v = _thumbCache.get(item.id);
+    _thumbCache.delete(item.id); _thumbCache.set(item.id, v);
+    return v;
+  }
   let data;
   if (item.source === 'draw') data = await loadDrawImageData(item.id);
   else if (item.source === 'chat') data = await loadChatImageData(item.chatMsgId);
   if (!data) return '';
-  // For http URLs (rare), use directly
   if (typeof data === 'string' && data.startsWith('http')) {
-    _thumbCache.set(item.id, data);
+    thumbCacheSet(item.id, data);
     return data;
   }
   const thumb = await resizeImage(data, THUMB_SIZE, THUMB_QUALITY);
-  _thumbCache.set(item.id, thumb);
+  thumbCacheSet(item.id, thumb);
   return thumb;
 }
 
@@ -968,24 +997,37 @@ function loadNextPage() {
   lazyLoadThumbs();
 }
 
-// Lazy thumbnails
-let _thumbObserver;
+// Lazy thumbnails + recycling
+let _thumbObserver, _recycleObserver;
 function lazyLoadThumbs() {
   if (!_thumbObserver) {
     _thumbObserver = new IntersectionObserver(entries => {
       entries.forEach(en => {
+        const img = en.target;
         if (en.isIntersecting) {
-          const img = en.target;
           if (img.src && img.src !== location.href) return;
           const item = _allImages.find(i => i.id === img.dataset.id);
           if (item) getThumbUrl(item).then(u => { if (u) img.src = u; });
-          _thumbObserver.unobserve(img);
         }
       });
-    }, { rootMargin: '200px' });
+    }, { root: document.getElementById('gridWrap'), rootMargin: '300px' });
+  }
+  if (!_recycleObserver) {
+    _recycleObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) {
+          const img = en.target;
+          if (img.src && img.src !== location.href) {
+            img.removeAttribute('src');
+            _thumbCache.delete(img.dataset.id);
+          }
+        }
+      });
+    }, { root: document.getElementById('gridWrap'), rootMargin: '1500px' });
   }
   document.querySelectorAll('.g-card img[data-id]').forEach(img => {
-    if (!img.src || img.src === location.href) _thumbObserver.observe(img);
+    _thumbObserver.observe(img);
+    _recycleObserver.observe(img);
   });
 }
 
@@ -1181,7 +1223,8 @@ function toggleSearch() {
     document.getElementById('searchInput').focus();
   } else {
     document.getElementById('searchInput').value = '';
-    _searchQuery = ''; filterImages(); renderGrid();
+    document.getElementById('monthFilter').value = '';
+    _searchQuery = ''; _monthFilter = ''; filterImages(); renderGrid();
   }
 }
 function onSearchInput() {
@@ -1190,6 +1233,24 @@ function onSearchInput() {
     _searchQuery = document.getElementById('searchInput').value.trim();
     filterImages(); renderGrid();
   }, 300);
+}
+function onMonthFilter() {
+  _monthFilter = document.getElementById('monthFilter').value;
+  filterImages(); renderGrid();
+}
+function buildMonthOptions() {
+  const months = new Set();
+  for (const img of _allImages) {
+    const d = new Date(img.createdAt);
+    months.add(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+  const sorted = [...months].sort().reverse();
+  const sel = document.getElementById('monthFilter');
+  sel.innerHTML = '<option value="">全部时间</option>' +
+    sorted.map(m => {
+      const [y, mo] = m.split('-');
+      return `<option value="${m}"${m === _monthFilter ? ' selected' : ''}>${y}年${parseInt(mo)}月</option>`;
+    }).join('');
 }
 
 // ================================
@@ -1434,6 +1495,7 @@ document.getElementById('gridWrap').addEventListener('scroll', function() {
 async function init() {
   try { _gdb = await openGalleryDB(); } catch(e) { console.error('GalleryDB:', e); }
   await loadAllImages();
+  buildMonthOptions();
   filterImages(); renderGrid(); await renderTagBar();
 }
 init();
