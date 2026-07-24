@@ -1302,7 +1302,7 @@ function _rollInspireDice(){
   const comp=r(INSPIRE_COMPOSITIONS);
   const style=CONCEPT_STYLE_LOCK[scene]?r(CONCEPT_STYLE_LOCK[scene]):r(INSPIRE_STYLES);
   const tension=r(INSPIRE_TENSIONS);
-  return `我想看：${scene} × ${comp} × ${style} × ${tension}——帮我构思一下`;
+  return `我想看：${scene} × ${comp} × ${style} × ${tension}——刚摇骰子摇出来的组合，你觉得怎么样👀`;
 }
 
 function miniMd(t){
