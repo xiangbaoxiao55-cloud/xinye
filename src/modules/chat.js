@@ -2564,8 +2564,8 @@ export async function regenerateLastAI() {
 
   if (!aiMsg.versions) {
     const presets = getApiPresets();
-    const curPreset = presets[settings.apiPresetIndex || 0];
-    aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: curPreset?.name || settings.model || '' }];
+    const _matchPreset = presets.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model);
+    aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: _matchPreset?.name || settings.model || '' }];
     aiMsg.activeVersion = 0;
   }
 
@@ -2598,8 +2598,8 @@ export async function regenerateLastAI() {
     apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
 
     const presets = getApiPresets();
-    const curPreset = presets[settings.apiPresetIndex || 0];
-    const presetName = curPreset?.name || settings.model || '';
+    const _curMatch = presets.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model);
+    const presetName = _curMatch?.name || settings.model || '';
 
     const bubbleEl = chatArea.querySelector(`.msg-row.ai:last-child .msg-bubble`) ||
       [...chatArea.querySelectorAll('.msg-row.ai')].pop()?.querySelector('.msg-bubble');
