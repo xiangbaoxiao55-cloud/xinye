@@ -2,7 +2,7 @@ import { toast, fallbackCopy, escHtml, fmtTime, nowStr, $ } from './utils.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
-import { getApiPresets, getImagePresets, getImageCurPresetIdx } from './api.js';
+import { getApiPresets, getImagePresets, getImageCurPresetIdx, mainApiFetch } from './api.js';
 import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
@@ -26,6 +26,26 @@ const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns
 let editingId = -1;
 const _tokenLogs = new Map();
 const _openPanels = new Set();
+
+// ======================== 消息版本 ========================
+function getMsgActiveContent(msg) {
+  if (msg.versions && msg.versions.length > 0) {
+    const idx = msg.activeVersion ?? 0;
+    return msg.versions[idx]?.content ?? msg.content;
+  }
+  return msg.content;
+}
+
+function _versionSwitcherHtml(msg, isLast) {
+  if (!msg.versions || msg.versions.length <= 1) {
+    if (!isLast) return '';
+    return `<button class="btn-regen" data-id="${msg.id}" title="重新生成">🔄</button>`;
+  }
+  const idx = msg.activeVersion ?? 0;
+  const total = msg.versions.length;
+  const label = msg.versions[idx]?.presetName || '';
+  return `<div class="version-switcher" data-id="${msg.id}"><button class="ver-prev" data-id="${msg.id}" ${idx === 0 ? 'disabled' : ''}>◀</button><span class="ver-info">${idx + 1}/${total}${label ? ' · ' + escHtml(label) : ''}</span><button class="ver-next" data-id="${msg.id}" ${idx >= total - 1 ? 'disabled' : ''}>▶</button>${isLast ? '<button class="btn-regen" data-id="' + msg.id + '" title="重新生成">🔄</button>' : ''}</div>`;
+}
 
 // ======================== 粘性预设切换（5分钟自动恢复） ========================
 let _stickyPresetIdx = 0;
@@ -272,6 +292,7 @@ export async function renderMessages() {
   const usAv = await (typeof window.getEffectiveUserAvatar === 'function' ? window.getEffectiveUserAvatar() : getUserAvatar());
   const limit = settings.displayLimit || 0;
   const displayMsgs = limit > 0 ? messages.slice(-limit) : messages;
+  const _lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
   for (const msg of displayMsgs) {
     const row = document.createElement('div');
     const isUser = msg.role === 'user';
@@ -316,10 +337,12 @@ export async function renderMessages() {
         <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
         <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn}</div>
+        ${!isUser && !msg.isGenImage && !msg.isFortuneCard && !msg.isEmailCard ? _versionSwitcherHtml(msg, msg === _lastAiMsg) : ''}
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
     const _isEmailRender = msg.isEmailCard || msg.content?.startsWith('[✉️');
-    if (!isUser && msg.content && !msg.isGenImage && !_isEmailRender) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); }
+    const _activeContent = getMsgActiveContent(msg);
+    if (!isUser && _activeContent && !msg.isGenImage && !_isEmailRender) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent); }
     if (msg.content && !msg.isGenImage && !_stickerName && !_isEmailRender) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
@@ -398,10 +421,12 @@ export async function appendMsgDOM(msg) {
       <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn2}</div>
+      ${!isUser && !msg.isGenImage && !msg.isFortuneCard && !msg.isEmailCard ? _versionSwitcherHtml(msg, true) : ''}
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
   const _isEmailRender2 = msg.isEmailCard || msg.content?.startsWith('[✉️');
-  if (!isUser && msg.content && !msg.isGenImage && !_isEmailRender2) { linkifyEl(row.querySelector('.msg-bubble'), msg.content); }
+  const _activeContent2 = getMsgActiveContent(msg);
+  if (!isUser && _activeContent2 && !msg.isGenImage && !_isEmailRender2) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent2); }
   if (msg.content && !msg.isGenImage && !_sn && !_isEmailRender2) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
   chatArea.appendChild(row);
   scrollBottom();
@@ -579,6 +604,12 @@ chatArea.addEventListener('click', async e => {
     if (msg && msg.content) playTTS(msg.content, ttsBtn, id);
     return;
   }
+  const regenMsgBtn = e.target.closest('.btn-regen');
+  if (regenMsgBtn) { regenerateLastAI(); return; }
+  const verPrev = e.target.closest('.ver-prev');
+  if (verPrev) { switchVersion(Number(verPrev.dataset.id), 'prev'); return; }
+  const verNext = e.target.closest('.ver-next');
+  if (verNext) { switchVersion(Number(verNext.dataset.id), 'next'); return; }
   const editBtn = e.target.closest('.msg-edit-btn');
   if (editBtn) {
     editingId = Number(editBtn.dataset.id);
@@ -1063,7 +1094,7 @@ export async function sendMessage() {
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'send_email', arguments: JSON.stringify({ subject: _emailSubj, content: _emailBody }) } }] });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[✉️ 邮件已发送到兔宝的QQ邮箱\n主题：${_emailSubj}\n正文：${_emailBody}]` });
         } else {
-          apiMsgs.push({ role, content: m.content });
+          apiMsgs.push({ role, content: getMsgActiveContent(m) });
         }
       }
       _apiMeta.push({ label: role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也'), time: m.time });
@@ -2522,6 +2553,177 @@ export async function sendMessage() {
   }
 }
 
+// ======================== 重新生成最后一条AI回复 ========================
+export async function regenerateLastAI() {
+  if (window.isRequesting) return;
+  const lastAiIdx = [...messages].reverse().findIndex(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+  if (lastAiIdx < 0) return;
+  const aiMsg = messages[messages.length - 1 - lastAiIdx];
+  if (!aiMsg) return;
+  if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
+
+  if (!aiMsg.versions) {
+    const presets = getApiPresets();
+    const curPreset = presets[settings.apiPresetIndex || 0];
+    aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: curPreset?.name || settings.model || '' }];
+    aiMsg.activeVersion = 0;
+  }
+
+  window.isRequesting = true;
+  window._requestingAt = Date.now();
+  btnSend.disabled = true;
+  typing.classList.add('show');
+
+  try {
+    const apiMsgs = [];
+    const { stable: _stbl, dynamic: _dyn } = await getMemoryContextBlocks();
+    if (settings.systemPrompt?.trim()) _stbl.push(settings.systemPrompt.trim());
+    if (_stbl.length) apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stbl.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
+    if (_dyn.length) apiMsgs.push({ role: 'system', content: _dyn.join('\n\n---\n\n') });
+
+    const n = Math.max(1, settings.contextCount || 20);
+    const recent = messages.slice(-n);
+    for (const m of recent) {
+      if (m.id === aiMsg.id) break;
+      const role = m.role === 'user' ? 'user' : 'assistant';
+      const isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
+      if (isGenImg) {
+        const fakeId = `img_${m.id}`;
+        apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: fakeId, type: 'function', function: { name: 'generate_image', arguments: '{}' } }] });
+        apiMsgs.push({ role: 'tool', tool_call_id: fakeId, content: '[图已展示]' });
+      } else {
+        apiMsgs.push({ role, content: getMsgActiveContent(m) });
+      }
+    }
+    apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
+
+    const presets = getApiPresets();
+    const curPreset = presets[settings.apiPresetIndex || 0];
+    const presetName = curPreset?.name || settings.model || '';
+
+    const bubbleEl = chatArea.querySelector(`.msg-row.ai:last-child .msg-bubble`) ||
+      [...chatArea.querySelectorAll('.msg-row.ai')].pop()?.querySelector('.msg-bubble');
+
+    const res = await mainApiFetch({ stream: !!settings.streamMode, messages: apiMsgs, temperature: 0.8, ...(settings.maxTokens ? { max_tokens: settings.maxTokens } : {}) });
+    if (!res?.ok) {
+      let em = `API 错误 (${res ? res.status : '无响应'})`;
+      try { const j = await res.json(); em = j.error?.message || em; } catch(_) {}
+      throw new Error(em);
+    }
+
+    typing.classList.remove('show');
+    let fullText = '', thinkText = '';
+    const _fmt = res.__apiFormat || 'openai';
+
+    if (settings.streamMode && res.body) {
+      if (bubbleEl) bubbleEl.textContent = '...';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', _evtType = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n'); buffer = lines.pop() || '';
+          for (const line of lines) {
+            const t = line.trim();
+            if (_fmt === 'anthropic') {
+              if (t.startsWith('event: ')) { _evtType = t.slice(7).trim(); continue; }
+              if (!t.startsWith('data: ')) continue;
+              const ev = parseAnthropicEvent(_evtType, t.slice(6));
+              _evtType = '';
+              if (ev?.thinking) { thinkText += ev.thinking; if (bubbleEl) { bubbleEl.textContent = '💭 思考中...'; } }
+              if (ev?.content) { fullText += ev.content; if (bubbleEl) { bubbleEl.textContent = fullText; scrollBottom(); } }
+            } else {
+              if (!t.startsWith('data: ') || t === 'data: [DONE]') continue;
+              try {
+                const chunk = JSON.parse(t.slice(6));
+                const delta = chunk.choices?.[0]?.delta;
+                if (delta?.reasoning_content || delta?.thinking) { thinkText += delta.reasoning_content || delta.thinking; if (bubbleEl) { bubbleEl.textContent = '💭 思考中...'; } }
+                if (delta?.content) { fullText += delta.content; if (bubbleEl) { bubbleEl.textContent = fullText; scrollBottom(); } }
+              } catch(_) {}
+            }
+          }
+        }
+      } catch(_) { if (fullText) fullText += '\n✂️ （传输中断）'; }
+    } else {
+      const data = await res.json();
+      const msg0 = data.choices?.[0]?.message;
+      thinkText = msg0?.reasoning_content || msg0?.thinking || '';
+      fullText = msg0?.content || '';
+    }
+
+    if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
+    if (!fullText.trim()) fullText = '（没有收到回复）';
+
+    aiMsg.versions.push({ content: fullText, time: Date.now(), presetName });
+    aiMsg.activeVersion = aiMsg.versions.length - 1;
+    aiMsg.content = fullText;
+    await dbPut(activeStore(), null, aiMsg);
+    window.scheduleAutoSave?.();
+
+    if (bubbleEl) {
+      linkifyEl(bubbleEl, fullText);
+      window.applyStickerTags?.(bubbleEl);
+    }
+    _updateVersionSwitcherDOM(aiMsg);
+    scrollBottom();
+  } catch(err) {
+    typing.classList.remove('show');
+    toast(`重新生成失败：${err.message}`);
+  } finally {
+    window.isRequesting = false;
+    window.updateSendBtn?.();
+  }
+}
+
+function _updateVersionSwitcherDOM(msg) {
+  const rows = chatArea.querySelectorAll('.msg-row.ai');
+  const row = [...rows].reverse().find(r => {
+    const delBtn = r.querySelector('.msg-del-btn');
+    return delBtn && Number(delBtn.dataset.id) === msg.id;
+  });
+  if (!row) return;
+  const existing = row.querySelector('.version-switcher, .btn-regen');
+  if (existing) existing.remove();
+  const timeEl = row.querySelector('.msg-time');
+  if (timeEl) {
+    const html = _versionSwitcherHtml(msg, true);
+    if (html) timeEl.insertAdjacentHTML('afterend', html);
+  }
+}
+
+export function switchVersion(msgId, direction) {
+  const msg = messages.find(m => m.id === msgId);
+  if (!msg || !msg.versions || msg.versions.length <= 1) return;
+  const cur = msg.activeVersion ?? 0;
+  const next = direction === 'prev' ? cur - 1 : cur + 1;
+  if (next < 0 || next >= msg.versions.length) return;
+  msg.activeVersion = next;
+  msg.content = msg.versions[next].content;
+  dbPut(activeStore(), null, msg);
+  window.scheduleAutoSave?.();
+
+  const rows = chatArea.querySelectorAll('.msg-row.ai');
+  const row = [...rows].find(r => {
+    const delBtn = r.querySelector('.msg-del-btn');
+    return delBtn && Number(delBtn.dataset.id) === msgId;
+  });
+  if (!row) return;
+  const bubble = row.querySelector('.msg-bubble');
+  if (bubble) {
+    bubble.textContent = '';
+    linkifyEl(bubble, msg.versions[next].content);
+    window.applyStickerTags?.(bubble);
+  }
+  const isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+  const sw = row.querySelector('.version-switcher, .btn-regen');
+  if (sw) sw.remove();
+  const timeEl = row.querySelector('.msg-time');
+  if (timeEl) timeEl.insertAdjacentHTML('afterend', _versionSwitcherHtml(msg, isLast));
+}
+
 export async function triggerProactiveReply(instruction, maxTokens = 200) {
   if (window.isRequesting) return null;
   const typing = document.querySelector('#typingIndicator');
@@ -2545,7 +2747,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
         apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: fakeId, type: 'function', function: { name: 'generate_image', arguments: '{"prompt":"","ref_characters":"both"}' } }] });
         apiMsgs.push({ role: 'tool', tool_call_id: fakeId, content: '[图已展示]' });
       } else {
-        apiMsgs.push({ role, content: m.content || '' });
+        apiMsgs.push({ role, content: getMsgActiveContent(m) || '' });
       }
     }
 

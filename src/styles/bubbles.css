@@ -200,3 +200,34 @@
 .typing-dots span:nth-child(2){animation-delay:.2s}
 .typing-dots span:nth-child(3){animation-delay:.4s}
 @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* ---- 版本切换器 + 重新生成 ---- */
+.version-switcher{
+  display:flex;align-items:center;gap:4px;margin-top:3px;
+  font-size:11px;color:var(--text-light);
+}
+.version-switcher .ver-prev,
+.version-switcher .ver-next{
+  border:none;background:rgba(255,255,255,.7);cursor:pointer;
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--text);transition:all .15s;
+  box-shadow:0 1px 3px rgba(0,0,0,.1);
+}
+.version-switcher .ver-prev:disabled,
+.version-switcher .ver-next:disabled{opacity:.3;cursor:default}
+.version-switcher .ver-prev:not(:disabled):active,
+.version-switcher .ver-next:not(:disabled):active{background:var(--pink);color:#fff}
+.ver-info{padding:0 4px;font-size:11px;opacity:.85}
+.btn-regen{
+  border:none;background:rgba(255,255,255,.7);cursor:pointer;
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;margin-left:4px;margin-top:3px;
+  box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .15s;
+}
+.btn-regen:active{background:var(--pink);transform:rotate(180deg)}
+.version-switcher .btn-regen{margin-top:0}
+[data-theme="dark"] .version-switcher .ver-prev,
+[data-theme="dark"] .version-switcher .ver-next,
+[data-theme="dark"] .btn-regen{background:rgba(46,28,58,.6);color:var(--text-light)}
