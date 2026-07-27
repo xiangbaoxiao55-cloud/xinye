@@ -375,14 +375,18 @@ async function _callGenerations(preset,prompt,negPrompt,size,n){
     console.log(`[${ts()}] 异步模式，跳过直连走本地代理`);
     const h={'Content-Type':'application/json','X-Real-Target':targetUrl,'X-Real-Key':key,'X-Async-Mode':'true'};
     r=await fetch(`${S.localServer}/api/llm-proxy`,{method:'POST',headers:h,body:JSON.stringify(body),signal:_ac.signal});
-  }else{
-    try{r=await fetch(targetUrl,opts)}catch(e){
-      if(!S.localServer) throw e;
-      console.log(`[${ts()}] generations 直连失败(${e.message})，走本地代理重试`);
+  }else if(S.localServer){
+    // 有本地代理就优先走代理（server-to-server，绕过CF连接超时），代理挂了再降级直连
+    try{
       const h={...opts.headers,'X-Real-Target':targetUrl,'X-Real-Key':key};
       delete h['Authorization'];
       r=await fetch(`${S.localServer}/api/llm-proxy`,{...opts,headers:h});
+    }catch(e){
+      console.log(`[${ts()}] generations 代理不可达(${e.message})，降级直连`);
+      r=await fetch(targetUrl,opts);
     }
+  }else{
+    r=await fetch(targetUrl,opts);
   }
   clearTimeout(_at);
   if(isAsync&&r.status===202){
