@@ -1933,7 +1933,7 @@ export async function sendMessage() {
                   _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
                 }
               }
-              return { response: _res, usedModel: cfg.model, usedPresetName: _allCfgs[pi]?.name || '' };
+              return { response: _res, usedModel: cfg.model, usedPresetName: _allCfgs[pi]?.name || _fbPresetList.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model)?.name || '' };
             }
           } catch(fe) {
             if (fe.name === 'AbortError') { toast('请求超时…'); _res = null; }
