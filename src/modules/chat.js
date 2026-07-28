@@ -38,8 +38,10 @@ function getMsgActiveContent(msg) {
 
 function _versionSwitcherHtml(msg, isLast) {
   if (!msg.versions || msg.versions.length <= 1) {
-    if (!isLast) return '';
-    return `<button class="btn-regen" data-id="${msg.id}" title="重新生成">🔄</button>`;
+    const _label = (msg.versions?.[0]?.presetName || msg.presetName || '');
+    const _labelHtml = _label ? `<span class="ver-info single"> · ${escHtml(_label)}</span>` : '';
+    if (!isLast) return _labelHtml;
+    return `${_labelHtml}<button class="btn-regen" data-id="${msg.id}" title="重新生成">🔄</button>`;
   }
   const idx = msg.activeVersion ?? 0;
   const total = msg.versions.length;
@@ -2118,7 +2120,7 @@ export async function sendMessage() {
         return { content: _content, think: _think, tool_calls: _tcs.length ? _tcs : null, aiMsg: _aiMsg, bubbleEl: _bubbleEl, usage: _streamUsage2 };
       }
 
-      async function _finalizeMsg(parsed, loopMsgs, usedModel) {
+      async function _finalizeMsg(parsed, loopMsgs, usedModel, usedPresetName) {
         let finalText = parsed.content || (parsed.think ? '' : '（没有收到回复）');
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
@@ -2127,6 +2129,7 @@ export async function sendMessage() {
           if (!finalText.trim()) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext(); return; }
           typing.classList.remove('show');
           const aiMsg = await addMessage('assistant', finalText);
+          if (usedPresetName) { aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, aiMsg); }
           await appendMsgDOM(aiMsg);
           try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, aiMsg.id);
@@ -2134,8 +2137,10 @@ export async function sendMessage() {
           if (!finalText.trim() && !parsed.think) finalText = '（没有收到回复）';
           if (parsed.think) parsed.bubbleEl.textContent = finalText;
           const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
-          if (idx >= 0) messages[idx].content = finalText;
-          try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
+          if (idx >= 0) { messages[idx].content = finalText; if (usedPresetName) messages[idx].presetName = usedPresetName; }
+          if (usedPresetName) { parsed.aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, { ...parsed.aiMsg, content: finalText }); } else {
+            try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
+          }
           try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
           try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
           window.maybeTTS?.(finalText, parsed.aiMsg.id);
@@ -2144,11 +2149,12 @@ export async function sendMessage() {
       }
 
       if (!settings.streamMode) {
-        async function _showNonStream(text, msgList, usage, usedModel) {
+        async function _showNonStream(text, msgList, usage, usedModel, usedPresetName) {
           text = await parseAndSaveSelfMemories(text);
           if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', text);
+          if (usedPresetName) { _nm.presetName = usedPresetName; await dbPut(activeStore(), null, _nm); }
           await appendMsgDOM(_nm);
           const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
           try { linkifyEl(_nb, text); window.applyStickerTags?.(_nb); } catch(_e) {}
@@ -2156,7 +2162,7 @@ export async function sendMessage() {
           window.maybeTTS?.(text, _nm.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         }
-        const { response: _r1, usedModel: _uMod1 } = await _apiFetch(loopMsgs, true, false);
+        const { response: _r1, usedModel: _uMod1, usedPresetName: _uPre1 } = await _apiFetch(loopMsgs, true, false);
         if (!_r1 || !_r1.ok) {
           let em = `API 错误 (${_r1 ? _r1.status : '无响应'})`;
           try { const j = await _r1.json(); em = j.error?.message || em; } catch(_) {}
@@ -2182,7 +2188,7 @@ export async function sendMessage() {
           const _thk1 = _m1?.reasoning_content || _m1?.thinking || '';
           let reply = _m1?.content || (_thk1 ? '' : '（没有收到回复）');
           if (_thk1) reply = `<thinking>${_thk1}</thinking>\n${reply}`;
-          await _showNonStream(reply, loopMsgs, _d1.usage, _uMod1);
+          await _showNonStream(reply, loopMsgs, _d1.usage, _uMod1, _uPre1);
         } else {
           loopMsgs.push({ role: 'assistant', content: _m1.content || null, tool_calls: _m1.tool_calls });
           if (_m1.tool_calls.every(tc => tc.function.name === 'generate_image')) {
@@ -2233,13 +2239,13 @@ export async function sendMessage() {
               const _speakContent = window._speakText || _m1.content || '';
               window._speakText = '';
               if (_speakContent) {
-                await _showNonStream(_speakContent, loopMsgs, _d1.usage, _uMod1);
+                await _showNonStream(_speakContent, loopMsgs, _d1.usage, _uMod1, _uPre1);
               } else {
-                const { response: _rSpeak, usedModel: _uModSpeak } = await _apiFetch(loopMsgs, false, false);
+                const { response: _rSpeak, usedModel: _uModSpeak, usedPresetName: _uPreSpeak } = await _apiFetch(loopMsgs, false, false);
                 if (_rSpeak && _rSpeak.ok) {
                   const _dSpeak = await _rSpeak.json();
                   const _mSpeak = _dSpeak.choices?.[0]?.message;
-                  if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage, _uModSpeak);
+                  if (_mSpeak?.content) await _showNonStream(_mSpeak.content, loopMsgs, _dSpeak.usage, _uModSpeak, _uPreSpeak);
                 }
               }
             }
@@ -2273,10 +2279,10 @@ export async function sendMessage() {
             }
             return;
           }
-          let _loopFinalMsg = null, _loopFinalUsage = null, _loopFinalModel = '';
+          let _loopFinalMsg = null, _loopFinalUsage = null, _loopFinalModel = '', _loopFinalPreset = '';
           for (let _tr = 1; _tr < 4; _tr++) {
             _trimLoopMsgs();
-            const { response: _r2, usedModel: _uMod2 } = await _apiFetch(loopMsgs, true, false);
+            const { response: _r2, usedModel: _uMod2, usedPresetName: _uPre2 } = await _apiFetch(loopMsgs, true, false);
             if (!_r2 || !_r2.ok) break;
             const _d2 = await _r2.json();
             const _m2 = _d2.choices?.[0]?.message;
@@ -2301,27 +2307,27 @@ export async function sendMessage() {
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
               }
-            } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; _loopFinalModel = _uMod2; break; }
+            } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; _loopFinalModel = _uMod2; _loopFinalPreset = _uPre2; break; }
           }
           if (_loopFinalMsg?.content) {
             const _thkL = _loopFinalMsg.reasoning_content || _loopFinalMsg.thinking || '';
             let finalText = _loopFinalMsg.content || '';
             if (_thkL) finalText = `<thinking>${_thkL}</thinking>\n${finalText}`;
-            await _showNonStream(finalText, loopMsgs, _loopFinalUsage, _loopFinalModel);
+            await _showNonStream(finalText, loopMsgs, _loopFinalUsage, _loopFinalModel, _loopFinalPreset);
           } else {
             _trimLoopMsgs();
-            const { response: _rf, usedModel: _uModF } = await _apiFetch(loopMsgs, false, false);
+            const { response: _rf, usedModel: _uModF, usedPresetName: _uPreF } = await _apiFetch(loopMsgs, false, false);
             if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
             const _df = await _rf.json();
             const _mf = _df.choices?.[0]?.message;
             const _thkF = _mf?.reasoning_content || _mf?.thinking || '';
             let finalText = _mf?.content || (_thkF ? '' : '（没有收到回复）');
             if (_thkF) finalText = `<thinking>${_thkF}</thinking>\n${finalText}`;
-            await _showNonStream(finalText, loopMsgs, _df.usage, _uModF);
+            await _showNonStream(finalText, loopMsgs, _df.usage, _uModF, _uPreF);
           }
         }
       } else {
-        const { response: _r1, usedModel: _uMod1 } = await _apiFetch(loopMsgs, true, true);
+        const { response: _r1, usedModel: _uMod1, usedPresetName: _uPre1 } = await _apiFetch(loopMsgs, true, true);
         if (!_r1 || !_r1.ok) {
           let em = `API 错误 (${_r1 ? _r1.status : '无响应'})`;
           try { const j = await _r1.json(); em = j.error?.message || em; } catch(_) {}
@@ -2329,7 +2335,7 @@ export async function sendMessage() {
         }
         let parsed = await _liveStream(_r1);
         if (!parsed.tool_calls) {
-          await _finalizeMsg(parsed, loopMsgs, _uMod1); return;
+          await _finalizeMsg(parsed, loopMsgs, _uMod1, _uPre1); return;
         }
         const _onlyImgTool = parsed.tool_calls.every(tc => tc.name === 'generate_image');
         if (parsed.aiMsg && parsed.content) {
@@ -2384,12 +2390,12 @@ export async function sendMessage() {
             window._speakText = '';
             if (_speakContent) {
               const _fakeMsg = { content: _speakContent, think: parsed.think, aiMsg: parsed.aiMsg, bubbleEl: parsed.bubbleEl, usage: parsed.usage };
-              await _finalizeMsg(_fakeMsg, loopMsgs, _uMod1);
+              await _finalizeMsg(_fakeMsg, loopMsgs, _uMod1, _uPre1);
             } else {
-              const { response: _rSpeak, usedModel: _uModSpeak } = await _apiFetch(loopMsgs, false, true);
+              const { response: _rSpeak, usedModel: _uModSpeak, usedPresetName: _uPreSpeak } = await _apiFetch(loopMsgs, false, true);
               if (_rSpeak && _rSpeak.ok) {
                 const _pSpeak = await _liveStream(_rSpeak);
-                await _finalizeMsg(_pSpeak, loopMsgs, _uModSpeak);
+                await _finalizeMsg(_pSpeak, loopMsgs, _uModSpeak, _uPreSpeak);
               }
             }
           }
@@ -2424,10 +2430,10 @@ export async function sendMessage() {
           }
           return;
         }
-        let _m2FinalContent = null, _loopFinalModel2 = '';
+        let _m2FinalContent = null, _loopFinalModel2 = '', _loopFinalPreset2 = '';
         for (let _tr = 1; _tr < 4; _tr++) {
           _trimLoopMsgs();
-          const { response: _r2, usedModel: _uMod2 } = await _apiFetch(loopMsgs, true, false);
+          const { response: _r2, usedModel: _uMod2, usedPresetName: _uPre2 } = await _apiFetch(loopMsgs, true, false);
           if (!_r2 || !_r2.ok) break;
           const _d2 = await _r2.json();
           const _m2 = _d2.choices?.[0]?.message;
@@ -2441,6 +2447,7 @@ export async function sendMessage() {
           } else {
             _m2FinalContent = _m2?.content || null;
             _loopFinalModel2 = _uMod2;
+            _loopFinalPreset2 = _uPre2;
             break;
           }
         }
@@ -2448,6 +2455,7 @@ export async function sendMessage() {
           let _ft = _m2FinalContent;
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', _ft);
+          if (_loopFinalPreset2) { _nm.presetName = _loopFinalPreset2; await dbPut(activeStore(), null, _nm); }
           await appendMsgDOM(_nm);
           const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
           try { linkifyEl(_nb, _ft); window.applyStickerTags?.(_nb); } catch(_e) {}
@@ -2456,15 +2464,15 @@ export async function sendMessage() {
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         } else {
           _trimLoopMsgs();
-          const { response: _rf, usedModel: _uModF } = await _apiFetch(loopMsgs, false, true);
+          const { response: _rf, usedModel: _uModF, usedPresetName: _uPreF } = await _apiFetch(loopMsgs, false, true);
           if (!_rf || !_rf.ok) { let em = `API 错误`; try { const j = await _rf.json(); em = j.error?.message || em; } catch(_) {} throw new Error(em); }
           const parsedFinal = await _liveStream(_rf);
-          await _finalizeMsg(parsedFinal, loopMsgs, _uModF);
+          await _finalizeMsg(parsedFinal, loopMsgs, _uModF, _uPreF);
         }
       }
 
     } else if (!settings.streamMode) {
-      const { response: _r, usedModel: _uMod } = await _apiFetch(apiMsgs, false, false);
+      const { response: _r, usedModel: _uMod, usedPresetName: _uPre } = await _apiFetch(apiMsgs, false, false);
       if (!_r || !_r.ok) {
         let em = `API 错误 (${_r ? _r.status : '无响应'})`;
         try { const j = await _r.json(); em = j.error?.message || em; } catch(_) {}
@@ -2477,13 +2485,15 @@ export async function sendMessage() {
       if (thinking) reply = `<thinking>${thinking}</thinking>\n${reply}`;
       typing.classList.remove('show');
       const aiMsg = await addMessage('assistant', reply);
+      aiMsg.presetName = _uPre || '';
+      await dbPut(activeStore(), null, aiMsg);
       await appendMsgDOM(aiMsg);
       try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, _uMod || data.model || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(reply, aiMsg.id);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
 
     } else {
-      const { response: _r, usedModel: _uMod } = await _apiFetch(apiMsgs, false, true);
+      const { response: _r, usedModel: _uMod, usedPresetName: _uPre } = await _apiFetch(apiMsgs, false, true);
       if (!_r || !_r.ok) {
         let em = `API 错误 (${_r ? _r.status : '无响应'})`;
         try { const j = await _r.json(); em = j.error?.message || em; } catch(_) {}
@@ -2537,8 +2547,10 @@ export async function sendMessage() {
       }
       if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
       const idx = messages.findIndex(m => m.id === aiMsg.id);
-      if (idx >= 0) messages[idx].content = fullText;
+      if (idx >= 0) { messages[idx].content = fullText; messages[idx].presetName = _uPre || ''; }
+      aiMsg.presetName = _uPre || '';
       try { await updateMessage(aiMsg.id, fullText); } catch(_e) {}
+      try { if (_uPre) await dbPut(activeStore(), null, { ...aiMsg, content: fullText }); } catch(_e) {}
       try { if (fullText) { linkifyEl(bubbleEl, fullText); window.applyStickerTags?.(bubbleEl); } } catch(_e) {}
       try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, _uMod || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(fullText, aiMsg.id);
@@ -2563,11 +2575,11 @@ export async function regenerateLastAI() {
   if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
 
   if (!aiMsg.versions) {
-    // 用 token log 里的 model 反查预设名（本次启动内有效），找不到则留空
-    const _origModel = _tokenLogs.get(String(aiMsg.id))?.model || '';
-    const _origPresetName = _origModel
-      ? (getApiPresets().find(p => p.model === _origModel)?.name || _origModel)
-      : '';
+    // 优先从持久化的 presetName 读，降级到 token log 反查（本次启动内有效）
+    const _origPresetName = aiMsg.presetName || (() => {
+      const _m = _tokenLogs.get(String(aiMsg.id))?.model || '';
+      return _m ? (getApiPresets().find(p => p.model === _m)?.name || _m) : '';
+    })();
     aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: _origPresetName }];
     aiMsg.activeVersion = 0;
   }
@@ -2688,8 +2700,7 @@ function _updateVersionSwitcherDOM(msg) {
     return delBtn && Number(delBtn.dataset.id) === msg.id;
   });
   if (!row) return;
-  const existing = row.querySelector('.version-switcher, .btn-regen');
-  if (existing) existing.remove();
+  row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
   const timeEl = row.querySelector('.msg-time');
   if (timeEl) {
     const html = _versionSwitcherHtml(msg, true);
@@ -2721,8 +2732,7 @@ export function switchVersion(msgId, direction) {
     window.applyStickerTags?.(bubble);
   }
   const isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
-  const sw = row.querySelector('.version-switcher, .btn-regen');
-  if (sw) sw.remove();
+  row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
   const timeEl = row.querySelector('.msg-time');
   if (timeEl) timeEl.insertAdjacentHTML('afterend', _versionSwitcherHtml(msg, isLast));
 }

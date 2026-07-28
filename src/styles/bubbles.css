@@ -219,6 +219,7 @@
 .version-switcher .ver-prev:not(:disabled):active,
 .version-switcher .ver-next:not(:disabled):active{background:var(--pink);color:#fff}
 .ver-info{padding:0 4px;font-size:11px;opacity:.85}
+.ver-info.single{vertical-align:middle;margin-top:3px;display:inline-block}
 .btn-regen{
   border:none;background:rgba(255,255,255,.7);cursor:pointer;
   width:22px;height:22px;border-radius:50%;
