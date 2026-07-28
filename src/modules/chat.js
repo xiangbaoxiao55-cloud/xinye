@@ -2563,9 +2563,12 @@ export async function regenerateLastAI() {
   if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
 
   if (!aiMsg.versions) {
-    const presets = getApiPresets();
-    const _matchPreset = presets.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model);
-    aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: _matchPreset?.name || settings.model || '' }];
+    // 用 token log 里的 model 反查预设名（本次启动内有效），找不到则留空
+    const _origModel = _tokenLogs.get(String(aiMsg.id))?.model || '';
+    const _origPresetName = _origModel
+      ? (getApiPresets().find(p => p.model === _origModel)?.name || _origModel)
+      : '';
+    aiMsg.versions = [{ content: aiMsg.content, time: aiMsg.time, presetName: _origPresetName }];
     aiMsg.activeVersion = 0;
   }
 
