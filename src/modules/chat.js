@@ -2138,7 +2138,7 @@ export async function sendMessage() {
           if (parsed.think) parsed.bubbleEl.textContent = finalText;
           const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
           if (idx >= 0) { messages[idx].content = finalText; if (usedPresetName) messages[idx].presetName = usedPresetName; }
-          if (usedPresetName) { parsed.aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, { ...parsed.aiMsg, content: finalText }); } else {
+          if (usedPresetName) { parsed.aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, { ...parsed.aiMsg, content: finalText }); _updateVersionSwitcherDOM(parsed.aiMsg); } else {
             try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
           }
           try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
@@ -2551,6 +2551,7 @@ export async function sendMessage() {
       aiMsg.presetName = _uPre || '';
       try { await updateMessage(aiMsg.id, fullText); } catch(_e) {}
       try { if (_uPre) await dbPut(activeStore(), null, { ...aiMsg, content: fullText }); } catch(_e) {}
+      if (_uPre) _updateVersionSwitcherDOM(aiMsg);
       try { if (fullText) { linkifyEl(bubbleEl, fullText); window.applyStickerTags?.(bubbleEl); } } catch(_e) {}
       try { saveTokenLog(aiMsg.id, apiMsgs, fullText, _streamUsage, _apiMeta, _uMod || settings.model || ''); } catch(_e) {}
       window.maybeTTS?.(fullText, aiMsg.id);
@@ -2703,7 +2704,8 @@ function _updateVersionSwitcherDOM(msg) {
   row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
   const timeEl = row.querySelector('.msg-time');
   if (timeEl) {
-    const html = _versionSwitcherHtml(msg, true);
+    const _isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+    const html = _versionSwitcherHtml(msg, _isLast);
     if (html) timeEl.insertAdjacentHTML('afterend', html);
   }
 }
