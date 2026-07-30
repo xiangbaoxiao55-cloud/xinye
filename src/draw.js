@@ -503,9 +503,25 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   const isAsync=!!preset.asyncMode;
   console.log(`[${ts()}] → edits | ${preset.name} | ${size} | refs=${refB64s.length} | n=${n} | async=${isAsync} | ${url}/images/edits\n         prompt: ${prompt.slice(0,80)}`);
   const fd=new FormData();
-  for(let i=0;i<refB64s.length;i++){
-    const blob=await fetch(refB64s[i]).then(r=>r.blob());
-    fd.append('image[]',blob,`ref${i}.png`);
+  if(preset.singleImage && refB64s.length>1){
+    // 多图横向拼成一张（等比缩放到同一高度）
+    const imgs=await Promise.all(refB64s.map(b=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=b;})));
+    const h=512;
+    const totalW=imgs.reduce((s,i)=>s+Math.round(i.width*h/i.height),0);
+    const cv=document.createElement('canvas');cv.width=totalW;cv.height=h;
+    const ctx=cv.getContext('2d');
+    let x=0;
+    for(const img of imgs){const w=Math.round(img.width*h/img.height);ctx.drawImage(img,x,0,w,h);x+=w;}
+    const blob=await new Promise(res=>cv.toBlob(res,'image/png'));
+    fd.append('image',blob,'ref.png');
+  }else if(preset.singleImage){
+    const blob=await fetch(refB64s[0]).then(r=>r.blob());
+    fd.append('image',blob,'ref0.png');
+  }else{
+    for(let i=0;i<refB64s.length;i++){
+      const blob=await fetch(refB64s[i]).then(r=>r.blob());
+      fd.append('image[]',blob,`ref${i}.png`);
+    }
   }
   fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
@@ -1929,6 +1945,13 @@ function _buildPresetCard(preset,isActive,type){
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
         <input type="checkbox" data-f="asyncMode" ${preset.asyncMode?'checked':''} style="width:auto;flex:none">
         异步出图（适合65535.space等长耗时站子，提交后轮询结果）
+      </label>
+    </div>
+    <div class="preset-row" style="gap:8px;align-items:center">
+      <label style="min-width:40px;text-align:right">拼图</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
+        <input type="checkbox" data-f="singleImage" ${preset.singleImage?'checked':''} style="width:auto;flex:none">
+        多参考图拼成一张传入（适合只支持单张image字段的站子，如小鸡）
       </label>
     </div>`:''}
     <div class="preset-body-actions">
