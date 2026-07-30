@@ -1553,13 +1553,30 @@ export async function sendMessage() {
           const _imgFmt = _pCfg?.apiFormat || settings.imageApiFormat || 'images';
           const _genEp = _imgFmt === 'nvidia' ? _imgRaw : (/\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`);
           const _editsUrl = (() => { const _b = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`; return `${_b}/images/edits`; })();
-          const _buildEditsForm = (mdl) => {
+          const _buildEditsForm = async (mdl) => {
             const _form = new FormData();
             _form.append('model', mdl);
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', args.size || settings.imageSize || '1024x1024');
-            _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
+            if (_pCfg?.singleImage && _compressedRefs.length > 1) {
+              const _imgs = await Promise.all(_compressedRefs.map(b => new Promise((res, rej) => {
+                const _i = new Image(); _i.onload = () => res(_i); _i.onerror = rej; _i.src = b;
+              })));
+              const _h = 512, _cv = document.createElement('canvas');
+              let _x = 0;
+              const _widths = _imgs.map(_i => Math.round(_i.width * _h / _i.height));
+              _cv.width = _widths.reduce((a, b) => a + b, 0); _cv.height = _h;
+              const _ctx = _cv.getContext('2d');
+              _imgs.forEach((_i, _idx) => { _ctx.drawImage(_i, _x, 0, _widths[_idx], _h); _x += _widths[_idx]; });
+              const _blob = await new Promise(res => _cv.toBlob(res, 'image/png'));
+              _form.append('image', _blob, 'ref.png');
+            } else if (_pCfg?.singleImage) {
+              const _blob = await fetch(_compressedRefs[0]).then(r => r.blob());
+              _form.append('image', _blob, 'ref0.png');
+            } else {
+              _compressedRefs.forEach((img, i) => _form.append('image[]', window.base64ToFile(img, `ref${i}.jpg`)));
+            }
             return _form;
           };
           const _doEdits = async () => {
@@ -1575,7 +1592,7 @@ export async function sendMessage() {
                 let _proxyHttpErr = false;
                 try {
                   _r = await fetch(`${_localUrl}/api/proxy-image-edits`, {
-                    method: 'POST', headers: _eh, body: _buildEditsForm(_imgModel), signal: _c.signal
+                    method: 'POST', headers: _eh, body: await _buildEditsForm(_imgModel), signal: _c.signal
                   });
                   if (!_r.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_r.status}`); }
                 } catch(proxyErr) {
@@ -1583,10 +1600,10 @@ export async function sendMessage() {
                   if (_proxyHttpErr) throw proxyErr;
                   const _isCld = !!(settings.imageProxyUrl || '').trim();
                   if (!_isCld) throw proxyErr;
-                  _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(_imgModel), signal: _c.signal });
+                  _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: await _buildEditsForm(_imgModel), signal: _c.signal });
                 }
               } else {
-                _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: _buildEditsForm(_imgModel), signal: _c.signal });
+                _r = await fetch(_editsUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${_imgKey}` }, body: await _buildEditsForm(_imgModel), signal: _c.signal });
               }
               clearTimeout(_t);
               _r._elapsed = Date.now() - _start;

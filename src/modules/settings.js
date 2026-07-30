@@ -392,6 +392,10 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
       <input type="checkbox" data-f="skip" ${p.skip ? 'checked' : ''} style="width:auto">
       跳过自动轮询（保留但失败时不尝试此预设）
     </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:2px 0">
+      <input type="checkbox" data-f="singleImage" ${p.singleImage ? 'checked' : ''} style="width:auto">
+      拼图模式（多张参考图横向拼成一张，适配不支持多图的站子）
+    </label>
     <div style="display:flex;gap:8px;margin-top:4px;padding-bottom:4px">
       <button data-a="save" style="flex:1;padding:6px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm,8px);cursor:pointer;font-size:12px">保存</button>
       <button data-a="use" style="flex:1;padding:6px;background:var(--apricot-deep);color:var(--text);border:none;border-radius:var(--radius-sm,8px);cursor:pointer;font-size:12px">保存并切换</button>

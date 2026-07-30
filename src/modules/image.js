@@ -174,11 +174,28 @@ export async function generateImage(userDesc, opts = {}) {
         if (hasRef) {
           const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
           const editsEndpoint = `${baseRaw}/images/edits`;
-          const _makeEditsForm = () => {
+          const _makeEditsForm = async () => {
             const f = new FormData();
             f.append('model', imgModel); f.append('prompt', prompt);
             f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
-            refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
+            if (_preset?.singleImage && refImgs.length > 1) {
+              const _imgs = await Promise.all(refImgs.map(b => new Promise((res, rej) => {
+                const _i = new Image(); _i.onload = () => res(_i); _i.onerror = rej; _i.src = b;
+              })));
+              const _h = 512, _cv = document.createElement('canvas');
+              let _x = 0;
+              const _widths = _imgs.map(_i => Math.round(_i.width * _h / _i.height));
+              _cv.width = _widths.reduce((a, b) => a + b, 0); _cv.height = _h;
+              const _ctx = _cv.getContext('2d');
+              _imgs.forEach((_i, _idx) => { _ctx.drawImage(_i, _x, 0, _widths[_idx], _h); _x += _widths[_idx]; });
+              const _blob = await new Promise(res => _cv.toBlob(res, 'image/png'));
+              f.append('image', _blob, 'ref.png');
+            } else if (_preset?.singleImage) {
+              const _blob = await fetch(refImgs[0]).then(r => r.blob());
+              f.append('image', _blob, 'ref0.png');
+            } else {
+              refImgs.forEach((img, i) => f.append('image[]', base64ToFile(img, `ref${i}.png`)));
+            }
             return f;
           };
           if (localUrl) {
@@ -187,7 +204,7 @@ export async function generateImage(userDesc, opts = {}) {
             let _proxyHttpErr = false;
             try {
               const _pR = await fetch(`${localUrl}/api/proxy-image-edits`, {
-                method: 'POST', headers: _editsH, body: _makeEditsForm(), signal: ctrl.signal
+                method: 'POST', headers: _editsH, body: await _makeEditsForm(), signal: ctrl.signal
               });
               if (!_pR.ok) { _proxyHttpErr = true; throw new Error(`proxy ${_pR.status}`); }
               imgRes = _pR;
@@ -198,20 +215,14 @@ export async function generateImage(userDesc, opts = {}) {
               if (!_isCloudProxy) throw new Error('代理连不上（手机不在家庭网络）\n手机垫图请在设置→画图代理地址填 cpolar 地址');
               imgRes = await fetch(editsEndpoint, {
                 method: 'POST', headers: { 'Authorization': `Bearer ${imgKey}` },
-                body: _makeEditsForm(), signal: ctrl.signal
+                body: await _makeEditsForm(), signal: ctrl.signal
               });
             }
           } else {
-            const form = new FormData();
-            form.append('model', imgModel);
-            form.append('prompt', prompt);
-            form.append('n', '1');
-            form.append('size', settings.imageSize || '1024x1024');
-            refImgs.forEach((img, i) => form.append('image[]', base64ToFile(img, `ref${i}.png`)));
             imgRes = await fetch(editsEndpoint, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${imgKey}` },
-              body: form,
+              body: await _makeEditsForm(),
               signal: ctrl.signal
             });
           }
