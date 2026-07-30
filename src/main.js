@@ -50,7 +50,10 @@ if('serviceWorker' in navigator){
       }
       // 炘也主动消息：页面已打开时直接刷新
       if (e.data && e.data.type === 'PUSH_MESSAGE') {
-        window._consumePushInbox?.();
+        const _targetApp = e.data.appId || 'xinye';
+        if (_targetApp === (window.__APP_ID__ || 'xinye')) {
+          window._consumePushInbox?.();
+        }
       }
     });
   });
@@ -389,7 +392,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.07.30-2340';
+  if (_verEl) _verEl.textContent = 'v2026.07.31-0040';
 
   await openDB();
   await migrateFromLocalStorage();

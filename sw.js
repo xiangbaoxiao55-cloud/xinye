@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260730-2340';
+const CACHE_NAME = 'xinye-20260731-0040';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -131,7 +131,7 @@ async function _handlePush(data) {
 
   // 如果页面已打开，通知它立刻刷新
   const clients = await self.clients.matchAll({ type: 'window' });
-  clients.forEach(c => c.postMessage({ type: 'PUSH_MESSAGE', content: data.content }));
+  clients.forEach(c => c.postMessage({ type: 'PUSH_MESSAGE', content: data.content, appId: data.appId || 'xinye' }));
 
   return self.registration.showNotification('炘也', {
     body: data.content,
