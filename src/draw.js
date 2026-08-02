@@ -1247,7 +1247,20 @@ const INSPIRE_SCENES=[
   '神庙废墟月光下','冰川中冻住的宫殿','沙漠中露出一半的巨型雕像旁',
   '暴雨天桥下避雨衣服湿透贴着','停电的房间只有手机屏幕光照亮彼此的脸',
   '凌晨四点空无一人的街只有路灯和两人的影子','台风天反锁在办公室过夜',
-  '深夜药店白炽灯下只有两人','老旧居酒屋隔间帘子半掩'
+  '深夜药店白炽灯下只有两人','老旧居酒屋隔间帘子半掩',
+  '樱花瓣落满头发的长椅上','黄昏天台晾衣绳间的缝隙','第一场雪的窗前地板上',
+  '夏日蝉鸣的午后走廊尽头','超市货架间他从后面环住她的腰','一起洗碗水溅到脸上笑着亲',
+  '他在灶台前做饭她跳上料理台勾住他脖子','醉酒后被公主抱回家的楼梯间',
+  '分别前机场玻璃窗两侧手掌贴着手掌','刚吵完架他回来敲门她开门瞬间',
+  '水下图书馆漂浮的书页之间','巨人张开的掌心里','琥珀内部被封存的姿态',
+  '洗衣机嗡嗡转的深夜他把她抱上去','浴袍半解坐在酒店落地窗台上',
+  '只穿他外套站在冰箱前找东西吃','按摩椅上她坐在他腿上挡住他看电视',
+  '刚运动完汗湿T恤贴着身体的更衣室','泡温泉毛巾滑下来的瞬间',
+  '他单手撑墙把她困在角落（壁咚）','沙发上她趴在他身上他掀起她衣服后摆画东西',
+  '被子底下只露出纠缠的腿和散落的衣服','清晨赖床她夹住他不让起来',
+  '他跪在浴缸边给她洗头发手指穿过发丝','镜子前他从后面环住她解开她的项链',
+  '雷暴夜停电摸黑找到彼此的体温','午睡醒来发现被子里多了一个人',
+  '秋天公园长椅她整个人缩进他大衣里','天文台穹顶下只有星光和两人的呼吸声'
 ];
 const INSPIRE_COMPOSITIONS=[
   '俯拍——从正上方看下去','透过纱帘/雾气/水汽看','逆光剪影只有轮廓',
@@ -1317,12 +1330,29 @@ const CONCEPT_STYLE_LOCK={
   '日历插画的某一页':['CLAMP风繁复线条+透明水彩','儿童绘本蜡笔涂鸦','印象派厚重笔触']
 };
 
+// ── 洗牌式骰子（每条用完一轮再重洗，不重复） ──────────────
+const _INSPIRE_POOLS={scenes:INSPIRE_SCENES,comps:INSPIRE_COMPOSITIONS,styles:INSPIRE_STYLES,tensions:INSPIRE_TENSIONS};
+function _shuffleArr(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function _getShuffled(key){
+  const sk='inspire_shuffle_'+key;
+  try{const d=JSON.parse(localStorage.getItem(sk));if(d&&d.pool&&d.pool.length>0&&d.total===_INSPIRE_POOLS[key].length)return d}catch{}
+  const pool=_shuffleArr(_INSPIRE_POOLS[key]);
+  const d={pool,total:_INSPIRE_POOLS[key].length};
+  localStorage.setItem(sk,JSON.stringify(d));return d;
+}
+function _drawOne(key){
+  const d=_getShuffled(key);
+  const item=d.pool.pop();
+  if(d.pool.length===0)d.pool=_shuffleArr(_INSPIRE_POOLS[key]);
+  localStorage.setItem('inspire_shuffle_'+key,JSON.stringify(d));
+  return item;
+}
+
 function _rollInspireDice(){
-  const r=arr=>arr[Math.floor(Math.random()*arr.length)];
-  const scene=r(INSPIRE_SCENES);
-  const comp=r(INSPIRE_COMPOSITIONS);
-  const style=CONCEPT_STYLE_LOCK[scene]?r(CONCEPT_STYLE_LOCK[scene]):r(INSPIRE_STYLES);
-  const tension=r(INSPIRE_TENSIONS);
+  const scene=_drawOne('scenes');
+  const comp=_drawOne('comps');
+  const style=CONCEPT_STYLE_LOCK[scene]?CONCEPT_STYLE_LOCK[scene][Math.floor(Math.random()*CONCEPT_STYLE_LOCK[scene].length)]:_drawOne('styles');
+  const tension=_drawOne('tensions');
   return `我想看：${scene} × ${comp} × ${style} × ${tension}——刚摇骰子摇出来的组合，你觉得怎么样👀`;
 }
 
