@@ -371,6 +371,12 @@ textarea:focus{border-color:var(--purple)}
 .btn-sm.btn-outline{border:1px solid var(--border);background:transparent;color:var(--text)}
 .btn-sm.btn-danger{background:var(--err);color:#fff}
 
+#btn-nsfw-toggle{
+  padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);cursor:pointer;
+  font-size:15px;background:transparent;transition:.15s;min-width:36px;
+}
+#btn-nsfw-toggle.active{border-color:#e57373;background:rgba(229,115,115,.12)}
+
 /* ── Modals ── */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;

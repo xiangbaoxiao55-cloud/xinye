@@ -1330,25 +1330,84 @@ const CONCEPT_STYLE_LOCK={
   '日历插画的某一页':['CLAMP风繁复线条+透明水彩','儿童绘本蜡笔涂鸦','印象派厚重笔触']
 };
 
+// ── 春宫模式池（四维：场景×体位×画风×氛围） ──────────────
+const NSFW_SCENES=[
+  '锦帐春宵红烛未灭','浴池水雾氤氲莲花浮','书斋案上笔墨散落','铜镜前妆台凌乱',
+  '竹榻午憩薄衾半覆','花船舱中水波轻晃','山间温泉岩壁遮蔽','月下庭院石榴树旁',
+  '绣楼闺房帷幔低垂','雨夜客栈烛火摇曳','春日桃林花瓣纷飞','秋千架上裙裾飘散',
+  '琴房屏风半掩','茶室矮几旁蒲团上','藏书阁梯上高处','画舫二层临水栏杆旁',
+  '佛堂后禅房内','雪夜火炉旁兽皮褥上','端午浴兰汤中','七夕乞巧楼上',
+  '马车厢内帘幕遮','深山道观丹房','戏台后更衣处','酒楼雅间屏风后',
+  '荷塘中央小舟','瀑布后石洞内','竹林深处石凳上','寺庙藏经阁角落',
+  '将军帐中铠甲半卸','闺中试新衣铜镜映双人','元宵灯会暗巷里','清晨被中赖床不起',
+  '他书房她不请自来反锁门','浴桶中水溢出地板','窗边月光洒在白玉般身上','芭蕉叶影透过窗纸'
+];
+const NSFW_POSES=[
+  '骑乘——她在上仰身','后入——伏案或趴枕','相对而坐缠绕','侧卧面对面交缠',
+  '她靠墙他抬起她一条腿','仰卧她双手被握住举过头','他跪地她坐高处俯视',
+  '从后环抱手探入衣内','她趴在他胸口他手抚背脊','坐在他腿上面对面额抵额',
+  '站立她背对他仰头靠他肩','她伏在案上他覆其上','悬腿坐桌沿他站立于前',
+  '浴中她背靠他胸两人同向','他单膝跪地吻她小腹','交颈拥吻手指纠缠',
+  '她蜷在他怀中被整个包裹','双手撑墙他从后贴近','他仰躺她俯身长发垂下遮住两人',
+  '椅上她坐他腿上背对他','她双腿环住他腰被托起','侧入她一腿被抬起架他肩上',
+  '他坐她跨坐面对手撑他肩','她趴着他沿脊椎一路吻下','两人侧卧他从后勾住她',
+  '她被抵在门板上双腿悬空','秋千上前后摇晃间','他坐禅椅她缓缓落座','她弯腰扶案他掀裙',
+  '水中浮力她轻盈环住他','相对跪坐她攀住他颈','他横抱她至榻上覆身而下',
+  '鸳鸯交颈式双人蜷缩如阴阳','她仰卧他跪于侧低头含吻','背对镜子从镜中看见自己的表情'
+];
+const NSFW_STYLES=[
+  '工笔白描纯线条','工笔淡彩——线条勾勒+浅绛赭石','仇英仿古设色','水墨渲染没骨法',
+  '春册页小品——团扇形制','明刊版画木刻线条','清宫秘戏图工笔重彩','唐寅风流雅士笔意',
+  '日本春画浮世绘变体','敦煌伎乐飞天感但世俗化','绢本淡墨只用墨色浓淡',
+  '金粉描边暗底宫廷风','双钩填彩工致','减笔写意逸品风','界画建筑+人物工笔',
+  '民国月份牌年画感','陈洪绑仕女画路线','改琦风纤细仕女','青绿山水中小人物点景',
+  '铜版蚀刻西洋春宫画','彩色铅笔细密素描','炭笔速写激烈粗线条'
+];
+const NSFW_MOODS=[
+  '薄纱滑落将脱未脱','酒醉微醺面若桃花','汗湿黏腻发丝贴颊','初试紧张轻咬下唇',
+  '事后餍足慵懒半阖眼','晨起迷蒙尚带夜痕','强忍声音手捂口','失控边缘颤抖弓背',
+  '温柔至极如捧瓷器','粗暴撕扯衣带散落一地','偷欢紧张怕被发现','久别重逢饥渴急切',
+  '醋意占有——不许你看别人','调教耐心——他教她如何','她主导按住他不许动',
+  '泪光盈盈但不是痛是太满','湿发贴面沐浴后的清洁和欲','冰与火——冰块滑过燥热的皮肤',
+  '梦中——分不清梦境与现实','窥视——帘缝中不该看到的','只解罗衫一半余韵犹在',
+  '蒙眼只剩触觉——不知下一处落在哪','他低头忍耐额角青筋','她反客为主将他推倒',
+  '咬痕红印——标记过的痕迹','束缚——红绳或衣带缠绕','指尖颤抖解对方最后一颗扣',
+  '镜中对视——从镜子里看自己沉沦的样子','花瓣散落身上像天然遮掩又不遮',
+  '墨痕/胭脂沾染白皙肌肤如画','对坐品茶假装无事脚在桌下纠缠','雨声掩盖一切声音'
+];
+
 // ── 洗牌式骰子（每条用完一轮再重洗，不重复） ──────────────
+let _inspireNsfwMode=false;
 const _INSPIRE_POOLS={scenes:INSPIRE_SCENES,comps:INSPIRE_COMPOSITIONS,styles:INSPIRE_STYLES,tensions:INSPIRE_TENSIONS};
+const _NSFW_POOLS={scenes:NSFW_SCENES,comps:NSFW_POSES,styles:NSFW_STYLES,tensions:NSFW_MOODS};
 function _shuffleArr(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function _getShuffled(key){
-  const sk='inspire_shuffle_'+key;
-  try{const d=JSON.parse(localStorage.getItem(sk));if(d&&d.pool&&d.pool.length>0&&d.total===_INSPIRE_POOLS[key].length)return d}catch{}
-  const pool=_shuffleArr(_INSPIRE_POOLS[key]);
-  const d={pool,total:_INSPIRE_POOLS[key].length};
+function _getShuffled(key,nsfw){
+  const prefix=nsfw?'nsfw_shuffle_':'inspire_shuffle_';
+  const pools=nsfw?_NSFW_POOLS:_INSPIRE_POOLS;
+  const sk=prefix+key;
+  try{const d=JSON.parse(localStorage.getItem(sk));if(d&&d.pool&&d.pool.length>0&&d.total===pools[key].length)return d}catch{}
+  const pool=_shuffleArr(pools[key]);
+  const d={pool,total:pools[key].length};
   localStorage.setItem(sk,JSON.stringify(d));return d;
 }
-function _drawOne(key){
-  const d=_getShuffled(key);
+function _drawOne(key,nsfw){
+  const pools=nsfw?_NSFW_POOLS:_INSPIRE_POOLS;
+  const prefix=nsfw?'nsfw_shuffle_':'inspire_shuffle_';
+  const d=_getShuffled(key,nsfw);
   const item=d.pool.pop();
-  if(d.pool.length===0)d.pool=_shuffleArr(_INSPIRE_POOLS[key]);
-  localStorage.setItem('inspire_shuffle_'+key,JSON.stringify(d));
+  if(d.pool.length===0)d.pool=_shuffleArr(pools[key]);
+  localStorage.setItem(prefix+key,JSON.stringify(d));
   return item;
 }
 
 function _rollInspireDice(){
+  if(_inspireNsfwMode){
+    const scene=_drawOne('scenes',true);
+    const pose=_drawOne('comps',true);
+    const style=_drawOne('styles',true);
+    const mood=_drawOne('tensions',true);
+    return `春宫：${scene} × ${pose} × ${style} × ${mood}——骰子摇出来的，你觉得怎么画👀`;
+  }
   const scene=_drawOne('scenes');
   const comp=_drawOne('comps');
   const style=CONCEPT_STYLE_LOCK[scene]?CONCEPT_STYLE_LOCK[scene][Math.floor(Math.random()*CONCEPT_STYLE_LOCK[scene].length)]:_drawOne('styles');
@@ -2665,7 +2724,14 @@ function bindEvents(){
     const input=document.getElementById('master-input');
     input.value=_rollInspireDice();
     input.focus();
-    toast('🎲 已填入，可编辑后发送');
+    toast(_inspireNsfwMode?'🔓 春宫骰子已填入':'🎲 已填入，可编辑后发送');
+  };
+  document.getElementById('btn-inspire-nsfw').onclick=()=>{
+    _inspireNsfwMode=!_inspireNsfwMode;
+    const btn=document.getElementById('btn-inspire-nsfw');
+    btn.textContent=_inspireNsfwMode?'🔓':'🔒';
+    btn.title=_inspireNsfwMode?'春宫模式 ON — 再点关闭':'点击开启春宫模式';
+    toast(_inspireNsfwMode?'🔓 春宫模式已开启':'🔒 已切回普通模式');
   };
   document.getElementById('master-input').onkeydown=e=>{
     if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('btn-master-send').click()}
