@@ -818,6 +818,17 @@
 
     <!-- ===== TAB: 其他 ===== -->
     <div class="settings-tabpane" id="tabpane-other">
+    <!-- ========== 通讯录 ========== -->
+    <div class="setting-divider">✉️ 通讯录（发邮件用）</div>
+    <div class="setting-group">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="newContactName" placeholder="名字（如：小明）" style="flex:1">
+        <input type="email" id="newContactEmail" placeholder="邮箱地址" style="flex:1.5">
+        <button class="btn-secondary" id="btnAddContact" style="white-space:nowrap">➕ 添加</button>
+      </div>
+      <div class="hint">炘也发信时说"给小明发封信"他会自动查这里找邮箱</div>
+      <div id="contactsList" style="margin-top:8px"></div>
+    </div>
     <!-- ========== 主动讲话 & 提醒 ========== -->
     <div class="setting-divider">⏰ 主动讲话 & 定时提醒</div>
     <div class="setting-group-row">

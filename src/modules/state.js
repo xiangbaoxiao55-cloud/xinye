@@ -36,6 +36,7 @@ export const settings = {
   moodState: null,
   memoryBank: null,
   bookmarks: [],
+  emailContacts: [],
 };
 
 export const messages = [];

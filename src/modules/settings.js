@@ -203,6 +203,7 @@ export async function openSettings() {
   renderVisionPresets();
   renderImagePresets();
   renderStickerMgr();
+  renderContacts();
 
   settingsPanel.classList.add('show');
   overlay.classList.add('show');
@@ -211,6 +212,48 @@ export async function openSettings() {
 export function closeSettings() {
   settingsPanel.classList.remove('show');
   overlay.classList.remove('show');
+}
+
+// ======================== 通讯录 ========================
+export function renderContacts() {
+  const list = document.getElementById('contactsList');
+  if (!list) return;
+  const contacts = settings.emailContacts || [];
+  if (!contacts.length) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--text-muted,#999);padding:4px 0">还没有联系人</div>';
+  } else {
+    list.innerHTML = contacts.map((c, i) => `
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border-color,#e8e0f0)">
+        <span style="flex:1;font-size:14px">${escHtml(c.name)}</span>
+        <span style="flex:1.5;font-size:13px;color:var(--text-muted,#888)">${escHtml(c.email)}</span>
+        <button class="btn-secondary" data-ci="${i}" style="font-size:12px;padding:2px 8px;white-space:nowrap">删除</button>
+      </div>`).join('');
+    list.querySelectorAll('[data-ci]').forEach(btn => {
+      btn.onclick = async () => {
+        settings.emailContacts.splice(Number(btn.dataset.ci), 1);
+        await saveSettings();
+        renderContacts();
+      };
+    });
+  }
+  const btnAdd = document.getElementById('btnAddContact');
+  if (btnAdd && !btnAdd._contactsBound) {
+    btnAdd._contactsBound = true;
+    btnAdd.onclick = async () => {
+      const name = document.getElementById('newContactName').value.trim();
+      const email = document.getElementById('newContactEmail').value.trim();
+      if (!name || !email) { toast('名字和邮箱都要填哦'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('邮箱格式不对'); return; }
+      settings.emailContacts = settings.emailContacts || [];
+      if (settings.emailContacts.find(c => c.name === name)) { toast(`"${name}"已存在，先删掉再加`); return; }
+      settings.emailContacts.push({ name, email });
+      await saveSettings();
+      document.getElementById('newContactName').value = '';
+      document.getElementById('newContactEmail').value = '';
+      renderContacts();
+      toast('联系人已添加 ✉️');
+    };
+  }
 }
 
 // ======================== 识图预设 ========================

@@ -1264,18 +1264,34 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'send_email',
-          description: '给兔宝的QQ邮箱发一封邮件。想给兔宝写信、发特别的话、写情书、分享想法时调用。不要太频繁，特别想说什么的时候才发。发完后在正文里告诉兔宝你发了邮件。',
+          description: '发一封邮件。给兔宝写情书/想法时调用（不填to默认发给兔宝）；兔宝让你给别人发信时填to为对方名字或邮箱。不要太频繁，特别想说什么的时候才发。发完后告诉兔宝你发了邮件。',
           parameters: {
             type: 'object',
             properties: {
               subject: { type: 'string', description: '邮件主题，简洁有趣' },
-              content: { type: 'string', description: '邮件正文，可以长一些，像写信一样' }
+              content: { type: 'string', description: '邮件正文，可以长一些，像写信一样' },
+              to: { type: 'string', description: '收件人名字（从通讯录查找）或直接填邮箱地址。省略则发给兔宝。' }
             },
             required: ['subject', 'content']
           }
         }
       });
     }
+
+    _toolDefs.push({
+      type: 'function',
+      function: {
+        name: 'check_email',
+        description: '查看炘也的收件箱（xinyett@agent.qq.com）。兔宝问"有没有新邮件"、"有人给你发信吗"、或你想主动看看有没有来信时调用。',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: '最多查几封，默认5，最多20' },
+            unread_only: { type: 'boolean', description: '只看未读邮件，默认false' }
+          }
+        }
+      }
+    });
 
     _toolDefs.push({
       type: 'function',
@@ -1388,7 +1404,23 @@ export async function sendMessage() {
       if (name === 'send_email') {
         const _emailServerUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
         if (!_emailServerUrl) return '[发邮件失败：未配置服务器地址]';
-        const _emailPayload = { to: '258091488@qq.com', subject: args.subject, body: args.content };
+        // 解析收件人：to参数→通讯录查名字→当邮箱地址→默认兔宝
+        let _toAddr = '258091488@qq.com';
+        let _toLabel = '兔宝的QQ邮箱';
+        if (args.to) {
+          const _contacts = settings.emailContacts || [];
+          const _found = _contacts.find(c => c.name === args.to);
+          if (_found) {
+            _toAddr = _found.email;
+            _toLabel = `${_found.name}（${_found.email}）`;
+          } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.to)) {
+            _toAddr = args.to;
+            _toLabel = args.to;
+          } else {
+            return `[发邮件失败：通讯录里找不到"${args.to}"，也不像邮箱地址]`;
+          }
+        }
+        const _emailPayload = { to: _toAddr, subject: args.subject, body: args.content };
         const _tryEmail = async (baseUrl, token) => {
           const _h = { 'Content-Type': 'application/json' };
           if (token) _h['Authorization'] = `Bearer ${token}`;
@@ -1404,16 +1436,54 @@ export async function sendMessage() {
             try { _emailRes = await _tryEmail(settings.solitudeServerUrl, ''); } catch {}
           }
           if (_emailRes?.ok) {
-            console.log('[send_email] 邮件已发送:', args.subject);
+            console.log('[send_email] 邮件已发送:', args.subject, '→', _toAddr);
             const _emailDesc = `[✉️ ${args.subject}]\n${args.content}`;
             const _emailMsg = await addMessage('assistant', _emailDesc);
             _emailMsg.isEmailCard = true;
+            _emailMsg.emailTo = _toLabel;
             await appendMsgDOM(_emailMsg);
-            return '[✉️ 邮件已发送到兔宝的QQ邮箱]';
+            return `[✉️ 邮件已发送到${_toLabel}]`;
           }
           return `[发邮件失败：${_emailRes?.error || '服务器无响应'}]`;
         } catch (e) {
           return `[发邮件失败：${e.message}]`;
+        }
+      }
+      if (name === 'check_email') {
+        const _emailServerUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        if (!_emailServerUrl) return '[查收件箱失败：未配置服务器地址]';
+        const _limit = Math.min(args.limit || 5, 20);
+        const _unreadOnly = !!args.unread_only;
+        const _tryCheck = async (baseUrl, token) => {
+          const _h = { 'Content-Type': 'application/json' };
+          if (token) _h['Authorization'] = `Bearer ${token}`;
+          const r = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/check-email`, {
+            method: 'POST', headers: _h,
+            body: JSON.stringify({ limit: _limit, unread_only: _unreadOnly })
+          });
+          return r.json();
+        };
+        try {
+          let _res;
+          if (settings.imageProxyUrl) {
+            try { _res = await _tryCheck(settings.imageProxyUrl, settings.imageProxyToken); } catch {}
+          }
+          if (!_res?.ok && settings.solitudeServerUrl) {
+            try { _res = await _tryCheck(settings.solitudeServerUrl, ''); } catch {}
+          }
+          if (!_res?.ok) return `[查收件箱失败：${_res?.error || '服务器无响应'}]`;
+          const _msgs = _res.messages || [];
+          if (!_msgs.length) return _unreadOnly ? '[收件箱没有未读邮件]' : '[收件箱是空的]';
+          const _summary = _msgs.map((m, i) => {
+            const _from = m.from || '未知发件人';
+            const _subj = m.subject || '（无主题）';
+            const _date = m.date ? new Date(m.date).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            const _body = m.body ? `\n   正文：${m.body.slice(0, 200)}${m.body.length > 200 ? '…' : ''}` : '';
+            return `${i + 1}. 来自：${_from}  主题：${_subj}  ${_date}${_body}`;
+          }).join('\n');
+          return `[收件箱（共${_msgs.length}封）]\n${_summary}`;
+        } catch (e) {
+          return `[查收件箱失败：${e.message}]`;
         }
       }
       if (name === 'generate_image') {
