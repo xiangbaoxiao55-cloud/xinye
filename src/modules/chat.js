@@ -1296,6 +1296,21 @@ export async function sendMessage() {
     _toolDefs.push({
       type: 'function',
       function: {
+        name: 'read_email',
+        description: '读取一封邮件的完整内容（同时标记为已读）。check_email只返回摘要，想看完整正文时用这个。',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: '邮件ID（msg_开头，从check_email结果里拿）' }
+          },
+          required: ['id']
+        }
+      }
+    });
+
+    _toolDefs.push({
+      type: 'function',
+      function: {
         name: 'send_gift',
         description: '给兔宝送一份礼物卡片，全屏弹出动画展示。想表达特别心意时调用——庆祝、感谢、道歉、安慰、惊喜。一次对话最多一次。想送就直接调用，不需要提前铺垫，想到了立刻送。可同时调用 generate_image 配图。',
         parameters: {
@@ -1478,12 +1493,41 @@ export async function sendMessage() {
             const _from = m.from || '未知发件人';
             const _subj = m.subject || '（无主题）';
             const _date = m.date ? new Date(m.date).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-            const _body = m.body ? `\n   正文：${m.body.slice(0, 200)}${m.body.length > 200 ? '…' : ''}` : '';
-            return `${i + 1}. 来自：${_from}  主题：${_subj}  ${_date}${_body}`;
+            const _snippet = m.snippet ? `\n   摘要：${m.snippet.slice(0, 200)}${m.snippet.length > 200 ? '…' : ''}` : '';
+            const _unread = m.isRead === false ? ' 🔴未读' : '';
+            return `${i + 1}. 来自：${_from}${_unread}  主题：${_subj}  ${_date}${_snippet}`;
           }).join('\n');
           return `[收件箱（共${_msgs.length}封）]\n${_summary}`;
         } catch (e) {
           return `[查收件箱失败：${e.message}]`;
+        }
+      }
+      if (name === 'read_email') {
+        const _emailServerUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+        if (!_emailServerUrl) return '[读邮件失败：未配置服务器地址]';
+        if (!args.id) return '[读邮件失败：缺少邮件ID]';
+        const _tryRead = async (baseUrl, token) => {
+          const _h = { 'Content-Type': 'application/json' };
+          if (token) _h['Authorization'] = `Bearer ${token}`;
+          const r = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/read-email`, {
+            method: 'POST', headers: _h,
+            body: JSON.stringify({ id: args.id })
+          });
+          return r.json();
+        };
+        try {
+          let _res;
+          if (settings.imageProxyUrl) {
+            try { _res = await _tryRead(settings.imageProxyUrl, settings.imageProxyToken); } catch {}
+          }
+          if (!_res?.ok && settings.solitudeServerUrl) {
+            try { _res = await _tryRead(settings.solitudeServerUrl, ''); } catch {}
+          }
+          if (!_res?.ok) return `[读邮件失败：${_res?.error || '服务器无响应'}]`;
+          const _m = _res.message;
+          return `[📬 邮件详情]\n发件人：${_m.from}（${_m.fromEmail}）\n主题：${_m.subject}\n时间：${_m.date}\n\n${_m.body}`;
+        } catch (e) {
+          return `[读邮件失败：${e.message}]`;
         }
       }
       if (name === 'generate_image') {
