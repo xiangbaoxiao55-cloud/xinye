@@ -1338,6 +1338,40 @@ ${chatText}
       }
     }
     if (!res || !res.ok) throw new Error(`API 错误 ${res ? res.status : '网络'}`);
+
+    // 检查响应体是否存在
+    if (!res.body) {
+      console.warn('[digestMemory] res.body 为空，尝试非流式解析');
+      try {
+        const data = await res.json();
+        const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || '').trim();
+        if (!content) throw new Error('响应内容为空');
+        const patchResult = applyArchivePatch(settings.memoryArchive || '', content);
+        if (!patchResult.ok) {
+          settings._digestRawOutput = content;
+          await saveSettings();
+          if (!silent) toast(`⚠️ Patch解析失败（${patchResult.error}），原始输出已暂存`);
+          console.warn('[digestMemory] Patch失败，原始输出：', content);
+        } else if (!patchResult.changed) {
+          if (!silent) toast('✅ 本次对话无需更新记忆档案');
+        } else {
+          settings.memoryArchive = patchResult.archive;
+          $('#setMemoryArchive').value = patchResult.archive;
+          await saveSettings();
+          await cleanupMemoryBank(patchResult.archive, silent);
+          renderMemoryBankPreview();
+          autoSyncArchiveToLocal();
+          rebuildArchiveIndex(true);
+          const cl = patchResult.changelog ? `\n${patchResult.changelog}` : '';
+          if (!silent) toast(`✅ 记忆档案已更新${cl}`);
+          else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）'); toast('📝 记忆已自动更新'); }
+        }
+        return;
+      } catch(e) {
+        throw new Error('非流式响应解析失败：' + e.message);
+      }
+    }
+
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let newMemory = '';

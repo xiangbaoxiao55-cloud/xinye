@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moonward</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #30343a;
+      --paper: #fffdf8;
+      --blue: #8ecae6;
+      --blue-deep: #4c86a8;
+      --green: #86b979;
+      --green-deep: #4e7d58;
+      --yellow: #f6c85f;
+      --coral: #ef8d7d;
+      --rust: #b85c4b;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    svg {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      touch-action: manipulation;
+    }
+
+    .line,
+    .soft-line,
+    .color-shape {
+      vector-effect: non-scaling-stroke;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .line {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 4.1;
+    }
+
+    .soft-line {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 2.8;
+    }
+
+    .color-shape {
+      stroke: var(--ink);
+      stroke-width: 3.7;
+    }
+
+    .fine { stroke-width: 2.2; }
+    .bold { stroke-width: 5.2; }
+    .blue-line { stroke: var(--blue-deep); }
+    .green-line { stroke: var(--green-deep); }
+    .coral-line { stroke: var(--rust); }
+
+    #drawing-cursor {
+      pointer-events: none;
+      opacity: 0;
+      filter: drop-shadow(0 2px 1px rgb(48 52 58 / 14%));
+    }
+
+    #drawing-cursor .pencil-body {
+      fill: #f3b45b;
+      stroke: var(--ink);
+      stroke-width: 2.5;
+      stroke-linejoin: round;
+    }
+
+    #drawing-cursor .pencil-wood {
+      fill: #f4d6ad;
+      stroke: var(--ink);
+      stroke-width: 2.5;
+    }
+
+    #drawing-cursor .pencil-lead { fill: var(--ink); }
+
+    #replay {
+      position: fixed;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 2;
+      min-width: 76px;
+      min-height: 40px;
+      padding: 8px 16px;
+      border: 2px solid var(--ink);
+      border-radius: 6px;
+      background: rgb(255 253 248 / 88%);
+      color: var(--ink);
+      font: 700 14px/1 Georgia, serif;
+      letter-spacing: 0;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 rgb(48 52 58 / 12%);
+      transition: transform 120ms ease, box-shadow 120ms ease;
+      backdrop-filter: blur(3px);
+    }
+
+    #replay:hover {
+      transform: translate(-1px, -1px) rotate(-1deg);
+      box-shadow: 4px 4px 0 rgb(48 52 58 / 16%);
+    }
+
+    #replay:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 rgb(48 52 58 / 12%);
+    }
+
+    #replay:focus-visible {
+      outline: 3px solid var(--yellow);
+      outline-offset: 4px;
+    }
+
+    @media (max-width: 640px) {
+      #replay {
+        right: 12px;
+        bottom: 12px;
+        min-width: 70px;
+        min-height: 38px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <svg id="canvas" viewBox="0 0 1000 760" role="img" aria-label="A hand-drawn sky whale carrying a tiny home and two moon watchers">
+    <g id="artwork">
+      <!-- Color lives beneath the ink, but joins the drawing only when its turn arrives. -->
+      <path class="color-shape" data-draw data-order="8" data-fill="0.72" fill="#8ecae6"
+        d="M221 414 C303 354 426 337 540 364 C624 384 694 429 754 451 C790 464 821 463 843 450 C836 478 816 496 782 503 C745 511 711 503 681 493 C635 555 561 595 470 607 C382 618 293 595 248 545 C222 516 211 472 221 414 Z"/>
+      <path class="color-shape" data-draw data-order="17" data-fill="0.72" fill="#7ab58a"
+        d="M334 374 C383 347 449 337 514 352 C552 361 584 377 610 396 C573 402 526 401 476 394 C422 386 374 381 334 374 Z"/>
+      <path class="color-shape" data-draw data-order="25" data-fill="0.76" fill="#ef8d7d"
+        d="M392 315 L450 268 L509 316 L500 371 C468 359 432 358 400 367 Z"/>
+      <path class="color-shape" data-draw data-order="29" data-fill="0.72" fill="#f8e4c9"
+        d="M403 316 L496 316 L496 370 C467 360 434 359 405 366 Z"/>
+      <path class="color-shape" data-draw data-order="34" data-fill="0.88" fill="#f6c85f"
+        d="M432 328 C444 326 454 328 457 337 L456 361 C447 359 439 359 431 360 Z"/>
+      <path class="color-shape" data-draw data-order="43" data-fill="0.75" fill="#86b979"
+        d="M546 315 C529 304 530 284 545 277 C538 257 555 240 574 248 C586 226 615 235 616 256 C637 249 653 266 646 283 C663 294 655 319 635 322 C624 343 590 335 584 319 C571 331 551 326 546 315 Z"/>
+      <path class="color-shape" data-draw data-order="48" data-fill="0.68" fill="#b87955"
+        d="M586 316 C593 313 601 313 607 317 L609 386 C601 389 591 388 584 385 Z"/>
+      <path class="color-shape" data-draw data-order="69" data-fill="0.82" fill="#f6c85f"
+        d="M796 185 C833 157 883 170 903 208 C921 244 905 286 871 302 C887 276 885 243 868 221 C849 197 822 184 796 185 Z"/>
+      <path class="color-shape" data-draw data-order="74" data-fill="0.72" fill="#ef8d7d"
+        d="M619 367 C628 351 647 350 657 365 C666 350 685 353 691 369 C691 387 673 400 655 411 C638 400 619 386 619 367 Z"/>
+
+      <!-- The original doodle: three uncertain marks. -->
+      <path class="line bold" data-draw data-order="1" data-duration="1050"
+        d="M221 414 C303 354 426 337 540 364 C624 384 694 429 754 451"/>
+      <path class="line" data-draw data-order="2" data-duration="520"
+        d="M223 414 C204 393 181 386 162 393 C178 406 187 421 190 439"/>
+      <path class="line" data-draw data-order="3" data-duration="430" data-pause="820"
+        d="M190 439 C174 444 160 454 151 468 C174 468 197 459 219 443"/>
+
+      <!-- The doodle finds its body. -->
+      <path class="line bold" data-draw data-order="4" data-duration="850"
+        d="M754 451 C790 464 821 463 843 450 C836 478 816 496 782 503 C745 511 711 503 681 493"/>
+      <path class="line bold" data-draw data-order="5" data-duration="1100"
+        d="M681 493 C635 555 561 595 470 607 C382 618 293 595 248 545 C222 516 211 472 221 414"/>
+      <path class="line" data-draw data-order="6" data-duration="450"
+        d="M520 586 C548 561 565 530 568 497 C590 514 601 544 594 568"/>
+      <path class="soft-line blue-line" data-draw data-order="7" data-duration="310"
+        d="M278 531 C303 544 333 550 363 550"/>
+      <path class="line" data-draw data-order="9" data-duration="270"
+        d="M704 455 C709 447 720 446 726 452 C722 459 713 461 704 455 Z"/>
+      <path class="soft-line" data-draw data-order="10" data-duration="260"
+        d="M710 478 C724 487 741 487 754 477"/>
+      <path class="soft-line coral-line" data-draw data-order="11" data-duration="170"
+        d="M681 473 C686 469 692 469 696 474"/>
+      <path class="soft-line blue-line" data-draw data-order="12" data-duration="390"
+        d="M807 479 C825 493 840 512 846 535"/>
+      <path class="soft-line blue-line" data-draw data-order="13" data-duration="360"
+        d="M824 471 C846 479 865 494 876 513"/>
+      <path class="soft-line blue-line" data-draw data-order="14" data-duration="320"
+        d="M838 461 C860 464 879 475 893 489"/>
+      <path class="soft-line" data-draw data-order="15" data-duration="210"
+        d="M298 470 C304 464 312 464 317 470"/>
+      <path class="soft-line" data-draw data-order="16" data-duration="210"
+        d="M341 491 C348 485 356 486 361 492"/>
+
+      <!-- A patch of earth rises from the whale's back. -->
+      <path class="line green-line" data-draw data-order="18" data-duration="620"
+        d="M334 374 C383 347 449 337 514 352 C552 361 584 377 610 396"/>
+      <path class="soft-line green-line" data-draw data-order="19" data-duration="260"
+        d="M358 371 C366 358 376 353 388 352"/>
+      <path class="soft-line green-line" data-draw data-order="20" data-duration="220"
+        d="M515 371 C523 359 533 356 544 359"/>
+      <path class="soft-line green-line" data-draw data-order="21" data-duration="160"
+        d="M365 363 C359 353 353 349 346 348"/>
+      <path class="soft-line green-line" data-draw data-order="22" data-duration="160"
+        d="M366 363 C370 351 376 346 383 343"/>
+      <path class="soft-line green-line" data-draw data-order="23" data-duration="150"
+        d="M539 363 C538 352 534 346 526 342"/>
+      <path class="soft-line green-line" data-draw data-order="24" data-duration="150"
+        d="M539 363 C546 352 552 348 560 348"/>
+
+      <!-- The crooked little home. -->
+      <path class="line" data-draw data-order="26" data-duration="520"
+        d="M383 319 L450 266 L519 319"/>
+      <path class="line coral-line" data-draw data-order="27" data-duration="420"
+        d="M392 315 L450 268 L509 316"/>
+      <path class="soft-line coral-line" data-draw data-order="28" data-duration="190"
+        d="M405 307 L406 281 L423 281 L424 293"/>
+      <path class="line" data-draw data-order="30" data-duration="430"
+        d="M403 316 L403 366 M496 316 L496 370"/>
+      <path class="soft-line" data-draw data-order="31" data-duration="270"
+        d="M470 322 L487 321 L487 344 L470 344 Z"/>
+      <path class="soft-line" data-draw data-order="32" data-duration="150"
+        d="M478 322 L478 344 M470 333 L487 333"/>
+      <path class="soft-line coral-line" data-draw data-order="33" data-duration="200"
+        d="M398 316 C430 311 468 313 502 317"/>
+      <path class="line" data-draw data-order="35" data-duration="300"
+        d="M431 360 L431 337 C432 326 451 325 456 336 L456 361"/>
+      <path class="soft-line" data-draw data-order="36" data-duration="120"
+        d="M450 346 C451 346 452 346 453 346"/>
+      <path class="soft-line" data-draw data-order="37" data-duration="350"
+        d="M411 278 C402 268 403 256 413 250"/>
+      <path class="soft-line" data-draw data-order="38" data-duration="330"
+        d="M417 274 C428 261 427 248 420 240"/>
+      <path class="soft-line coral-line" data-draw data-order="39" data-duration="200"
+        d="M382 319 C418 322 485 321 519 318"/>
+
+      <!-- A tree leans toward the travelers. -->
+      <path class="line green-line" data-draw data-order="40" data-duration="240"
+        d="M546 315 C529 304 530 284 545 277"/>
+      <path class="line green-line" data-draw data-order="41" data-duration="420"
+        d="M545 277 C538 257 555 240 574 248 C586 226 615 235 616 256"/>
+      <path class="line green-line" data-draw data-order="42" data-duration="470"
+        d="M616 256 C637 249 653 266 646 283 C663 294 655 319 635 322 C624 343 590 335 584 319 C571 331 551 326 546 315"/>
+      <path class="soft-line green-line" data-draw data-order="44" data-duration="250"
+        d="M559 282 C571 277 581 280 588 288"/>
+      <path class="soft-line green-line" data-draw data-order="45" data-duration="220"
+        d="M609 270 C617 274 621 281 620 291"/>
+      <path class="soft-line green-line" data-draw data-order="46" data-duration="220"
+        d="M592 303 C604 297 615 299 623 307"/>
+      <path class="line" data-draw data-order="47" data-duration="420"
+        d="M586 316 C593 313 601 313 607 317 L609 386 C601 389 591 388 584 385 Z"/>
+      <path class="soft-line" data-draw data-order="49" data-duration="260"
+        d="M596 320 C597 339 596 363 595 385"/>
+
+      <!-- Two small moon watchers. -->
+      <path class="line" data-draw data-order="50" data-duration="260"
+        d="M633 331 C633 318 643 309 655 310 C667 311 673 321 671 334 C668 345 658 352 647 348 C637 345 632 340 633 331 Z"/>
+      <path class="soft-line" data-draw data-order="51" data-duration="150"
+        d="M638 316 L640 305 L648 312"/>
+      <path class="soft-line" data-draw data-order="52" data-duration="150"
+        d="M657 311 L665 304 L667 317"/>
+      <path class="soft-line" data-draw data-order="53" data-duration="120"
+        d="M647 330 C648 329 649 329 650 330"/>
+      <path class="soft-line" data-draw data-order="54" data-duration="120"
+        d="M659 330 C660 329 661 329 662 330"/>
+      <path class="soft-line" data-draw data-order="55" data-duration="130"
+        d="M652 338 C655 340 658 339 660 337"/>
+      <path class="line" data-draw data-order="56" data-duration="320"
+        d="M641 349 C631 362 629 382 635 398 C646 403 659 405 671 402 C674 381 669 362 661 349"/>
+      <path class="line" data-draw data-order="57" data-duration="280"
+        d="M678 339 C678 327 687 318 698 319 C709 320 715 329 714 341 C713 353 704 360 693 357 C683 354 678 349 678 339 Z"/>
+      <path class="soft-line" data-draw data-order="58" data-duration="130"
+        d="M685 338 C686 337 687 337 688 338"/>
+      <path class="soft-line" data-draw data-order="59" data-duration="130"
+        d="M701 338 C702 337 703 337 704 338"/>
+      <path class="soft-line" data-draw data-order="60" data-duration="140"
+        d="M691 346 C695 348 699 347 701 345"/>
+      <path class="line" data-draw data-order="61" data-duration="320"
+        d="M687 357 C678 370 677 388 681 403 C692 409 705 410 717 406 C720 387 714 369 707 357"/>
+      <path class="soft-line coral-line" data-draw data-order="62" data-duration="260"
+        d="M664 367 C673 371 679 378 684 389"/>
+      <path class="soft-line" data-draw data-order="63" data-duration="220"
+        d="M641 398 C638 405 637 411 638 417"/>
+      <path class="soft-line" data-draw data-order="64" data-duration="220"
+        d="M657 402 C656 408 657 413 659 417"/>
+      <path class="soft-line" data-draw data-order="65" data-duration="220"
+        d="M695 408 C694 413 695 417 698 420"/>
+      <path class="soft-line" data-draw data-order="66" data-duration="220"
+        d="M710 407 C710 413 712 417 715 420"/>
+
+      <!-- A fishing line catches the moon. -->
+      <path class="line" data-draw data-order="67" data-duration="850"
+        d="M711 370 C747 340 773 302 784 258 C793 222 818 194 849 184"/>
+      <path class="soft-line" data-draw data-order="68" data-duration="620"
+        d="M849 184 C875 202 888 225 888 252 C888 271 882 286 871 302"/>
+      <path class="line" data-draw data-order="70" data-duration="460"
+        d="M796 185 C833 157 883 170 903 208 C921 244 905 286 871 302"/>
+      <path class="soft-line" data-draw data-order="71" data-duration="220"
+        d="M849 184 C851 174 853 165 856 156"/>
+      <path class="soft-line" data-draw data-order="72" data-duration="170"
+        d="M850 159 C855 153 862 153 867 157"/>
+      <path class="soft-line" data-draw data-order="73" data-duration="190"
+        d="M879 236 C884 233 890 234 893 239"/>
+
+      <!-- One last shared heartbeat, then a few hand-drawn stars. -->
+      <path class="line coral-line" data-draw data-order="75" data-duration="360"
+        d="M619 367 C628 351 647 350 657 365 C666 350 685 353 691 369 C691 387 673 400 655 411 C638 400 619 386 619 367 Z"/>
+      <path class="soft-line" data-draw data-order="76" data-duration="180"
+        d="M262 292 L267 278 L272 292 L286 297 L272 302 L267 317 L262 302 L248 297 Z"/>
+      <path class="soft-line" data-draw data-order="77" data-duration="170"
+        d="M744 251 L748 240 L752 251 L763 255 L752 259 L748 270 L744 259 L733 255 Z"/>
+      <path class="soft-line" data-draw data-order="78" data-duration="180"
+        d="M166 352 L171 338 L176 352 L190 357 L176 362 L171 376 L166 362 L152 357 Z"/>
+      <path class="soft-line" data-draw data-order="79" data-duration="160"
+        d="M331 231 L335 220 L339 231 L350 235 L339 239 L335 250 L331 239 L320 235 Z"/>
+      <path class="soft-line blue-line" data-draw data-order="80" data-duration="320"
+        d="M406 645 C445 653 485 653 525 645"/>
+      <path class="soft-line blue-line" data-draw data-order="81" data-duration="260"
+        d="M437 666 C462 671 488 670 512 665"/>
+    </g>
+
+    <g id="drawing-cursor" aria-hidden="true">
+      <g transform="translate(2 -3) rotate(-42)">
+        <path class="pencil-body" d="M0 -5 L33 -5 L33 6 L0 6 Z"/>
+        <path class="pencil-wood" d="M0 -5 L-12 .5 L0 6 Z"/>
+        <path class="pencil-lead" d="M-12 .5 L-7 -1.8 L-7 2.8 Z"/>
+        <path fill="#e78989" stroke="#30343a" stroke-width="2.5" d="M33 -5 L41 -5 L41 6 L33 6 Z"/>
+      </g>
+    </g>
+  </svg>
+
+  <button id="replay" type="button">Replay</button>
+
+  <script>
+    (() => {
+      const svg = document.querySelector('#canvas');
+      const cursor = document.querySelector('#drawing-cursor');
+      const replay = document.querySelector('#replay');
+      const strokes = [...document.querySelectorAll('[data-draw]')]
+        .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let runId = 0;
+
+      const wait = (ms, id) => new Promise(resolve => {
+        const started = performance.now();
+        const tick = now => {
+          if (id !== runId || now - started >= ms) return resolve();
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+
+      function prepare() {
+        cursor.style.opacity = '0';
+        strokes.forEach(stroke => {
+          const length = Math.max(1, stroke.getTotalLength());
+          stroke.dataset.length = length;
+          stroke.style.strokeDasharray = `${length + 1}`;
+          stroke.style.strokeDashoffset = `${length + 1}`;
+          stroke.style.visibility = 'hidden';
+          stroke.style.fillOpacity = '0';
+        });
+      }
+
+      function drawStroke(stroke, id) {
+        return new Promise(resolve => {
+          const length = Number(stroke.dataset.length);
+          const requested = Number(stroke.dataset.duration);
+          const natural = Math.max(120, Math.min(720, length * 0.82));
+          const duration = (requested || natural) * (reduceMotion ? 0.22 : 1);
+          const fillTarget = Number(stroke.dataset.fill || 0);
+          const started = performance.now();
+
+          stroke.style.visibility = 'visible';
+          cursor.style.opacity = '1';
+
+          const frame = now => {
+            if (id !== runId) return resolve();
+            const raw = Math.min(1, (now - started) / duration);
+            const progress = 1 - Math.pow(1 - raw, 2);
+            const point = stroke.getPointAtLength(length * progress);
+            const ahead = stroke.getPointAtLength(Math.min(length, length * progress + 2));
+            const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
+
+            stroke.style.strokeDashoffset = `${length * (1 - progress)}`;
+            if (fillTarget) {
+              const fillProgress = Math.max(0, (raw - 0.64) / 0.36);
+              stroke.style.fillOpacity = `${fillTarget * fillProgress}`;
+            }
+            cursor.setAttribute('transform', `translate(${point.x} ${point.y}) rotate(${angle})`);
+
+            if (raw < 1) requestAnimationFrame(frame);
+            else {
+              stroke.style.strokeDashoffset = '0';
+              stroke.style.fillOpacity = `${fillTarget}`;
+              resolve();
+            }
+          };
+
+          requestAnimationFrame(frame);
+        });
+      }
+
+      async function play() {
+        const id = ++runId;
+        prepare();
+        replay.disabled = true;
+        replay.style.opacity = '0.48';
+        await wait(reduceMotion ? 70 : 260, id);
+
+        for (const stroke of strokes) {
+          if (id !== runId) return;
+          await drawStroke(stroke, id);
+          const pause = Number(stroke.dataset.pause || 24) * (reduceMotion ? 0.2 : 1);
+          await wait(pause, id);
+        }
+
+        if (id !== runId) return;
+        cursor.style.opacity = '0';
+        replay.disabled = false;
+        replay.style.opacity = '1';
+      }
+
+      replay.addEventListener('click', play);
+      svg.addEventListener('dblclick', play);
+      window.addEventListener('load', play, { once: true });
+    })();
+  </script>
+</body>
+</html>

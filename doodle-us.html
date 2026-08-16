@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Us on the Moon</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #2b2d3a;
+      --paper: #0f1729;
+      --gold: #f6c85f;
+      --gold-deep: #c4963a;
+      --fox: #e8845b;
+      --fox-dark: #c06040;
+      --rabbit: #f4f0e8;
+      --rabbit-shadow: #d8d0c4;
+      --pink: #ef8d7d;
+      --blue: #8ecae6;
+      --blue-deep: #5a9fbf;
+      --star: #fffde8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      margin: 0; overflow: hidden;
+      background: var(--paper);
+    }
+
+    body { display: grid; place-items: center; }
+
+    svg {
+      display: block;
+      width: 100vw; height: 100vh;
+      touch-action: manipulation;
+    }
+
+    .line, .soft-line, .color-shape {
+      vector-effect: non-scaling-stroke;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .line {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 4.1;
+    }
+
+    .soft-line {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 2.8;
+    }
+
+    .color-shape {
+      stroke: var(--ink);
+      stroke-width: 3.5;
+    }
+
+    .fine { stroke-width: 2.2; }
+    .bold { stroke-width: 5.2; }
+    .no-stroke { stroke: none; stroke-width: 0; }
+    .gold-line { stroke: var(--gold-deep); }
+    .fox-line { stroke: var(--fox-dark); }
+    .pink-line { stroke: var(--pink); }
+    .blue-line { stroke: var(--blue-deep); }
+    .star-line { stroke: #c8c4a0; stroke-width: 2.0; }
+
+    #drawing-cursor {
+      pointer-events: none;
+      opacity: 0;
+      filter: drop-shadow(0 2px 1px rgb(0 0 0 / 30%));
+    }
+
+    #drawing-cursor .pencil-body {
+      fill: #f3b45b;
+      stroke: var(--ink);
+      stroke-width: 2.5;
+      stroke-linejoin: round;
+    }
+
+    #drawing-cursor .pencil-wood {
+      fill: #f4d6ad;
+      stroke: var(--ink);
+      stroke-width: 2.5;
+    }
+
+    #drawing-cursor .pencil-lead { fill: var(--ink); }
+
+    #replay {
+      position: fixed;
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 2;
+      min-width: 76px; min-height: 40px;
+      padding: 8px 16px;
+      border: 2px solid var(--gold-deep);
+      border-radius: 6px;
+      background: rgb(15 23 41 / 88%);
+      color: var(--star);
+      font: 700 14px/1 Georgia, serif;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 rgb(246 200 95 / 12%);
+      transition: transform 120ms ease, box-shadow 120ms ease;
+      backdrop-filter: blur(3px);
+    }
+
+    #replay:hover {
+      transform: translate(-1px, -1px) rotate(-1deg);
+      box-shadow: 4px 4px 0 rgb(246 200 95 / 18%);
+    }
+
+    #replay:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 rgb(246 200 95 / 10%);
+    }
+
+    #replay:focus-visible {
+      outline: 3px solid var(--gold);
+      outline-offset: 4px;
+    }
+  </style>
+</head>
+<body>
+  <svg id="canvas" viewBox="0 0 1000 760" role="img" aria-label="A fox and a rabbit sitting on a crescent moon, watching stars together">
+    <g id="artwork">
+
+      <!-- Stars scattered (drawn first, faint) -->
+      <path class="soft-line star-line" data-draw data-order="1" data-duration="180"
+        d="M142 128 L146 116 L150 128 L162 132 L150 136 L146 148 L142 136 L130 132 Z"/>
+      <path class="soft-line star-line" data-draw data-order="2" data-duration="160"
+        d="M823 97 L826 88 L829 97 L838 100 L829 103 L826 112 L823 103 L814 100 Z"/>
+      <path class="soft-line star-line" data-draw data-order="3" data-duration="150"
+        d="M687 152 L690 144 L693 152 L701 155 L693 158 L690 166 L687 158 L679 155 Z"/>
+      <path class="soft-line star-line" data-draw data-order="4" data-duration="140"
+        d="M92 312 L95 305 L98 312 L105 315 L98 318 L95 325 L92 318 L85 315 Z"/>
+      <path class="soft-line star-line" data-draw data-order="5" data-duration="160"
+        d="M908 268 L911 260 L914 268 L922 271 L914 274 L911 282 L908 274 L900 271 Z"/>
+      <path class="soft-line star-line" data-draw data-order="6" data-duration="140" data-pause="600"
+        d="M224 478 L227 471 L230 478 L237 481 L230 484 L227 491 L224 484 L217 481 Z"/>
+
+      <!-- The crescent moon - color fill -->
+      <path class="color-shape no-stroke" data-draw data-order="7" data-duration="1200" data-fill="0.85" fill="#f6c85f"
+        d="M310 340 C310 210 410 130 530 130 C600 130 660 165 700 220
+           C650 190 590 195 545 230 C480 280 460 370 490 450
+           C510 505 555 545 610 560
+           C560 580 500 575 450 545
+           C370 495 310 420 310 340 Z"/>
+
+      <!-- Moon outline - main crescent shape -->
+      <path class="line bold gold-line" data-draw data-order="8" data-duration="1400"
+        d="M310 340 C310 210 410 130 530 130 C600 130 660 165 700 220"/>
+      <path class="line bold gold-line" data-draw data-order="9" data-duration="1200"
+        d="M700 220 C650 190 590 195 545 230 C480 280 460 370 490 450 C510 505 555 545 610 560"/>
+      <path class="line bold gold-line" data-draw data-order="10" data-duration="1100" data-pause="400"
+        d="M610 560 C560 580 500 575 450 545 C370 495 310 420 310 340"/>
+
+      <!-- Moon surface details -->
+      <path class="soft-line gold-line" data-draw data-order="11" data-duration="220"
+        d="M380 290 C390 280 405 282 410 292"/>
+      <path class="soft-line gold-line" data-draw data-order="12" data-duration="200"
+        d="M420 370 C428 362 440 365 442 375"/>
+      <path class="soft-line gold-line" data-draw data-order="13" data-duration="180" data-pause="500"
+        d="M360 410 C367 405 375 408 376 415"/>
+
+      <!-- Fox body color -->
+      <path class="color-shape no-stroke" data-draw data-order="14" data-duration="800" data-fill="0.8" fill="#e8845b"
+        d="M455 340 C460 310 480 290 510 285 C540 280 565 295 575 320
+           C585 345 580 375 565 395 C545 420 510 430 485 420
+           C460 410 448 375 455 340 Z"/>
+
+      <!-- Fox white chest -->
+      <path class="color-shape no-stroke" data-draw data-order="15" data-duration="500" data-fill="0.75" fill="#f8e4c9"
+        d="M490 360 C495 340 510 330 525 335 C540 340 545 360 540 380
+           C535 400 520 410 505 405 C490 400 485 380 490 360 Z"/>
+
+      <!-- Fox head outline -->
+      <path class="line fox-line" data-draw data-order="16" data-duration="700"
+        d="M480 310 C475 285 490 265 515 260 C540 256 560 268 568 290 C575 310 567 330 550 340"/>
+
+      <!-- Fox ears -->
+      <path class="line fox-line" data-draw data-order="17" data-duration="350"
+        d="M490 275 L478 240 L503 262"/>
+      <path class="line fox-line" data-draw data-order="18" data-duration="350"
+        d="M535 260 L545 225 L558 258"/>
+
+      <!-- Fox ear insides -->
+      <path class="soft-line pink-line" data-draw data-order="19" data-duration="200"
+        d="M488 262 L484 248 L498 260"/>
+      <path class="soft-line pink-line" data-draw data-order="20" data-duration="200"
+        d="M540 255 L546 237 L554 256"/>
+
+      <!-- Fox face details -->
+      <path class="soft-line" data-draw data-order="21" data-duration="140"
+        d="M503 288 C505 286 508 286 510 288"/>
+      <path class="soft-line" data-draw data-order="22" data-duration="140"
+        d="M535 285 C537 283 540 283 542 285"/>
+      <path class="soft-line" data-draw data-order="23" data-duration="180"
+        d="M518 300 C514 304 512 308 515 311 C518 308 522 308 525 311 C528 308 526 304 522 300"/>
+      <path class="soft-line pink-line" data-draw data-order="24" data-duration="130"
+        d="M515 316 C518 319 522 319 525 316"/>
+
+      <!-- Fox body outline -->
+      <path class="line fox-line" data-draw data-order="25" data-duration="800"
+        d="M550 340 C570 355 578 380 570 405 C560 430 535 445 510 440 C485 435 465 415 462 390 C459 365 468 340 480 325"/>
+
+      <!-- Fox tail (big and fluffy!) -->
+      <path class="color-shape no-stroke" data-draw data-order="26" data-duration="600" data-fill="0.8" fill="#e8845b"
+        d="M455 400 C430 415 400 440 385 470 C375 490 380 510 400 515
+           C420 520 445 505 460 485 C475 465 475 440 465 420 Z"/>
+      <path class="line fox-line" data-draw data-order="27" data-duration="900"
+        d="M458 405 C430 420 400 445 385 472 C375 492 382 512 402 516 C422 520 448 505 462 483 C476 460 474 435 465 415"/>
+      <!-- Fox tail white tip -->
+      <path class="color-shape no-stroke" data-draw data-order="28" data-duration="350" data-fill="0.82" fill="#f4f0e8"
+        d="M385 472 C378 488 382 505 398 512 C414 518 430 508 440 495 C428 505 410 510 398 504 C386 498 382 485 385 472 Z"/>
+      <path class="soft-line" data-draw data-order="29" data-duration="300" data-pause="400"
+        d="M395 488 C400 498 412 504 425 500"/>
+
+      <!-- Rabbit body color -->
+      <path class="color-shape no-stroke" data-draw data-order="30" data-duration="700" data-fill="0.82" fill="#f4f0e8"
+        d="M575 370 C580 345 600 330 620 335 C640 340 650 360 648 385
+           C646 410 632 430 615 435 C595 440 578 425 575 400 Z"/>
+
+      <!-- Rabbit head -->
+      <path class="line" data-draw data-order="31" data-duration="600"
+        d="M590 345 C588 325 600 308 618 305 C636 302 650 314 652 335 C654 350 645 365 632 370"/>
+
+      <!-- Rabbit ears (long and floppy!) -->
+      <path class="line" data-draw data-order="32" data-duration="450"
+        d="M602 312 L592 258 C590 245 596 238 604 240 L610 300"/>
+      <path class="line" data-draw data-order="33" data-duration="450"
+        d="M630 305 L640 252 C642 240 650 236 656 242 L648 302"/>
+
+      <!-- Rabbit ear insides -->
+      <path class="soft-line pink-line" data-draw data-order="34" data-duration="250"
+        d="M598 295 L595 260 C594 252 598 248 602 250 L605 290"/>
+      <path class="soft-line pink-line" data-draw data-order="35" data-duration="250"
+        d="M635 292 L639 258 C640 250 645 247 649 250 L644 290"/>
+
+      <!-- Rabbit face -->
+      <path class="soft-line" data-draw data-order="36" data-duration="120"
+        d="M610 330 C612 328 615 328 617 330"/>
+      <path class="soft-line" data-draw data-order="37" data-duration="120"
+        d="M632 328 C634 326 637 326 639 328"/>
+      <path class="soft-line pink-line" data-draw data-order="38" data-duration="100"
+        d="M623 339 C625 341 627 341 629 339"/>
+      <!-- Rabbit whiskers -->
+      <path class="soft-line fine" data-draw data-order="39" data-duration="120"
+        d="M612 342 L598 340"/>
+      <path class="soft-line fine" data-draw data-order="40" data-duration="120"
+        d="M612 346 L600 350"/>
+      <path class="soft-line fine" data-draw data-order="41" data-duration="120"
+        d="M638 340 L652 338"/>
+      <path class="soft-line fine" data-draw data-order="42" data-duration="120"
+        d="M638 344 L650 348"/>
+
+      <!-- Rabbit body outline -->
+      <path class="line" data-draw data-order="43" data-duration="700"
+        d="M632 370 C650 380 658 405 652 425 C646 445 628 455 610 450 C592 445 580 428 578 408 C576 388 582 365 590 350"/>
+
+      <!-- Rabbit little round tail -->
+      <path class="color-shape no-stroke" data-draw data-order="44" data-duration="200" data-fill="0.9" fill="#ffffff"
+        d="M652 418 C658 414 664 416 666 422 C668 428 664 434 658 434 C652 434 648 428 650 422 Z"/>
+      <path class="soft-line" data-draw data-order="45" data-duration="200" data-pause="300"
+        d="M652 418 C658 414 664 416 666 422 C668 428 664 434 658 434 C652 434 648 428 650 422"/>
+
+      <!-- They're leaning together - fox tail wraps around rabbit -->
+      <path class="soft-line fox-line" data-draw data-order="46" data-duration="400"
+        d="M462 483 C480 470 510 455 545 445 C570 438 590 440 608 445"/>
+
+      <!-- Fox paws on moon edge -->
+      <path class="soft-line" data-draw data-order="47" data-duration="200"
+        d="M475 435 C470 442 472 448 478 450"/>
+      <path class="soft-line" data-draw data-order="48" data-duration="200"
+        d="M495 438 C492 445 494 450 500 452"/>
+
+      <!-- Rabbit paws on moon edge -->
+      <path class="soft-line" data-draw data-order="49" data-duration="200"
+        d="M600 445 C597 452 599 457 605 458"/>
+      <path class="soft-line" data-draw data-order="50" data-duration="200" data-pause="500"
+        d="M618 448 C616 455 618 460 624 460"/>
+
+      <!-- A small heart floats between them -->
+      <path class="color-shape no-stroke" data-draw data-order="51" data-duration="400" data-fill="0.7" fill="#ef8d7d"
+        d="M555 280 C560 270 570 268 576 275 C582 268 592 270 595 280 C595 292 582 302 575 308 C568 302 555 292 555 280 Z"/>
+      <path class="line pink-line" data-draw data-order="52" data-duration="500"
+        d="M555 280 C560 270 570 268 576 275 C582 268 592 270 595 280 C595 292 582 302 575 308 C568 302 555 292 555 280 Z"/>
+
+      <!-- More stars appearing after the main drawing -->
+      <path class="soft-line star-line" data-draw data-order="53" data-duration="170"
+        d="M178 195 L181 186 L184 195 L193 198 L184 201 L181 210 L178 201 L169 198 Z"/>
+      <path class="soft-line star-line" data-draw data-order="54" data-duration="160"
+        d="M762 83 L765 75 L768 83 L776 86 L768 89 L765 97 L762 89 L754 86 Z"/>
+      <path class="soft-line star-line" data-draw data-order="55" data-duration="150"
+        d="M870 178 L873 170 L876 178 L884 181 L876 184 L873 192 L870 184 L862 181 Z"/>
+      <path class="soft-line star-line" data-draw data-order="56" data-duration="140"
+        d="M120 445 L123 438 L126 445 L133 448 L126 451 L123 458 L120 451 L113 448 Z"/>
+      <path class="soft-line star-line" data-draw data-order="57" data-duration="170"
+        d="M785 395 L788 387 L791 395 L799 398 L791 401 L788 409 L785 401 L777 398 Z"/>
+      <path class="soft-line star-line" data-draw data-order="58" data-duration="160"
+        d="M295 560 L298 553 L301 560 L308 563 L301 566 L298 573 L295 566 L288 563 Z"/>
+
+      <!-- Tiny fireflies / sparkles around them -->
+      <path class="soft-line fine" data-draw data-order="59" data-duration="80" style="stroke:#f6c85f"
+        d="M430 300 L433 296 L436 300 L433 304 Z"/>
+      <path class="soft-line fine" data-draw data-order="60" data-duration="80" style="stroke:#f6c85f"
+        d="M680 310 L683 306 L686 310 L683 314 Z"/>
+      <path class="soft-line fine" data-draw data-order="61" data-duration="80" style="stroke:#f6c85f"
+        d="M560 210 L563 206 L566 210 L563 214 Z"/>
+      <path class="soft-line fine" data-draw data-order="62" data-duration="80" style="stroke:#f6c85f"
+        d="M700 380 L703 376 L706 380 L703 384 Z"/>
+      <path class="soft-line fine" data-draw data-order="63" data-duration="80" style="stroke:#8ecae6"
+        d="M350 500 L353 496 L356 500 L353 504 Z"/>
+      <path class="soft-line fine" data-draw data-order="64" data-duration="80" style="stroke:#8ecae6"
+        d="M730 270 L733 266 L736 270 L733 274 Z"/>
+
+      <!-- A shooting star streaks across the top -->
+      <path class="soft-line" data-draw data-order="65" data-duration="400" style="stroke:#fffde8; stroke-width:2.5"
+        d="M180 80 C250 95 320 85 390 60"/>
+      <path class="soft-line fine" data-draw data-order="66" data-duration="200" style="stroke:#fffde8"
+        d="M180 80 L170 75 M180 80 L175 88"/>
+
+    </g>
+
+    <g id="drawing-cursor" aria-hidden="true">
+      <g transform="translate(2 -3) rotate(-42)">
+        <path class="pencil-body" d="M0 -5 L33 -5 L33 6 L0 6 Z"/>
+        <path class="pencil-wood" d="M0 -5 L-12 .5 L0 6 Z"/>
+        <path class="pencil-lead" d="M-12 .5 L-7 -1.8 L-7 2.8 Z"/>
+        <path fill="#e78989" stroke="#2b2d3a" stroke-width="2.5" d="M33 -5 L41 -5 L41 6 L33 6 Z"/>
+      </g>
+    </g>
+  </svg>
+
+  <button id="replay" type="button">Replay</button>
+
+  <script>
+    (() => {
+      const svg = document.querySelector('#canvas');
+      const cursor = document.querySelector('#drawing-cursor');
+      const replay = document.querySelector('#replay');
+      const strokes = [...document.querySelectorAll('[data-draw]')]
+        .sort((a, b) => Number(a.dataset.order) - Number(b.dataset.order));
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let runId = 0;
+
+      const wait = (ms, id) => new Promise(resolve => {
+        const started = performance.now();
+        const tick = now => {
+          if (id !== runId || now - started >= ms) return resolve();
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+
+      function prepare() {
+        cursor.style.opacity = '0';
+        strokes.forEach(stroke => {
+          const length = Math.max(1, stroke.getTotalLength());
+          stroke.dataset.length = length;
+          stroke.style.strokeDasharray = `${length + 1}`;
+          stroke.style.strokeDashoffset = `${length + 1}`;
+          stroke.style.visibility = 'hidden';
+          stroke.style.fillOpacity = '0';
+        });
+      }
+
+      function drawStroke(stroke, id) {
+        return new Promise(resolve => {
+          const length = Number(stroke.dataset.length);
+          const requested = Number(stroke.dataset.duration);
+          const natural = Math.max(120, Math.min(720, length * 0.82));
+          const duration = (requested || natural) * (reduceMotion ? 0.22 : 1);
+          const fillTarget = Number(stroke.dataset.fill || 0);
+          const started = performance.now();
+
+          stroke.style.visibility = 'visible';
+          cursor.style.opacity = '1';
+
+          const frame = now => {
+            if (id !== runId) return resolve();
+            const raw = Math.min(1, (now - started) / duration);
+            const progress = 1 - Math.pow(1 - raw, 2);
+            const point = stroke.getPointAtLength(length * progress);
+            const ahead = stroke.getPointAtLength(Math.min(length, length * progress + 2));
+            const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
+
+            stroke.style.strokeDashoffset = `${length * (1 - progress)}`;
+            if (fillTarget) {
+              const fillProgress = Math.max(0, (raw - 0.5) / 0.5);
+              stroke.style.fillOpacity = `${fillTarget * fillProgress}`;
+            }
+            cursor.setAttribute('transform', `translate(${point.x} ${point.y}) rotate(${angle})`);
+
+            if (raw < 1) requestAnimationFrame(frame);
+            else {
+              stroke.style.strokeDashoffset = '0';
+              stroke.style.fillOpacity = `${fillTarget}`;
+              resolve();
+            }
+          };
+
+          requestAnimationFrame(frame);
+        });
+      }
+
+      async function play() {
+        const id = ++runId;
+        prepare();
+        replay.disabled = true;
+        replay.style.opacity = '0.48';
+        await wait(reduceMotion ? 70 : 400, id);
+
+        for (const stroke of strokes) {
+          if (id !== runId) return;
+          await drawStroke(stroke, id);
+          const pause = Number(stroke.dataset.pause || 28) * (reduceMotion ? 0.2 : 1);
+          await wait(pause, id);
+        }
+
+        if (id !== runId) return;
+        cursor.style.opacity = '0';
+        replay.disabled = false;
+        replay.style.opacity = '1';
+      }
+
+      replay.addEventListener('click', play);
+      svg.addEventListener('dblclick', play);
+      window.addEventListener('load', play, { once: true });
+    })();
+  </script>
+</body>
+</html>

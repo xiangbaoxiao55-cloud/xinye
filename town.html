@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>山谷小镇</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a3a4a; }
+  #world { display: block; cursor: default; touch-action: none; }
+  #hud {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  #title-bar {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.45); border-radius: 20px; padding: 5px 20px;
+    color: #e8d8c0; font-family: serif; font-size: 15px; letter-spacing: 3px;
+    pointer-events: none;
+  }
+  #seed-bar {
+    position: fixed; bottom: 10px; right: 10px;
+    color: rgba(255,255,255,0.3); font-size: 10px; font-family: monospace;
+    pointer-events: none;
+  }
+  #legend {
+    position: fixed; top: 12px; left: 12px;
+    background: rgba(0,0,0,0.4); border-radius: 8px; padding: 8px 12px;
+    color: #ccc; font-size: 10px; line-height: 1.7;
+    pointer-events: none;
+  }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<div id="hud"></div>
+<div id="title-bar">山 谷 小 镇</div>
+<div id="legend">
+  <div><span class="dot" style="background:#2676a0"></span>水域</div>
+  <div><span class="dot" style="background:#7ab83e"></span>草地</div>
+  <div><span class="dot" style="background:#2d6118"></span>林地</div>
+  <div><span class="dot" style="background:#8a7868"></span>山丘</div>
+  <div><span class="dot" style="background:#5040b0"></span>你和炘也的家</div>
+</div>
+<div id="seed-bar"><span id="seed-display">...</span></div>
+<script type="module" src="src/town/main.js"></script>
+</body>
+</html>
