@@ -556,14 +556,14 @@ export function parseArchiveForInjection(archiveText, markersText) {
     if (alwaysSections.has(title)) { alwaysParts.push(lines.join('\n').trim()); continue; }
     if (fullSections.has(title))   { coreParts.push(lines.join('\n').trim()); continue; }
 
-    const hasMixed = lines.some(l => { const m = l.match(/^- \*\*(.+?)\*\*/); return m && coreItems.has(m[1]); });
+    const hasMixed = lines.some(l => { const m = l.match(/^[*-] \*\*(.+?)\*\*/); return m && coreItems.has(m[1]); });
     if (!hasMixed) { extendedChapters.push({ title, content: lines.join('\n').trim() }); continue; }
 
     const coreBody = [lines[0]], extBody = [lines[0]];
     let dest = 'ext';
     for (let i = 1; i < lines.length; i++) {
       const l = lines[i];
-      const im = l.match(/^- \*\*(.+?)\*\*/);
+      const im = l.match(/^[*-] \*\*(.+?)\*\*/);
       if (im) dest = coreItems.has(im[1]) ? 'core' : 'ext';
       (dest === 'core' ? coreBody : extBody).push(l);
     }
@@ -583,11 +583,11 @@ export function splitChapterIntoChunks(content) {
   const paragraphs = body.split(/\n\s*\n+/).map(p => p.trim()).filter(Boolean);
   for (const para of paragraphs) {
     const lines = para.split('\n');
-    const listLines = lines.filter(l => /^- /.test(l));
+    const listLines = lines.filter(l => /^[*-] /.test(l));
     if (listLines.length >= 2 && listLines.join('\n').length >= para.length * 0.6) {
       let cur = '';
       for (const line of lines) {
-        if (/^- /.test(line)) {
+        if (/^[*-] /.test(line)) {
           if (cur.trim()) rawChunks.push(cur.trim());
           cur = line;
         } else {
