@@ -969,6 +969,51 @@ export function initSettings() {
     }
   };
 
+  if ($('#btnImportMemoryFromServer')) $('#btnImportMemoryFromServer').onclick = async () => {
+    if (!settings.solitudeServerUrl) { toast('请先配置本地服务器地址'); return; }
+    const statusEl = $('#syncMemoryStatus');
+    const btn = $('#btnImportMemoryFromServer');
+    btn.disabled = true;
+    btn.textContent = '⏳ 导入中…';
+    statusEl.textContent = '正在从电脑读取最新记忆档案…';
+    try {
+      const res = await fetch(`${settings.solitudeServerUrl.replace(/\/+$/, '')}/api/memory/latest`, {
+        method: 'GET', signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (!data.success || !data.content) throw new Error('服务器返回数据格式错误');
+
+      const content = data.content.trim();
+      const charCount = content.length;
+      const vMatch = content.match(/^# .+?v(\d+)/m);
+      const ver = vMatch ? `v${vMatch[1]}` : '';
+
+      // 写入到设置里
+      settings.memoryArchive = content;
+      await saveSettings();
+
+      // 同步到界面
+      const textarea = $('#setMemoryArchive');
+      if (textarea) textarea.value = content;
+
+      // 重建索引
+      if (window.rebuildArchiveIndex) await window.rebuildArchiveIndex();
+
+      statusEl.textContent = `✅ 已导入 ${charCount} 字${ver ? '（' + ver + '）' : ''} ← 电脑（${data.filename}）`;
+      toast(`✅ 记忆档案已导入（${charCount}字）\n记得点「🔄 重建索引」刷新分层！`);
+    } catch(e) {
+      statusEl.textContent = `❌ 导入失败：${e.message}`;
+      toast(`❌ 导入失败：${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📥 从电脑一键导入记忆档案';
+    }
+  };
+
   $('#btnClearMood').onclick = async () => {
     settings.moodState = null;
     await saveSettings();
