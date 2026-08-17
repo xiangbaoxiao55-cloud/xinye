@@ -1344,7 +1344,7 @@ ${chatText}
       console.warn('[digestMemory] res.body 为空，尝试非流式解析');
       try {
         const data = await res.json();
-        const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || '').trim();
+        const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.content?.[0]?.text || '').trim();
         if (!content) throw new Error('响应内容为空');
         const patchResult = applyArchivePatch(settings.memoryArchive || '', content);
         if (!patchResult.ok) {
@@ -1407,7 +1407,7 @@ ${chatText}
     if (!newMemory && rawBuf.trim()) {
       try {
         const j = JSON.parse(rawBuf.trim());
-        newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || '').trim();
+        newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || j.content?.[0]?.text || '').trim();
         if (newMemory) console.log('[digestMemory] 非流式响应，已 fallback 解析');
       } catch {}
     }
