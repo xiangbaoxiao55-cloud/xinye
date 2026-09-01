@@ -2079,6 +2079,10 @@ export async function sendMessage() {
     console.warn('[ToolDefs]', _toolDefs.map(t=>t.function.name).join(', '));
     if (_toolDefs.length > 0) {
       const loopMsgs = [...apiMsgs];
+      // Inject tool usage guidance into system message
+      if (_hasTavily && loopMsgs[0]?.role === 'system') {
+        loopMsgs[0].content += '\n\n【工具使用指南】\n当你需要调用 web_search 或 fetch_page 等工具查资料时：\n1. 每次看到工具返回的结果后，**先输出1-2句话总结关键信息**（如"我查到了XX规则..."），再决定下一步\n2. 这段总结会保留在对话中，而原始网页全文会被压缩，这样可以避免上下文爆炸\n3. 如果需要继续调用工具，在总结之后再发起新的 tool_calls\n4. 你的总结应该提炼出**真正需要的知识点**，不是简单复述原文';
+      }
 
       function _trimLoopMsgs() {
         const LIMIT = 40000;
@@ -2432,11 +2436,30 @@ export async function sendMessage() {
               }
             }
             if (_m2?.tool_calls?.length) {
+              const _hasDigest = _m2.content && _m2.content.trim().length > 0;
               loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
+              const _toolStartIdx = loopMsgs.length;
               for (const tc of _m2.tool_calls) {
                 let result = '';
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
+              }
+              // If AI output digest text, show it and compress tool results
+              if (_hasDigest && _hasTavily) {
+                const _digestDiv = document.createElement('div');
+                _digestDiv.className = 'tool-digest';
+                _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
+                _digestDiv.textContent = `💭 ${_m2.content}`;
+                const _typingEl = document.querySelector('#typing');
+                _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+                scrollBottom();
+                // Compress tool results to prevent context explosion
+                for (let i = _toolStartIdx; i < loopMsgs.length; i++) {
+                  if (loopMsgs[i].role === 'tool' && loopMsgs[i].content.length > 500) {
+                    loopMsgs[i].content = `[已消化] ${loopMsgs[i].content.slice(0, 300)}...`;
+                  }
+                }
+                console.warn(`[ToolLoop] AI输出总结，已压缩${loopMsgs.length - _toolStartIdx}条工具结果`);
               }
             } else { _loopFinalMsg = _m2; _loopFinalUsage = _d2.usage; _loopFinalModel = _uMod2; _loopFinalPreset = _uPre2; break; }
           }
@@ -2569,11 +2592,30 @@ export async function sendMessage() {
           const _d2 = await _r2.json();
           const _m2 = _d2.choices?.[0]?.message;
           if (_m2?.tool_calls?.length) {
+            const _hasDigest = _m2.content && _m2.content.trim().length > 0;
             loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
+            const _toolStartIdx = loopMsgs.length;
             for (const tc of _m2.tool_calls) {
               let result = '';
               try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
               loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
+            }
+            // If AI output digest text, show it and compress tool results
+            if (_hasDigest && _hasTavily) {
+              const _digestDiv = document.createElement('div');
+              _digestDiv.className = 'tool-digest';
+              _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
+              _digestDiv.textContent = `💭 ${_m2.content}`;
+              const _typingEl = document.querySelector('#typing');
+              _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+              scrollBottom();
+              // Compress tool results to prevent context explosion
+              for (let i = _toolStartIdx; i < loopMsgs.length; i++) {
+                if (loopMsgs[i].role === 'tool' && loopMsgs[i].content.length > 500) {
+                  loopMsgs[i].content = `[已消化] ${loopMsgs[i].content.slice(0, 300)}...`;
+                }
+              }
+              console.warn(`[ToolLoop] AI输出总结，已压缩${loopMsgs.length - _toolStartIdx}条工具结果`);
             }
           } else {
             _m2FinalContent = _m2?.content || null;
