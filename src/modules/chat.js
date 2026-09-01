@@ -2415,7 +2415,7 @@ export async function sendMessage() {
             return;
           }
           let _loopFinalMsg = null, _loopFinalUsage = null, _loopFinalModel = '', _loopFinalPreset = '';
-          for (let _tr = 1; _tr < 4; _tr++) {
+          for (let _tr = 1; _tr < 9; _tr++) {
             _trimLoopMsgs();
             const { response: _r2, usedModel: _uMod2, usedPresetName: _uPre2 } = await _apiFetch(loopMsgs, true, false);
             if (!_r2 || !_r2.ok) break;
@@ -2439,10 +2439,16 @@ export async function sendMessage() {
               const _hasDigest = _m2.content && _m2.content.trim().length > 0;
               loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
               const _toolStartIdx = loopMsgs.length;
+              let _hasFetchPage = false;
               for (const tc of _m2.tool_calls) {
                 let result = '';
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
+                if (tc.function.name === 'fetch_page') _hasFetchPage = true;
+              }
+              // If fetch_page was called, force AI to digest before continuing
+              if (_hasFetchPage && _hasTavily && !_hasDigest) {
+                loopMsgs.push({ role: 'user', content: '(请用1-2句话总结刚才读到的关键信息，然后继续你的任务)' });
               }
               // If AI output digest text, show it and compress tool results
               if (_hasDigest && _hasTavily) {
@@ -2589,7 +2595,7 @@ export async function sendMessage() {
           return;
         }
         let _m2FinalContent = null, _loopFinalModel2 = '', _loopFinalPreset2 = '';
-        for (let _tr = 1; _tr < 4; _tr++) {
+        for (let _tr = 1; _tr < 9; _tr++) {
           _trimLoopMsgs();
           const { response: _r2, usedModel: _uMod2, usedPresetName: _uPre2 } = await _apiFetch(loopMsgs, true, false);
           if (!_r2 || !_r2.ok) break;
@@ -2599,10 +2605,16 @@ export async function sendMessage() {
             const _hasDigest = _m2.content && _m2.content.trim().length > 0;
             loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
             const _toolStartIdx = loopMsgs.length;
+            let _hasFetchPage = false;
             for (const tc of _m2.tool_calls) {
               let result = '';
               try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
               loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
+              if (tc.function.name === 'fetch_page') _hasFetchPage = true;
+            }
+            // If fetch_page was called, force AI to digest before continuing
+            if (_hasFetchPage && _hasTavily && !_hasDigest) {
+              loopMsgs.push({ role: 'user', content: '(请用1-2句话总结刚才读到的关键信息，然后继续你的任务)' });
             }
             // If AI output digest text, show it and compress tool results
             if (_hasDigest && _hasTavily) {
@@ -2611,7 +2623,11 @@ export async function sendMessage() {
               _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
               _digestDiv.textContent = `💭 ${_m2.content}`;
               const _typingEl = document.querySelector('#typing');
-              _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+              if (_typingEl && _typingEl.parentNode) {
+                _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+              } else {
+                chatArea.appendChild(_digestDiv);
+              }
               scrollBottom();
               // Compress tool results to prevent context explosion
               for (let i = _toolStartIdx; i < loopMsgs.length; i++) {
