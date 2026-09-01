@@ -392,7 +392,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.01-2023';
+  if (_verEl) _verEl.textContent = 'v2026.09.01-2031';
 
   await openDB();
   await migrateFromLocalStorage();

@@ -2451,7 +2451,11 @@ export async function sendMessage() {
                 _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
                 _digestDiv.textContent = `💭 ${_m2.content}`;
                 const _typingEl = document.querySelector('#typing');
-                _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+                if (_typingEl && _typingEl.parentNode) {
+                  _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
+                } else {
+                  chatArea.appendChild(_digestDiv);
+                }
                 scrollBottom();
                 // Compress tool results to prevent context explosion
                 for (let i = _toolStartIdx; i < loopMsgs.length; i++) {
