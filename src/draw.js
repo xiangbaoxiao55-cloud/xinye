@@ -1209,6 +1209,9 @@ async function masterSuggest(userInput){
   const history=S.masterHistory.slice(-12).map(m=>({role:m.role,content:m.content}));
   const hasNewImgs=S.masterPendingImgs.length>0;
 
+  console.log('[大师对话] 历史记录轮数:',S.masterHistory.length,'本次发送:',history.length);
+  console.log('[大师对话] 历史内容:',history);
+
   let userContent;
   if(hasNewImgs){
     const imgBlocks=S.masterPendingImgs.map(b64=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}}));
@@ -1228,6 +1231,7 @@ async function masterSuggest(userInput){
     ...history,
     {role:'user',content:userContent}
   ];
+  console.log('[大师对话] 发送给API的完整消息:',msgs);
   const result=await callMaster(msgs);
   const histEntry={role:'user',content:userInput};
   if(hasNewImgs){
@@ -1240,6 +1244,7 @@ async function masterSuggest(userInput){
   S.masterHistory.push(histEntry,{role:'assistant',content:result});
   if(S.masterHistory.length>24) S.masterHistory=S.masterHistory.slice(-24);
   db.setSetting('masterHistory',S.masterHistory);
+  console.log('[大师对话] 保存后的历史记录:',S.masterHistory);
   return result;
 }
 
