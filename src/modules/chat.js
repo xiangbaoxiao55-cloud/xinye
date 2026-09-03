@@ -1013,7 +1013,10 @@ export async function sendMessage() {
     }
     const n = Math.max(1, settings.contextCount || 20);
     const recent = messages.slice(-n);
-    const _injectLastImg = !imgs.length && !!window.chatLastUserImage;
+    // 只保留最近5轮用户消息内发的图，防止老图永远占上下文
+    const _recentUserMsgs = recent.filter(m => m.role === 'user').slice(-5);
+    const _hasImgInRecent5 = _recentUserMsgs.some(m => (m.images && m.images.length) || m.image);
+    const _injectLastImg = !imgs.length && !!window.chatLastUserImage && _hasImgInRecent5;
 
     let healthStr = null;
     try {
