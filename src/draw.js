@@ -1197,28 +1197,34 @@ async function generatePromptWithAI(){
 
 async function masterSuggest(userInput){
   const ctx=[];
-  if(S.aestheticProfile) ctx.push('用户审美偏好：'+S.aestheticProfile);
+  if(S.aestheticProfile) ctx.push('【用户审美偏好】\n'+S.aestheticProfile);
   const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
-  if(charDesc) ctx.push('当前选中角色：'+charDesc);
-  const _suggestBase='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
-  const history=S.masterHistory.slice(-10).map(m=>({role:m.role,content:m.content}));
+  if(charDesc) ctx.push('【当前选中角色】'+charDesc);
+
+  const _baseSys='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
+  const systemContent=ctx.length>0
+    ? `${S.masterPersona||_baseSys}\n\n${ctx.join('\n\n')}`
+    : (S.masterPersona||_baseSys);
+
+  const history=S.masterHistory.slice(-12).map(m=>({role:m.role,content:m.content}));
   const hasNewImgs=S.masterPendingImgs.length>0;
-  const userText=`${ctx.join('\n')}\n\n用户想法：${userInput}`;
+
   let userContent;
   if(hasNewImgs){
     const imgBlocks=S.masterPendingImgs.map(b64=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}}));
-    userContent=[...imgBlocks,{type:'text',text:userText}];
+    userContent=[...imgBlocks,{type:'text',text:userInput}];
   }else if(S.masterLastImg){
     history.unshift(
       {role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:S.masterLastImg}},{type:'text',text:'[参考图片]'}]},
       {role:'assistant',content:'好的，我已看到这张参考图片。'}
     );
-    userContent=userText;
+    userContent=userInput;
   }else{
-    userContent=userText;
+    userContent=userInput;
   }
+
   const msgs=[
-    {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_suggestBase}`:_suggestBase},
+    {role:'system',content:systemContent},
     ...history,
     {role:'user',content:userContent}
   ];
@@ -1232,7 +1238,7 @@ async function masterSuggest(userInput){
     _renderMasterImgPreview();
   }
   S.masterHistory.push(histEntry,{role:'assistant',content:result});
-  if(S.masterHistory.length>20) S.masterHistory=S.masterHistory.slice(-20);
+  if(S.masterHistory.length>24) S.masterHistory=S.masterHistory.slice(-24);
   db.setSetting('masterHistory',S.masterHistory);
   return result;
 }
