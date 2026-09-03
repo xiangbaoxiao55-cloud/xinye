@@ -1069,25 +1069,33 @@ async function analyzePreference(){
   const all=await db.all('gallery');
   if(all.length<2){toast('需要至少2张图片','warn');return}
 
+  // 进入选择模式
+  S.analyzePicking=true;
+  S.gallerySelected.clear();
+  switchTab('gallery');
+  renderGallery();
+  toast('请选择要分析的图片（建议2-12张）','info');
+}
+
+async function _confirmAnalyze(){
+  const selectedIds=[...S.gallerySelected];
+  if(selectedIds.length<2){toast('请至少选择2张图片','warn');return}
+  if(selectedIds.length>20){toast('最多选择20张图片','warn');return}
+
+  S.analyzePicking=false;
+  S.gallerySelected.clear();
+  renderGallery();
+
+  const sample=await Promise.all(selectedIds.map(id=>db.get('gallery',id)));
+  const validSample=sample.filter(Boolean);
+
+  if(validSample.length<2){toast('选中的图片读取失败','error');return}
+
+  const newCount=validSample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
+  const all=await db.all('gallery');
   const unanalyzed=all.filter(g=>!S.allAnalyzedIds.has(g.id));
-  let sample;
-  if(unanalyzed.length>=8){
-    const byDate=[...unanalyzed].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
-    const byRating=[...unanalyzed].filter(g=>(g.rating||0)>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,4);
-    sample=[...new Map([...byDate,...byRating].map(g=>[g.id,g])).values()].slice(0,8);
-  }else if(unanalyzed.length>0){
-    const analyzed=all.filter(g=>S.allAnalyzedIds.has(g.id));
-    const fill=[...analyzed].sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,8-unanalyzed.length);
-    sample=[...unanalyzed,...fill].slice(0,8);
-  }else{
-    const byDate=[...all].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
-    const byRating=[...all].filter(g=>(g.rating||0)>0).sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,4);
-    sample=[...new Map([...byDate,...byRating].map(g=>[g.id,g])).values()].slice(0,8);
-  }
 
-  const newCount=sample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
-
-  const imgBlocks=await Promise.all(sample.map(async g=>{
+  const imgBlocks=await Promise.all(validSample.map(async g=>{
     const b64=await _shrinkImg(g.imageData);
     return{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}};
   }));
@@ -1096,8 +1104,8 @@ async function analyzePreference(){
   const prevProfile=S.aestheticProfile;
   const hasOld=prevProfile&&prevProfile.length>20;
   const promptText=hasOld
-    ?`这是用户新增的${sample.length}张图片${hint}。\n\n她现有的审美档案如下：\n「${prevProfile}」\n\n请综合现有档案和这批新图片，更新她的审美偏好描述——保留旧档案中仍然成立的观察，融入新图片带来的新发现或强化的趋势。像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。200-350字，只输出正文。`
-    :`这是用户精选的${sample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`;
+    ?`这是用户新增的${validSample.length}张图片${hint}。\n\n她现有的审美档案如下：\n「${prevProfile}」\n\n请综合现有档案和这批新图片，更新她的审美偏好描述——保留旧档案中仍然成立的观察，融入新图片带来的新发现或强化的趋势。像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。200-350字，只输出正文。`
+    :`这是用户精选的${validSample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`;
   const textBlock={type:'text',text:promptText};
   const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
   const msgs=[
@@ -1106,9 +1114,9 @@ async function analyzePreference(){
   ];
   const result=await callMaster(msgs);
 
-  sample.forEach(g=>S.allAnalyzedIds.add(g.id));
+  validSample.forEach(g=>S.allAnalyzedIds.add(g.id));
   await db.setSetting('allAnalyzedIds',[...S.allAnalyzedIds]);
-  const newIds=sample.map(g=>g.id);
+  const newIds=validSample.map(g=>g.id);
   await db.setSetting('lastAnalyzedIds',newIds);
   S.lastAnalyzedIds=newIds;
 
@@ -1128,10 +1136,16 @@ async function analyzePreference(){
   if(hasOld&&simPct>85){
     toast(`审美档案已趋稳定（${simPct}%相似），新图影响不大 📊`,'info');
   }else{
-    toast(`审美档案已更新（分析${sample.length}张，${newCount}张新图）✨`);
+    toast(`审美档案已更新（分析${validSample.length}张，${newCount}张新图）✨`);
   }
-  if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
-  else _refreshPendingCount();
+  switchTab('master');
+}
+
+function _cancelAnalyze(){
+  S.analyzePicking=false;
+  S.gallerySelected.clear();
+  renderGallery();
+  toast('已取消','info');
 }
 
 // ── AI Generate Prompt ───────────────────────────────────────
@@ -1634,7 +1648,7 @@ function _paintGallery(){
     }
   },{rootMargin:'200px'});
   const analyzedSet=S.allAnalyzedIds;
-  const selecting=S.gallerySelecting;
+  const selecting=S.gallerySelecting||S.analyzePicking;
   for(const item of _galItems.slice(0,_galShown)){
     const el=document.createElement('div');
     el.className='gallery-item'+(selecting&&S.gallerySelected.has(item.id)?' gal-selected':'');
@@ -1687,6 +1701,7 @@ async function _quickDeleteGallery(item){
 function toggleGallerySelect(){
   S.gallerySelecting=!S.gallerySelecting;
   if(!S.gallerySelecting) S.gallerySelected.clear();
+  S.analyzePicking=false; // 退出分析模式
   const btn=document.getElementById('btn-gallery-select');
   btn.textContent=S.gallerySelecting?'✕ 退出多选':'☑ 多选';
   btn.classList.toggle('active',S.gallerySelecting);
@@ -1695,11 +1710,24 @@ function toggleGallerySelect(){
 
 function _updateBatchBar(){
   const bar=document.getElementById('gallery-batch-bar');
-  if(!bar) return;
+  const analyzeBar=document.getElementById('gallery-analyze-bar');
+  if(!bar||!analyzeBar) return;
   const n=S.gallerySelected.size;
-  if(!S.gallerySelecting||n===0){bar.style.display='none';return}
-  bar.style.display='flex';
-  bar.querySelector('.batch-count').textContent=`已选 ${n} 张`;
+
+  if(S.analyzePicking){
+    bar.style.display='none';
+    if(n===0){analyzeBar.style.display='none';return}
+    analyzeBar.style.display='flex';
+    analyzeBar.querySelector('.batch-count').textContent=`已选 ${n} 张`;
+  }else if(S.gallerySelecting){
+    analyzeBar.style.display='none';
+    if(n===0){bar.style.display='none';return}
+    bar.style.display='flex';
+    bar.querySelector('.batch-count').textContent=`已选 ${n} 张`;
+  }else{
+    bar.style.display='none';
+    analyzeBar.style.display='none';
+  }
 }
 
 async function _batchDeleteGallery(){
