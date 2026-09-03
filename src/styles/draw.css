@@ -278,12 +278,12 @@ textarea:focus{border-color:var(--purple)}
 .gallery-item.gal-selected{outline:3px solid var(--purple);outline-offset:-3px}
 
 /* batch bar */
-#gallery-batch-bar{
+#gallery-batch-bar,#gallery-analyze-bar{
   display:flex;align-items:center;gap:10px;padding:8px 12px;
   background:var(--card);border:1px solid var(--purple);border-radius:var(--r);
   margin-bottom:6px;
 }
-#gallery-batch-bar .batch-count{font-size:13px;font-weight:600;color:var(--purple)}
+#gallery-batch-bar .batch-count,#gallery-analyze-bar .batch-count{font-size:13px;font-weight:600;color:var(--purple)}
 #btn-gallery-select.active{background:var(--purple);color:#fff;border-color:var(--purple)}
 
 /* ── Master ── */
