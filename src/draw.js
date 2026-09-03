@@ -1069,7 +1069,13 @@ async function analyzePreference(){
   const all=await db.all('gallery');
   if(all.length<2){toast('需要至少2张图片','warn');return}
 
-  // 进入选择模式
+  // 如果已经有选中的图，直接分析
+  if(S.gallerySelected.size>=2){
+    await _confirmAnalyze();
+    return;
+  }
+
+  // 否则进入选择模式
   S.analyzePicking=true;
   S.gallerySelected.clear();
   switchTab('gallery');
