@@ -49,6 +49,7 @@ body{
   padding:12px 0;background:var(--sidebar);
   border-top:1px solid var(--border);
   display:flex;flex-direction:column;align-items:center;gap:8px;
+  z-index:10;
 }
 .sidebar-footer button{
   background:transparent;border:none;color:var(--sub);font-size:18px;
@@ -396,18 +397,19 @@ textarea:focus{border-color:var(--purple)}
 }
 @media(max-width:768px){
   #sidebar{
-    width:70px;min-width:70px;padding:8px 0 70px 0;
+    width:54px;min-width:54px;padding:8px 0 60px 0;
   }
+  .sidebar-brand{font-size:18px;margin-bottom:2px;padding:4px}
   .persona-card{
-    width:60px;padding:6px 2px;
+    width:50px;padding:4px 2px;gap:2px;
   }
   .persona-avatar-img,.persona-avatar-placeholder{
-    width:36px;height:36px;font-size:14px;
+    width:32px;height:32px;font-size:12px;
   }
-  .persona-name{font-size:10px;max-width:56px}
-  .sidebar-add{width:36px;height:36px;font-size:18px}
-  .sidebar-footer{padding:8px 0}
-  .sidebar-footer button{font-size:16px;padding:4px}
+  .persona-name{font-size:9px;max-width:48px}
+  .sidebar-add{width:32px;height:32px;font-size:16px}
+  .sidebar-footer{padding:6px 0;gap:4px}
+  .sidebar-footer button{font-size:15px;padding:3px}
 
   .modal-box{
     max-height:80vh;padding:20px 16px;
