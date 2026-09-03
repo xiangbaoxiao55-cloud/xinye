@@ -757,9 +757,21 @@ export function renderTokenLog(msgId) {
   const isStream   = inputTok === '—';
   const reqFormatted = requestMsgs.map((m, i) => {
     const meta = msgsMeta && msgsMeta[i];
-    const label = meta ? meta.label : (m.role === 'user' ? (settings.userName || '涂涂') : m.role === 'assistant' ? (settings.aiName || '炘也') : 'system');
+    const label = (meta?.label)
+      ? meta.label
+      : (m.role === 'user' ? (settings.userName || '涂涂') : m.role === 'assistant' ? (settings.aiName || '炘也') : 'system');
     const timeStr = meta && meta.time ? `  [${fmtTime(meta.time)}]` : '';
-    const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2);
+    let content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2);
+    // 压缩 base64 图片防止日志爆炸
+    if (Array.isArray(m.content)) {
+      content = JSON.stringify(m.content.map(part => {
+        if (part.type === 'image_url' && part.image_url?.url?.startsWith('data:image/')) {
+          const prefix = part.image_url.url.slice(0, 30);
+          return { type: 'image_url', image_url: { url: prefix + '...[base64图片已省略]' } };
+        }
+        return part;
+      }), null, 2);
+    }
     return `── [${i + 1}] ${label}${timeStr} ──\n${content}`;
   }).join('\n\n');
   const reqChars   = JSON.stringify(requestMsgs).length;
@@ -2081,7 +2093,14 @@ export async function sendMessage() {
       const loopMsgs = [...apiMsgs];
       // Inject tool usage guidance into system message
       if (_hasTavily && loopMsgs[0]?.role === 'system') {
-        loopMsgs[0].content += '\n\n【工具使用指南】\n当你需要调用 web_search 或 fetch_page 等工具查资料时：\n1. 每次看到工具返回的结果后，**先输出1-2句话总结关键信息**（如"我查到了XX规则..."），再决定下一步\n2. 这段总结会保留在对话中，而原始网页全文会被压缩，这样可以避免上下文爆炸\n3. 如果需要继续调用工具，在总结之后再发起新的 tool_calls\n4. 你的总结应该提炼出**真正需要的知识点**，不是简单复述原文';
+        const _guideText = '\n\n【工具使用指南】\n当你需要调用 web_search 或 fetch_page 等工具查资料时：\n1. 每次看到工具返回的结果后，**先输出1-2句话总结关键信息**（如"我查到了XX规则..."），再决定下一步\n2. 这段总结会保留在对话中，而原始网页全文会被压缩，这样可以避免上下文爆炸\n3. 如果需要继续调用工具，在总结之后再发起新的 tool_calls\n4. 你的总结应该提炼出**真正需要的知识点**，不是简单复述原文';
+        if (Array.isArray(loopMsgs[0].content)) {
+          // Anthropic 格式：content 是数组
+          loopMsgs[0].content.push({ type: 'text', text: _guideText });
+        } else if (typeof loopMsgs[0].content === 'string') {
+          // OpenAI 格式：content 是字符串
+          loopMsgs[0].content += _guideText;
+        }
       }
 
       function _trimLoopMsgs() {
