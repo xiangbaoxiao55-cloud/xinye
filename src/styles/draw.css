@@ -18,8 +18,8 @@ body{
 #sidebar{
   width:110px;min-width:110px;background:var(--sidebar);
   display:flex;flex-direction:column;align-items:center;
-  padding:12px 0;gap:6px;border-right:1px solid var(--border);
-  overflow-y:auto;overflow-x:hidden;
+  padding:12px 0 80px 0;gap:6px;border-right:1px solid var(--border);
+  overflow-y:auto;overflow-x:hidden;position:relative;
 }
 .sidebar-brand{font-size:22px;margin-bottom:4px;padding:6px}
 #persona-list{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;flex:1}
@@ -44,7 +44,12 @@ body{
   display:flex;align-items:center;justify-content:center;transition:.15s;
 }
 .sidebar-add:hover{border-color:var(--purple);color:var(--purple)}
-.sidebar-footer{margin-top:auto;padding-top:8px}
+.sidebar-footer{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:12px 0;background:var(--sidebar);
+  border-top:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+}
 .sidebar-footer button{
   background:transparent;border:none;color:var(--sub);font-size:18px;
   cursor:pointer;padding:6px;border-radius:var(--rs);transition:.15s;
@@ -390,6 +395,20 @@ textarea:focus{border-color:var(--purple)}
   -webkit-overflow-scrolling:touch;
 }
 @media(max-width:768px){
+  #sidebar{
+    width:70px;min-width:70px;padding:8px 0 70px 0;
+  }
+  .persona-card{
+    width:60px;padding:6px 2px;
+  }
+  .persona-avatar-img,.persona-avatar-placeholder{
+    width:36px;height:36px;font-size:14px;
+  }
+  .persona-name{font-size:10px;max-width:56px}
+  .sidebar-add{width:36px;height:36px;font-size:18px}
+  .sidebar-footer{padding:8px 0}
+  .sidebar-footer button{font-size:16px;padding:4px}
+
   .modal-box{
     max-height:80vh;padding:20px 16px;
   }
