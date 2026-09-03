@@ -1086,43 +1086,40 @@ async function analyzePreference(){
 async function _confirmAnalyze(){
   const selectedIds=[...S.gallerySelected];
   if(selectedIds.length<2){toast('请至少选择2张图片','warn');return}
-  if(selectedIds.length>20){toast('最多选择20张图片','warn');return}
+  if(selectedIds.length>12){toast('为避免内存溢出，最多选择12张图片','warn');return}
 
   S.analyzePicking=false;
   S.gallerySelected.clear();
   renderGallery();
 
-  toast(`正在加载 ${selectedIds.length} 张图片...`,'info');
+  toast(`正在处理 ${selectedIds.length} 张图片...`,'info');
 
-  // 分批加载图片，避免内存溢出
-  const validSample=[];
-  for(const id of selectedIds){
-    const item=await db.get('gallery',id);
-    if(item) validSample.push(item);
-  }
-
-  if(validSample.length<2){toast('选中的图片读取失败','error');return}
-
-  toast(`正在压缩图片...`,'info');
-
-  // 分批压缩图片
+  // 逐张加载+压缩，不保留原图
   const imgBlocks=[];
-  for(const g of validSample){
-    const b64=await _shrinkImg(g.imageData);
+  for(let i=0;i<selectedIds.length;i++){
+    const item=await db.get('gallery',selectedIds[i]);
+    if(!item) continue;
+
+    // 立即压缩，原图不保留
+    const b64=await _shrinkImg(item.imageData);
     imgBlocks.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});
+
+    // 标记为已分析
+    S.allAnalyzedIds.add(item.id);
   }
 
-  const newCount=validSample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
+  if(imgBlocks.length<2){toast('图片读取失败','error');return}
+
   const all=await db.all('gallery');
   const unanalyzed=all.filter(g=>!S.allAnalyzedIds.has(g.id));
-
-  const pendingAfter=unanalyzed.length-newCount;
+  const newCount=selectedIds.filter(id=>S.allAnalyzedIds.has(id)).length;
+  const pendingAfter=unanalyzed.length;
   const hint=newCount>0?`（${newCount}张新图${pendingAfter>0?`，还剩${pendingAfter}张待分析`:'，全部分析完毕'}）`:'（全部已分析，更新档案）';
   const prevProfile=S.aestheticProfile;
   const hasOld=prevProfile&&prevProfile.length>20;
   const promptText=hasOld
-    ?`这是用户新增的${validSample.length}张图片${hint}。\n\n她现有的审美档案如下：\n「${prevProfile}」\n\n请综合现有档案和这批新图片，更新她的审美偏好描述——保留旧档案中仍然成立的观察，融入新图片带来的新发现或强化的趋势。像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。200-350字，只输出正文。`
-    :`这是用户精选的${validSample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`;
+    ?`这是用户新增的${imgBlocks.length}张图片${hint}。\n\n她现有的审美档案如下：\n「${prevProfile}」\n\n请综合现有档案和这批新图片，更新她的审美偏好描述——保留旧档案中仍然成立的观察，融入新图片带来的新发现或强化的趋势。像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。200-350字，只输出正文。`
+    :`这是用户精选的${imgBlocks.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`;
   const textBlock={type:'text',text:promptText};
   const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
 
@@ -1134,11 +1131,9 @@ async function _confirmAnalyze(){
   ];
   const result=await callMaster(msgs);
 
-  validSample.forEach(g=>S.allAnalyzedIds.add(g.id));
   await db.setSetting('allAnalyzedIds',[...S.allAnalyzedIds]);
-  const newIds=validSample.map(g=>g.id);
-  await db.setSetting('lastAnalyzedIds',newIds);
-  S.lastAnalyzedIds=newIds;
+  await db.setSetting('lastAnalyzedIds',selectedIds);
+  S.lastAnalyzedIds=selectedIds;
 
   const similarity=(()=>{
     if(!prevProfile||!result) return 0;
@@ -1156,7 +1151,7 @@ async function _confirmAnalyze(){
   if(hasOld&&simPct>85){
     toast(`审美档案已趋稳定（${simPct}%相似），新图影响不大 📊`,'info');
   }else{
-    toast(`审美档案已更新（分析${validSample.length}张，${newCount}张新图）✨`);
+    toast(`审美档案已更新（分析${imgBlocks.length}张，${newCount}张新图）✨`);
   }
   switchTab('master');
 }
