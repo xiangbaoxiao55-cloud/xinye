@@ -1092,19 +1092,30 @@ async function _confirmAnalyze(){
   S.gallerySelected.clear();
   renderGallery();
 
-  const sample=await Promise.all(selectedIds.map(id=>db.get('gallery',id)));
-  const validSample=sample.filter(Boolean);
+  toast(`正在加载 ${selectedIds.length} 张图片...`,'info');
+
+  // 分批加载图片，避免内存溢出
+  const validSample=[];
+  for(const id of selectedIds){
+    const item=await db.get('gallery',id);
+    if(item) validSample.push(item);
+  }
 
   if(validSample.length<2){toast('选中的图片读取失败','error');return}
+
+  toast(`正在压缩图片...`,'info');
+
+  // 分批压缩图片
+  const imgBlocks=[];
+  for(const g of validSample){
+    const b64=await _shrinkImg(g.imageData);
+    imgBlocks.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});
+  }
 
   const newCount=validSample.filter(g=>!S.allAnalyzedIds.has(g.id)).length;
   const all=await db.all('gallery');
   const unanalyzed=all.filter(g=>!S.allAnalyzedIds.has(g.id));
 
-  const imgBlocks=await Promise.all(validSample.map(async g=>{
-    const b64=await _shrinkImg(g.imageData);
-    return{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}};
-  }));
   const pendingAfter=unanalyzed.length-newCount;
   const hint=newCount>0?`（${newCount}张新图${pendingAfter>0?`，还剩${pendingAfter}张待分析`:'，全部分析完毕'}）`:'（全部已分析，更新档案）';
   const prevProfile=S.aestheticProfile;
@@ -1114,6 +1125,9 @@ async function _confirmAnalyze(){
     :`这是用户精选的${validSample.length}张图片${hint}。请用流畅自然的文字描述她的审美偏好——不用分固定类目，像写一个人的审美性格一样：什么样的画面会打动她、她偏爱的氛围和情绪、那些反复出现的视觉执念。150-250字，只输出正文。`;
   const textBlock={type:'text',text:promptText};
   const _baseSys='你是一个懂审美也懂情感的视觉观察者，善于从图片里读出一个人的偏好和气质。';
+
+  toast(`正在分析审美偏好...`,'info');
+
   const msgs=[
     {role:'system',content:S.masterPersona?`${S.masterPersona}\n\n${_baseSys}`:_baseSys},
     {role:'user',content:[...imgBlocks,textBlock]}
