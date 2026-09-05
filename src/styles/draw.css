@@ -396,6 +396,11 @@ textarea:focus{border-color:var(--purple)}
   border:1px solid var(--border);position:relative;
   -webkit-overflow-scrolling:touch;
 }
+/* ── Draw bottom bar ── */
+#draw-bottom-bar{
+  flex-shrink:0;padding:10px 12px;background:var(--sidebar);
+  border-top:1px solid var(--border);
+}
 @media(max-width:768px){
   #sidebar{
     width:54px;min-width:54px;padding:8px 0 60px 0;
