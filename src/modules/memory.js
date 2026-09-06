@@ -1347,7 +1347,8 @@ ${chatText}
       console.warn('[digestMemory] res.body 为空，尝试非流式解析');
       try {
         const data = await res.json();
-        const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.content?.[0]?.text || '').trim();
+        const _textBlock = Array.isArray(data?.content) ? data.content.find(b => b.type === 'text') : null;
+        const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || _textBlock?.text || data?.content?.[0]?.text || '').trim();
         if (!content) throw new Error('响应内容为空');
         const patchResult = applyArchivePatch(settings.memoryArchive || '', content);
         if (!patchResult.ok) {
