@@ -505,28 +505,41 @@ export async function regenTTS(text, btnEl, msgId) {
 export async function exportTTSCache() {
   try {
     toast('正在打包TTS缓存…');
-    const [keys, blobs] = await Promise.all([dbGetAllKeys('ttsCache'), dbGetAll('ttsCache')]);
-    if (!keys.length) { toast('TTS缓存是空的，先让炘也说点话～'); return; }
+    const allKeys = await dbGetAllKeys('ttsCache');
+    if (!allKeys.length) { toast('TTS缓存是空的，先让炘也说点话～'); return; }
+
+    const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
+    const lastExportedKey = Number(localStorage.getItem(_PFX + 'tts_lastExportKey') || '0');
+    const newKeys = lastExportedKey ? allKeys.filter(k => k > lastExportedKey) : allKeys;
+    if (!newKeys.length) { toast('没有新增语音，上次已全部导出～'); return; }
 
     const script = document.createElement('script');
     script.src = './lib/jszip.min.js';
     await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
 
     const zip = new window.JSZip();
-    blobs.forEach((blob, i) => {
-      const ext = blob.type.includes('mp3') ? 'mp3' : 'wav';
-      zip.file(`tts_${String(i + 1).padStart(3, '0')}.${ext}`, blob);
-    });
+    const BATCH = 50;
+    for (let i = 0; i < newKeys.length; i += BATCH) {
+      const batchKeys = newKeys.slice(i, i + BATCH);
+      for (const key of batchKeys) {
+        const blob = await dbGet('ttsCache', key);
+        if (!blob) continue;
+        const ext = blob.type?.includes('mp3') ? 'mp3' : 'wav';
+        zip.file(`tts_${key}.${ext}`, blob);
+      }
+    }
 
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
     const _ttsPrefix = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
-    a.download = `${_ttsPrefix}_tts_cache_${keys.length}条.zip`;
+    const label = lastExportedKey ? `新增${newKeys.length}条` : `${newKeys.length}条`;
+    a.download = `${_ttsPrefix}_tts_cache_${label}.zip`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(`✅ 已打包 ${keys.length} 条语音，下载中～`);
+    localStorage.setItem(_PFX + 'tts_lastExportKey', String(newKeys[newKeys.length - 1]));
+    toast(`✅ 已打包 ${newKeys.length} 条语音，下载中～`);
   } catch(err) {
     toast(`导出失败：${err.message}`);
     console.error('[TTS Export]', err);

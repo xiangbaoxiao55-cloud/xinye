@@ -172,6 +172,17 @@
   max-width:min(260px,100%);max-height:260px;width:auto;height:auto;
   border-radius:12px;display:block;cursor:pointer;margin-top:6px;
 }
+.lazy-img-ph{
+  display:flex;align-items:center;justify-content:center;
+  width:160px;height:120px;border-radius:12px;margin-top:6px;
+  background:var(--bg-secondary,#f0f0f0);
+}
+.lazy-img-spinner{
+  width:24px;height:24px;border:3px solid var(--text-dim,#bbb);
+  border-top-color:var(--primary,#ff9800);border-radius:50%;
+  animation:lazyImgSpin .8s linear infinite;
+}
+@keyframes lazyImgSpin{to{transform:rotate(360deg)}}
 #imgLightbox{
   display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
   z-index:9999;align-items:center;justify-content:center;

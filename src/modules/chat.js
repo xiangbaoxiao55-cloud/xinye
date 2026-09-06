@@ -27,6 +27,50 @@ let editingId = -1;
 const _tokenLogs = new Map();
 const _openPanels = new Set();
 
+// ======================== 按需加载图片（防OOM） ========================
+const _imgObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    _imgObserver.unobserve(el);
+    const msgId = Number(el.dataset.lazyMsgId);
+    const field = el.dataset.lazyField; // 'genImageData' | 'images'
+    if (!msgId) return;
+    const store = window._rpActive ? 'rpMessages' : 'messages';
+    dbGet(store, msgId).then(full => {
+      if (!full) return;
+      if (field === 'genImageData' && full.genImageData) {
+        const src = full.genImageData;
+        const origUrl = src.startsWith('__HTTP_URL__:') ? src.slice(13) : null;
+        const imgSrc = origUrl ? null : (src.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(src) : src);
+        if (origUrl) {
+          el.innerHTML = `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>`;
+        } else {
+          el.innerHTML = `<img class="gen-img" src="${escHtml(imgSrc)}" alt="炘也画的图" data-src="${escHtml(imgSrc)}">`;
+        }
+        // 同时回写内存，后续操作（保存/重试等）可直接用
+        const mm = messages.find(m => m.id === msgId);
+        if (mm) { mm.genImageData = full.genImageData; delete mm._hasGenImage; }
+      } else if (field === 'images') {
+        const allImgs = full.images || (full.image ? [full.image] : []);
+        if (allImgs.length) {
+          el.innerHTML = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+          const mm = messages.find(m => m.id === msgId);
+          if (mm) { mm.images = full.images; mm.image = full.image; delete mm._hasImages; }
+        }
+      }
+    }).catch(() => {});
+  });
+}, { rootMargin: '200px' });
+
+function _lazyImgPlaceholder(msgId, field) {
+  return `<span class="lazy-img-ph" data-lazy-msg-id="${msgId}" data-lazy-field="${field}"><span class="lazy-img-spinner"></span></span>`;
+}
+
+function _observeLazyImgs(container) {
+  container.querySelectorAll('.lazy-img-ph').forEach(el => _imgObserver.observe(el));
+}
+
 // ======================== 消息版本 ========================
 function getMsgActiveContent(msg) {
   if (msg.versions && msg.versions.length > 0) {
@@ -300,7 +344,7 @@ export async function renderMessages() {
     const isUser = msg.role === 'user';
     row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
     const allImgs = msg.images || (msg.image ? [msg.image] : []);
-    const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+    const imgHtml = allImgs.length ? allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('') : (msg._hasImages ? _lazyImgPlaceholder(msg.id, 'images') : '');
     const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
     const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
     const _isBookmarked = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
@@ -315,12 +359,17 @@ export async function renderMessages() {
       const _errTxt = msg.content.replace(/^\[画图失败\]\s*/, '');
       const _errPr = msg.genImageErrorPrompt || '';
       _bubbleInner = `<div class="gen-img-error"><span class="gen-img-error-text">${escHtml(_errTxt)}</span>${_errPr ? `<button class="btn-gen-img-retry-err" data-id="${msg.id}">重试</button>` : ''}</div>`;
-    } else if (!isUser && msg.isGenImage && msg.genImageData) {
+    } else if (!isUser && msg.isGenImage && (msg.genImageData || msg._hasGenImage)) {
       const _gp = _extractGenPrompt(msg.content);
       const _gpBm = `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-      const _origUrl = msg.genImageData.startsWith('__HTTP_URL__:') ? msg.genImageData.slice(13) : null;
-      const _imgSrc = _origUrl ? null : (msg.genImageData.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(msg.genImageData) : msg.genImageData);
-      const _imgHtmlPart = _origUrl ? `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(_origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>` : `<img class="gen-img" src="${escHtml(_imgSrc)}" alt="炘也画的图" data-src="${escHtml(_imgSrc)}">`;
+      let _imgHtmlPart;
+      if (msg.genImageData) {
+        const _origUrl = msg.genImageData.startsWith('__HTTP_URL__:') ? msg.genImageData.slice(13) : null;
+        const _imgSrc = _origUrl ? null : (msg.genImageData.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(msg.genImageData) : msg.genImageData);
+        _imgHtmlPart = _origUrl ? `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(_origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>` : `<img class="gen-img" src="${escHtml(_imgSrc)}" alt="炘也画的图" data-src="${escHtml(_imgSrc)}">`;
+      } else {
+        _imgHtmlPart = _lazyImgPlaceholder(msg.id, 'genImageData');
+      }
       _bubbleInner = `${_imgHtmlPart}<div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><div class="gen-prompt-wrap"><div class="gen-prompt-header"><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
     } else if (!isUser && msg.isFortuneCard) {
       const _fr = msg.fortuneResult || {};
@@ -348,6 +397,7 @@ export async function renderMessages() {
     if (msg.content && !msg.isGenImage && !_stickerName && !_isEmailRender) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
+  _observeLazyImgs(chatArea);
   try {
     const cachedKeys = new Set(await dbGetAllKeys('ttsCache'));
     if (cachedKeys.size > 0) {
@@ -384,7 +434,7 @@ export async function appendMsgDOM(msg) {
   const row = document.createElement('div');
   row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
   const allImgs = msg.images || (msg.image ? [msg.image] : []);
-  const imgHtml = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+  const imgHtml = allImgs.length ? allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('') : (msg._hasImages ? _lazyImgPlaceholder(msg.id, 'images') : '');
   const copyBtn2 = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
   const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
   const _isBookmarked2 = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
@@ -462,7 +512,7 @@ chatArea.addEventListener('scroll', async () => {
   const minId = messages[0]?.id;
   if (!minId) return;
   _loadingOlder = true;
-  const older = await dbGetBefore(activeStore(), minId, 50);
+  const older = await dbGetBefore(activeStore(), minId, 50, true);
   if (older.length) {
     if (older.length < 50) _noMoreOlder = true;
     messages.unshift(...older);
@@ -492,7 +542,11 @@ chatArea.addEventListener('click', async e => {
   const genImgSaveBtn = e.target.closest('.btn-gen-img-save');
   if (genImgSaveBtn) {
     const id = Number(genImgSaveBtn.dataset.id);
-    const msg = messages.find(m => m.id === id);
+    let msg = messages.find(m => m.id === id);
+    if (msg && !msg.genImageData && msg._hasGenImage) {
+      const full = await dbGet(activeStore(), id);
+      if (full) { msg.genImageData = full.genImageData; delete msg._hasGenImage; }
+    }
     if (msg && msg.genImageData) {
       const src = msg.genImageData;
       const _aiN = settings.aiName || '炘也';
@@ -1067,7 +1121,17 @@ export async function sendMessage() {
         }
       }
       const isLatest = i === recent.length - 1;
-      const msgImgs = isLatest ? (m.images || (m.image ? [m.image] : [])) : [];
+      let msgImgs = [];
+      if (isLatest) {
+        msgImgs = m.images || (m.image ? [m.image] : []);
+        if (!msgImgs.length && m._hasImages) {
+          const _fullMsg = await dbGet(activeStore(), m.id);
+          if (_fullMsg) {
+            msgImgs = _fullMsg.images || (_fullMsg.image ? [_fullMsg.image] : []);
+            m.images = _fullMsg.images; m.image = _fullMsg.image; delete m._hasImages;
+          }
+        }
+      }
       const msgDescs = m.imageDescs && m.imageDescs.some(d => d);
       if (role === 'user' && msgDescs) {
         const nums = ['', '①', '②', '③', '④', '⑤'];
@@ -1550,8 +1614,12 @@ export async function sendMessage() {
         let _refImgs = imgs && imgs.length > 0 ? [...imgs] : [];
         const _refFromChat = _refImgs.length > 0;
         if (!_refImgs.length && args.use_last_image) {
-          const _lastGen = [...messages].reverse().find(m => m.isGenImage && m.genImageData);
-          if (_lastGen) _refImgs = [_lastGen.genImageData];
+          let _lastGen = [...messages].reverse().find(m => m.isGenImage && (m.genImageData || m._hasGenImage));
+          if (_lastGen && !_lastGen.genImageData && _lastGen._hasGenImage) {
+            const _full = await dbGet(activeStore(), _lastGen.id);
+            if (_full && _full.genImageData) { _lastGen.genImageData = _full.genImageData; delete _lastGen._hasGenImage; }
+          }
+          if (_lastGen && _lastGen.genImageData) _refImgs = [_lastGen.genImageData];
         }
         if (args.ref_characters && args.ref_characters !== 'none') {
           const _aiRef = await dbGet('images', 'aiRef').catch(() => null);

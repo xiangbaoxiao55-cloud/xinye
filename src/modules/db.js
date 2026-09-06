@@ -72,7 +72,7 @@ export function dbGetAll(store) {
   });
 }
 
-export function dbGetRecent(store, count) {
+export function dbGetRecent(store, count, stripBlob) {
   if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
@@ -81,7 +81,13 @@ export function dbGetRecent(store, count) {
     req.onsuccess = e => {
       const cursor = e.target.result;
       if (cursor && results.length < count) {
-        results.unshift(cursor.value);
+        const v = cursor.value;
+        if (stripBlob) {
+          if (v.genImageData) { v._hasGenImage = true; delete v.genImageData; }
+          if (v.images && v.images.length) { v._hasImages = true; delete v.images; }
+          if (v.image) { v._hasImages = true; delete v.image; }
+        }
+        results.unshift(v);
         cursor.continue();
       } else {
         resolve(results);
@@ -131,7 +137,7 @@ export function dbClear(store) {
   });
 }
 
-export function dbGetBefore(store, beforeId, count) {
+export function dbGetBefore(store, beforeId, count, stripBlob) {
   if (!db) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly');
@@ -140,7 +146,16 @@ export function dbGetBefore(store, beforeId, count) {
     const req = tx.objectStore(store).openCursor(range, 'prev');
     req.onsuccess = e => {
       const cursor = e.target.result;
-      if (cursor && results.length < count) { results.unshift(cursor.value); cursor.continue(); }
+      if (cursor && results.length < count) {
+        const v = cursor.value;
+        if (stripBlob) {
+          if (v.genImageData) { v._hasGenImage = true; delete v.genImageData; }
+          if (v.images && v.images.length) { v._hasImages = true; delete v.images; }
+          if (v.image) { v._hasImages = true; delete v.image; }
+        }
+        results.unshift(v);
+        cursor.continue();
+      }
       else resolve(results);
     };
     req.onerror = (e) => reject(e.target.error);

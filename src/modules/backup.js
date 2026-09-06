@@ -241,7 +241,7 @@ export async function autoBackupToServer() {
         styleRef_3:    await dbGet('images', 'styleRef_3')    || null,
         styleRef_4:    await dbGet('images', 'styleRef_4')    || null,
       },
-      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
+      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
@@ -319,7 +319,7 @@ export async function backupToPhone() {
         styleRef_3:    await dbGet('images', 'styleRef_3')    || null,
         styleRef_4:    await dbGet('images', 'styleRef_4')    || null,
       },
-      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images) r.images = m.images; return r; }),
+      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
@@ -372,14 +372,14 @@ export async function exportData(mode) {
     messages: allMsgs.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
-      if (m.images) r.images = m.images;
+      if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images;
       if (m.isGenImage) r.isGenImage = true;
       return r;
     }),
     rpMessages: allRpMsgs.map(m => {
       const r = { role: m.role, content: m.content, time: m.time };
       if (m.image) r.image = m.image;
-      if (m.images) r.images = m.images;
+      if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images;
       return r;
     }),
     rpData: {

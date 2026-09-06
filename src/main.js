@@ -193,7 +193,7 @@ async function loadAll() {
   const _initRpActive = localStorage.getItem('rp_active') === '1';
   window._rpActive = _initRpActive;
   const _msgStore = _initRpActive ? 'rpMessages' : 'messages';
-  { const _m = await dbGetRecent(_msgStore, loadCount); messages.length = 0; messages.push(..._m); }
+  { const _m = await dbGetRecent(_msgStore, loadCount, true); messages.length = 0; messages.push(..._m); }
   setDecoStickers(await dbGetAll('stickers'));
   await loadChatStickers();
 }
@@ -432,7 +432,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.06-2115';
+  if (_verEl) _verEl.textContent = 'v2026.09.06-2247';
 
   await openDB();
   await migrateFromLocalStorage();
