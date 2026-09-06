@@ -68,6 +68,46 @@ if('serviceWorker' in navigator){
   window._vConsole = new VConsole({ theme: 'dark' });
   window._vConsole.setSwitchPosition(window.innerWidth / 2, 0);
 
+// ======================== vConsole 日志持久化 ========================
+// 页面被系统回收重载后，自动恢复之前的日志到 vConsole
+{
+  const _VC_KEY = 'vconsole_logs';
+  const _VC_MAX = 200;
+  const _origLog = console.log, _origWarn = console.warn, _origError = console.error;
+
+  function _vcSave(level, args) {
+    try {
+      const logs = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]');
+      const text = Array.from(args).map(a => {
+        if (typeof a === 'string') return a.length > 300 ? a.slice(0, 300) + '…' : a;
+        try { const s = JSON.stringify(a); return s && s.length > 300 ? s.slice(0, 300) + '…' : s; }
+        catch { return String(a); }
+      }).join(' ');
+      logs.push({ l: level, t: text, ts: Date.now() });
+      if (logs.length > _VC_MAX) logs.splice(0, logs.length - _VC_MAX);
+      sessionStorage.setItem(_VC_KEY, JSON.stringify(logs));
+    } catch {}
+  }
+
+  console.log = function(...a) { _vcSave('log', a); return _origLog.apply(console, a); };
+  console.warn = function(...a) { _vcSave('warn', a); return _origWarn.apply(console, a); };
+  console.error = function(...a) { _vcSave('error', a); return _origError.apply(console, a); };
+
+  // 页面加载时恢复之前的日志
+  try {
+    const prev = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]');
+    if (prev.length > 0) {
+      const tag = `📦 恢复 ${prev.length} 条日志 (${new Date(prev[0].ts).toLocaleTimeString()}~${new Date(prev[prev.length-1].ts).toLocaleTimeString()})`;
+      _origLog.call(console, tag);
+      for (const e of prev) {
+        const fn = e.l === 'error' ? _origError : e.l === 'warn' ? _origWarn : _origLog;
+        fn.call(console, `[${new Date(e.ts).toLocaleTimeString()}]`, e.t);
+      }
+      _origLog.call(console, '📦 ── 恢复结束 ──');
+    }
+  } catch {}
+}
+
 // ======================== 默认 Emoji 头像 ========================
 
 // ======================== DOM ========================
@@ -392,7 +432,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.06-1435';
+  if (_verEl) _verEl.textContent = 'v2026.09.06-1546';
 
   await openDB();
   await migrateFromLocalStorage();
