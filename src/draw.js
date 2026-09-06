@@ -53,6 +53,7 @@ const S={
   personas:[],curPersonaId:null,
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
+  seenScenes:new Set(),seenNsfwScenes:new Set(),
   selTokens:[],selStyles:[],lastTemplateName:'',
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
@@ -1039,6 +1040,8 @@ async function loadAestheticProfile(){
     await db.setSetting('allAnalyzedIds_v3',true);
   }
   S.allAnalyzedIds=new Set(await db.getSetting('allAnalyzedIds',[])||[]);
+  S.seenScenes=new Set(await db.getSetting('seenScenes',[])||[]);
+  S.seenNsfwScenes=new Set(await db.getSetting('seenNsfwScenes',[])||[]);
   S.masterHistory=await db.getSetting('masterHistory',[])||[];
   S.masterLastImg=await db.getSetting('masterLastImg',null)||null;
   S.masterPendingImgs=[];
@@ -1362,6 +1365,26 @@ const INSPIRE_TENSIONS=[
   '她踮脚他弯腰吻得刚好','深夜梦魇他抱醒轻拍','晨起她睡着他亲额头才起'
 ];
 
+// ── 意外变量池（第五维度：天气/光线/时间/意外/色彩/氛围） ──────────────
+const INSPIRE_WILDCARDS=[
+  '暴雨倾盆','大雪纷飞','浓雾弥漫','金色夕阳','月食进行中',
+  '雷暴闪电照亮一瞬','晨雾还没散','正午刺目阳光','台风前的诡异平静','彩虹刚出现',
+  '凌晨3点','黄昏最后5分钟','破晓前最暗的时刻','午夜钟声刚响','日出第一缕光',
+  '突然停电','有人来了','下一秒就要被发现','刚哭完眼睛还红着','酒喝到微醺',
+  '全画面只用红与黑','偏蓝冷调只有皮肤是暖色','逆光全剪影只有轮廓线发光','暖黄烛光是唯一光源',
+  '所有颜色都褪掉只剩一处红','整体过曝发白像记忆褪色','冷暖撞色左右分屏',
+  '刚刚打完架还喘着','一方在哭另一方不知道该怎么办','笑到停不下来','沉默了很久终于开口',
+  '其中一人受了伤','在倒计时最后一刻','醉得站不稳','刚从水里上来浑身湿透',
+  '对方睡着了','发烧中意识模糊','全身沾满颜料/面粉/花瓣','刚刚交换了一个秘密',
+];
+const NSFW_WILDCARDS=[
+  '红烛将灭最后一点光','窗外月光太亮看得一清二楚','隔壁有人声必须咬住声音',
+  '刚沐浴完香气未散','酒后面颊绯红','衣衫半解来不及脱完','铜镜映出纠缠全貌',
+  '帘外有脚步声经过','雨声盖住一切','汗湿的鬓发贴在脸上','冰与火——一只手冰凉一只手滚烫',
+  '被绑住了手只能感受','蒙眼只凭触觉','花瓣铺满身下','嘴里含着什么不能说话',
+  '事后余韵未消又开始','换了主导权','在镜前看着自己被对待','只用嘴不用手',
+];
+
 // ── 概念载体场景 → 风格锁定（避免不搭的随机组合） ──────────────
 const CONCEPT_STYLE_LOCK={
   '塔罗牌画面中':['Art Nouveau新艺术曲线','哥特暗黑插画','烫金+暗纹底','珐琅微绘'],
@@ -1457,18 +1480,45 @@ function _drawOne(key,nsfw){
 }
 
 function _rollInspireDice(){
+  const wildcard=arr=>arr[Math.floor(Math.random()*arr.length)];
   if(_inspireNsfwMode){
-    const scene=_drawOne('scenes',true);
+    // 春宫场景去重
+    let scene;
+    const unseenNsfw=NSFW_SCENES.filter(s=>!S.seenNsfwScenes.has(s));
+    if(unseenNsfw.length===0){
+      S.seenNsfwScenes.clear();
+      db.setSetting('seenNsfwScenes',[]);
+      toast('🎲 春宫场景全部摇过一轮，已重置！','info');
+      scene=NSFW_SCENES[Math.floor(Math.random()*NSFW_SCENES.length)];
+    }else{
+      scene=unseenNsfw[Math.floor(Math.random()*unseenNsfw.length)];
+    }
+    S.seenNsfwScenes.add(scene);
+    db.setSetting('seenNsfwScenes',[...S.seenNsfwScenes]);
     const pose=_drawOne('comps',true);
     const style=_drawOne('styles',true);
     const mood=_drawOne('tensions',true);
-    return `春宫：${scene} × ${pose} × ${style} × ${mood}——骰子摇出来的，你觉得怎么画👀`;
+    const wild=wildcard(NSFW_WILDCARDS);
+    return `春宫：${scene} × ${pose} × ${style} × ${mood}\n🎯 变量：${wild}——骰子摇出来的，你觉得怎么画👀`;
   }
-  const scene=_drawOne('scenes');
+  // 普通场景去重
+  let scene;
+  const unseen=INSPIRE_SCENES.filter(s=>!S.seenScenes.has(s));
+  if(unseen.length===0){
+    S.seenScenes.clear();
+    db.setSetting('seenScenes',[]);
+    toast('🎲 场景全部摇过一轮，已重置！','info');
+    scene=INSPIRE_SCENES[Math.floor(Math.random()*INSPIRE_SCENES.length)];
+  }else{
+    scene=unseen[Math.floor(Math.random()*unseen.length)];
+  }
+  S.seenScenes.add(scene);
+  db.setSetting('seenScenes',[...S.seenScenes]);
   const comp=_drawOne('comps');
   const style=CONCEPT_STYLE_LOCK[scene]?CONCEPT_STYLE_LOCK[scene][Math.floor(Math.random()*CONCEPT_STYLE_LOCK[scene].length)]:_drawOne('styles');
   const tension=_drawOne('tensions');
-  return `我想看：${scene} × ${comp} × ${style} × ${tension}——刚摇骰子摇出来的组合，你觉得怎么样👀`;
+  const wild=wildcard(INSPIRE_WILDCARDS);
+  return `我想看：${scene} × ${comp} × ${style} × ${tension}\n🎯 变量：${wild}——刚摇骰子摇出来的组合，你觉得怎么样👀`;
 }
 
 function miniMd(t){
