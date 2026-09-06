@@ -1347,10 +1347,12 @@ ${chatText}
       console.warn('[digestMemory] res.body 为空，尝试非流式解析');
       try {
         const data = await res.json();
+        const _nbModel = data.model || data.choices?.[0]?.model || '';
         const _textBlock = Array.isArray(data?.content) ? data.content.find(b => b.type === 'text') : null;
         const content = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || _textBlock?.text || data?.content?.[0]?.text || '').trim();
         if (!content) throw new Error('响应内容为空');
         const patchResult = applyArchivePatch(settings.memoryArchive || '', content);
+        const _nbMdl = _nbModel ? ` (${_nbModel})` : '';
         if (!patchResult.ok) {
           settings._digestRawOutput = content;
           await saveSettings();
@@ -1367,8 +1369,8 @@ ${chatText}
           autoSyncArchiveToLocal();
           rebuildArchiveIndex(true);
           const cl = patchResult.changelog ? `\n${patchResult.changelog}` : '';
-          if (!silent) toast(`✅ 记忆档案已更新${cl}`);
-          else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）'); toast('📝 记忆已自动更新'); }
+          if (!silent) toast(`✅ 记忆档案已更新${_nbMdl}${cl}`);
+          else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）', '模型：', _nbModel || '未知'); toast(`📝 记忆已自动更新${_nbMdl}`); }
         }
         return;
       } catch(e) {
@@ -1379,7 +1381,7 @@ ${chatText}
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let newMemory = '';
-    let rawBuf = '', _digestEvtType = '';
+    let rawBuf = '', _digestEvtType = '', _digestModel = '';
     outer: while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -1393,6 +1395,7 @@ ${chatText}
           if (!lt.startsWith('data: ')) continue;
           const ev = parseAnthropicEvent(_digestEvtType, lt.slice(6));
           _digestEvtType = '';
+          if (ev?.model) _digestModel = ev.model;
           if (ev?.content) newMemory += ev.content;
           if (ev?.stop) break outer;
         } else {
@@ -1401,6 +1404,7 @@ ${chatText}
         if (d === '[DONE]') break outer;
         try {
           const j = JSON.parse(d);
+          if (j.model && !_digestModel) _digestModel = j.model;
           const delta = j.choices?.[0]?.delta;
           newMemory += delta?.content || delta?.text || '';
         } catch {}
@@ -1411,6 +1415,7 @@ ${chatText}
     if (!newMemory && rawBuf.trim()) {
       try {
         const j = JSON.parse(rawBuf.trim());
+        if (!_digestModel) _digestModel = j.model || j.choices?.[0]?.model || '';
         const _tb = Array.isArray(j?.content) ? j.content.find(b => b.type === 'text') : null;
         newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || _tb?.text || j.content?.[0]?.text || '').trim();
         if (newMemory) console.log('[digestMemory] 非流式响应，已 fallback 解析');
@@ -1441,8 +1446,9 @@ ${chatText}
         autoSyncArchiveToLocal();
         rebuildArchiveIndex(true);
         const cl = patchResult.changelog ? `\n${patchResult.changelog}` : '';
-        if (!silent) toast(`✅ 记忆档案已更新${cl}`);
-        else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）'); toast('📝 记忆已自动更新'); }
+        const _mdl = _digestModel ? ` (${_digestModel})` : '';
+        if (!silent) toast(`✅ 记忆档案已更新${_mdl}${cl}`);
+        else { console.log('[digestMemory] 自动整理变更：', patchResult.changelog || '（无changelog）', '模型：', _digestModel || '未知'); toast(`📝 记忆已自动更新${_mdl}`); }
       }
     }
   } catch(err) { if (!silent) toast('整理失败：' + err.message); }
