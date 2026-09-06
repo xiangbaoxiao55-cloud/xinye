@@ -1056,15 +1056,24 @@ export function initSettings() {
       const useBtn = document.getElementById(`checker-use-${i}`);
       statusEl.textContent = '⏳'; statusEl.style.color = 'var(--text-light)';
       const baseUrl = (p.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
-      const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+      const isAnthropic = (p.apiFormat === 'anthropic');
+      const url = isAnthropic
+        ? (/\/v\d+$/.test(baseUrl) ? `${baseUrl}/messages` : `${baseUrl}/v1/messages`)
+        : (/\/v\d+$/.test(baseUrl) ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`);
+      const headers = isAnthropic
+        ? { 'Content-Type': 'application/json', 'x-api-key': p.apiKey, 'anthropic-version': '2023-06-01' }
+        : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.apiKey}` };
+      const body = isAnthropic
+        ? { model: p.model || 'claude-sonnet-5', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }
+        : { model: p.model || 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1, stream: false };
       const t0 = Date.now();
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 12000);
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${p.apiKey}` },
-          body: JSON.stringify({ model: p.model || 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1, stream: false }),
+          headers,
+          body: JSON.stringify(body),
           signal: ctrl.signal
         });
         clearTimeout(tid);
