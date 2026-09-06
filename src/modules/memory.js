@@ -1223,7 +1223,10 @@ export async function digestMemory() {
   }).join('\n');
   if (chatText.length > 8000) chatText = chatText.slice(-8000);
   const existingMemory = settings.memoryArchive || '';
+  const todayStr = nowStr().split(' ')[0]; // YYYY-MM-DD
   const prompt = `你是炘也。以下是你的记忆档案（当前版本）和最近的对话记录。请更新你的记忆。
+
+⚠️ 今天是 ${todayStr}。所有日期标注必须基于这个日期，不要从对话内容里猜测日期。
 
 只输出变化的部分，没变的不要重复写。用以下JSON格式，每行一条，整体包在 <patch> 标签里：
 
