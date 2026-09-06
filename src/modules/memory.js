@@ -1411,7 +1411,8 @@ ${chatText}
     if (!newMemory && rawBuf.trim()) {
       try {
         const j = JSON.parse(rawBuf.trim());
-        newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || j.content?.[0]?.text || '').trim();
+        const _tb = Array.isArray(j?.content) ? j.content.find(b => b.type === 'text') : null;
+        newMemory = (j.choices?.[0]?.message?.content || j.choices?.[0]?.text || _tb?.text || j.content?.[0]?.text || '').trim();
         if (newMemory) console.log('[digestMemory] 非流式响应，已 fallback 解析');
       } catch {}
     }
