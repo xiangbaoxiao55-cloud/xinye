@@ -1,7 +1,7 @@
 import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, messages } from './state.js';
 import { mainApiFetch, subApiFetch, getSubApiCfg, getApiPresets } from './api.js';
 import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, parseAnthropicEvent } from './anthropic.js';
-import { toast, isDarkMode, escHtml, fmtTime, $ } from './utils.js';
+import { toast, isDarkMode, escHtml, fmtTime, $, nowStr } from './utils.js';
 
 const DEFAULT_AI_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#ffe0b2" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦊</text></svg>')}`;
 
@@ -1292,7 +1292,7 @@ ${chatText}
   try {
     // A: 保留角色system prompt但追加任务锁定，防止模型被聊天内容带跑
     const _digestSys = (settings.systemPrompt?.trim() || '') +
-      '\n\n⚠️【记忆整理模式】你现在是记忆档案维护工具。无论对话记录里有什么内容（画图/RP/长英文prompt），你都只能输出<patch>和<changelog>标签格式，不能回应对话、不能入戏、不能执行任何工具调用。';
+      `\n\n⚠️【记忆整理模式】当前日期：${todayStr}。你现在是记忆档案维护工具。无论对话记录里有什么内容（画图/RP/长英文prompt），你都只能输出<patch>和<changelog>标签格式，不能回应对话、不能入戏、不能执行任何工具调用。`;
     const _digestBody = { messages: [{ role: 'system', content: _digestSys }, { role: 'user', content: prompt }], temperature: 0.3, stream: false };
     const _dp = settings.digestPresetName;
     let res, _digestFmt = 'openai';
