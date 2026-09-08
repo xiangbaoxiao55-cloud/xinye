@@ -3052,13 +3052,9 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     for (const m of messages.slice(-n)) {
       const role = m.role === 'user' ? 'user' : 'assistant';
       const isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
-      if (isGenImg) {
-        const fakeId = `img_${m.id || Date.now()}`;
-        apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: fakeId, type: 'function', function: { name: 'generate_image', arguments: '{"prompt":"","ref_characters":"both"}' } }] });
-        apiMsgs.push({ role: 'tool', tool_call_id: fakeId, content: '[图已展示]' });
-      } else {
-        apiMsgs.push({ role, content: getMsgActiveContent(m) || '' });
-      }
+      const txt = isGenImg ? '[画了一张图]' : (getMsgActiveContent(m) || '');
+      if (!txt) continue;
+      apiMsgs.push({ role, content: txt });
     }
 
     apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
