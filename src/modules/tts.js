@@ -519,16 +519,24 @@ export async function exportTTSCache() {
 
     const zip = new window.JSZip();
     const BATCH = 50;
+    let _skipped = 0;
     for (let i = 0; i < newKeys.length; i += BATCH) {
       const batchKeys = newKeys.slice(i, i + BATCH);
       for (const key of batchKeys) {
-        const blob = await dbGet('ttsCache', key);
-        if (!blob) continue;
-        const ext = blob.type?.includes('mp3') ? 'mp3' : 'wav';
-        zip.file(`tts_${key}.${ext}`, blob);
+        try {
+          const blob = await dbGet('ttsCache', key);
+          if (!blob) { _skipped++; continue; }
+          const ab = await blob.arrayBuffer();
+          const ext = blob.type?.includes('mp3') ? 'mp3' : 'wav';
+          zip.file(`tts_${key}.${ext}`, ab);
+        } catch(e) {
+          console.warn(`[TTS Export] 跳过损坏条目 ${key}:`, e.message);
+          _skipped++;
+        }
       }
     }
 
+    if (!Object.keys(zip.files).length) { toast('所有语音缓存都已损坏，无法导出'); return; }
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
@@ -538,8 +546,9 @@ export async function exportTTSCache() {
     a.download = `${_ttsPrefix}_tts_cache_${label}.zip`;
     a.click();
     URL.revokeObjectURL(url);
+    const _exported = newKeys.length - _skipped;
     localStorage.setItem(_PFX + 'tts_lastExportKey', String(newKeys[newKeys.length - 1]));
-    toast(`✅ 已打包 ${newKeys.length} 条语音，下载中～`);
+    toast(_skipped ? `✅ 已打包 ${_exported} 条语音（${_skipped}条损坏已跳过），下载中～` : `✅ 已打包 ${_exported} 条语音，下载中～`);
   } catch(err) {
     toast(`导出失败：${err.message}`);
     console.error('[TTS Export]', err);
