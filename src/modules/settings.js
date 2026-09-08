@@ -1661,8 +1661,8 @@ export function initSettings() {
         const subPresets = subNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
         const payload = {
           heartbeatEnabled: !!settings.heartbeatEnabled,
-          quietHoursStart: settings.quietHoursStart ?? 0,
-          quietHoursEnd: settings.quietHoursEnd ?? 8,
+          quietHoursStart: String(settings.quietHoursStart ?? 0).padStart(2, '0') + ':00',
+          quietHoursEnd: String(settings.quietHoursEnd ?? 8).padStart(2, '0') + ':00',
           mainPresets: mainPresets.map(p => ({
             name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
             model: p.model, apiFormat: p.apiFormat || 'openai',
