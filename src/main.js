@@ -34,14 +34,18 @@ Object.assign(window, {
 });
 
 if('serviceWorker' in navigator){
+  let _swRefreshing = false;
   const _swReload = () => {
+    if (_swRefreshing) return;
+    _swRefreshing = true;
     if (window.isRequesting) {
       const _t = setInterval(() => { if (!window.isRequesting) { clearInterval(_t); location.reload(); } }, 1000);
     } else location.reload();
   };
+  // 最可靠的检测：新SW接管控制权时直接reload
+  navigator.serviceWorker.addEventListener('controllerchange', () => _swReload());
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('/sw.js').then(reg => {
-      // 主动监听新SW安装→激活，比等SW postMessage更可靠（鸿蒙WebView兼容）
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
@@ -58,7 +62,7 @@ if('serviceWorker' in navigator){
       }
     });
   });
-  // APK切回前台时主动检查SW更新（切回不触发load，需手动check）
+  // 切回前台时主动检查SW更新
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then(reg => reg.update()).catch(()=>{});
@@ -433,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.08-2354';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-0004';
 
   await openDB();
   await migrateFromLocalStorage();
