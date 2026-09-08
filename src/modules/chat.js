@@ -3085,7 +3085,9 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
       try {
         const j = await res.json();
         console.log('[主动消息] 非流式响应:', JSON.stringify(j).slice(0, 500));
-        const txt = j.choices?.[0]?.message?.content || j.content?.[0]?.text || '';
+        const msg = j.choices?.[0]?.message;
+        let txt = msg?.content || j.content?.find(b => b.type === 'text')?.text || '';
+        if (!txt) txt = (msg?.reasoning_content || j.content?.find(b => b.type === 'thinking')?.thinking || '').slice(0, 500);
         return txt.trim() || null;
       } catch (_) { return null; }
     }
