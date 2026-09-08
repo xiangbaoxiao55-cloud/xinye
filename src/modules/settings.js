@@ -1699,12 +1699,12 @@ export function initSettings() {
       });
       const d = await r.json();
       if (!d.ok) { _hbStatusEl.textContent = '心跳状态：获取失败'; return; }
-      const s = d.status;
-      const parts = [`心跳状态：${s.enabled ? '✅ 已开启' : '⏸️ 未开启'}`];
-      if (s.presetsCount != null) parts.push(`预设${s.presetsCount}个`);
-      if (s.quietHours) parts.push(`安静时间 ${s.quietHours}`);
-      if (s.lastHeartbeat) parts.push(`上次心跳 ${new Date(s.lastHeartbeat).toLocaleString()}`);
-      if (s.nextScheduled) parts.push(`下次 ${new Date(s.nextScheduled).toLocaleString()}`);
+      const parts = [`心跳状态：${d.timerActive ? '✅ 已开启' : '⏸️ 未开启'}`];
+      if (d.configLoaded) parts.push('配置已同步');
+      if (d.consecutiveFailures > 0) parts.push(`失败${d.consecutiveFailures}次`);
+      if (d.lastHeartbeatAt) parts.push(`上次心跳 ${new Date(d.lastHeartbeatAt).toLocaleString()}`);
+      if (d.nextHeartbeatAt) parts.push(`下次 ${new Date(d.nextHeartbeatAt).toLocaleString()}`);
+      if (d.proactiveMessages > 0) parts.push(`已生成${d.proactiveMessages}条消息`);
       _hbStatusEl.textContent = parts.join(' · ');
     } catch(e) {
       _hbStatusEl.textContent = '心跳状态：连接失败';
