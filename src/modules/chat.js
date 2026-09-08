@@ -3048,7 +3048,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     if (_stbl.length) apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stbl.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
     if (_dyn.length) apiMsgs.push({ role: 'system', content: _dyn.join('\n\n---\n\n') });
 
-    const n = Math.min(10, Math.max(1, settings.contextCount || 20));
+    const n = Math.max(1, settings.contextCount || 20);
     for (const m of messages.slice(-n)) {
       const role = m.role === 'user' ? 'user' : 'assistant';
       const isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
