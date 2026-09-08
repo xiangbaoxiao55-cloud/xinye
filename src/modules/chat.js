@@ -3076,18 +3076,41 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     console.log('[主动消息] 发送 messages 共', apiMsgs.length, '条，各role：', apiMsgs.map(m => m.role).join(','));
     console.log('[主动消息] 最后3条：', JSON.stringify(apiMsgs.slice(-3), null, 2));
 
-    const res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
-    if (!res?.ok) { console.error('[主动消息] API失败', res?.status); return null; }
+    let res;
+    try {
+      res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
+    } catch (fetchErr) {
+      console.error('[主动消息] fetch异常：', fetchErr.message || fetchErr);
+      return null;
+    }
+    if (!res?.ok) {
+      let errBody = '';
+      try { errBody = await res?.text?.() || ''; } catch (_) {}
+      console.error('[主动消息] API失败', res?.status, errBody.slice(0, 500));
+      return null;
+    }
     const _proFmt = res.__apiFormat || 'openai';
+    console.log('[主动消息] API格式:', _proFmt, 'status:', res.status, 'body:', !!res.body);
+    if (!res.body) {
+      try {
+        const j = await res.json();
+        console.log('[主动消息] 非流式响应:', JSON.stringify(j).slice(0, 500));
+        const txt = j.choices?.[0]?.message?.content || j.content?.[0]?.text || '';
+        return txt.trim() || null;
+      } catch (_) { return null; }
+    }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let text = '', think = '', _proEvtType = '';
+    let text = '', think = '', _proEvtType = '', rawChunks = '';
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        for (const line of dec.decode(value, { stream: true }).split('\n')) {
+        const chunk = dec.decode(value, { stream: true });
+        if (!rawChunks && chunk) rawChunks = chunk.slice(0, 300);
+        for (const line of chunk.split('\n')) {
           const lt = line.trim();
+          if (!lt) continue;
           if (_proFmt === 'anthropic') {
             if (lt.startsWith('event: ')) { _proEvtType = lt.slice(7).trim(); continue; }
             if (!lt.startsWith('data: ')) continue;
@@ -3098,16 +3121,19 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
           } else {
             if (!lt.startsWith('data: ') || lt === 'data: [DONE]') continue;
             try {
-              const delta = JSON.parse(lt.slice(6)).choices?.[0]?.delta;
+              const parsed = JSON.parse(lt.slice(6));
+              const delta = parsed.choices?.[0]?.delta;
               if (delta?.content) text += delta.content;
               else if (delta?.reasoning_content || delta?.thinking) think += delta.reasoning_content || delta.thinking;
             } catch (_) {}
           }
         }
       }
-    } catch (_) {}
+    } catch (streamErr) {
+      console.error('[主动消息] 流读取异常：', streamErr.message || streamErr);
+    }
     if (!text && think) text = think.slice(0, 500);
-    console.log('[主动消息] 回复：', text.slice(0, 100) || '(空)');
+    console.log('[主动消息] 回复：', text.slice(0, 100) || '(空)', '| think:', think.slice(0, 100) || '(无)', '| rawChunk:', rawChunks.slice(0, 200));
     return text.trim() || null;
   } finally {
     window.isRequesting = false;
