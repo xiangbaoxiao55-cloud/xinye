@@ -58,7 +58,10 @@ export function applyBgVideo(blob) {
   const bgLayer = $('#bgLayer');
   const bgMask = $('#bgMask');
   if (bgVideoUrl) URL.revokeObjectURL(bgVideoUrl);
-  bgVideoUrl = URL.createObjectURL(blob);
+  try { bgVideoUrl = URL.createObjectURL(blob); } catch(e) {
+    console.warn('[BG] 视频blob不可读', e.name);
+    return;
+  }
   bgLayer.style.backgroundImage = '';
   bgLayer.innerHTML = '';
   const v = document.createElement('video');

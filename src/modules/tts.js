@@ -23,7 +23,11 @@ function _armGestureResume() {
     const items = _pendingAutoplay.splice(0);
     for (const { blob } of items) {
       await new Promise(resolve => {
-        const url = URL.createObjectURL(blob);
+        let url;
+        try { url = URL.createObjectURL(blob); } catch(e) {
+          console.warn('[TTS] gestureResume blob不可读，跳过', e.name);
+          resolve(); return;
+        }
         const audio = new Audio(url);
         currentAudio = audio;
         audio.onended = () => { currentAudio = null; URL.revokeObjectURL(url); resolve(); };
@@ -274,7 +278,13 @@ export function markCached(msgId) {
 
 export function playAudioBlob(blob, btnEl) {
   btnEl.classList.add('playing');
-  const audioUrl = URL.createObjectURL(blob);
+  let audioUrl;
+  try { audioUrl = URL.createObjectURL(blob); } catch(e) {
+    btnEl.classList.remove('playing');
+    console.warn('[TTS] playAudioBlob blob不可读', e.name);
+    toast('语音缓存已损坏，请重新生成');
+    return;
+  }
   currentAudio = new Audio(audioUrl);
   currentAudio.onended = () => {
     btnEl.classList.remove('playing');
@@ -370,7 +380,11 @@ async function _drainTTSQueue() {
       const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
       if (!blob) console.warn('[TTS] 语音未生成（generateTTSBlob 返回空），跳过播放', msgId);
       if (blob) await new Promise(resolve => {
-        const audioUrl = URL.createObjectURL(blob);
+        let audioUrl;
+        try { audioUrl = URL.createObjectURL(blob); } catch(e) {
+          console.warn('[TTS Queue] blob不可读，跳过', msgId, e.name);
+          resolve(); return;
+        }
         const audio = new Audio(audioUrl);
         currentAudio = audio;
         if (barCtrl) barCtrl.setPlaying(true);
@@ -405,7 +419,13 @@ export function showVoiceBar(msgId, blob) {
   const playBtn = bar.querySelector('.tts-vbar-play');
   const fill = bar.querySelector('.tts-vbar-progress-fill');
   const durEl = bar.querySelector('.tts-vbar-dur');
-  const tmpAudio = new Audio(URL.createObjectURL(blob));
+  let tmpUrl;
+  try { tmpUrl = URL.createObjectURL(blob); } catch(e) {
+    console.warn('[TTS] showVoiceBar blob不可读，跳过', msgId, e.name);
+    bar.remove();
+    return null;
+  }
+  const tmpAudio = new Audio(tmpUrl);
   tmpAudio.addEventListener('loadedmetadata', () => {
     const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
     durEl.textContent = `${dur}″`;
@@ -469,7 +489,11 @@ export async function downloadTTS(text, msgId) {
       } catch(e) { toast(`保存失败：${e.message}`); }
       return;
     }
-    const url = URL.createObjectURL(blob);
+    let url;
+    try { url = URL.createObjectURL(blob); } catch(e) {
+      toast('语音缓存已损坏，请重新生成后下载');
+      return;
+    }
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);

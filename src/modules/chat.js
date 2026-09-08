@@ -142,7 +142,13 @@ function _createBmVoiceBar(blob) {
   const playBtn = bar.querySelector('.tts-vbar-play');
   const fill    = bar.querySelector('.tts-vbar-progress-fill');
   const durEl   = bar.querySelector('.tts-vbar-dur');
-  const audio   = new Audio(URL.createObjectURL(blob));
+  let _bmUrl;
+  try { _bmUrl = URL.createObjectURL(blob); } catch(e) {
+    console.warn('[BM] 语音blob不可读，跳过', e.name);
+    bar.remove();
+    return bar;
+  }
+  const audio   = new Audio(_bmUrl);
   audio.addEventListener('loadedmetadata', () => {
     durEl.textContent = isFinite(audio.duration) ? `${Math.round(audio.duration)}″` : '?″';
   });
