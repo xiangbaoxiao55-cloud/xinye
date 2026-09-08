@@ -542,23 +542,28 @@ export async function exportTTSCache() {
     await new Promise((res, rej) => { script.onload = res; script.onerror = rej; document.head.appendChild(script); });
 
     const zip = new window.JSZip();
-    const BATCH = 50;
-    let _skipped = 0;
+    const BATCH = 20;
+    const MAX_ZIP_BYTES = 80 * 1024 * 1024; // 80MB上限防OOM
+    let _skipped = 0, _totalBytes = 0, _capped = false;
     for (let i = 0; i < newKeys.length; i += BATCH) {
       const batchKeys = newKeys.slice(i, i + BATCH);
       for (const key of batchKeys) {
         try {
           const blob = await dbGet('ttsCache', key);
           if (!blob) { _skipped++; continue; }
-          const ab = await blob.arrayBuffer();
+          let ab;
+          try { ab = await blob.arrayBuffer(); } catch(_e) { _skipped++; continue; }
+          if (_totalBytes + ab.byteLength > MAX_ZIP_BYTES) { _capped = true; break; }
           const ext = blob.type?.includes('mp3') ? 'mp3' : 'wav';
           zip.file(`tts_${key}.${ext}`, ab);
+          _totalBytes += ab.byteLength;
         } catch(e) {
-          console.warn(`[TTS Export] 跳过损坏条目 ${key}:`, e.message);
           _skipped++;
         }
       }
+      if (_capped) break;
     }
+    if (_skipped) console.warn(`[TTS Export] ${_skipped} 条损坏/空条目已跳过`);
 
     if (!Object.keys(zip.files).length) { toast('所有语音缓存都已损坏，无法导出'); return; }
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
@@ -566,13 +571,16 @@ export async function exportTTSCache() {
     const a = document.createElement('a');
     a.href = url;
     const _ttsPrefix = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
-    const label = lastExportedKey ? `新增${newKeys.length}条` : `${newKeys.length}条`;
+    const _exported = Object.keys(zip.files).length;
+    const label = lastExportedKey ? `新增${_exported}条` : `${_exported}条`;
     a.download = `${_ttsPrefix}_tts_cache_${label}.zip`;
     a.click();
     URL.revokeObjectURL(url);
-    const _exported = newKeys.length - _skipped;
     localStorage.setItem(_PFX + 'tts_lastExportKey', String(newKeys[newKeys.length - 1]));
-    toast(_skipped ? `✅ 已打包 ${_exported} 条语音（${_skipped}条损坏已跳过），下载中～` : `✅ 已打包 ${_exported} 条语音，下载中～`);
+    let msg = `✅ 已打包 ${_exported} 条语音，下载中～`;
+    if (_skipped) msg = `✅ 已打包 ${_exported} 条语音（${_skipped}条损坏已跳过），下载中～`;
+    if (_capped) msg = `✅ 已打包 ${_exported} 条语音（体积达上限，剩余下次导出），下载中～`;
+    toast(msg);
   } catch(err) {
     toast(`导出失败：${err.message}`);
     console.error('[TTS Export]', err);
