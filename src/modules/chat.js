@@ -2532,18 +2532,20 @@ export async function sendMessage() {
               loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
               const _toolStartIdx = loopMsgs.length;
               let _hasFetchPage = false;
+              let _hasSearchTool = false;
               for (const tc of _m2.tool_calls) {
                 let result = '';
                 try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
                 loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
                 if (tc.function.name === 'fetch_page') _hasFetchPage = true;
+                if (tc.function.name === 'web_search' || tc.function.name === 'fetch_page') _hasSearchTool = true;
               }
               // If fetch_page was called, force AI to digest before continuing
               if (_hasFetchPage && _hasTavily && !_hasDigest) {
                 loopMsgs.push({ role: 'user', content: '(请用1-2句话总结刚才读到的关键信息，然后继续你的任务)' });
               }
               // If AI output digest text, show it and compress tool results
-              if (_hasDigest && _hasTavily) {
+              if (_hasDigest && _hasSearchTool) {
                 const _digestDiv = document.createElement('div');
                 _digestDiv.className = 'tool-digest';
                 _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
@@ -2698,18 +2700,20 @@ export async function sendMessage() {
             loopMsgs.push({ role: 'assistant', content: _m2.content || null, tool_calls: _m2.tool_calls });
             const _toolStartIdx = loopMsgs.length;
             let _hasFetchPage = false;
+            let _hasSearchTool = false;
             for (const tc of _m2.tool_calls) {
               let result = '';
               try { result = await _execTool(tc.function.name, _safeParseArgs(tc.function.name, tc.function.arguments)); } catch(e) { result = `Tool error: ${e.message}`; }
               loopMsgs.push({ role: 'tool', tool_call_id: tc.id, content: result });
               if (tc.function.name === 'fetch_page') _hasFetchPage = true;
+              if (tc.function.name === 'web_search' || tc.function.name === 'fetch_page') _hasSearchTool = true;
             }
             // If fetch_page was called, force AI to digest before continuing
             if (_hasFetchPage && _hasTavily && !_hasDigest) {
               loopMsgs.push({ role: 'user', content: '(请用1-2句话总结刚才读到的关键信息，然后继续你的任务)' });
             }
             // If AI output digest text, show it and compress tool results
-            if (_hasDigest && _hasTavily) {
+            if (_hasDigest && _hasSearchTool) {
               const _digestDiv = document.createElement('div');
               _digestDiv.className = 'tool-digest';
               _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
