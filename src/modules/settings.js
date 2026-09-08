@@ -52,6 +52,15 @@ const btnSearch     = document.querySelector('#btnSearch');
 let _localServerOnline = false;
 export function isLocalServerOnline() { return _localServerOnline; }
 
+// ── 云/本地服务器选择（推送和LLM代理优先走云） ─────────────────────────────────
+export function getCloudOrLocalUrl() {
+  const cloud = (settings.cloudServerUrl || '').replace(/\/+$/, '');
+  if (cloud) return { url: cloud, token: settings.cloudServerToken || '' };
+  const local = (settings.solitudeServerUrl || '').replace(/\/+$/, '');
+  if (local) return { url: local, token: '' };
+  return null;
+}
+
 // ======================== 设置面板 打开/关闭 ========================
 export async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
@@ -67,6 +76,10 @@ export async function openSettings() {
   if ($('#setWereadApiKey')) $('#setWereadApiKey').value = settings.wereadApiKey || '';
   const _ssEl = $('#setSolitudeServerUrl');
   if (_ssEl) _ssEl.value = settings.solitudeServerUrl || '';
+  const _csEl = $('#setCloudServerUrl');
+  if (_csEl) _csEl.value = settings.cloudServerUrl || '';
+  const _ctEl = $('#setCloudServerToken');
+  if (_ctEl) _ctEl.value = settings.cloudServerToken || '';
   const _ipEl = $('#setImageProxyUrl');
   if (_ipEl) _ipEl.value = settings.imageProxyUrl || '';
   const _itEl = $('#setImageProxyToken');
@@ -1272,6 +1285,8 @@ export function initSettings() {
     settings.searchCount = parseInt($('#setSearchCount').value) || 5;
     settings.wereadApiKey = ($('#setWereadApiKey') ? $('#setWereadApiKey').value.trim() : '');
     settings.solitudeServerUrl = ($('#setSolitudeServerUrl') ? $('#setSolitudeServerUrl').value.trim() : '').replace(/\/$/, '');
+    settings.cloudServerUrl = ($('#setCloudServerUrl') ? $('#setCloudServerUrl').value.trim() : '').replace(/\/$/, '');
+    settings.cloudServerToken = ($('#setCloudServerToken') ? $('#setCloudServerToken').value.trim() : '');
     settings.baseUrl = $('#setBaseUrl').value.trim() || 'https://api.openai.com';
     settings.fallbackPresetNames = [0,1,2,3,4,5,6,7,8,9].map(i => ($(`#setFallbackPreset${i}`)?.value || '')).filter(v=>v);
     settings.model = $('#setModel').value.trim() || 'gpt-4o';
@@ -1522,11 +1537,12 @@ export function initSettings() {
   const _btnSendPushTest = $('#btnSendPushTest');
   if (_btnSendPushTest) {
     _btnSendPushTest.onclick = async () => {
-      const solUrl = ($('#setSolitudeServerUrl')?.value.trim() || window.settings?.solitudeServerUrl || '').replace(/\/+$/, '');
-      if (!solUrl) { alert('请先填写本地服务器地址'); return; }
+      const srv = getCloudOrLocalUrl();
+      if (!srv) { alert('请先填写云服务器或本地服务器地址'); return; }
       _btnSendPushTest.textContent = '发送中…';
+      const authH = srv.token ? { 'Authorization': `Bearer ${srv.token}` } : {};
       try {
-        const r = await fetch(`${solUrl}/api/push-test`, { method: 'POST' });
+        const r = await fetch(`${srv.url}/api/push-test`, { method: 'POST', headers: authH });
         const d = await r.json();
         _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
         if (d.ok) alert(`推送已发送（${d.sent}个订阅，代理：${d.proxyUsed ? '✅' : '❌'}）`);

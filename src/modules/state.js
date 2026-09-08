@@ -32,6 +32,7 @@ export const settings = {
   searchCount: 5,
   forumProxy: '',
   solitudeServerUrl: '',
+  cloudServerUrl: '', cloudServerToken: '',
   healthWorkerUrl: '', healthWorkerToken: '',
   moodState: null,
   memoryBank: null,

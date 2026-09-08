@@ -8,6 +8,7 @@ import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchang
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { spinFortune, formatFortuneResult } from './fortune.js';
+import { getCloudOrLocalUrl } from './settings.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -1998,9 +1999,13 @@ export async function sendMessage() {
       return { url, apiKey: settings.apiKey, model: settings.model || 'gpt-4o', useLocalProxy: !!settings.useLocalProxy, apiFormat: _mainFmt };
     }
     function _proxyFetchArgs(cfg) {
-      if (cfg.useLocalProxy && settings.solitudeServerUrl) {
-        const base = settings.solitudeServerUrl.replace(/\/+$/, '');
-        return { fetchUrl: `${base}/api/llm-proxy`, headers: { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey } };
+      if (cfg.useLocalProxy) {
+        const _srv = getCloudOrLocalUrl();
+        if (_srv) {
+          const h = { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey };
+          if (_srv.token) h['Authorization'] = `Bearer ${_srv.token}`;
+          return { fetchUrl: `${_srv.url}/api/llm-proxy`, headers: h };
+        }
       }
       if (cfg.apiFormat === 'anthropic') {
         return { fetchUrl: cfg.url, headers: buildAnthropicHeaders(cfg.apiKey) };
@@ -2117,11 +2122,15 @@ export async function sendMessage() {
             try {
               _res = await fetch(_pfa.fetchUrl, { method: 'POST', headers: _pfa.headers, body: bodyStr, signal: ctrl.signal });
             } catch(_directErr) {
-              if (_directErr.name !== 'AbortError' && !cfg.useLocalProxy && settings.solitudeServerUrl) {
-                console.log(`[_apiFetch] 直连失败(${_directErr.message})，走本地代理重试`);
-                toast('直连失败，走本地代理…');
-                const _proxyBase = settings.solitudeServerUrl.replace(/\/+$/, '');
-                _res = await fetch(`${_proxyBase}/api/llm-proxy`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Real-Target': _pfa.fetchUrl, 'X-Real-Key': cfg.apiKey }, body: bodyStr, signal: ctrl.signal });
+              if (_directErr.name !== 'AbortError' && !cfg.useLocalProxy) {
+                const _srv = getCloudOrLocalUrl();
+                if (_srv) {
+                  console.log(`[_apiFetch] 直连失败(${_directErr.message})，走${_srv.token ? '云' : '本地'}代理重试`);
+                  toast('直连失败，走代理重试…');
+                  const _proxyH = { 'Content-Type': 'application/json', 'X-Real-Target': _pfa.fetchUrl, 'X-Real-Key': cfg.apiKey };
+                  if (_srv.token) _proxyH['Authorization'] = `Bearer ${_srv.token}`;
+                  _res = await fetch(`${_srv.url}/api/llm-proxy`, { method: 'POST', headers: _proxyH, body: bodyStr, signal: ctrl.signal });
+                } else { throw _directErr; }
               } else { throw _directErr; }
             }
             clearTimeout(tid);
@@ -3130,8 +3139,9 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
 }
 
 async function _syncPushContext() {
-  const serverUrl = settings.solitudeServerUrl;
-  if (!serverUrl || window.__APP_ID__ === 'choubao') return;
+  if (window.__APP_ID__ === 'choubao') return;
+  const srv = getCloudOrLocalUrl();
+  if (!srv) return;
   const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
   const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, apiFormat: preset.apiFormat || settings.apiFormat || 'openai' };
 
@@ -3163,12 +3173,12 @@ async function _syncPushContext() {
     return { role: m.role, content };
   }).filter(m => m.content);
 
-  fetch(serverUrl + '/api/push-context', {
+  const authHeaders = srv.token ? { 'Authorization': `Bearer ${srv.token}` } : {};
+  fetch(srv.url + '/api/push-context', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({
       stableBlocks, dynamicBlocks, todosText, fullMessages, apiConfig,
-      // 向后兼容：_schedulePush 关键词检测用
       lastMessages: messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })),
       memoryCore: settings.memoryArchiveCore || '',
       systemPrompt: settings.systemPrompt || '',
