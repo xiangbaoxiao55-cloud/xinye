@@ -702,6 +702,7 @@ if (typeof marked !== 'undefined') {
 }
 
 export function renderMdHtml(text) {
+  text = text.replace(/<!--\s*phone_state[\s\S]*?-->/g, '');
   text = text.replace(/<#[\d.]+#?>/g, '');
   // 清理未闭合/空的代码块围栏，避免渲染出灰色空块
   // 1) 空代码块：```...``` 中间只有空白
@@ -753,6 +754,7 @@ export function linkifyEl(el, text) {
   }
   let cleaned = text
     .replace(/(?:<thinking>|<think>|〈thinking〉|《thinking》)[\s\S]*?(?:<\/thinking>|<\/think>|〈\/thinking〉|《\/thinking》)/gi, '')
+    .replace(/<!--\s*phone_state[\s\S]*?-->/g, '')
     .replace(/[＜〈《<]#[\d.]+#[＞〉》>]/g, '')
     .replace(/\((sighs|laughs|chuckle|coughs|clear-throat|groans|breath|pant|inhale|exhale|gasps|sniffs|snorts|burps|lip-smacking|humming|hissing|emm|sneezes)\)/gi, '')
     .replace(/[^\S\n]{2,}/g, ' ')
