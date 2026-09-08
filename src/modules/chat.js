@@ -8,7 +8,7 @@ import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchang
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { spinFortune, formatFortuneResult } from './fortune.js';
-import { getCloudOrLocalUrl } from './settings.js';
+import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -2003,8 +2003,7 @@ export async function sendMessage() {
         const _srv = getCloudOrLocalUrl();
         if (_srv) {
           const h = { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey };
-          if (_srv.token) h['Authorization'] = `Bearer ${_srv.token}`;
-          return { fetchUrl: `${_srv.url}/api/llm-proxy`, headers: h };
+          return { fetchUrl: buildServerFetchUrl(_srv, '/api/llm-proxy'), headers: buildServerHeaders(_srv, h) };
         }
       }
       if (cfg.apiFormat === 'anthropic') {
@@ -2128,8 +2127,7 @@ export async function sendMessage() {
                   console.log(`[_apiFetch] 直连失败(${_directErr.message})，走${_srv.token ? '云' : '本地'}代理重试`);
                   toast('直连失败，走代理重试…');
                   const _proxyH = { 'Content-Type': 'application/json', 'X-Real-Target': _pfa.fetchUrl, 'X-Real-Key': cfg.apiKey };
-                  if (_srv.token) _proxyH['Authorization'] = `Bearer ${_srv.token}`;
-                  _res = await fetch(`${_srv.url}/api/llm-proxy`, { method: 'POST', headers: _proxyH, body: bodyStr, signal: ctrl.signal });
+                  _res = await fetch(buildServerFetchUrl(_srv, '/api/llm-proxy'), { method: 'POST', headers: buildServerHeaders(_srv, _proxyH), body: bodyStr, signal: ctrl.signal });
                 } else { throw _directErr; }
               } else { throw _directErr; }
             }
@@ -3173,10 +3171,9 @@ async function _syncPushContext() {
     return { role: m.role, content };
   }).filter(m => m.content);
 
-  const authHeaders = srv.token ? { 'Authorization': `Bearer ${srv.token}` } : {};
-  fetch(srv.url + '/api/push-context', {
+  fetch(buildServerFetchUrl(srv, '/api/push-context'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       stableBlocks, dynamicBlocks, todosText, fullMessages, apiConfig,
       lastMessages: messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })),

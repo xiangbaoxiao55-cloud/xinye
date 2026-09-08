@@ -53,12 +53,40 @@ let _localServerOnline = false;
 export function isLocalServerOnline() { return _localServerOnline; }
 
 // ── 云/本地服务器选择（推送和LLM代理优先走云） ─────────────────────────────────
+// HTTPS 页面调 HTTP 云服务器会被 Mixed Content 拦截，自动走 Vercel 中转
 export function getCloudOrLocalUrl() {
   const cloud = (settings.cloudServerUrl || '').replace(/\/+$/, '');
-  if (cloud) return { url: cloud, token: settings.cloudServerToken || '' };
+  if (cloud) {
+    const token = settings.cloudServerToken || '';
+    // HTTPS 页面 + HTTP 云服务器 → 走 Vercel cloud-proxy 中转
+    if (location.protocol === 'https:' && cloud.startsWith('http://')) {
+      return { url: '', token, _viaProxy: true, _cloudServer: cloud };
+    }
+    return { url: cloud, token };
+  }
   const local = (settings.solitudeServerUrl || '').replace(/\/+$/, '');
   if (local) return { url: local, token: '' };
   return null;
+}
+
+// 构建实际请求URL：中转模式走 /api/cloud-proxy，否则直连
+export function buildServerFetchUrl(srv, apiPath) {
+  if (srv._viaProxy) {
+    return `/api/cloud-proxy?path=${encodeURIComponent(apiPath)}`;
+  }
+  return `${srv.url}${apiPath}`;
+}
+
+// 构建请求头：中转模式把云服务器地址和token放进头部
+export function buildServerHeaders(srv, extraHeaders = {}) {
+  const h = { ...extraHeaders };
+  if (srv._viaProxy) {
+    h['X-Cloud-Server'] = srv._cloudServer;
+    if (srv.token) h['X-Cloud-Token'] = srv.token;
+  } else {
+    if (srv.token) h['Authorization'] = `Bearer ${srv.token}`;
+  }
+  return h;
 }
 
 // ======================== 设置面板 打开/关闭 ========================
@@ -1540,9 +1568,8 @@ export function initSettings() {
       const srv = getCloudOrLocalUrl();
       if (!srv) { alert('请先填写云服务器或本地服务器地址'); return; }
       _btnSendPushTest.textContent = '发送中…';
-      const authH = srv.token ? { 'Authorization': `Bearer ${srv.token}` } : {};
       try {
-        const r = await fetch(`${srv.url}/api/push-test`, { method: 'POST', headers: authH });
+        const r = await fetch(buildServerFetchUrl(srv, '/api/push-test'), { method: 'POST', headers: buildServerHeaders(srv) });
         const d = await r.json();
         _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
         if (d.ok) alert(`推送已发送（${d.sent}个订阅，代理：${d.proxyUsed ? '✅' : '❌'}）`);

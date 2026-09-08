@@ -1,5 +1,5 @@
 import { settings } from './state.js';
-import { getCloudOrLocalUrl } from './settings.js';
+import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 import { toast } from './utils.js';
 import { lsBackup } from './db.js';
 import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
@@ -66,8 +66,7 @@ export async function mainApiFetch(bodyWithoutModel) {
       const _srv = getCloudOrLocalUrl();
       if (_srv) {
         const h = { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey };
-        if (_srv.token) h['Authorization'] = `Bearer ${_srv.token}`;
-        return { url: `${_srv.url}/api/llm-proxy`, headers: h };
+        return { url: buildServerFetchUrl(_srv, '/api/llm-proxy'), headers: buildServerHeaders(_srv, h) };
       }
     }
     if (cfg.apiFormat === 'anthropic') {
@@ -98,8 +97,7 @@ export async function mainApiFetch(bodyWithoutModel) {
             if (_srv) {
               console.log(`[mainApiFetch] 直连失败(${_directErr.message})，走${_srv.token ? '云' : '本地'}代理重试`);
               const _proxyH = { 'Content-Type': 'application/json', 'X-Real-Target': _fa.url, 'X-Real-Key': cfg.apiKey };
-              if (_srv.token) _proxyH['Authorization'] = `Bearer ${_srv.token}`;
-              _res = await fetch(`${_srv.url}/api/llm-proxy`, { method: 'POST', headers: _proxyH, body: bodyStr, signal: ctrl.signal });
+              _res = await fetch(buildServerFetchUrl(_srv, '/api/llm-proxy'), { method: 'POST', headers: buildServerHeaders(_srv, _proxyH), body: bodyStr, signal: ctrl.signal });
             } else { throw _directErr; }
           } else { throw _directErr; }
         }
@@ -173,8 +171,7 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
             if (_srv) {
               console.log(`[subApiFetch] 直连失败(${_directErr.message})，走${_srv.token ? '云' : '本地'}代理重试`);
               const _proxyH = { 'Content-Type': 'application/json', 'X-Real-Target': cfg.url, 'X-Real-Key': cfg.apiKey };
-              if (_srv.token) _proxyH['Authorization'] = `Bearer ${_srv.token}`;
-              _res = await fetch(`${_srv.url}/api/llm-proxy`, { method: 'POST', headers: _proxyH, body: bodyStr, signal: ctrl.signal });
+              _res = await fetch(buildServerFetchUrl(_srv, '/api/llm-proxy'), { method: 'POST', headers: buildServerHeaders(_srv, _proxyH), body: bodyStr, signal: ctrl.signal });
             } else { throw _directErr; }
           } else { throw _directErr; }
         }

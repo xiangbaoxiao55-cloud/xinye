@@ -10,7 +10,7 @@ import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmark
 import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, loadChatStickers, renderStickerMgr, initStickers } from './modules/stickers.js';
 import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave } from './modules/diary.js';
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
-import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi, getCloudOrLocalUrl } from './modules/settings.js';
+import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi, getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './modules/settings.js';
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
 import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
@@ -432,7 +432,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.08-1848';
+  if (_verEl) _verEl.textContent = 'v2026.09.08-1948';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -516,9 +516,8 @@ async function _registerPush() {
   if (!('PushManager' in window) || !('serviceWorker' in navigator)) return;
   const srv = getCloudOrLocalUrl();
   if (!srv) return;
-  const authHeaders = srv.token ? { 'Authorization': `Bearer ${srv.token}` } : {};
   try {
-    const res = await fetch(srv.url + '/api/push-vapid-public-key', { headers: authHeaders, signal: AbortSignal.timeout(4000) });
+    const res = await fetch(buildServerFetchUrl(srv, '/api/push-vapid-public-key'), { headers: buildServerHeaders(srv), signal: AbortSignal.timeout(4000) });
     if (!res.ok) return;
     const { publicKey } = await res.json();
     if (!publicKey) return;
@@ -529,8 +528,8 @@ async function _registerPush() {
       if (perm !== 'granted') return;
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
     }
-    await fetch(srv.url + '/api/push-subscribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders },
+    await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
+      method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(sub.toJSON()), signal: AbortSignal.timeout(4000)
     });
     console.log('[Push] 订阅注册成功');
