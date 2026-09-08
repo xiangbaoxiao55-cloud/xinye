@@ -239,6 +239,9 @@ export async function openSettings() {
   $('#setDreamSleepHours').value = settings.dreamSleepHours || 6;
   if ($('#setHealthWorkerUrl')) $('#setHealthWorkerUrl').value = settings.healthWorkerUrl || '';
   if ($('#setHealthWorkerToken')) $('#setHealthWorkerToken').value = settings.healthWorkerToken || '';
+  const _hbEl = $('#setHeartbeatEnabled'); if (_hbEl) _hbEl.checked = !!settings.heartbeatEnabled;
+  const _qsEl = $('#setQuietHoursStart'); if (_qsEl) _qsEl.value = settings.quietHoursStart ?? 0;
+  const _qeEl = $('#setQuietHoursEnd'); if (_qeEl) _qeEl.value = settings.quietHoursEnd ?? 8;
   renderTtsPresets();
   renderApiPresets();
   renderVisionPresets();
@@ -1387,6 +1390,9 @@ export function initSettings() {
     settings.dreamSleepHours = parseFloat($('#setDreamSleepHours').value) || 6;
     if ($('#setHealthWorkerUrl')) settings.healthWorkerUrl = $('#setHealthWorkerUrl').value.trim();
     if ($('#setHealthWorkerToken')) settings.healthWorkerToken = $('#setHealthWorkerToken').value.trim();
+    settings.heartbeatEnabled = !!($('#setHeartbeatEnabled')?.checked);
+    settings.quietHoursStart = parseInt($('#setQuietHoursStart')?.value) || 0;
+    settings.quietHoursEnd = parseInt($('#setQuietHoursEnd')?.value) || 8;
     settings.displayLimit = parseInt($('#setDisplayLimit').value) || 0;
 
     archiveMemoryBank(settings.memoryBank);
@@ -1639,6 +1645,72 @@ export function initSettings() {
       alert(lines.join('\n'));
     };
   }
+
+  // ======================== 心跳系统 ========================
+  const _btnSyncHB = $('#btnSyncHeartbeatConfig');
+  if (_btnSyncHB) {
+    _btnSyncHB.onclick = async () => {
+      const srv = getCloudOrLocalUrl();
+      if (!srv) { alert('请先填写云服务器地址'); return; }
+      _btnSyncHB.textContent = '同步中…';
+      try {
+        const allPresets = getApiPresets();
+        const mainNames = settings.fallbackPresetNames || [];
+        const subNames = settings.subFallbackPresetNames || [];
+        const mainPresets = mainNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
+        const subPresets = subNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
+        const payload = {
+          heartbeatEnabled: !!settings.heartbeatEnabled,
+          quietHoursStart: settings.quietHoursStart ?? 0,
+          quietHoursEnd: settings.quietHoursEnd ?? 8,
+          mainPresets: mainPresets.map(p => ({
+            name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
+            model: p.model, apiFormat: p.apiFormat || 'openai',
+          })),
+          subPresets: subPresets.map(p => ({
+            name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
+            model: p.model, apiFormat: p.apiFormat || 'openai',
+          })),
+        };
+        const r = await fetch(buildServerFetchUrl(srv, '/api/heartbeat-config'), {
+          method: 'POST',
+          headers: { ...buildServerHeaders(srv), 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+        if (d.ok) toast('✅ 心跳配置已同步到云端');
+        else alert('同步失败：' + (d.error || '未知'));
+      } catch(e) {
+        _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+        alert('请求失败：' + e.message);
+      }
+    };
+  }
+
+  const _btnRefreshHB = $('#btnRefreshHeartbeat');
+  const _hbStatusEl = $('#heartbeatStatus');
+  const _refreshHeartbeatStatus = async () => {
+    const srv = getCloudOrLocalUrl();
+    if (!srv || !_hbStatusEl) return;
+    try {
+      const r = await fetch(buildServerFetchUrl(srv, '/api/heartbeat-status'), {
+        headers: buildServerHeaders(srv),
+      });
+      const d = await r.json();
+      if (!d.ok) { _hbStatusEl.textContent = '心跳状态：获取失败'; return; }
+      const s = d.status;
+      const parts = [`心跳状态：${s.enabled ? '✅ 已开启' : '⏸️ 未开启'}`];
+      if (s.presetsCount != null) parts.push(`预设${s.presetsCount}个`);
+      if (s.quietHours) parts.push(`安静时间 ${s.quietHours}`);
+      if (s.lastHeartbeat) parts.push(`上次心跳 ${new Date(s.lastHeartbeat).toLocaleString()}`);
+      if (s.nextScheduled) parts.push(`下次 ${new Date(s.nextScheduled).toLocaleString()}`);
+      _hbStatusEl.textContent = parts.join(' · ');
+    } catch(e) {
+      _hbStatusEl.textContent = '心跳状态：连接失败';
+    }
+  };
+  if (_btnRefreshHB) _btnRefreshHB.onclick = _refreshHeartbeatStatus;
 
   // 从电脑恢复
   const _restoreToggle = $('#btnServerRestoreToggle');

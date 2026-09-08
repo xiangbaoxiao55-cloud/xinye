@@ -432,7 +432,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.08-1948';
+  if (_verEl) _verEl.textContent = 'v2026.09.08-2324';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -503,6 +503,11 @@ async function checkPendingMessage() {
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
   _registerPush();
   _consumePushInbox();
+
+  // 页面从后台恢复时自动拉取心跳消息
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _consumePushInbox();
+  });
 })();
 
 // ── Web Push 注册 ─────────────────────────────────────────────────────────
@@ -536,10 +541,10 @@ async function _registerPush() {
   } catch(e) { console.log('[Push] 注册跳过:', e.message); }
 }
 
-// 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）
+// 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
 async function _consumePushInbox() {
   try {
-    const msgs = await new Promise((resolve, reject) => {
+    const pushMsgs = await new Promise((resolve, reject) => {
       const req = indexedDB.open('XinyePushInbox', 1);
       req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
       req.onsuccess = () => {
@@ -559,13 +564,68 @@ async function _consumePushInbox() {
       };
       req.onerror = reject;
     });
-    if (!msgs.length) return;
+
+    // 同时从云端拉取心跳主动消息
+    let cloudMsgs = [];
+    try {
+      const srv = getCloudOrLocalUrl();
+      if (srv) {
+        const lastSync = parseInt(localStorage.getItem('heartbeat_lastSyncTime') || '0');
+        const r = await fetch(buildServerFetchUrl(srv, `/api/proactive-messages?since=${lastSync}`), {
+          headers: buildServerHeaders(srv),
+          signal: AbortSignal.timeout(6000)
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.ok && Array.isArray(d.messages)) cloudMsgs = d.messages;
+        }
+      }
+    } catch(e) { console.log('[Heartbeat] 拉取主动消息跳过:', e.message); }
+
+    // 已消费过的心跳消息id集合（防 push + 云端重复）
+    const consumed = JSON.parse(localStorage.getItem('heartbeat_consumedIds') || '[]');
+    const consumedSet = new Set(consumed);
+
+    // 合并去重
+    const allContents = [];
+    for (const m of pushMsgs) {
+      const pid = m.proactiveId || m.id;
+      if (pid && consumedSet.has(pid)) continue;
+      if (pid) consumedSet.add(pid);
+      allContents.push(m.content);
+    }
+    for (const m of cloudMsgs) {
+      if (m.id && consumedSet.has(m.id)) continue;
+      if (m.id) consumedSet.add(m.id);
+      allContents.push(m.content);
+    }
+
+    if (!allContents.length) {
+      // 即使没新消息，也更新 lastSyncTime
+      if (cloudMsgs.length) {
+        const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
+        if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
+      }
+      return;
+    }
+
     const { addMessage, renderMessages } = await import('./modules/chat.js');
-    for (const m of msgs) {
-      await addMessage('assistant', m.content);
+    for (const content of allContents) {
+      await addMessage('assistant', content);
     }
     renderMessages();
-    console.log(`[Push] 消费了 ${msgs.length} 条主动消息`);
+
+    // 更新去重集合（只保留最近50个id防膨胀）
+    const newConsumed = [...consumedSet].slice(-50);
+    localStorage.setItem('heartbeat_consumedIds', JSON.stringify(newConsumed));
+
+    // 更新 lastSyncTime
+    if (cloudMsgs.length) {
+      const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
+      if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
+    }
+
+    console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allContents.length} 条）`);
   } catch(e) { console.log('[Push] inbox消费失败:', e.message); }
 }
 window._consumePushInbox = _consumePushInbox;

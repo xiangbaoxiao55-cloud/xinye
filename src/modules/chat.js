@@ -3141,7 +3141,6 @@ async function _syncPushContext() {
   const srv = getCloudOrLocalUrl();
   if (!srv) return;
   const preset = (settings.apiPresets || [])[settings.apiPresetIndex || 0] || {};
-  const apiConfig = { baseUrl: preset.baseUrl || settings.baseUrl, apiKey: preset.apiKey || settings.apiKey, model: preset.model || settings.model, apiFormat: preset.apiFormat || settings.apiFormat || 'openai' };
 
   // 和正式聊天一样的记忆块（stable = Core+ALWAYS+钉住, dynamic = RAG+Extended）
   let stableBlocks = [], dynamicBlocks = [];
@@ -3175,12 +3174,20 @@ async function _syncPushContext() {
     method: 'POST',
     headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({
-      stableBlocks, dynamicBlocks, todosText, fullMessages, apiConfig,
+      stableBlocks, dynamicBlocks, todosText, fullMessages,
       lastMessages: messages.slice(-12).map(m => ({ role: m.role, content: (m.content || '').slice(0, 200) })),
       memoryCore: settings.memoryArchiveCore || '',
       systemPrompt: settings.systemPrompt || '',
     }),
     signal: AbortSignal.timeout(8000)
+  }).catch(() => {});
+
+  // 心跳：通知云端用户活跃时间
+  fetch(buildServerFetchUrl(srv, '/api/last-active'), {
+    method: 'POST',
+    headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ timestamp: Date.now() }),
+    signal: AbortSignal.timeout(5000)
   }).catch(() => {});
 }
 

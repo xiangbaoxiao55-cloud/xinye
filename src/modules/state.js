@@ -21,6 +21,7 @@ export const settings = {
   mosiKey: '', mosiVoiceId: '',
   minimaxKey: '', minimaxGroupId: '', minimaxVoiceId: '', minimaxModel: '', minimaxProxy: '',
   idleRemind: 0, waterRemind: 0, standRemind: 0, dreamEnabled: false, dreamSleepHours: 6,
+  heartbeatEnabled: false, quietHoursStart: 0, quietHoursEnd: 8,
   memoryArchive: '',
   memoryArchiveCoreMarkers: '',
   memoryArchiveCore: '',
