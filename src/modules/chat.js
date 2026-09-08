@@ -3048,7 +3048,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     if (_stbl.length) apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stbl.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
     if (_dyn.length) apiMsgs.push({ role: 'system', content: _dyn.join('\n\n---\n\n') });
 
-    const n = Math.max(1, settings.contextCount || 20);
+    const n = Math.min(10, Math.max(1, settings.contextCount || 20));
     for (const m of messages.slice(-n)) {
       const role = m.role === 'user' ? 'user' : 'assistant';
       const isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
@@ -3081,7 +3081,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     const _proFmt = res.__apiFormat || 'openai';
     const reader = res.body.getReader();
     const dec = new TextDecoder();
-    let text = '', _proEvtType = '';
+    let text = '', think = '', _proEvtType = '';
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -3094,13 +3094,19 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
             const ev = parseAnthropicEvent(_proEvtType, lt.slice(6));
             _proEvtType = '';
             if (ev?.content) text += ev.content;
+            else if (ev?.thinking) think += ev.thinking;
           } else {
             if (!lt.startsWith('data: ') || lt === 'data: [DONE]') continue;
-            try { text += JSON.parse(lt.slice(6)).choices?.[0]?.delta?.content || ''; } catch (_) {}
+            try {
+              const delta = JSON.parse(lt.slice(6)).choices?.[0]?.delta;
+              if (delta?.content) text += delta.content;
+              else if (delta?.reasoning_content || delta?.thinking) think += delta.reasoning_content || delta.thinking;
+            } catch (_) {}
           }
         }
       }
     } catch (_) {}
+    if (!text && think) text = think.slice(0, 500);
     console.log('[主动消息] 回复：', text.slice(0, 100) || '(空)');
     return text.trim() || null;
   } finally {
