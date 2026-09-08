@@ -34,26 +34,27 @@ Object.assign(window, {
 });
 
 if('serviceWorker' in navigator){
+  const _swReload = () => {
+    if (window.isRequesting) {
+      const _t = setInterval(() => { if (!window.isRequesting) { clearInterval(_t); location.reload(); } }, 1000);
+    } else location.reload();
+  };
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/sw.js').catch(()=>{});
-    // 新SW激活时自动刷新页面，让新版本生效
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      // 主动监听新SW安装→激活，比等SW postMessage更可靠（鸿蒙WebView兼容）
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated' && navigator.serviceWorker.controller) _swReload();
+        });
+      });
+    }).catch(()=>{});
     navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data && e.data.type === 'SW_UPDATED') {
-        // 有请求进行中时等待结束再reload，避免中断画图/聊天被重复扣费
-        if (window.isRequesting) {
-          const _waitReload = setInterval(() => {
-            if (!window.isRequesting) { clearInterval(_waitReload); window.location.reload(); }
-          }, 1000);
-        } else {
-          window.location.reload();
-        }
-      }
-      // 炘也主动消息：页面已打开时直接刷新
-      if (e.data && e.data.type === 'PUSH_MESSAGE') {
+      if (e.data?.type === 'SW_UPDATED') _swReload();
+      if (e.data?.type === 'PUSH_MESSAGE') {
         const _targetApp = e.data.appId || 'xinye';
-        if (_targetApp === (window.__APP_ID__ || 'xinye')) {
-          window._consumePushInbox?.();
-        }
+        if (_targetApp === (window.__APP_ID__ || 'xinye')) window._consumePushInbox?.();
       }
     });
   });
@@ -432,7 +433,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.08-2340';
+  if (_verEl) _verEl.textContent = 'v2026.09.08-2344';
 
   await openDB();
   await migrateFromLocalStorage();
