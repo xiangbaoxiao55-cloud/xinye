@@ -2365,41 +2365,54 @@ export async function sendMessage() {
         finalText = await parseAndSaveSelfMemories(finalText);
         if (_PFX === '') finalText = await parseAndSavePhoneState(finalText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => finalText);
         if (parsed.think) finalText = `<thinking>${parsed.think}</thinking>\n${finalText}`;
+        let _fMsgId;
         if (!parsed.aiMsg) {
           if (!finalText.trim()) { rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext(); return; }
           typing.classList.remove('show');
-          const aiMsg = await addMessage('assistant', finalText);
-          if (usedPresetName) { aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, aiMsg); }
-          await appendMsgDOM(aiMsg);
-          try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
-          window.maybeTTS?.(finalText, aiMsg.id);
+          try {
+            const aiMsg = await addMessage('assistant', finalText);
+            _fMsgId = aiMsg.id;
+            if (usedPresetName) { aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, aiMsg); }
+            await appendMsgDOM(aiMsg);
+            try { saveTokenLog(aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
+          } catch(_fErr) { console.error('[_finalizeMsg] 异常：', _fErr); }
+          window.maybeTTS?.(finalText, _fMsgId);
         } else {
+          _fMsgId = parsed.aiMsg.id;
           if (!finalText.trim() && !parsed.think) finalText = '（没有收到回复）';
           if (parsed.think) parsed.bubbleEl.textContent = finalText;
           const idx = messages.findIndex(m => m.id === parsed.aiMsg.id);
           if (idx >= 0) { messages[idx].content = finalText; if (usedPresetName) messages[idx].presetName = usedPresetName; }
-          if (usedPresetName) { parsed.aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, { ...parsed.aiMsg, content: finalText }); _updateVersionSwitcherDOM(parsed.aiMsg); } else {
-            try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
-          }
-          try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
-          try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
-          window.maybeTTS?.(finalText, parsed.aiMsg.id);
+          try {
+            if (usedPresetName) { parsed.aiMsg.presetName = usedPresetName; await dbPut(activeStore(), null, { ...parsed.aiMsg, content: finalText }); _updateVersionSwitcherDOM(parsed.aiMsg); } else {
+              try { await updateMessage(parsed.aiMsg.id, finalText); } catch(_e) {}
+            }
+            try { linkifyEl(parsed.bubbleEl, finalText); window.applyStickerTags?.(parsed.bubbleEl); } catch(_e) {}
+            try { saveTokenLog(parsed.aiMsg.id, loopMsgs, finalText, parsed.usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
+          } catch(_fErr) { console.error('[_finalizeMsg] 异常：', _fErr); }
+          window.maybeTTS?.(finalText, _fMsgId);
         }
         rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
       }
 
       if (!settings.streamMode) {
         async function _showNonStream(text, msgList, usage, usedModel, usedPresetName) {
-          text = await parseAndSaveSelfMemories(text);
-          if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
-          typing.classList.remove('show');
-          const _nm = await addMessage('assistant', text);
-          if (usedPresetName) { _nm.presetName = usedPresetName; await dbPut(activeStore(), null, _nm); }
-          await appendMsgDOM(_nm);
-          const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
-          try { linkifyEl(_nb, text); window.applyStickerTags?.(_nb); } catch(_e) {}
-          try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
-          window.maybeTTS?.(text, _nm.id);
+          console.log('[_showNonStream] 进入，textLen=', (text||'').length, 'first60:', (text||'').slice(0,60));
+          let _nm;
+          try {
+            text = await parseAndSaveSelfMemories(text);
+            if (_PFX === '') text = await parseAndSavePhoneState(text, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => text);
+            typing.classList.remove('show');
+            _nm = await addMessage('assistant', text);
+            if (usedPresetName) { _nm.presetName = usedPresetName; await dbPut(activeStore(), null, _nm); }
+            await appendMsgDOM(_nm);
+            const _nb = chatArea.querySelector('.msg-row:last-child .msg-bubble');
+            try { linkifyEl(_nb, text); window.applyStickerTags?.(_nb); } catch(_e) {}
+            try { saveTokenLog(_nm.id, msgList, text, usage || {}, _apiMeta, usedModel || settings.model || ''); } catch(_e) {}
+          } catch(_showErr) {
+            console.error('[_showNonStream] 异常，maybeTTS可能未触发：', _showErr);
+          }
+          window.maybeTTS?.(text, _nm?.id);
           rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
         }
         const { response: _r1, usedModel: _uMod1, usedPresetName: _uPre1 } = await _apiFetch(loopMsgs, true, false);
@@ -2786,12 +2799,16 @@ export async function sendMessage() {
       let reply = msg0?.content || (thinking ? '' : '（没有收到回复）');
       if (thinking) reply = `<thinking>${thinking}</thinking>\n${reply}`;
       typing.classList.remove('show');
-      const aiMsg = await addMessage('assistant', reply);
-      aiMsg.presetName = _uPre || '';
-      await dbPut(activeStore(), null, aiMsg);
-      await appendMsgDOM(aiMsg);
-      try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, _uMod || data.model || settings.model || ''); } catch(_e) {}
-      window.maybeTTS?.(reply, aiMsg.id);
+      let _simpleId;
+      try {
+        const aiMsg = await addMessage('assistant', reply);
+        _simpleId = aiMsg.id;
+        aiMsg.presetName = _uPre || '';
+        await dbPut(activeStore(), null, aiMsg);
+        await appendMsgDOM(aiMsg);
+        try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, _uMod || data.model || settings.model || ''); } catch(_e) {}
+      } catch(_sErr) { console.error('[简单非流式] 异常：', _sErr); }
+      window.maybeTTS?.(reply, _simpleId);
       rememberLatestExchange(); autoDigestMemory(); updateMoodState(); _syncPushContext();
 
     } else {

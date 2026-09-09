@@ -297,9 +297,7 @@ function maybeTTS(text, msgId) {
   }
   const autoPlay = settings.ttsAutoPlay;
   const hasText = !!text;
-  if (!autoPlay && !shouldSpeak) {
-    console.warn('[maybeTTS] 跳过：autoPlay=', autoPlay, 'shouldSpeak=', shouldSpeak, 'hasText=', hasText, 'msgId=', msgId);
-  }
+  console.log('[maybeTTS] 调用：autoPlay=', autoPlay, 'shouldSpeak=', shouldSpeak, 'hasText=', hasText, 'textLen=', (text||'').length, 'msgId=', msgId);
   if ((autoPlay || shouldSpeak) && hasText) enqueueTTS(text, msgId, shouldSpeak);
 }
 // ======================== 发送 & API ========================
@@ -443,7 +441,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-2248';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-2312';
 
   await openDB();
   await migrateFromLocalStorage();
