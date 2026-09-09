@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-0942';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-1118';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -540,22 +540,32 @@ async function _registerPush() {
     const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
     if (perm !== 'granted') { console.log('[Push] 通知权限未授予:', perm); return; }
     const reg = await navigator.serviceWorker.ready;
-    // 每次强制重新订阅，确保endpoint不过期
+    // 复用已有订阅，没有则新建
     let sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      try { await sub.unsubscribe(); } catch {}
+    console.log(`[Push] 当前订阅: ${sub ? '有' : '无'}`);
+    if (!sub) {
+      try {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+        console.log('[Push] 新建订阅成功');
+      } catch(e2) {
+        console.error('[Push] 新建订阅失败:', e2.message, e2.name);
+        return;
+      }
     }
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
     const subJson = sub.toJSON();
     const epType = subJson.endpoint?.includes('fcm') ? 'FCM' : subJson.endpoint?.includes('mozilla') ? 'Firefox' : subJson.endpoint?.includes('wns') ? 'Windows' : '未知';
     console.log(`[Push] 订阅类型: ${epType}, endpoint: ${subJson.endpoint?.slice(0, 60)}...`);
+    // 把旧endpoint一起传给服务器，让服务器清理废订阅
+    const oldEp = localStorage.getItem('push_last_endpoint') || '';
+    const regBody = { ...subJson, oldEndpoint: (oldEp && oldEp !== subJson.endpoint) ? oldEp : undefined };
     const regRes = await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
       method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(subJson), signal: AbortSignal.timeout(4000)
+      body: JSON.stringify(regBody), signal: AbortSignal.timeout(4000)
     });
     if (regRes.ok) {
       console.log('[Push] 订阅注册成功');
       localStorage.setItem('push_endpoint_type', epType);
+      localStorage.setItem('push_last_endpoint', subJson.endpoint);
       localStorage.setItem('push_last_registered', new Date().toISOString());
     } else {
       console.log('[Push] 订阅注册失败:', regRes.status);

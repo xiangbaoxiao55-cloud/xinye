@@ -1596,7 +1596,10 @@ export function initSettings() {
         const r = await fetch(buildServerFetchUrl(srv, '/api/push-test'), { method: 'POST', headers: buildServerHeaders(srv) });
         const d = await r.json();
         _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
-        if (d.ok) alert(`推送已发送（${d.sent}个订阅，代理：${d.proxyUsed ? '✅' : '❌'}）`);
+        if (d.ok) {
+          const detail = (d.results || []).map(r => `${r.type}: ${r.status}${r.code ? '('+r.code+')' : ''}${r.msg ? ' '+r.msg : ''}`).join('\n');
+          alert(`推送已发送（${d.sent}个订阅，清理${d.cleaned || 0}个过期）\n\n${detail || '无详情'}`);
+        }
         else alert('发送失败：' + (d.reason || '未知'));
       } catch(e) {
         _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
@@ -1654,8 +1657,39 @@ export function initSettings() {
       if ('PushManager' in window && 'serviceWorker' in navigator) {
         try {
           const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.getSubscription();
-          lines.push('现有订阅: ' + (sub ? '✅ 已有\n' + sub.endpoint.slice(0, 60) + '…' : '❌ 无'));
+          let sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            lines.push('现有订阅: ✅ 已有');
+            lines.push(sub.endpoint.slice(0, 60) + '…');
+          } else {
+            lines.push('现有订阅: ❌ 无，正在创建...');
+            const srv = getCloudOrLocalUrl();
+            if (srv) {
+              try {
+                const r = await fetch(buildServerFetchUrl(srv, '/api/push-vapid-public-key'), { headers: buildServerHeaders(srv), signal: AbortSignal.timeout(4000) });
+                const { publicKey } = await r.json();
+                if (publicKey) {
+                  const _b64 = (b) => { const p='='.repeat((4-b.length%4)%4); const raw=atob((b+p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); };
+                  sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _b64(publicKey) });
+                  // 注册到服务器并清理旧订阅
+                  const subJson = sub.toJSON();
+                  await fetch(buildServerFetchUrl(srv, '/api/push-purge'), {
+                    method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ keepEndpoint: subJson.endpoint }), signal: AbortSignal.timeout(4000)
+                  });
+                  await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
+                    method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+                    body: JSON.stringify(subJson), signal: AbortSignal.timeout(4000)
+                  });
+                  localStorage.setItem('push_last_endpoint', subJson.endpoint);
+                  localStorage.setItem('push_endpoint_type', subJson.endpoint.includes('fcm') ? 'FCM' : '未知');
+                  localStorage.setItem('push_last_registered', new Date().toISOString());
+                  lines.push('✅ 新订阅已创建并注册！旧订阅已清理');
+                  lines.push(sub.endpoint.slice(0, 60) + '…');
+                }
+              } catch(e2) { lines.push('创建失败: ' + e2.message); }
+            }
+          }
         } catch(e) {
           lines.push('订阅检查出错: ' + e.message);
         }
