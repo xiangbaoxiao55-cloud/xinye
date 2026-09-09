@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-1212';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-1246';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -555,22 +555,32 @@ async function _registerPush() {
     const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
     if (perm !== 'granted') { console.log('[Push] 通知权限未授予:', perm); return; }
     const reg = await navigator.serviceWorker.ready;
-    // 复用已有订阅，没有则新建
     let sub = await reg.pushManager.getSubscription();
     console.log(`[Push] 当前订阅: ${sub ? '有' : '无'}`);
     if (!sub) {
-      try {
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
-        console.log('[Push] 新建订阅成功');
-      } catch(e2) {
-        console.error('[Push] 新建订阅失败:', e2.message, e2.name);
-        return;
+      // FCM连接不稳定，重试最多4次（间隔3s/6s/12s/20s）
+      const delays = [0, 3000, 6000, 12000, 20000];
+      for (let i = 0; i < delays.length; i++) {
+        if (i > 0) { console.log(`[Push] 第${i}次重试，等待${delays[i]/1000}秒...`); await new Promise(r => setTimeout(r, delays[i])); }
+        try {
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+          console.log(`[Push] 新建订阅成功${i > 0 ? '（第'+i+'次重试）' : ''}`);
+          break;
+        } catch(e2) {
+          console.log(`[Push] 订阅尝试${i+1}失败: ${e2.message}`);
+          if (i === delays.length - 1) {
+            console.error('[Push] 全部重试失败，等下次启动再试');
+            // 失败了也启动后台重试（每60秒试一次，成功就停）
+            _retrySubscribeInBackground(reg, publicKey, srv);
+            return;
+          }
+        }
       }
     }
+    if (!sub) return;
     const subJson = sub.toJSON();
     const epType = subJson.endpoint?.includes('fcm') ? 'FCM' : subJson.endpoint?.includes('mozilla') ? 'Firefox' : subJson.endpoint?.includes('wns') ? 'Windows' : '未知';
     console.log(`[Push] 订阅类型: ${epType}, endpoint: ${subJson.endpoint?.slice(0, 60)}...`);
-    // 把旧endpoint一起传给服务器，让服务器清理废订阅
     const oldEp = localStorage.getItem('push_last_endpoint') || '';
     const regBody = { ...subJson, oldEndpoint: (oldEp && oldEp !== subJson.endpoint) ? oldEp : undefined };
     const regRes = await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
@@ -586,6 +596,36 @@ async function _registerPush() {
       console.log('[Push] 订阅注册失败:', regRes.status);
     }
   } catch(e) { console.log('[Push] 注册异常:', e.message); }
+}
+
+// 后台每60秒重试一次FCM订阅（成功即停，最多试10分钟）
+let _pushRetryTimer = null;
+function _retrySubscribeInBackground(reg, publicKey, srv) {
+  if (_pushRetryTimer) return;
+  let attempts = 0;
+  _pushRetryTimer = setInterval(async () => {
+    attempts++;
+    if (attempts > 10) { clearInterval(_pushRetryTimer); _pushRetryTimer = null; console.log('[Push] 后台重试超时，放弃'); return; }
+    try {
+      let sub = await reg.pushManager.getSubscription();
+      if (sub) { clearInterval(_pushRetryTimer); _pushRetryTimer = null; console.log('[Push] 后台检测到已有订阅'); return; }
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+      clearInterval(_pushRetryTimer); _pushRetryTimer = null;
+      console.log(`[Push] 后台重试成功（第${attempts}次）`);
+      const subJson = sub.toJSON();
+      const epType = subJson.endpoint?.includes('fcm') ? 'FCM' : subJson.endpoint?.includes('mozilla') ? 'Firefox' : subJson.endpoint?.includes('wns') ? 'Windows' : '未知';
+      const regRes = await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
+        method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(subJson), signal: AbortSignal.timeout(4000)
+      });
+      if (regRes.ok) {
+        localStorage.setItem('push_endpoint_type', epType);
+        localStorage.setItem('push_last_endpoint', subJson.endpoint);
+        localStorage.setItem('push_last_registered', new Date().toISOString());
+        console.log('[Push] 后台订阅注册成功');
+      }
+    } catch(e) { console.log(`[Push] 后台重试${attempts}失败: ${e.message}`); }
+  }, 60000);
 }
 
 // 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
