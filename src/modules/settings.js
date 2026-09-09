@@ -969,6 +969,16 @@ export function initSettings() {
     };
   });
 
+  // TTS自动播放：勾选/取消立即生效，不用等"保存设置"
+  const _ttsAutoEl = $('#setTtsAutoPlay');
+  if (_ttsAutoEl) {
+    _ttsAutoEl.onchange = () => {
+      settings.ttsAutoPlay = _ttsAutoEl.checked;
+      saveSettings();
+      console.log('[TTS] autoPlay 实时切换 =>', settings.ttsAutoPlay);
+    };
+  }
+
   $('#setBgOpacity').oninput = function() { $('#bgOpacityVal').textContent = this.value; };
   $('#setBgBlur').oninput = function() { $('#bgBlurVal').textContent = this.value; };
   $('#setBubbleOpacity').oninput = function() { $('#bubbleOpacityVal').textContent = this.value; };

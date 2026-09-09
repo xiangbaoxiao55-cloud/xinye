@@ -181,6 +181,7 @@ async function migrateFromLocalStorage() {
 async function loadAll() {
   const s = await dbGet('settings', 'main');
   if (s) Object.assign(settings, s);
+  console.log('[loadAll] ttsAutoPlay =', settings.ttsAutoPlay, '(from IDB:', s?.ttsAutoPlay, ')');
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
   const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
@@ -294,7 +295,12 @@ function maybeTTS(text, msgId) {
     if (!settings.speakTTSIds.includes(msgId)) settings.speakTTSIds.push(msgId);
     saveSettings();
   }
-  if ((settings.ttsAutoPlay || shouldSpeak) && text) enqueueTTS(text, msgId, shouldSpeak);
+  const autoPlay = settings.ttsAutoPlay;
+  const hasText = !!text;
+  if (!autoPlay && !shouldSpeak) {
+    console.warn('[maybeTTS] 跳过：autoPlay=', autoPlay, 'shouldSpeak=', shouldSpeak, 'hasText=', hasText, 'msgId=', msgId);
+  }
+  if ((autoPlay || shouldSpeak) && hasText) enqueueTTS(text, msgId, shouldSpeak);
 }
 // ======================== 发送 & API ========================
 window.isRequesting = false;
@@ -437,7 +443,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-1246';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-2248';
 
   await openDB();
   await migrateFromLocalStorage();
