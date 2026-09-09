@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260909-1118';
+const CACHE_NAME = 'xinye-20260909-1212';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -140,6 +140,69 @@ async function _handlePush(data) {
     tag: 'xinye-push',
     data: { url: '/' }
   });
+}
+
+// ── Periodic Background Sync：后台定期拉心跳消息（替代FCM）────────────────
+self.addEventListener('periodicsync', e => {
+  if (e.tag !== 'pull-heartbeat') return;
+  e.waitUntil(_pullAndNotify());
+});
+
+async function _pullAndNotify() {
+  try {
+    // 读取云服务器URL（前端通过SET_LOCAL_SERVER设置的，或直接用云服务器）
+    let srv = null;
+    try {
+      const r = await (await caches.open('xinye-local-cfg')).match('url');
+      if (r) srv = await r.text();
+    } catch {}
+    // 优先云服务器
+    const cloudUrl = 'http://43.155.214.85:3000';
+    const lastSync = parseInt(await _swKV('get', 'hb_lastSync') || '0');
+    const r = await fetch(`${cloudUrl}/api/proactive-messages?since=${lastSync}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.ok || !Array.isArray(d.messages) || !d.messages.length) return;
+    // 记录最新时间
+    const maxTime = Math.max(...d.messages.map(m => m.time || 0));
+    if (maxTime > 0) await _swKV('set', 'hb_lastSync', String(maxTime));
+    // 写入PushInbox让前端消费
+    for (const m of d.messages) {
+      try {
+        await new Promise((resolve, reject) => {
+          const req = indexedDB.open('XinyePushInbox', 1);
+          req.onupgradeneeded = ev => ev.target.result.createObjectStore('inbox', { autoIncrement: true });
+          req.onsuccess = () => {
+            const db = req.result;
+            const tx = db.transaction('inbox', 'readwrite');
+            tx.objectStore('inbox').add({ role: 'assistant', content: m.content, time: m.time, id: m.id });
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = reject;
+          };
+          req.onerror = reject;
+        });
+      } catch {}
+    }
+    // 弹通知
+    const body = d.messages.length === 1 ? d.messages[0].content : `${d.messages.length}条新消息`;
+    await self.registration.showNotification('炘也', {
+      body: (body || '').slice(0, 120),
+      icon: '/xinye-icon.png',
+      badge: '/xinye-icon.png',
+      tag: 'xinye-heartbeat',
+      data: { url: '/' }
+    });
+    // 通知已打开的页面
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach(c => c.postMessage({ type: 'PUSH_MESSAGE', content: '有新的心跳消息', appId: 'xinye' }));
+  } catch(e) { console.error('[SW Sync] 拉取失败', e); }
+}
+
+// SW内简易KV（用Cache API存取小值）
+async function _swKV(op, key, val) {
+  const cache = await caches.open('xinye-sw-kv');
+  if (op === 'get') { const r = await cache.match(key); return r ? await r.text() : null; }
+  if (op === 'set') await cache.put(key, new Response(val));
 }
 
 self.addEventListener('notificationclick', e => {

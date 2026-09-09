@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-1118';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-1212';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -514,11 +514,26 @@ async function checkPendingMessage() {
     if (document.visibilityState === 'visible') _consumePushInbox();
   });
 
-  // 前台定时轮询心跳消息（3分钟），作为 Web Push 不可达时的兜底
+  // 前台定时轮询心跳消息（30秒），鸿蒙无FCM靠轮询兜底
   setInterval(() => {
     if (document.visibilityState === 'visible') _consumePushInbox();
-  }, 3 * 60 * 1000);
+  }, 30_000);
+
+  // 注册 Periodic Background Sync（让SW在后台也能定期拉消息）
+  _registerPeriodicSync();
 })();
+
+// ── Periodic Background Sync（后台定期拉消息，替代FCM）──────────────────────
+async function _registerPeriodicSync() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!('periodicSync' in reg)) { console.log('[Sync] 浏览器不支持 periodicSync'); return; }
+    const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+    if (status.state !== 'granted') { console.log('[Sync] periodicSync 权限未授予:', status.state); return; }
+    await reg.periodicSync.register('pull-heartbeat', { minInterval: 15 * 60 * 1000 });
+    console.log('[Sync] periodicSync 注册成功（15分钟）');
+  } catch(e) { console.log('[Sync] periodicSync 注册失败:', e.message); }
+}
 
 // ── Web Push 注册 ─────────────────────────────────────────────────────────
 function _urlB64ToU8(b64) {
@@ -646,6 +661,21 @@ async function _consumePushInbox() {
       await addMessage('assistant', content);
     }
     renderMessages();
+
+    // 弹出本地通知（不依赖FCM，只要有Notification权限就行）
+    if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+      const body = allContents.length === 1 ? allContents[0] : `${allContents.length}条新消息`;
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification(settings.aiName || '炘也', {
+          body: body.slice(0, 120),
+          icon: '/xinye-icon.png',
+          badge: '/xinye-icon.png',
+          tag: 'xinye-heartbeat',
+          data: { url: '/' }
+        });
+      } catch { try { new Notification(settings.aiName || '炘也', { body: body.slice(0, 120), icon: '/xinye-icon.png' }); } catch {} }
+    }
 
     // 更新去重集合（只保留最近50个id防膨胀）
     const newConsumed = [...consumedSet].slice(-50);
