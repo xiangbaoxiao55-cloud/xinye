@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-0004';
+  if (_verEl) _verEl.textContent = 'v2026.09.09-0942';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -513,6 +513,11 @@ async function checkPendingMessage() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') _consumePushInbox();
   });
+
+  // 前台定时轮询心跳消息（3分钟），作为 Web Push 不可达时的兜底
+  setInterval(() => {
+    if (document.visibilityState === 'visible') _consumePushInbox();
+  }, 3 * 60 * 1000);
 })();
 
 // ── Web Push 注册 ─────────────────────────────────────────────────────────
@@ -523,27 +528,39 @@ function _urlB64ToU8(b64) {
 }
 
 async function _registerPush() {
-  if (!('PushManager' in window) || !('serviceWorker' in navigator)) return;
+  if (!('PushManager' in window)) { console.log('[Push] 浏览器不支持 PushManager'); return; }
+  if (!('serviceWorker' in navigator)) { console.log('[Push] 浏览器不支持 ServiceWorker'); return; }
   const srv = getCloudOrLocalUrl();
-  if (!srv) return;
+  if (!srv) { console.log('[Push] 无可用服务器，跳过注册'); return; }
   try {
     const res = await fetch(buildServerFetchUrl(srv, '/api/push-vapid-public-key'), { headers: buildServerHeaders(srv), signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return;
+    if (!res.ok) { console.log('[Push] VAPID key 获取失败:', res.status); return; }
     const { publicKey } = await res.json();
-    if (!publicKey) return;
+    if (!publicKey) { console.log('[Push] VAPID key 为空'); return; }
+    const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (perm !== 'granted') { console.log('[Push] 通知权限未授予:', perm); return; }
     const reg = await navigator.serviceWorker.ready;
+    // 每次强制重新订阅，确保endpoint不过期
     let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-      if (perm !== 'granted') return;
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+    if (sub) {
+      try { await sub.unsubscribe(); } catch {}
     }
-    await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToU8(publicKey) });
+    const subJson = sub.toJSON();
+    const epType = subJson.endpoint?.includes('fcm') ? 'FCM' : subJson.endpoint?.includes('mozilla') ? 'Firefox' : subJson.endpoint?.includes('wns') ? 'Windows' : '未知';
+    console.log(`[Push] 订阅类型: ${epType}, endpoint: ${subJson.endpoint?.slice(0, 60)}...`);
+    const regRes = await fetch(buildServerFetchUrl(srv, '/api/push-subscribe'), {
       method: 'POST', headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(sub.toJSON()), signal: AbortSignal.timeout(4000)
+      body: JSON.stringify(subJson), signal: AbortSignal.timeout(4000)
     });
-    console.log('[Push] 订阅注册成功');
-  } catch(e) { console.log('[Push] 注册跳过:', e.message); }
+    if (regRes.ok) {
+      console.log('[Push] 订阅注册成功');
+      localStorage.setItem('push_endpoint_type', epType);
+      localStorage.setItem('push_last_registered', new Date().toISOString());
+    } else {
+      console.log('[Push] 订阅注册失败:', regRes.status);
+    }
+  } catch(e) { console.log('[Push] 注册异常:', e.message); }
 }
 
 // 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息

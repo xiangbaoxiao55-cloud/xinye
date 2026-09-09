@@ -1567,6 +1567,24 @@ export function initSettings() {
   // ======================== 备份/导出/导入按钮 ========================
   $('#btnBackupToPhone').onclick = backupToPhone;
 
+  // 推送诊断信息
+  const _pushDiag = $('#pushDiagInfo');
+  if (_pushDiag) {
+    const epType = localStorage.getItem('push_endpoint_type');
+    const lastReg = localStorage.getItem('push_last_registered');
+    const notifPerm = typeof Notification !== 'undefined' ? Notification.permission : '不支持';
+    const hasPM = 'PushManager' in window;
+    let html = `<b>推送诊断</b><br>`;
+    html += `通知权限: ${notifPerm === 'granted' ? '✅已授权' : notifPerm === 'denied' ? '❌已拒绝' : '⚠️未请求'}<br>`;
+    html += `PushManager: ${hasPM ? '✅支持' : '❌不支持'}<br>`;
+    if (epType) html += `订阅类型: ${epType === 'FCM' ? '⚠️FCM（鸿蒙可能不支持）' : epType}<br>`;
+    if (lastReg) html += `上次注册: ${new Date(lastReg).toLocaleString('zh-CN')}<br>`;
+    if (!hasPM) html += `<span style="color:#e44">⚠️ 此浏览器不支持Web Push，心跳消息仅在打开APP时拉取</span>`;
+    else if (epType === 'FCM') html += `<span style="color:#e90">⚠️ FCM端点在鸿蒙系统可能无法送达，心跳消息会在打开APP时自动拉取</span>`;
+    _pushDiag.innerHTML = html;
+    _pushDiag.style.display = '';
+  }
+
   // 立即发推送测试
   const _btnSendPushTest = $('#btnSendPushTest');
   if (_btnSendPushTest) {
