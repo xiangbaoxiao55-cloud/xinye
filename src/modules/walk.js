@@ -62,10 +62,12 @@ ${newsText}
 
   console.log('[散步] AI判断结果:', reply ? reply.slice(0, 100) : '(空)');
 
-  // 如果AI选择分享，存到全局变量，等用户下次发消息时再说
+  // 如果AI选择分享，存到 localStorage，等用户下次发消息时再说
   if (reply && reply.trim() && !reply.includes('<skip>')) {
-    window.pendingNewsToShare = reply.trim();
-    console.log('[散步] ✓ AI决定分享，已存入 pendingNewsToShare，等用户下次发消息时再说');
+    const content = reply.trim();
+    localStorage.setItem(_APP() + '_pendingNewsToShare', content);
+    window.pendingNewsToShare = content;
+    console.log('[散步] ✓ AI决定分享，已存入 localStorage，等用户下次发消息时再说');
     if (!isTest) localStorage.setItem(_WALK_KEY(), today);
   } else {
     console.log('[散步] AI选择不分享');
@@ -102,13 +104,12 @@ async function _fireReminder(todo) {
   const instruction = `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了。下次她发消息时，请在回复她之前，先自然地提醒她这件事，用你自己的语气，就像随口说起一样，不超过60字。]`;
   const reminder = await triggerProactiveReply(instruction, 150);
   if (reminder && reminder.trim()) {
-    // 存到全局变量，等用户下次发消息时再说
-    if (!window.pendingNewsToShare) {
-      window.pendingNewsToShare = reminder.trim();
-    } else {
-      window.pendingNewsToShare = reminder.trim() + '\n\n' + window.pendingNewsToShare;
-    }
-    console.log('[提醒] ✓ 提醒内容已存入 pendingNewsToShare');
+    // 存到 localStorage，等用户下次发消息时再说
+    const existing = localStorage.getItem(_APP() + '_pendingNewsToShare') || '';
+    const content = existing ? reminder.trim() + '\n\n' + existing : reminder.trim();
+    localStorage.setItem(_APP() + '_pendingNewsToShare', content);
+    window.pendingNewsToShare = content;
+    console.log('[提醒] ✓ 提醒内容已存入 localStorage');
     await completeTodoById(todo.id);
   }
 }
