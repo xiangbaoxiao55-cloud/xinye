@@ -315,8 +315,8 @@ export async function getUserAvatar() { return (await dbGet('images','userAvatar
 // ======================== 消息存储 ========================
 export function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
 
-export async function addMessage(role, content, images) {
-  const msg = { role, content, time: Date.now() };
+export async function addMessage(role, content, images, timestamp) {
+  const msg = { role, content, time: timestamp || Date.now() };
   if (images && images.length) msg.images = images;
   const storeName = activeStore();
   const tx = db.transaction(storeName, 'readwrite');

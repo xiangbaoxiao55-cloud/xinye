@@ -441,7 +441,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.09-2312';
+  if (_verEl) _verEl.textContent = 'v2026.09.10-0842';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -677,21 +677,21 @@ async function _consumePushInbox() {
     const consumed = JSON.parse(localStorage.getItem('heartbeat_consumedIds') || '[]');
     const consumedSet = new Set(consumed);
 
-    // 合并去重
-    const allContents = [];
+    // 合并去重（保留完整消息对象，包含时间戳）
+    const allMessages = [];
     for (const m of pushMsgs) {
       const pid = m.proactiveId || m.id;
       if (pid && consumedSet.has(pid)) continue;
       if (pid) consumedSet.add(pid);
-      allContents.push(m.content);
+      allMessages.push({ content: m.content, time: m.time });
     }
     for (const m of cloudMsgs) {
       if (m.id && consumedSet.has(m.id)) continue;
       if (m.id) consumedSet.add(m.id);
-      allContents.push(m.content);
+      allMessages.push({ content: m.content, time: m.time });
     }
 
-    if (!allContents.length) {
+    if (!allMessages.length) {
       // 即使没新消息，也更新 lastSyncTime
       if (cloudMsgs.length) {
         const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
@@ -701,14 +701,14 @@ async function _consumePushInbox() {
     }
 
     const { addMessage, renderMessages } = await import('./modules/chat.js');
-    for (const content of allContents) {
-      await addMessage('assistant', content);
+    for (const msg of allMessages) {
+      await addMessage('assistant', msg.content, null, msg.time);
     }
     renderMessages();
 
     // 弹出本地通知（不依赖FCM，只要有Notification权限就行）
     if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
-      const body = allContents.length === 1 ? allContents[0] : `${allContents.length}条新消息`;
+      const body = allMessages.length === 1 ? allMessages[0].content : `${allMessages.length}条新消息`;
       try {
         const reg = await navigator.serviceWorker.ready;
         reg.showNotification(settings.aiName || '炘也', {
@@ -731,7 +731,7 @@ async function _consumePushInbox() {
       if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
     }
 
-    console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allContents.length} 条）`);
+    console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allMessages.length} 条）`);
   } catch(e) { console.log('[Push] inbox消费失败:', e.message); }
 }
 window._consumePushInbox = _consumePushInbox;
