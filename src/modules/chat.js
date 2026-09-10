@@ -1197,7 +1197,12 @@ export async function sendMessage() {
           apiMsgs.push({ role, content: getMsgActiveContent(m) });
         }
       }
-      _apiMeta.push({ label: role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也'), time: m.time });
+      _apiMeta.push({
+        label: role === 'system'
+          ? 'system'
+          : (role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也')),
+        time: m.time
+      });
     }
 
     if (_injectLastImg) {
