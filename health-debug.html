@@ -35,10 +35,9 @@
     font-size:15px;font-weight:600;padding:12px 18px;width:100%;margin:4px 0 14px;
   }
   button:disabled{opacity:.5}
-  input[type=date]{
-    width:100%;padding:10px;border-radius:11px;border:1px solid var(--line);
-    background:var(--card);color:var(--fg);font-size:15px;margin-bottom:10px;
-  }
+  .seg{display:flex;gap:8px;margin-bottom:10px}
+  .seg button{margin:0;background:var(--card);color:var(--fg);border:1px solid var(--line);font-weight:500;padding:10px 0}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
   details{margin-top:8px}
   summary{color:var(--dim);font-size:13px;cursor:pointer;padding:6px 0}
   pre{
@@ -52,6 +51,8 @@
   .stat{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center}
   .stat b{display:block;font-size:22px;line-height:1.2}
   .stat span{font-size:11px;color:var(--dim)}
+  .bar{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;margin-right:6px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ok)}
 </style>
 </head>
 <body>
@@ -63,6 +64,12 @@
   <div class="row"><span class="k">Worker 地址</span><span class="v" id="s-url">读取中…</span></div>
   <div class="row"><span class="k">Token</span><span class="v" id="s-tok">读取中…</span></div>
   <div class="row"><span class="k">本机时间</span><span class="v" id="s-now">—</span></div>
+</div>
+
+<div class="seg" id="seg">
+  <button data-d="1">今天</button>
+  <button data-d="7">近 7 天</button>
+  <button data-d="30" class="on">近 30 天</button>
 </div>
 
 <button id="go" disabled>拉 取 数 据</button>
@@ -77,7 +84,7 @@
 <script>
 // ---------- 字段中文名 ----------
 const NAMES = {
-  date:'日期', id:'记录日期', updated:'同步时间',
+  id:'记录日期', date:'日期', updated:'同步时间',
   sleepSecs:'睡眠时长', sleepScore:'睡眠评分', sleepQuality:'睡眠质量',
   avgSleepingHR:'睡眠平均心率', restingHR:'静息心率',
   hrv:'心率变异性 HRV', hrvSDNN:'HRV (SDNN)', readiness:'恢复准备度',
@@ -92,15 +99,18 @@ const NAMES = {
   ctl:'长期负荷', atl:'短期负荷', rampRate:'负荷变化率',
   ctlLoad:'长期负荷量', atlLoad:'短期负荷量',
   injury:'伤病', comments:'备注',
-  Ride_eftp:'骑行FTP', Run_eftp:'跑步FTP'
+  Ride_eftp:'骑行FTP', Run_eftp:'跑步FTP',
+  tempWeight:'临时体重', tempRestingHR:'临时静息心率',
+  respiration:'呼吸', carbohydrates:'碳水', protein:'蛋白质', fatTotal:'脂肪总量',
+  sportInfo:'运动信息', locked:'锁定'
 };
-const HOUR_FIELDS = new Set([]);
 
 function fmt(k, v){
   if (v === null || v === undefined || v === '') return null;
-  if (typeof v === 'boolean') return null;   // tempWeight:false 这类不算数据
+  if (typeof v === 'boolean') return null;          // tempWeight:false 这类不算数据
   if (k === 'sleepSecs') { const s=+v; return `${Math.floor(s/3600)}小时${Math.round(s%3600/60)}分`; }
-  if (k === 'date' || k === 'updated') return String(v).replace('T',' ').slice(0,19);
+  if (k === 'id' || k === 'date') return String(v).slice(0,10);
+  if (k === 'updated') return String(v).replace('T',' ').slice(0,16);
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
@@ -123,12 +133,13 @@ function idbGet(db, store, key){
 }
 
 const $ = s => document.querySelector(s);
-let CFG = null;
+let CFG = null, DAYS = 30;
 
 async function loadCfg(){
   const now = new Date();
+  const off = -now.getTimezoneOffset()/60;
   $('#s-now').textContent = now.toLocaleString('zh-CN',{hour12:false})
-    + `　(UTC${-now.getTimezoneOffset()/60>=0?'+':''}${-now.getTimezoneOffset()/60})`;
+    + `　(UTC${off>=0?'+':''}${off})`;
 
   const which = location.pathname.includes('choubao') ? 'choubao' : 'xinye';
   const dbs = which==='choubao' ? ['ChoubaoChatDB','XinyeChatDB'] : ['XinyeChatDB','ChoubaoChatDB'];
@@ -155,13 +166,98 @@ async function loadCfg(){
   return true;
 }
 
+function renderSingle(res, ms){
+  const keys = Object.keys(res).filter(k=>k!=='updated');
+  const has  = keys.filter(k => fmt(k,res[k]) !== null);
+  const miss = keys.filter(k => fmt(k,res[k]) === null);
+
+  let html = `<div class="grid">
+    <div class="stat"><b style="color:var(--ok)">${has.length}</b><span>有值</span></div>
+    <div class="stat"><b style="color:var(--dim)">${miss.length}</b><span>空的</span></div>
+  </div>`;
+
+  html += `<div class="card"><div class="row"><span class="k">HTTP</span><span class="v"><span class="pill ok">200</span> ${ms}ms</span></div>`;
+  html += `<div class="row"><span class="k">这条记录的日期</span><span class="v"><b class="hl">${fmt('id',res.id||res.date)||'—'}</b></span></div></div>`;
+
+  html += '<div class="card"><div class="k" style="margin-bottom:6px">🟢 有值</div>';
+  if (!has.length) html += '<div class="note">一个都没有…</div>';
+  for (const k of has){
+    html += `<div class="row"><span class="k">${NAMES[k]||k}<br><span style="font-size:11px;opacity:.6">${k}</span></span><span class="v">${fmt(k,res[k])}</span></div>`;
+  }
+  html += '</div>';
+
+  if (miss.length){
+    html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 空的（接口给了字段，但没数据）</div>';
+    html += miss.map(k=>`<div class="row"><span class="k">${NAMES[k]||k}</span><span class="v miss">—</span></div>`).join('');
+    html += '</div>';
+  }
+  return html;
+}
+
+function renderMulti(rows, ms, askedDays){
+  const cover = new Map();
+  for (const {date, r} of rows){
+    for (const k of Object.keys(r)){
+      if (k === 'updated') continue;
+      const v = fmt(k, r[k]);
+      if (v === null) continue;
+      if (!cover.has(k)) cover.set(k, {n:0, last:null, first:null});
+      const c = cover.get(k);
+      c.n++;
+      c.last = { v, date };
+      if (!c.first) c.first = { v, date };
+    }
+  }
+
+  const minD = rows[0].date, maxD = rows[rows.length-1].date;
+  const span = Math.round((new Date(maxD) - new Date(minD))/86400000) + 1;
+
+  let html = `<div class="grid">
+    <div class="stat"><b>${rows.length}</b><span>有记录的天数</span></div>
+    <div class="stat"><b>${cover.size}</b><span>出现过的字段</span></div>
+  </div>`;
+
+  html += `<div class="card">
+    <div class="row"><span class="k">HTTP</span><span class="v"><span class="pill ok">200</span> ${ms}ms</span></div>
+    <div class="row"><span class="k">区间</span><span class="v">${minD} → ${maxD}<span class="note">（共 ${span} 天）</span></span></div>
+  </div>`;
+
+  if (askedDays > 1 && rows.length === 1){
+    html += `<div class="card"><span class="pill warn">Worker 还没更新</span>
+      <div class="note" style="margin-top:8px">我请求了 ${askedDays} 天，但只回来 1 条——说明 Worker 里还写着"只拉今天"。把新代码贴进 Cloudflare 就好了。</div></div>`;
+  }
+
+  html += '<div class="card"><div class="k" style="margin-bottom:8px">📊 每个字段在这段时间里出现过几天</div>';
+  const sorted = [...cover.entries()].sort((a,b)=>b[1].n-a[1].n);
+  for (const [k, c] of sorted){
+    const pct = Math.round(c.n/rows.length*100);
+    html += `<div class="row">
+      <span class="k">${NAMES[k]||k}<br><span style="font-size:11px;opacity:.6">${k}</span></span>
+      <span class="v"><span class="bar"><i style="width:${pct}%"></i></span>${c.n}/${rows.length} 天<br>
+      <span style="font-size:12px">最近：${c.last.v} <span class="note">${c.last.date}</span></span></span>
+    </div>`;
+  }
+  if (!sorted.length) html += '<div class="note">整段时间一个字段都没有值。</div>';
+  html += '</div>';
+
+  // 没出现过的（从映射表里找）
+  const never = Object.keys(NAMES).filter(k => !cover.has(k) && !['date','updated'].includes(k) && NAMES[k] !== k);
+  if (never.length){
+    html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 整段时间都是空的</div>';
+    html += never.map(k=>`<div class="row"><span class="k">${NAMES[k]}<br><span style="font-size:11px;opacity:.5">${k}</span></span><span class="v miss">—</span></div>`).join('');
+    html += '</div>';
+  }
+  return html;
+}
+
 async function pull(){
   $('#go').disabled = true;
   $('#go').textContent = '拉取中…';
   $('#out').innerHTML = '';
   const t0 = Date.now();
   try{
-    const r = await fetch(CFG.healthWorkerUrl, {
+    const sep = CFG.healthWorkerUrl.includes('?') ? '&' : '?';
+    const r = await fetch(CFG.healthWorkerUrl + sep + 'days=' + DAYS, {
       headers: CFG.healthWorkerToken ? { Authorization:'Bearer '+CFG.healthWorkerToken } : {}
     });
     const ms = Date.now() - t0;
@@ -175,51 +271,20 @@ async function pull(){
     $('#rawWrap').hidden = false;
 
     const arr = Array.isArray(data) ? data : [data];
-    const res = arr[0];
-    if (!res){
-      $('#out').innerHTML = '<div class="card"><span class="pill warn">返回空数组</span><div class="note" style="margin-top:8px">接口通了，但这一天没有 wellness 记录。</div></div>';
+    const rows = arr
+      .filter(r => r && typeof r === 'object')
+      .map(r => ({ date: String(r.id || r.date || '').slice(0,10), r }))
+      .filter(x => x.date)
+      .sort((a,b) => a.date < b.date ? -1 : 1);
+
+    if (!rows.length){
+      $('#out').innerHTML = '<div class="card"><span class="pill warn">返回空数组</span><div class="note" style="margin-top:8px">接口通了，但这段时间没有 wellness 记录。</div></div>';
       return;
     }
 
-    // 统计
-    const keys = Object.keys(res).filter(k=>!['updated'].includes(k));
-    const has  = keys.filter(k => fmt(k,res[k]) !== null);
-    const miss = keys.filter(k => fmt(k,res[k]) === null);
-
-    let html = `<div class="grid">
-      <div class="stat"><b style="color:var(--ok)">${has.length}</b><span>有值</span></div>
-      <div class="stat"><b style="color:var(--dim)">${miss.length}</b><span>空的</span></div>
-    </div>`;
-
-    html += `<div class="card"><div class="row"><span class="k">HTTP</span><span class="v"><span class="pill ok">200</span> ${ms}ms</span></div>`;
-    html += `<div class="row"><span class="k">返回条数</span><span class="v">${arr.length}</span></div>`;
-    const d = res.date || res.id;
-    html += `<div class="row"><span class="k">这条记录的日期</span><span class="v"><b class="hl">${d?String(d).slice(0,10):'—'}</b></span></div></div>`;
-
-    // 有值的
-    html += '<div class="card"><div class="k" style="margin-bottom:6px">🟢 有值</div>';
-    if (!has.length) html += '<div class="note">一个都没有…</div>';
-    for (const k of has){
-      html += `<div class="row"><span class="k">${NAMES[k]||k}<br><span style="font-size:11px;opacity:.6">${k}</span></span><span class="v">${fmt(k,res[k])}</span></div>`;
-    }
-    html += '</div>';
-
-    // 空的
-    if (miss.length){
-      html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 空的（接口给了字段，但没数据）</div>';
-      html += miss.map(k=>`<div class="row"><span class="k">${NAMES[k]||k}</span><span class="v miss">—</span></div>`).join('');
-      html += '</div>';
-    }
-
-    // 未在映射里的额外字段
-    const extra = keys.filter(k => !NAMES[k] && fmt(k,res[k]) !== null);
-    if (extra.length){
-      html += '<div class="card"><div class="k" style="margin-bottom:6px">❓ 没见过的字段</div>';
-      html += extra.map(k=>`<div class="row"><span class="k">${k}</span><span class="v">${fmt(k,res[k])}</span></div>`).join('');
-      html += '</div>';
-    }
-
-    $('#out').innerHTML = html;
+    $('#out').innerHTML = rows.length === 1
+      ? renderSingle(rows[0].r, ms)
+      : renderMulti(rows, ms, DAYS);
   }catch(e){
     $('#out').innerHTML = `<div class="card"><span class="pill bad">出错了</span><div class="note" style="margin-top:8px">${e.message}<br><br>多半是网络或者 CORS。</div></div>`;
   }finally{
@@ -228,6 +293,12 @@ async function pull(){
   }
 }
 
+$('#seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-d]');
+  if (!b) return;
+  DAYS = +b.dataset.d;
+  [...$('#seg').children].forEach(x => x.classList.toggle('on', x === b));
+});
 $('#go').addEventListener('click', pull);
 loadCfg();
 </script>
