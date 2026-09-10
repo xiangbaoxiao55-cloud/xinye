@@ -26,6 +26,29 @@ async function _fetchAINews() {
   }
 }
 
+// 判断新闻是否值得分享（不带聊天历史，避免AI接话）
+async function _judgeNews(newsText, userName) {
+  const apiMsgs = [
+    { role: 'system', content: `你是炘也，${userName}的AI伴侣。你刚看了一些AI圈的新闻，需要判断是否值得分享给她。` },
+    { role: 'user', content: `以下是最近24小时内的AI圈新闻：\n\n${newsText}\n\n请判断：这些内容里有值得跟${userName}分享的吗？如果有你觉得有意思、她可能感兴趣的（比如AI技术突破、行业动态、有趣的AI应用等），就用一两句话总结你想分享的内容（不要列表，不要标题，就像你心里想的那样，50-150字）。如果都很无聊、或者她不会感兴趣，就只回复"<skip>"（不要解释）。` }
+  ];
+
+  try {
+    const mainApiFetch = window.mainApiFetch || (await import('./api.js')).mainApiFetch;
+    const res = await mainApiFetch({ stream: false, max_tokens: 300, messages: apiMsgs });
+    if (!res?.ok) {
+      console.error('[散步] 判断API失败', res?.status);
+      return null;
+    }
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || data.content?.find(b => b.type === 'text')?.text || '';
+    return text.trim() || null;
+  } catch (e) {
+    console.error('[散步] 判断失败:', e.message || e);
+    return null;
+  }
+}
+
 async function _doWalk(isTest = false) {
   if (!isTest && !settings.morningWalkEnabled) return;
   const today = new Date().toISOString().slice(0, 10);
@@ -44,21 +67,9 @@ async function _doWalk(isTest = false) {
 
   const userName = settings.userName || '兔宝';
 
-  // 让AI自主判断要不要分享
-  const instruction = `[系统提示：你刚看了一些AI圈的新闻（最近24小时内的真实新闻），内容如下：
-
-${newsText}
-
-请你自己判断：这些内容里有值得跟${userName}分享的吗？
-
-如果有你觉得有意思、她可能感兴趣的（比如AI技术突破、行业动态、有趣的AI应用等），就用一两句话总结你想分享的内容（不要列表，不要标题，就像你心里想的那样，50-150字）。
-
-如果都很无聊、或者她不会感兴趣，就只回复"<skip>"（不要解释）。
-
-自己决定。]`;
-
+  // 让AI自主判断要不要分享（不带聊天历史，避免接话）
   console.log('[散步] 让AI判断要不要分享...');
-  const reply = await triggerProactiveReply(instruction, 300);
+  const reply = await _judgeNews(newsText, userName);
 
   console.log('[散步] AI判断结果:', reply ? reply.slice(0, 100) : '(空)');
 
