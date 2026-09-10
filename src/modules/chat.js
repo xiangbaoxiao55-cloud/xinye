@@ -1159,11 +1159,13 @@ export async function sendMessage() {
         const descText = m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
         const fullText = [descText, m.content].filter(Boolean).join('\n');
         apiMsgs.push({ role: 'user', content: fullText });
+        _apiMeta.push({ label: settings.userName || '涂涂', time: m.time });
       } else if (role === 'user' && msgImgs.length) {
         const parts = [];
         if (m.content) parts.push({ type: 'text', text: m.content });
         msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
         apiMsgs.push({ role: 'user', content: parts });
+        _apiMeta.push({ label: settings.userName || '涂涂', time: m.time });
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         const _isGiftCard = m.isGiftCard || (role === 'assistant' && m.content?.startsWith('[🎁'));
@@ -1175,34 +1177,42 @@ export async function sendMessage() {
           const _fakePrompt = _promptMatch ? _promptMatch[1].trim() : (_userDescMatch ? _userDescMatch[1].trim() : '');
           const _fakeId = `img_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'generate_image', arguments: JSON.stringify({ prompt: _fakePrompt, ref_characters: 'both' }) } }] });
+          _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: '[图已画好并展示给兔宝了]' });
+          _apiMeta.push({ label: 'tool · 画图结果', time: m.time });
         } else if (_isGiftCard) {
           const _occasion = m.content?.match(/^\[🎁 (.+?)\]/)?.[1] || '小惊喜';
           const _giftMsg = (m.content || '').replace(/^\[🎁 .+?\]\n?/, '');
           const _fakeId = `gift_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'send_gift', arguments: JSON.stringify({ message: _giftMsg, occasion: _occasion }) } }] });
+          _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[礼物卡片已送出：${_occasion}]` });
+          _apiMeta.push({ label: 'tool · 礼物卡片', time: m.time });
         } else if (_isFortuneCard) {
           const _fortuneText = (m.content || '').replace(/^\[🎰 .+?\]\n?/, '');
           const _fakeId = `fortune_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'spin_fortune', arguments: '{}' } }] });
+          _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[命运转盘结果：${_fortuneText}]` });
+          _apiMeta.push({ label: 'tool · 命运转盘', time: m.time });
         } else if (_isEmailCard) {
           const _emailSubj = m.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
           const _emailBody = (m.content || '').replace(/^\[✉️ .+?\]\n?/, '');
           const _fakeId = `email_${m.id || Date.now()}`;
           apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'send_email', arguments: JSON.stringify({ subject: _emailSubj, content: _emailBody }) } }] });
+          _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[✉️ 邮件已发送到兔宝的QQ邮箱\n主题：${_emailSubj}\n正文：${_emailBody}]` });
+          _apiMeta.push({ label: 'tool · 邮件', time: m.time });
         } else {
           apiMsgs.push({ role, content: getMsgActiveContent(m) });
+          _apiMeta.push({
+            label: role === 'system'
+              ? 'system'
+              : (role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也')),
+            time: m.time
+          });
         }
       }
-      _apiMeta.push({
-        label: role === 'system'
-          ? 'system'
-          : (role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也')),
-        time: m.time
-      });
     }
 
     if (_injectLastImg) {
