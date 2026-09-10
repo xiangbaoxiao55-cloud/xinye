@@ -35,7 +35,7 @@ async function _judgeNews(newsText, userName) {
 
   try {
     const mainApiFetch = window.mainApiFetch || (await import('./api.js')).mainApiFetch;
-    const res = await mainApiFetch({ stream: false, max_tokens: 300, messages: apiMsgs });
+    const res = await mainApiFetch({ stream: false, max_tokens: 500, messages: apiMsgs });
     if (!res?.ok) {
       console.error('[散步] 判断API失败', res?.status);
       return null;
