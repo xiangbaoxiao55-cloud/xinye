@@ -297,8 +297,9 @@ function maybeTTS(text, msgId) {
   }
   const autoPlay = settings.ttsAutoPlay;
   const hasText = !!text;
-  console.log('[maybeTTS] 调用：autoPlay=', autoPlay, 'shouldSpeak=', shouldSpeak, 'hasText=', hasText, 'textLen=', (text||'').length, 'msgId=', msgId);
-  if ((autoPlay || shouldSpeak) && hasText) enqueueTTS(text, msgId, shouldSpeak);
+  const willCall = (autoPlay || shouldSpeak) && hasText;
+  console.log('[maybeTTS] 调用：autoPlay=', autoPlay, 'shouldSpeak=', shouldSpeak, 'hasText=', hasText, 'textLen=', (text||'').length, 'msgId=', msgId, 'willCall=', willCall);
+  if (willCall) enqueueTTS(text, msgId, shouldSpeak);
 }
 // ======================== 发送 & API ========================
 window.isRequesting = false;
@@ -441,7 +442,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.10-1237';
+  if (_verEl) _verEl.textContent = 'v2026.09.10-1337';
 
   await openDB();
   await migrateFromLocalStorage();
