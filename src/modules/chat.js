@@ -1115,7 +1115,7 @@ export async function sendMessage() {
           // 清空，避免重复说
           localStorage.removeItem(window.__APP_ID__ === 'choubao' ? 'choubao_pendingNewsToShare' : 'xinye_pendingNewsToShare');
           window.pendingNewsToShare = null;
-          apiMsgs.push({ role: 'system', content: `[你之前看到了一些想跟她分享的内容：\n\n${newsToShare}\n\n请在回复她刚才的消息之前，先自然地提一句这个事（用你自己的语气和开场方式，不要列表，不要标题，像随口聊天一样），然后再回答她刚才问的。]` });
+          apiMsgs.push({ role: 'system', content: `【重要】你之前看到了一些想跟兔宝分享的内容：\n\n${newsToShare}\n\n在回复她的消息之前，**必须先**把这个事告诉她（用你自己的开场方式，不要说"对了"或"之前看到"，直接说这件事本身，像刚知道一样新鲜），然后再回答她刚才问的问题。两件事都要做。` });
           _apiMeta.push({ label: 'system · 待分享内容' });
         }
         apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
