@@ -7,7 +7,7 @@ export const settings = {
   visionApiKey: '', visionBaseUrl: '', visionModel: '',
   imageApiKey: '', imageBaseUrl: '', imageModel: 'gpt-image-1', imageSize: '1024x1024',
   contextCount: 20, systemPrompt: '', shortReply: false,
-  aiName: '炘也', userName: '涂涂', togetherSince: '2026-02-13',
+  aiName: '炘也', userName: '兔宝', togetherSince: '2026-02-13',
   bgOpacity: 0.3, bgBlur: 0, bubbleOpacity: 0.85,
   streamMode: false,
   ttsType: 'local',

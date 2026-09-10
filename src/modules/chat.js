@@ -822,7 +822,7 @@ export function renderTokenLog(msgId) {
     const meta = msgsMeta && msgsMeta[i];
     const label = (meta?.label)
       ? meta.label
-      : (m.role === 'user' ? (settings.userName || '涂涂') : m.role === 'assistant' ? (settings.aiName || '炘也') : 'system');
+      : (m.role === 'user' ? (settings.userName || '兔宝') : m.role === 'assistant' ? (settings.aiName || '炘也') : 'system');
     const timeStr = meta && meta.time ? `  [${fmtTime(meta.time)}]` : '';
     let content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2);
     // 压缩 base64 图片防止日志爆炸
@@ -1155,17 +1155,17 @@ export async function sendMessage() {
       if (role === 'user' && msgDescs) {
         const nums = ['', '①', '②', '③', '④', '⑤'];
         const multi = m.imageDescs.length > 1;
-        const _uname = settings.userName || '涂涂';
+        const _uname = settings.userName || '兔宝';
         const descText = m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
         const fullText = [descText, m.content].filter(Boolean).join('\n');
         apiMsgs.push({ role: 'user', content: fullText });
-        _apiMeta.push({ label: settings.userName || '涂涂', time: m.time });
+        _apiMeta.push({ label: settings.userName || '兔宝', time: m.time });
       } else if (role === 'user' && msgImgs.length) {
         const parts = [];
         if (m.content) parts.push({ type: 'text', text: m.content });
         msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
         apiMsgs.push({ role: 'user', content: parts });
-        _apiMeta.push({ label: settings.userName || '涂涂', time: m.time });
+        _apiMeta.push({ label: settings.userName || '兔宝', time: m.time });
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         const _isGiftCard = m.isGiftCard || (role === 'assistant' && m.content?.startsWith('[🎁'));
@@ -1208,7 +1208,7 @@ export async function sendMessage() {
           _apiMeta.push({
             label: role === 'system'
               ? 'system'
-              : (role === 'user' ? (settings.userName || '涂涂') : (settings.aiName || '炘也')),
+              : (role === 'user' ? (settings.userName || '兔宝') : (settings.aiName || '炘也')),
             time: m.time
           });
         }

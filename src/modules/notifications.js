@@ -148,7 +148,7 @@ export async function generateDream() {
   if (!settings.apiKey) return;
   try {
     const aiName = settings.aiName || '炘也';
-    const userName = settings.userName || '涂涂';
+    const userName = settings.userName || '兔宝';
     const recent = messages.slice(-30).map(m =>
       `${m.role === 'user' ? userName : aiName}：${m.content.slice(0, 100)}`
     ).join('\n');
