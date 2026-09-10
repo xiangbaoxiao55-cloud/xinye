@@ -215,14 +215,17 @@ export async function proactiveMsg(type) {
         const healthData = await healthRes.json();
         const h = healthData[0];
         if (h) {
+          const _P = { MENSTRUAL:'月经期', PERIOD:'月经期', FOLLICULAR:'卵泡期', OVULATING:'排卵期', LUTEAL:'黄体期' };
           const sleepH = h.sleepSecs ? (h.sleepSecs / 3600).toFixed(1) : null;
           const healthStr = [
-            sleepH ? `昨晚睡眠${sleepH}小时（评分${h.sleepScore ?? '无'}）` : null,
+            sleepH ? `昨晚睡眠${sleepH}小时（评分${h.sleepScore ?? '无'}${h.sleepQuality != null ? `，质量${h.sleepQuality}` : ''}）` : null,
             h.restingHR ? `静息心率${h.restingHR}bpm` : null,
             h.steps ? `今日步数${h.steps}步` : null,
+            h.menstrualPhase ? `月经周期：${_P[h.menstrualPhase] || h.menstrualPhase}` : null,
+            h.weight ? `体重${h.weight}kg` : null,
           ].filter(Boolean).join('，');
           if (healthStr) {
-            apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]` });
+            apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]（背景信息，自然体现在关心和语气里，不用逐条念给她听）` });
             _apiMeta.push({ label: 'system · 健康数据' });
           }
         }
