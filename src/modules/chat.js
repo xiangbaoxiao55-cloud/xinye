@@ -1013,6 +1013,13 @@ export async function sendMessage() {
         apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });
         _apiMeta.push({ label: `system · RAG召回(${_dynamicBlocks.length}块)` });
       }
+      // 检查是否有待分享的新闻/提醒
+      if (window.pendingNewsToShare) {
+        const newsToShare = window.pendingNewsToShare;
+        window.pendingNewsToShare = null; // 清空，避免重复说
+        apiMsgs.push({ role: 'system', content: `[你之前看到了一些想跟她分享的内容：\n\n${newsToShare}\n\n请在回复她刚才的消息之前，先自然地提一句这个事（用你自己的语气和开场方式，不要列表，不要标题，像随口聊天一样），然后再回答她刚才问的。]` });
+        _apiMeta.push({ label: 'system · 待分享内容' });
+      }
       const _pendingImgCount = window._pendingImageCount || 0;
       if (_pendingImgCount > 0) {
         apiMsgs.push({ role: 'system', content: `[当前有 ${_pendingImgCount} 张图正在后台生成，尚未返回]` });

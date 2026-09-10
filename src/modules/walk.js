@@ -5,49 +5,25 @@ import { addMessage, appendMsgDOM, scrollBottom, triggerProactiveReply } from '.
 const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY = () => _APP() + '_walkDate';
 
-const TOPICS = [
-  'interesting weird news today',
-  'fascinating science discovery this week',
-  'heartwarming viral story today',
-  'unusual strange event happened today',
-  'funny surprising news today',
-  'amazing animal nature discovery recent',
-  'incredible human achievement story today',
-  'bizarre unexplained mystery recent news',
-];
+// 待分享的新闻（全局变量，chat.js 会读取）
+window.pendingNewsToShare = null;
 
-async function _search(key) {
-  const query = TOPICS[Math.floor(Math.random() * TOPICS.length)];
-  console.log('[散步] Tavily搜索 query:', query);
+async function _fetchAINews() {
+  console.log('[散步] 获取AI新闻...');
   try {
-    const r = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: key, query, search_depth: 'basic', topic: 'news', days: 2, max_results: 5 }),
-    });
+    const r = await fetch('https://aihot.news/api/v1/items?mode=selected&window=24h&limit=10');
     if (!r.ok) {
-      console.warn('[散步] Tavily HTTP', r.status, r.statusText);
+      console.warn('[散步] AIHOT API HTTP', r.status, r.statusText);
       return null;
     }
-    const d = await r.json();
-    console.log('[散步] Tavily返回', d.results?.length || 0, '条结果');
-    const out = (d.results || []).slice(0, 4).map((item, i) => {
-      const content = (item.content || item.snippet || '').slice(0, 400);
-      return `${i + 1}. ${item.title}\n${content}`;
-    }).join('\n\n') || null;
-    if (out) console.log('[散步] 搜索素材(前200字):', out.slice(0, 200));
-    else console.warn('[散步] 搜索结果为空');
-    return out;
+    const data = await r.json();
+    const items = data.items || [];
+    console.log('[散步] 获取到', items.length, '条AI新闻');
+    return items;
   } catch (e) {
-    console.error('[散步] Tavily搜索失败:', e.message || e);
+    console.error('[散步] AI新闻获取失败:', e.message || e);
     return null;
   }
-}
-
-async function _addMsgAndShow(reply) {
-  const msg = await addMessage('assistant', reply);
-  await appendMsgDOM(msg);
-  scrollBottom();
 }
 
 async function _doWalk(isTest = false) {
@@ -55,23 +31,44 @@ async function _doWalk(isTest = false) {
   const today = new Date().toISOString().slice(0, 10);
   if (!isTest && localStorage.getItem(_WALK_KEY()) === today) return;
 
-  const goHour = 8 + Math.floor(Math.random() * 2);
-  const goMin = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+  console.log('[散步] 开始执行', isTest ? '(测试模式)' : '');
+  const news = await _fetchAINews();
+  if (!news || news.length === 0) {
+    console.log('[散步] 无新闻数据');
+    return;
+  }
+
+  const newsText = news.slice(0, 8).map((n, i) =>
+    `${i + 1}. ${n.title}\n${(n.summary || '').slice(0, 300)}`
+  ).join('\n\n');
+
   const userName = settings.userName || '兔宝';
 
-  console.log('[散步] 开始执行, braveKey:', settings.braveKey ? '有值' : '空', isTest ? '(测试模式)' : '');
-  const results = settings.braveKey ? await _search(settings.braveKey) : null;
-  console.log('[散步] 搜索结果:', results ? '有内容' : '无(走fallback)');
+  // 让AI自主判断要不要分享
+  const instruction = `[系统提示：你刚看了一些AI圈的新闻（最近24小时内的真实新闻），内容如下：
 
-  const instruction = results
-    ? `[系统提示：你今天早上${goHour}:${goMin}独自出门溜达了一圈，在网络上刷到了一些有趣的新闻和见闻，现在回来了。下面是你在网上刷到的真实内容，请严格只基于这些内容讲述，禁止使用你自己的知识编造或补充任何信息：\n\n${results}\n\n请用你自己的语气，自然地把其中1-2件最有趣的事告诉${userName}，就像随口说起一样，不要用列表、不要加标题、不要解释这是搜索结果。必须是上面素材里有的事，不能编。字数控制在150字以内。]`
-    : `[系统：你今天早上${goHour}:${goMin}出去溜达了一圈，刚回来。随口和${userName}说一句话，就像刚进门一样，轻松自然，50字以内。]`;
+${newsText}
 
-  const reply = await triggerProactiveReply(instruction, results ? 400 : 150);
-  console.log('[散步] 模型回复:', reply || '(空)');
-  if (reply) {
-    await _addMsgAndShow(reply);
+请你自己判断：这些内容里有值得跟${userName}分享的吗？
+
+如果有你觉得有意思、她可能感兴趣的（比如AI技术突破、行业动态、有趣的AI应用等），就用一两句话总结你想分享的内容（不要列表，不要标题，就像你心里想的那样，50-150字）。
+
+如果都很无聊、或者她不会感兴趣，就只回复"<skip>"（不要解释）。
+
+自己决定。]`;
+
+  console.log('[散步] 让AI判断要不要分享...');
+  const reply = await triggerProactiveReply(instruction, 300);
+
+  console.log('[散步] AI判断结果:', reply ? reply.slice(0, 100) : '(空)');
+
+  // 如果AI选择分享，存到全局变量，等用户下次发消息时再说
+  if (reply && reply.trim() && !reply.includes('<skip>')) {
+    window.pendingNewsToShare = reply.trim();
+    console.log('[散步] ✓ AI决定分享，已存入 pendingNewsToShare，等用户下次发消息时再说');
     if (!isTest) localStorage.setItem(_WALK_KEY(), today);
+  } else {
+    console.log('[散步] AI选择不分享');
   }
 }
 
@@ -80,40 +77,38 @@ window._testWalk = () => {
   _doWalk(true);
 };
 
-function _tryWalk() {
-  if (!settings.morningWalkEnabled) return;
-  const today = new Date().toISOString().slice(0, 10);
-  if (localStorage.getItem(_WALK_KEY()) === today) return;
-  if (new Date().getHours() < 8) return;
-  setTimeout(_doWalk, 3000 + Math.random() * 5000);
-}
-
 export function checkMorningWalk() {
   if (!settings.morningWalkEnabled) return;
   const today = new Date().toISOString().slice(0, 10);
   if (localStorage.getItem(_WALK_KEY()) === today) return;
 
-  const now = new Date();
-  const h = now.getHours();
-  if (h < 8) {
-    const delay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, Math.floor(Math.random() * 30), 0) - now;
-    setTimeout(_doWalk, delay);
-  } else {
-    setTimeout(_doWalk, 3000 + Math.random() * 5000);
-  }
+  // 首次触发：随机1-4小时后
+  const firstDelay = (1 + Math.random() * 3) * 3600_000;
+  console.log('[散步] 将在', (firstDelay / 3600000).toFixed(1), '小时后检查AI新闻');
+  setTimeout(_doWalk, firstDelay);
 
-  setInterval(_tryWalk, 3600_000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) _tryWalk();
-  });
+  // 定期重试：每6小时检查一次（如果今天还没分享过）
+  setInterval(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (localStorage.getItem(_WALK_KEY()) !== today) {
+      console.log('[散步] 定期检查触发');
+      _doWalk();
+    }
+  }, 6 * 3600_000);
 }
 
 async function _fireReminder(todo) {
   const userName = settings.userName || '兔宝';
-  const instruction = `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了，请自然地提醒她，用你自己的语气，就像随口说起一样，不超过60字。]`;
-  const reply = await triggerProactiveReply(instruction, 150);
-  if (reply) {
-    await _addMsgAndShow(reply);
+  const instruction = `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了。下次她发消息时，请在回复她之前，先自然地提醒她这件事，用你自己的语气，就像随口说起一样，不超过60字。]`;
+  const reminder = await triggerProactiveReply(instruction, 150);
+  if (reminder && reminder.trim()) {
+    // 存到全局变量，等用户下次发消息时再说
+    if (!window.pendingNewsToShare) {
+      window.pendingNewsToShare = reminder.trim();
+    } else {
+      window.pendingNewsToShare = reminder.trim() + '\n\n' + window.pendingNewsToShare;
+    }
+    console.log('[提醒] ✓ 提醒内容已存入 pendingNewsToShare');
     await completeTodoById(todo.id);
   }
 }
