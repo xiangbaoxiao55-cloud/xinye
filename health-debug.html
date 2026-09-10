@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>健康数据体检</title>
+<style>
+  :root{
+    --bg:#f6f6f8; --card:#fff; --fg:#1c1c1e; --dim:#8a8a8e; --line:#e5e5ea;
+    --ok:#34c759; --warn:#ff9f0a; --bad:#ff3b30; --accent:#ff6b9d;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#000; --card:#1c1c1e; --fg:#f2f2f7; --dim:#8e8e93; --line:#2c2c2e; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:20px 16px 60px; background:var(--bg); color:var(--fg);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"HarmonyOS Sans","PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:16px}
+  .card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .k{color:var(--dim);flex:0 0 auto}
+  .v{text-align:right;word-break:break-all;font-variant-numeric:tabular-nums}
+  .v.miss{color:var(--dim);opacity:.5}
+  .pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--dim)}
+  .pill.ok{background:rgba(52,199,89,.15);color:var(--ok)}
+  .pill.bad{background:rgba(255,59,48,.15);color:var(--bad)}
+  .pill.warn{background:rgba(255,159,10,.15);color:var(--warn)}
+  button{
+    appearance:none;border:0;border-radius:11px;background:var(--accent);color:#fff;
+    font-size:15px;font-weight:600;padding:12px 18px;width:100%;margin:4px 0 14px;
+  }
+  button:disabled{opacity:.5}
+  input[type=date]{
+    width:100%;padding:10px;border-radius:11px;border:1px solid var(--line);
+    background:var(--card);color:var(--fg);font-size:15px;margin-bottom:10px;
+  }
+  details{margin-top:8px}
+  summary{color:var(--dim);font-size:13px;cursor:pointer;padding:6px 0}
+  pre{
+    background:var(--card);border-radius:12px;padding:12px;overflow:auto;
+    font-size:11px;line-height:1.45;max-height:60vh;white-space:pre-wrap;word-break:break-all;
+    color:var(--dim);
+  }
+  .note{font-size:13px;color:var(--dim);line-height:1.6}
+  .hl{color:var(--accent);font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .stat{background:var(--card);border-radius:12px;padding:10px 12px;text-align:center}
+  .stat b{display:block;font-size:22px;line-height:1.2}
+  .stat span{font-size:11px;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<h1>健康数据体检</h1>
+<div class="sub">看看 intervals.icu 那头到底给了什么</div>
+
+<div class="card">
+  <div class="row"><span class="k">Worker 地址</span><span class="v" id="s-url">读取中…</span></div>
+  <div class="row"><span class="k">Token</span><span class="v" id="s-tok">读取中…</span></div>
+  <div class="row"><span class="k">本机时间</span><span class="v" id="s-now">—</span></div>
+</div>
+
+<button id="go" disabled>拉 取 数 据</button>
+
+<div id="out"></div>
+
+<details id="rawWrap" hidden>
+  <summary>原始 JSON（完整返回）</summary>
+  <pre id="raw"></pre>
+</details>
+
+<script>
+// ---------- 字段中文名 ----------
+const NAMES = {
+  date:'日期', id:'记录ID', updated:'同步时间',
+  sleepSecs:'睡眠时长', sleepScore:'睡眠评分', sleepQuality:'睡眠质量',
+  avgSleepingHR:'睡眠平均心率', restingHR:'静息心率',
+  hrv:'心率变异性 HRV', hrvSDNN:'HRV (SDNN)', readiness:'恢复准备度',
+  steps:'步数', ActiveEnergy:'活动消耗',
+  weight:'体重', bodyFat:'体脂率', abdomen:'腰围',
+  systolic:'收缩压', diastolic:'舒张压',
+  spO2:'血氧', bloodGlucose:'血糖', lactate:'乳酸',
+  menstrualPhase:'月经周期', menstrualPhasePredicted:'预测经期',
+  vo2max:'最大摄氧量', baevskySI:'应激指数',
+  stress:'压力', fatigue:'疲劳', soreness:'酸痛', mood:'心情', motivation:'动力',
+  hydration:'水分', hydrationVolume:'饮水量', kcalConsumed:'消耗热量',
+  ctl:'长期负荷', atl:'短期负荷', rampRate:'负荷变化率',
+  ctlLoad:'长期负荷量', atlLoad:'短期负荷量',
+  injury:'伤病', comments:'备注',
+  Ride_eftp:'骑行FTP', Run_eftp:'跑步FTP'
+};
+const HOUR_FIELDS = new Set([]);
+
+function fmt(k, v){
+  if (v === null || v === undefined || v === '') return null;
+  if (k === 'sleepSecs') { const s=+v; return `${Math.floor(s/3600)}小时${Math.round(s%3600/60)}分`; }
+  if (k === 'date' || k === 'updated') return String(v).replace('T',' ').slice(0,19);
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+// ---------- IndexedDB ----------
+function openDB(name){
+  return new Promise((res,rej)=>{
+    const q = indexedDB.open(name);
+    q.onsuccess = ()=>res(q.result);
+    q.onerror = ()=>rej(q.error);
+  });
+}
+function idbGet(db, store, key){
+  return new Promise((res,rej)=>{
+    if (!db.objectStoreNames.contains(store)) return res(undefined);
+    const t = db.transaction(store,'readonly').objectStore(store).get(key);
+    t.onsuccess = ()=>res(t.result);
+    t.onerror = ()=>rej(t.error);
+  });
+}
+
+const $ = s => document.querySelector(s);
+let CFG = null;
+
+async function loadCfg(){
+  const now = new Date();
+  $('#s-now').textContent = now.toLocaleString('zh-CN',{hour12:false})
+    + `　(UTC${-now.getTimezoneOffset()/60>=0?'+':''}${-now.getTimezoneOffset()/60})`;
+
+  const which = location.pathname.includes('choubao') ? 'choubao' : 'xinye';
+  const dbs = which==='choubao' ? ['ChoubaoChatDB','XinyeChatDB'] : ['XinyeChatDB','ChoubaoChatDB'];
+  for (const name of dbs){
+    try{
+      const db = await openDB(name);
+      const s = await idbGet(db,'settings','main');
+      if (s && s.healthWorkerUrl){ CFG = s; break; }
+      if (s && !CFG) CFG = s;
+    }catch(e){}
+  }
+
+  if (!CFG || !CFG.healthWorkerUrl){
+    $('#s-url').innerHTML = '<span class="pill bad">没读到</span>';
+    $('#s-tok').textContent = '—';
+    $('#out').innerHTML = '<div class="card note">这台设备的浏览器里没有存 Worker 地址。<br><br>'+
+      '如果你是在手机上配的，就<b>用手机</b>打开这个页面。</div>';
+    return false;
+  }
+  const u = CFG.healthWorkerUrl;
+  $('#s-url').innerHTML = `<span class="pill ok">已读到</span><br><span style="font-size:11px">${u.slice(0,46)}${u.length>46?'…':''}</span>`;
+  $('#s-tok').innerHTML = CFG.healthWorkerToken ? '<span class="pill ok">已读到</span>' : '<span class="pill warn">空</span>';
+  $('#go').disabled = false;
+  return true;
+}
+
+async function pull(){
+  $('#go').disabled = true;
+  $('#go').textContent = '拉取中…';
+  $('#out').innerHTML = '';
+  const t0 = Date.now();
+  try{
+    const r = await fetch(CFG.healthWorkerUrl, {
+      headers: CFG.healthWorkerToken ? { Authorization:'Bearer '+CFG.healthWorkerToken } : {}
+    });
+    const ms = Date.now() - t0;
+    if (!r.ok){
+      $('#out').innerHTML = `<div class="card"><span class="pill bad">HTTP ${r.status}</span><div class="note" style="margin-top:8px">`+
+        (r.status===401 ? 'Token 不对，或者 Cloudflare 里的 HEALTH_TOKEN 换过了。' : '请求失败。')+'</div></div>';
+      return;
+    }
+    const data = await r.json();
+    $('#raw').textContent = JSON.stringify(data,null,2);
+    $('#rawWrap').hidden = false;
+
+    const arr = Array.isArray(data) ? data : [data];
+    const res = arr[0];
+    if (!res){
+      $('#out').innerHTML = '<div class="card"><span class="pill warn">返回空数组</span><div class="note" style="margin-top:8px">接口通了，但这一天没有 wellness 记录。</div></div>';
+      return;
+    }
+
+    // 统计
+    const keys = Object.keys(res).filter(k=>!['id','updated'].includes(k));
+    const has  = keys.filter(k => fmt(k,res[k]) !== null);
+    const miss = keys.filter(k => fmt(k,res[k]) === null);
+
+    let html = `<div class="grid">
+      <div class="stat"><b style="color:var(--ok)">${has.length}</b><span>有值</span></div>
+      <div class="stat"><b style="color:var(--dim)">${miss.length}</b><span>空的</span></div>
+    </div>`;
+
+    html += `<div class="card"><div class="row"><span class="k">HTTP</span><span class="v"><span class="pill ok">200</span> ${ms}ms</span></div>`;
+    html += `<div class="row"><span class="k">返回条数</span><span class="v">${arr.length}</span></div>`;
+    const d = fmt('date', res.date);
+    html += `<div class="row"><span class="k">这条记录的日期</span><span class="v"><b class="hl">${d||'—'}</b></span></div></div>`;
+
+    // 有值的
+    html += '<div class="card"><div class="k" style="margin-bottom:6px">🟢 有值</div>';
+    if (!has.length) html += '<div class="note">一个都没有…</div>';
+    for (const k of has){
+      html += `<div class="row"><span class="k">${NAMES[k]||k}<br><span style="font-size:11px;opacity:.6">${k}</span></span><span class="v">${fmt(k,res[k])}</span></div>`;
+    }
+    html += '</div>';
+
+    // 空的
+    if (miss.length){
+      html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 空的（接口给了字段，但没数据）</div>';
+      html += miss.map(k=>`<div class="row"><span class="k">${NAMES[k]||k}</span><span class="v miss">—</span></div>`).join('');
+      html += '</div>';
+    }
+
+    // 未在映射里的额外字段
+    const extra = keys.filter(k => !NAMES[k] && fmt(k,res[k]) !== null);
+    if (extra.length){
+      html += '<div class="card"><div class="k" style="margin-bottom:6px">❓ 没见过的字段</div>';
+      html += extra.map(k=>`<div class="row"><span class="k">${k}</span><span class="v">${fmt(k,res[k])}</span></div>`).join('');
+      html += '</div>';
+    }
+
+    $('#out').innerHTML = html;
+  }catch(e){
+    $('#out').innerHTML = `<div class="card"><span class="pill bad">出错了</span><div class="note" style="margin-top:8px">${e.message}<br><br>多半是网络或者 CORS。</div></div>`;
+  }finally{
+    $('#go').disabled = false;
+    $('#go').textContent = '再 拉 一 次';
+  }
+}
+
+$('#go').addEventListener('click', pull);
+loadCfg();
+</script>
+</body>
+</html>
