@@ -116,6 +116,8 @@ export async function openSettings() {
   renderServerUrlPresets();
   const _bkHint = $('#lastBackupHint');
   if (_bkHint) { const t = localStorage.getItem('lastAutoBackupTime'); _bkHint.textContent = t ? `上次自动备份：${t}` : '（还没有自动备份记录）'; }
+  const _fuStatus = $('#forceUpdateStatus');
+  if (_fuStatus) _fuStatus.textContent = '当前版本 ' + (document.getElementById('appVersion')?.textContent || '未知');
   $('#setBaseUrl').value = settings.baseUrl;
   renderApiPresets();
   const _allPresets = getApiPresets();
@@ -1705,6 +1707,34 @@ export function initSettings() {
         }
       }
       alert(lines.join('\n'));
+    };
+  }
+
+  // ======================== 强制检查更新 ========================
+  const _btnForceUpdate = $('#btnForceUpdate');
+  if (_btnForceUpdate) {
+    _btnForceUpdate.onclick = async () => {
+      const el = $('#forceUpdateStatus');
+      const say = t => { if (el) el.textContent = t; };
+      _btnForceUpdate.disabled = true;
+      say('检查更新中…');
+      try {
+        // 1. 主动问一次有没有新版本（浏览器自己的检查有节流，手机上常常漏掉）
+        const reg = await navigator.serviceWorker?.getRegistration?.();
+        if (reg) { try { await reg.update(); } catch(_) {} }
+        say('正在清离线缓存…');
+        // 2. 清掉离线缓存（保留本地服务器地址，不然又要重新连电脑）
+        if (window.caches?.keys) {
+          const keys = await caches.keys();
+          await Promise.all(keys.filter(k => k !== 'xinye-local-cfg').map(k => caches.delete(k)));
+        }
+        say('缓存已清空，重新加载中…');
+        // 3. 重载：缓存已空，SW 只能去网络取最新的文件
+        setTimeout(() => location.reload(), 300);
+      } catch(e) {
+        say('更新失败：' + e.message);
+        _btnForceUpdate.disabled = false;
+      }
     };
   }
 
