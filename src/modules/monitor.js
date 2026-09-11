@@ -160,6 +160,37 @@ function _render(d) {
   if (rb) rb.onclick = () => loadUsage(true);
   const ab = $('#monAskBtn');
   if (ab) ab.onclick = _askAdjust;
+
+  _renderAlive();
+}
+
+// ── 「兔宝，我在呢」活着没 ────────────────────────────────────────────────
+//
+// 只有 APK 里有这个原生服务（网页版查不到，直接不显示）。
+// 为什么值得占一行：她没法靠「干等炘也说话」判断推送通没通 ——
+// 那要等到炘也真的找她才知道，太被动了。
+async function _renderAlive() {
+  const box = $('#monitorBody');
+  if (!box) return;
+  const P = window.Capacitor?.Plugins?.UsageStats;
+  if (!P || typeof P.checkProactive !== 'function') return; // 网页版
+
+  let alive = false;
+  try {
+    const r = await P.checkProactive();
+    alive = !!(r && r.alive);
+  } catch { return; }
+
+  let el = document.getElementById('monAlive');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'monAlive';
+    box.insertBefore(el, box.firstChild);
+  }
+  el.className = 'mon-sync';
+  el.innerHTML = alive
+    ? `<span class="mon-dot"></span><span><b>兔宝，我在呢</b> —— 关掉 APP 也收得到消息</span>`
+    : `<span class="mon-dot stale"></span><span>「守着你」没在跑。去 <b>手机管家 → 应用启动管理 → 炘也 → 手动管理</b>，把自启动和后台运行都打开，再打开一次炘也</span>`;
 }
 
 // ── 「想调整」→ 进聊天 ────────────────────────────────────────────────────

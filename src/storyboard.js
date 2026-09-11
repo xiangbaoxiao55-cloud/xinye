@@ -1296,9 +1296,19 @@ function deleteCard(id) {
 
 // ── Download ─────────────────────────────────────────────────────
 function dlImg(dataUrl) {
+  const filename = `storyboard_${Date.now()}.png`;
+  // ⚠️ APK 里 `<a download>` 是哑的（WebView 不处理 data:/blob: 链接的下载）
+  if (window.AndroidDownload) {
+    try {
+      if (window.AndroidDownload.downloadFile(filename, 'image/png', dataUrl)) {
+        toast('已保存到 Download/' + filename);
+        return;
+      }
+    } catch (e) {}
+  }
   const a = document.createElement('a');
   a.href = dataUrl;
-  a.download = `storyboard_${Date.now()}.png`;
+  a.download = filename;
   a.click();
 }
 

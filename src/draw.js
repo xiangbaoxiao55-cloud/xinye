@@ -136,6 +136,41 @@ function toast(msg,type='info'){
 }
 const f2b=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
 
+// ── 存文件 ────────────────────────────────────────────────────────
+// ⚠️ APK 里 `<a download>` 是**哑的**：壳用的是系统 WebView，它不处理 blob: 链接的
+// 下载，点了什么都不发生，也不报错（电脑浏览器里一切正常）。
+// 所以有原生接口就走原生（MainActivity 的 AndroidDownload.downloadFile），
+// 没有就老办法。2026-09-11 补。
+function saveBlob(blob,filename){
+  // 超大文件（图库全量导出那种）过 JS bridge 会爆内存，宁可提前说清楚，
+  // 也比她点半天最后白屏强
+  if(window.AndroidDownload&&blob.size>60*1024*1024){
+    toast(`文件有 ${(blob.size/1048576).toFixed(0)}MB，手机上导出容易崩，建议用电脑浏览器打开画图台导出`,'warn');
+    return;
+  }
+  if(window.AndroidDownload){
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const ok=window.AndroidDownload.downloadFile(filename,blob.type||'application/octet-stream',String(e.target.result).split(',')[1]);
+        if(ok){toast('已保存到 Download/'+filename);return;}
+      }catch(_e){}
+      saveBlobBrowser(blob,filename);
+    };
+    r.onerror=()=>saveBlobBrowser(blob,filename);
+    r.readAsDataURL(blob);
+    return;
+  }
+  saveBlobBrowser(blob,filename);
+}
+function saveBlobBrowser(blob,filename){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+
 function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
   const tokenPart=S.selTokens.map(t=>t.text).join(', ');
@@ -618,7 +653,15 @@ async function _refreshPendingCount(){
   if(el) el.textContent=pending>0?`${pending} 张待分析`:'';
 }
 
-const dlImg=url=>{const a=document.createElement('a');a.href=url;a.download=`draw_${Date.now()}.png`;a.click()};
+const dlImg=async url=>{
+  const filename=`draw_${Date.now()}.png`;
+  try{
+    const blob=await (await fetch(url)).blob();
+    saveBlob(blob,filename);
+  }catch(e){
+    toast('保存失败：'+e.message,'error');
+  }
+};
 
 const _shrinkImg=(dataUrl,maxDim=768,quality=0.7)=>new Promise(res=>{
   const img=new Image();img.onload=()=>{
@@ -2249,10 +2292,7 @@ async function exportConfig(){
     customTokens,templates,customStyles,
   };
   const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`draw_config_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();URL.revokeObjectURL(a.href);
+  saveBlob(blob,`draw_config_${new Date().toISOString().slice(0,10)}.json`);
   toast('配置已导出 ✓（包含预设/人设/词条/模版，不含图库）');
 }
 
@@ -2312,10 +2352,7 @@ async function exportFullDB(){
     }
     blobs.push(new Blob(['}']));
     const blob=new Blob(blobs,{type:'application/json'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();URL.revokeObjectURL(a.href);
+    saveBlob(blob,`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`);
     toast(`全部数据已导出 ✓\n${counts.join('、')}`);
   }catch(e){toast('导出失败：'+e.message,'error')}
   finally{if(btn){btn.disabled=false;btn.textContent='📦 导出全部数据'}}

@@ -1,4 +1,4 @@
-import { toast, fallbackCopy, escHtml, fmtTime, nowStr, $ } from './utils.js';
+import { toast, fallbackCopy, escHtml, fmtTime, nowStr, saveFile, $ } from './utils.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
@@ -558,13 +558,8 @@ chatArea.addEventListener('click', async e => {
       const src = msg.genImageData;
       const _aiN = settings.aiName || '炘也';
       const baseName = `${_aiN}画的图_${id}`;
-      const _doDownload = (blob, ext) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = baseName + ext;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 2000);
-      };
+      // APK 里 `<a download>` 点了没反应（WebView 不处理 blob: 下载）→ 走 saveFile 分流
+      const _doDownload = (blob, ext) => { saveFile(blob, baseName + ext); };
       const _gp = _extractGenPrompt(msg.content);
       const txtBlob = new Blob([`prompt: ${_gp}\nsize: ${settings.imageSize || ''}\ntime: ${new Date(msg.time).toLocaleString()}`], { type: 'text/plain;charset=utf-8' });
       if (src.startsWith('data:')) {

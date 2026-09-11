@@ -1,5 +1,5 @@
 import { settings } from './state.js';
-import { toast } from './utils.js';
+import { toast, saveFile } from './utils.js';
 import { dbGet, dbPut, dbDelete, dbGetAll, dbGetAllKeys } from './db.js';
 
 let currentAudio = null;
@@ -567,15 +567,11 @@ export async function exportTTSCache() {
 
     if (!Object.keys(zip.files).length) { toast('所有语音缓存都已损坏，无法导出'); return; }
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    const url = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = url;
     const _ttsPrefix = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
     const _exported = Object.keys(zip.files).length;
     const label = lastExportedKey ? `新增${_exported}条` : `${_exported}条`;
-    a.download = `${_ttsPrefix}_tts_cache_${label}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // ⚠️ APK 里 `<a download>` 是哑的（WebView 不处理 blob: 下载），走 saveFile 分流
+    await saveFile(zipBlob, `${_ttsPrefix}_tts_cache_${label}.zip`);
     localStorage.setItem(_PFX + 'tts_lastExportKey', String(newKeys[newKeys.length - 1]));
     let msg = `✅ 已打包 ${_exported} 条语音，下载中～`;
     if (_skipped) msg = `✅ 已打包 ${_exported} 条语音（${_skipped}条损坏已跳过），下载中～`;

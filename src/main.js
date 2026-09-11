@@ -442,7 +442,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.11-1951';
+  if (_verEl) _verEl.textContent = 'v2026.09.11-2115';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -726,7 +726,11 @@ async function _consumePushInbox() {
     if (!_hasRendered) renderMessages();
 
     // 弹出本地通知（不依赖FCM，只要有Notification权限就行）
-    if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+    // ⚠️ APK 里交给原生的 ProactiveService 弹（2026-09-11）：
+    //    它知道 APP 到底在不在前台，而且 WebView 被系统冻结时它照样在跑。
+    //    这边再弹一次就是同一条消息响两下，她会被吵到。
+    const _inApk = !!window.AndroidDownload || !!window.Capacitor?.isNativePlatform?.();
+    if (!_inApk && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
       const body = allMessages.length === 1 ? allMessages[0].content : `${allMessages.length}条新消息`;
       try {
         const reg = await navigator.serviceWorker.ready;
