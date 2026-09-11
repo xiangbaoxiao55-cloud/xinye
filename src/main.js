@@ -442,7 +442,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.10-2352';
+  if (_verEl) _verEl.textContent = 'v2026.09.11-1106';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -634,7 +634,12 @@ function _retrySubscribeInBackground(reg, publicKey, srv) {
 }
 
 // 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
+// 4个触发源（启动/visibilitychange/30秒轮询/SW消息）可能同时打进来，必须防重入，
+// 否则两个调用会用同一个 since 并发拉到同一条消息 → 重复上屏
+let _consumingInbox = false, _inboxRerun = false;
 async function _consumePushInbox() {
+  if (_consumingInbox) { _inboxRerun = true; return; }
+  _consumingInbox = true;
   try {
     const pushMsgs = await new Promise((resolve, reject) => {
       const req = indexedDB.open('XinyePushInbox', 1);
@@ -678,34 +683,47 @@ async function _consumePushInbox() {
     const consumed = JSON.parse(localStorage.getItem('heartbeat_consumedIds') || '[]');
     const consumedSet = new Set(consumed);
 
+    // 内容兜底去重：SW 的 push 记录可能没有 id，用「内容+10分钟时段」再挡一层
+    const _sig = (c, t) => `${c}||${Math.round((t || 0) / 600000)}`;
+    const _seen = new Set(messages.slice(-30).filter(m => m.role === 'assistant').map(m => _sig(m.content, m.time)));
+
     // 合并去重（保留完整消息对象，包含时间戳）
     const allMessages = [];
     for (const m of pushMsgs) {
       const pid = m.proactiveId || m.id;
       if (pid && consumedSet.has(pid)) continue;
       if (pid) consumedSet.add(pid);
+      if (_seen.has(_sig(m.content, m.time))) continue;
+      _seen.add(_sig(m.content, m.time));
       allMessages.push({ content: m.content, time: m.time });
     }
     for (const m of cloudMsgs) {
       if (m.id && consumedSet.has(m.id)) continue;
       if (m.id) consumedSet.add(m.id);
+      if (_seen.has(_sig(m.content, m.time))) continue;
+      _seen.add(_sig(m.content, m.time));
       allMessages.push({ content: m.content, time: m.time });
     }
 
-    if (!allMessages.length) {
-      // 即使没新消息，也更新 lastSyncTime
-      if (cloudMsgs.length) {
-        const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
-        if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
-      }
-      return;
+    // 去重状态立刻落盘（不能等消息写完再存，否则并发调用会重复消费同一条）
+    if (consumedSet.size !== consumed.length)
+      localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
+    if (cloudMsgs.length) {
+      const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
+      if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
     }
 
-    const { addMessage, renderMessages } = await import('./modules/chat.js');
+    if (!allMessages.length) return;
+
+    // 逐条追加，不用 renderMessages：整屏重绘会清空重建，页面会从顶部弹回底部
+    const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
+    const _chatEl = document.querySelector('#chatArea');
+    const _hasRendered = !!_chatEl?.querySelector('.msg-row');
     for (const msg of allMessages) {
-      await addMessage('assistant', msg.content, null, msg.time);
+      const _saved = await addMessage('assistant', msg.content, null, msg.time);
+      if (_hasRendered && _saved) await appendMsgDOM(_saved);
     }
-    renderMessages();
+    if (!_hasRendered) renderMessages();
 
     // 弹出本地通知（不依赖FCM，只要有Notification权限就行）
     if (Notification.permission === 'granted' && document.visibilityState !== 'visible') {
@@ -722,18 +740,12 @@ async function _consumePushInbox() {
       } catch { try { new Notification(settings.aiName || '炘也', { body: body.slice(0, 120), icon: '/xinye-icon.png' }); } catch {} }
     }
 
-    // 更新去重集合（只保留最近50个id防膨胀）
-    const newConsumed = [...consumedSet].slice(-50);
-    localStorage.setItem('heartbeat_consumedIds', JSON.stringify(newConsumed));
-
-    // 更新 lastSyncTime
-    if (cloudMsgs.length) {
-      const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
-      if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
-    }
-
     console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allMessages.length} 条）`);
   } catch(e) { console.log('[Push] inbox消费失败:', e.message); }
+  finally {
+    _consumingInbox = false;
+    if (_inboxRerun) { _inboxRerun = false; setTimeout(_consumePushInbox, 500); }
+  }
 }
 window._consumePushInbox = _consumePushInbox;
 

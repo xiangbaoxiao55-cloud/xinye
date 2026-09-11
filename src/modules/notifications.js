@@ -167,9 +167,17 @@ export async function generateDream() {
   } catch(e) { console.warn('[generateDream]', e); }
 }
 
+let _proactiveBusy = false;
 export async function proactiveMsg(type) {
   if (window._rpActive) return;
-  if (window.isRequesting || !settings.apiKey) return;
+  // 防重入：静默/喝水/久坐计时器 + 切回前台兜底可能同时醒过来，
+  // 并发调用会拿同一份上下文问两次，模型常常吐出一模一样的两条
+  if (_proactiveBusy || window.isRequesting || !settings.apiKey) return;
+  _proactiveBusy = true;
+  const btnSend = $('#btnSend');
+  const typing = $('#typingIndicator');
+  window.isRequesting = true; btnSend.disabled = true; typing.classList.add('show');
+  try {
   const prompts = {
     idle: '现在和用户之间已经沉默了一段时间，请用关心活泼的语气主动和用户打个招呼，问问他在做什么或说点有意思的话，不超过两句。',
     water: '请提醒用户该喝水了，用温柔可爱的方式，不超过两句。',
@@ -233,12 +241,9 @@ export async function proactiveMsg(type) {
     }
   } catch (e) {}
 
-  apiMsgs.push({ role: 'user', content: prompts[type] || prompts.idle });
+  apiMsgs.push({ role: 'user', content: `${prompts[type] || prompts.idle}（不要重复你最近已经说过的话，换个说法）` });
   _apiMeta.push({ label: 'user · 主动触发' });
 
-  const btnSend = $('#btnSend');
-  const typing = $('#typingIndicator');
-  window.isRequesting = true; btnSend.disabled = true; typing.classList.add('show');
   try {
     const sub = getSubApiCfg();
     const res = await subApiFetch({ messages: apiMsgs, temperature: 0.9, stream: false }, 'gpt-4o');
@@ -255,4 +260,5 @@ export async function proactiveMsg(type) {
   } catch(err) { console.error('[Proactive]', err); }
   finally { typing.classList.remove('show'); window.isRequesting = false; btnSend.disabled = false; }
   resetIdleTimer();
+  } finally { _proactiveBusy = false; }
 }
