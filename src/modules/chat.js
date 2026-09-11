@@ -1488,27 +1488,31 @@ export async function sendMessage() {
         const _wrKey = settings.wereadApiKey;
         if (!_wrKey) return '未设置微信读书 API Key，请在设置中填写';
         const _wrBody = { ...args, skill_version: '1.0.3' };
+
+        // 依次尝试：本地服务器（在家快）→ Vercel 函数（出门也能用）。
+        // 原来是个二选一：填了本地服务器地址就只走本地——她一出家门就查不到。
+        // 而且 APP 跑在 HTTPS 上，浏览器本来就会拦掉那条 http 请求，等于在家也废。
+        const _wrUrls = [];
         const _wrLocal = (settings.solitudeServerUrl || '').trim();
-        try {
-          let _wrRes;
-          if (_wrLocal) {
-            _wrRes = await fetch(`${_wrLocal}/api/weread-proxy`, {
+        if (_wrLocal) _wrUrls.push(`${_wrLocal}/api/weread-proxy`);
+        _wrUrls.push('/api/weread-proxy');
+
+        let _wrErr = '';
+        for (const _wrUrl of _wrUrls) {
+          try {
+            const _wrRes = await fetch(_wrUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ apiKey: _wrKey, body: _wrBody })
             });
-          } else {
-            _wrRes = await fetch('/api/weread-proxy', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ apiKey: _wrKey, body: _wrBody })
-            });
-          }
-          if (!_wrRes.ok) return `微信读书接口错误 HTTP ${_wrRes.status}`;
-          const _wrD = await _wrRes.json();
-          if (_wrD.errcode && _wrD.errcode !== 0) return `微信读书错误：${_wrD.errmsg || _wrD.errcode}`;
-          return JSON.stringify(_wrD);
-        } catch(e) { return '查询微信读书失败：' + e.message; }
+            if (!_wrRes.ok) { _wrErr = `HTTP ${_wrRes.status}`; continue; }
+            const _wrD = await _wrRes.json();
+            // 连上了但接口自己报错（key 失效等）——不用再换地址重试
+            if (_wrD.errcode && _wrD.errcode !== 0) return `微信读书错误：${_wrD.errmsg || _wrD.errcode}`;
+            return JSON.stringify(_wrD);
+          } catch (e) { _wrErr = e.message; continue; }
+        }
+        return '查询微信读书失败：' + _wrErr;
       }
       if (name === 'send_gift') {
         const { showGift } = await import('./gift.js');
