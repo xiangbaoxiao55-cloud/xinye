@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="./src/styles/markdown.css">
 <link rel="stylesheet" href="./src/styles/friends.css">
 <link rel="stylesheet" href="./src/styles/fortune.css">
+<link rel="stylesheet" href="./src/styles/monitor.css">
 <!-- Markdown渲染 + 安全过滤 + LaTeX数学公式 -->
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
@@ -158,6 +159,7 @@
     <button class="settings-tab active" data-tab="api"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><circle cx="8" cy="12" r="5" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M13 12h8M18 10v4M21 10.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> API</button>
     <button class="settings-tab" data-tab="memory"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> 记忆</button>
     <button class="settings-tab" data-tab="appearance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.1 0 2-.9 2-2 0-.52-.2-1-.5-1.36-.29-.35-.47-.82-.47-1.32 0-1.1.9-2 2-2h2.35C19.9 15.32 22 13.83 22 12c0-5.52-4.48-10-10-10z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.3" fill="currentColor"/><circle cx="11.5" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="9" r="1.3" fill="currentColor"/></svg> 外观</button>
+    <button class="settings-tab" data-tab="monitor"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><rect x="6" y="2" width="12" height="20" rx="2.5" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> 手机</button>
     <button class="settings-tab" data-tab="other"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:3px"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><circle cx="12" cy="4.5" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="12" cy="19.5" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="4.5" cy="12" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="19.5" cy="12" r="1.8" fill="currentColor" opacity="0.5"/><circle cx="6.8" cy="6.8" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="17.2" cy="6.8" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="6.8" cy="17.2" r="1.5" fill="currentColor" opacity="0.35"/><circle cx="17.2" cy="17.2" r="1.5" fill="currentColor" opacity="0.35"/></svg> 其他</button>
   </div>
   <div class="settings-body">
@@ -816,6 +818,15 @@
     </div><!-- end tabpane-appearance -->
 
     <!-- ===== TAB: 其他 ===== -->
+    <div class="settings-tabpane" id="tabpane-monitor">
+    <!-- ========== 手机监控（只读） ========== -->
+    <div class="setting-divider">📱 今天手机用得怎么样</div>
+    <div id="monitorBody">
+      <div class="mon-empty">点开这一页就会去拿数据…</div>
+    </div>
+    <div class="hint" style="margin-top:10px">这是炘也看到的账本，从你手机上报到云上。额度不在这一页改——想动就跟炘也说。</div>
+    </div><!-- end tabpane-monitor -->
+
     <div class="settings-tabpane" id="tabpane-other">
     <!-- ========== 通讯录 ========== -->
     <div class="setting-divider">✉️ 通讯录（发邮件用）</div>

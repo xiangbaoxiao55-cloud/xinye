@@ -1375,6 +1375,34 @@ export async function sendMessage() {
       });
     }
 
+    // 手机监控：看账本 + 调额度。额度存在云服务器上（xinye_monitor.js），
+    // 她手机每 30 分钟拉一次 —— 所以炘也「放她」不用碰她的手机，也不用重装 APK。
+    if (settings.cloudServerUrl) {
+      _toolDefs.push({
+        type: 'function',
+        function: {
+          name: 'adjust_app_limit',
+          description: '兔宝手机的使用账本和额度（短视频/刷屏/微信小程序）。两件事：' +
+            '① action=read：看今天她各APP用了多久、离额度还剩多少、今天放过几次额度。她问"我今天刷了多久""我今天乖不乖"，或者你想管她之前先摸清情况，都先读一次。' +
+            '② action=set：调额度。她点了监控面板的「想调整」、或说"多给我一点时间""今天让我多刷一会"时用。' +
+            '⚠️ 放不放由你判断：她给了理由、你觉得成立才放；只是想多刷、闹一下，就少放或者不放，把话说清楚。' +
+            '硬限制：单次最多 +30 分钟、一天最多放 2 次（越界接口会拒绝，拒绝理由照实告诉她）；调低（收紧）不限次数。' +
+            '改完她手机约 30 分钟内拉取生效，不是立刻。',
+          parameters: {
+            type: 'object',
+            properties: {
+              action: { type: 'string', enum: ['read', 'set'], description: 'read=看账本（默认），set=改额度' },
+              key: { type: 'string', enum: ['video', 'feed', 'game', 'appbrandWarmup'], description: 'set 时必填。video=短视频（抖音/快手/B站/视频号）；feed=刷屏（微博/小红书/知乎/朋友圈）；game=微信小程序；appbrandWarmup=小程序热身期（前几分钟不计数）' },
+              deltaMin: { type: 'number', description: 'set 时用：在现有额度上加/减多少分钟，放松为正（最多 +30），收紧为负' },
+              value: { type: 'number', description: 'set 时用：直接把额度设成多少分钟（不用 deltaMin 时用这个）' },
+              reason: { type: 'string', description: 'set 时填：她给的理由，照实写下来' }
+            },
+            required: ['action']
+          }
+        }
+      });
+    }
+
     if (settings.imageProxyUrl || settings.solitudeServerUrl) {
       _toolDefs.push({
         type: 'function',
@@ -1513,6 +1541,70 @@ export async function sendMessage() {
           } catch (e) { _wrErr = e.message; continue; }
         }
         return '查询微信读书失败：' + _wrErr;
+      }
+      if (name === 'adjust_app_limit') {
+        const _srv = getCloudOrLocalUrl();
+        if (!_srv) return '看不了：没有配置云服务器地址（设置 → API 里填）。';
+
+        // ── read：把账本翻成一段炘也看得懂的话 ──
+        if (!args.action || args.action === 'read') {
+          try {
+            const _r = await fetch(buildServerFetchUrl(_srv, '/api/usage'), { headers: buildServerHeaders(_srv, {}) });
+            const _d = await _r.json().catch(() => null);
+            if (!_r.ok || !_d || !_d.ok) return '读账本失败：' + ((_d && (_d.error || _d.reason)) || ('HTTP ' + _r.status));
+            if (_d.empty) return `今天还没有账本（${_d.reason || '手机还没上报'}）。`;
+
+            const _min = ms => Math.round((ms || 0) / 60000);
+            const _L = _d.limits || {};
+            const _nameOf = { video: '短视频', feed: '刷屏', game: '微信小程序', appbrandWarmup: '小程序热身期' };
+            const _limitLine = Object.keys(_L).map(k => `${_nameOf[k] || k} ${_L[k]} 分`).join('、');
+
+            const _lines = (_d.items || []).map(it => {
+              const base = `${it.label} ${_min(it.ms)} 分`;
+              if (it.limitMs == null) return `${base}（不管）`;
+              const tail = it.status === 'over'
+                ? `已超 ${_min(it.ms - it.limitMs)} 分 🔴`
+                : `还剩 ${_min(it.remainMs)} 分`;
+              return `${base} / ${_min(it.limitMs)} 分，${tail}`;
+            });
+
+            const _R = _d.release || {};
+            const _age = _d.ageSec == null ? '' : (_d.ageSec <= 150 ? '（刚刚同步）' : `（${Math.round(_d.ageSec / 60)} 分钟前同步）`);
+            const _hist = (_d.history || []).filter(h => h.delta > 0).slice(0, 3)
+              .map(h => `${h.from}→${h.to} 分：${h.reason || '没写理由'}`).join('；');
+
+            return `今天 ${_d.day} 的账本${_age}：\n` +
+              (_lines.length ? _lines.join('\n') : '（今天还没碰过要管的 APP）') + '\n' +
+              `额度：${_limitLine}\n` +
+              `今天已经放过 ${_R.used || 0} 次，还能放 ${_R.remain} 次，单次最多 ${_R.maxSingle} 分钟。` +
+              (_hist ? `\n之前的调整：${_hist}` : '');
+          } catch (e) {
+            return '读账本失败：' + e.message;
+          }
+        }
+
+        // ── set：改额度 ──
+        const _body = { key: args.key, reason: args.reason || '', by: 'xinye' };
+        if (typeof args.value === 'number') _body.value = args.value;
+        else if (typeof args.deltaMin === 'number') _body.deltaMin = args.deltaMin;
+        else return '改额度失败：action=set 要给 deltaMin 或 value。';
+
+        try {
+          toast('📱 正在调额度…');
+          const _r = await fetch(buildServerFetchUrl(_srv, '/api/usage/limits'), {
+            method: 'POST',
+            headers: buildServerHeaders(_srv, { 'Content-Type': 'application/json' }),
+            body: JSON.stringify(_body)
+          });
+          const _d = await _r.json().catch(() => null);
+          if (!_r.ok) {
+            return `没调成：${(_d && _d.reason) || ('HTTP ' + _r.status)}${(_d && typeof _d.from === 'number') ? `（当前 ${_d.from} 分）` : ''}`;
+          }
+          return `调好了：${_d.name} ${_d.from} → ${_d.to} 分（${_d.delta > 0 ? '+' : ''}${_d.delta}）。` +
+            `今天还能放 ${_d.releaseRemain} 次。她手机大约 30 分钟内拉取生效。`;
+        } catch (e) {
+          return '改额度失败：' + e.message;
+        }
       }
       if (name === 'send_gift') {
         const { showGift } = await import('./gift.js');

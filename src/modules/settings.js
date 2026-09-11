@@ -968,6 +968,10 @@ export function initSettings() {
       tab.classList.add('active');
       const pane = document.getElementById('tabpane-' + tab.dataset.tab);
       if (pane) pane.classList.add('active');
+      // 手机监控面板：切到才拉数据（动态 import 避免和 monitor.js 绕成循环依赖）
+      if (tab.dataset.tab === 'monitor') {
+        import('./monitor.js').then(m => m.renderMonitorPanel()).catch(() => {});
+      }
     };
   });
 
