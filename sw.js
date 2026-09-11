@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260911-1106';
+const CACHE_NAME = 'xinye-20260911-1116';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -55,8 +55,12 @@ async function getLocalUrl() {
 
 // ── 安装：预缓存静态资源 ─────────────────────────────────────────────────
 self.addEventListener('install', e => {
+  // 逐个 add 而不是 addAll：addAll 是全有或全无，手机网络抖一下（36个请求里有一个超时）
+  // 就会让整个新SW安装失败、浏览器继续用旧的，表现为"要刷新好几次版本才更新过来"
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(STATIC_ASSETS.map(p => cache.add(p)))
+    )
   );
   self.skipWaiting();
 });
