@@ -1106,14 +1106,47 @@ export async function sendMessage() {
       const m = recent[i];
       const role = m.role === 'user' ? 'user' : 'assistant';
       if (i === recent.length - 1 && role === 'user' && !_rpInject) {
-        // 检查是否有待分享的新闻/提醒（从 localStorage 恢复）
-        const storedNews = localStorage.getItem(window.__APP_ID__ === 'choubao' ? 'choubao_pendingNewsToShare' : 'xinye_pendingNewsToShare');
-        if (storedNews || window.pendingNewsToShare) {
-          const newsToShare = storedNews || window.pendingNewsToShare;
-          // 清空，避免重复说
-          localStorage.removeItem(window.__APP_ID__ === 'choubao' ? 'choubao_pendingNewsToShare' : 'xinye_pendingNewsToShare');
-          window.pendingNewsToShare = null;
-          apiMsgs.push({ role: 'system', content: `【重要】你之前看到了一些想跟兔宝分享的内容：\n\n${newsToShare}\n\n在回复她的消息之前，**必须先**把这个事告诉她（用你自己的开场方式，不要说"对了"或"之前看到"，直接说这件事本身，像刚知道一样新鲜），然后再回答她刚才问的问题。两件事都要做。` });
+        // 待说的事：① 提醒（walk.js 的 _REMIND_KEY）② 想分享的新闻（_NEWS_KEY）
+        // 两个分开存：提醒不过期、也不看安静时间；新闻会过期、半夜压着（2026-09-12 改）
+        const _pfx2 = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
+        const _pendingParts = [];
+
+        const _remind = localStorage.getItem(_pfx2 + '_pendingReminders');
+        if (_remind) {
+          localStorage.removeItem(_pfx2 + '_pendingReminders');
+          _pendingParts.push(`⏰ 你之前记着要提醒她的事：\n${_remind}`);
+        }
+
+        // 新闻：新格式是 JSON {t,c}，带生成时间；老格式是纯文本（无从判断时间，当新的用）
+        let _news = null;
+        const _newsRaw = localStorage.getItem(_pfx2 + '_pendingNewsToShare');
+        if (_newsRaw) {
+          try { const o = JSON.parse(_newsRaw); _news = { t: o.t || 0, c: o.c || '' }; }
+          catch { _news = { t: Date.now(), c: _newsRaw }; }
+        } else if (window.pendingNewsToShare) {
+          _news = { t: Date.now(), c: window.pendingNewsToShare };
+        }
+        if (_news && _news.c) {
+          const _age = Date.now() - (_news.t || 0);
+          const _h = new Date().getHours();
+          const _qs = settings.quietHoursStart ?? 22, _qe = settings.quietHoursEnd ?? 8;
+          const _quiet = _qs === _qe ? false : (_qs > _qe ? (_h >= _qs || _h < _qe) : (_h >= _qs && _h < _qe));
+          if (_age > 6 * 3600_000) {
+            // 放了半天以上的新闻端上来就是"复读昨天的事"，直接作废
+            localStorage.removeItem(_pfx2 + '_pendingNewsToShare');
+            window.pendingNewsToShare = null;
+            console.log('[待分享] 新闻已放置', (_age / 3600000).toFixed(1), '小时，作废');
+          } else if (_quiet) {
+            console.log('[待分享] 现在是安静时间，新闻先压着不说了');
+          } else {
+            localStorage.removeItem(_pfx2 + '_pendingNewsToShare');
+            window.pendingNewsToShare = null;
+            _pendingParts.push(`📰 你之前看到一个想跟她说的事：\n${_news.c}`);
+          }
+        }
+
+        if (_pendingParts.length) {
+          apiMsgs.push({ role: 'system', content: `【重要】在回答她刚才的问题之前，**先**把下面的事告诉她：\n\n${_pendingParts.join('\n\n')}\n\n用你自己的开场方式，不要说"对了"或"之前看到"，直接说这件事本身，别铺垫。然后再回答她刚才问的问题。两件事都要做。` });
           _apiMeta.push({ label: 'system · 待分享内容' });
         }
         apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });

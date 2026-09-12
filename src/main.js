@@ -442,11 +442,13 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.11-2115';
+  if (_verEl) _verEl.textContent = 'v2026.09.12-1824';
 
   await openDB();
   await migrateFromLocalStorage();
   await loadAll();
+  // 设置已就绪，马上把主动消息的请求发出去，跟下面这段初始化并行跑
+  _startEarlyInboxFetch();
   window.chatLastUserImage = (await dbGet('images', 'chatLastUserImage').catch(() => null)) || null;
   initStickers();
   initDiary();
@@ -472,10 +474,23 @@ async function checkPendingMessage() {
       }
       await loadAll();
       toast('已从本地存档恢复数据');
+      // ⚠️ 上面那次早拉是在这之前发起的，那时 settings 里还没有云服务器地址
+      //（IDB 是空的，配置是从 localStorage 恢复的）→ 作废重发一次
+      _earlyInboxFetch = null;
+      _startEarlyInboxFetch();
     }
   }
 
+  // 主动消息要在首屏就看得见：先把它写进消息列表，再渲染。
+  // 以前是渲染完才去拉，所以"点通知进来"会先看到聊天记录、过一会儿才补一条进来
+  const _inboxDone = _consumePushInbox({ silent: true });
+  const _inboxInTime = await Promise.race([
+    _inboxDone.then(() => true),
+    new Promise(r => setTimeout(() => r(false), 1500))
+  ]);
   await applyUI(false); // 始终渲染消息（数据已在 loadAll 后就绪）
+  // 没赶上的（云服务器慢/不可达）等它落地再补上屏，别让那条消息只进了库不露脸
+  if (!_inboxInTime) _inboxDone.then(rows => { (rows || []).forEach(r => appendMsgDOM(r)); }).catch(() => {});
   if (typeof window.syncRpHeader === 'function') window.syncRpHeader(); // RP顶栏覆盖updateHeaderStatus
   const _splash = document.getElementById('splashLoading');
   if (_splash) _splash.style.display = 'none';
@@ -510,9 +525,10 @@ async function checkPendingMessage() {
   startReminderPoller();
 
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
+  // 主动消息已经在上面（首屏渲染前）拉过一轮了，这里不再重复请求：
+  // 万一那次被防重入挡掉了，_inboxRerun 会自己补跑一次
   saveToLocal(); // 启动时同步 localStorage，后台进行，不阻塞
   _registerPush();
-  _consumePushInbox();
 
   // 页面从后台恢复时自动拉取心跳消息
   document.addEventListener('visibilitychange', () => {
@@ -633,15 +649,13 @@ function _retrySubscribeInBackground(reg, publicKey, srv) {
   }, 60000);
 }
 
-// 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
-// 4个触发源（启动/visibilitychange/30秒轮询/SW消息）可能同时打进来，必须防重入，
-// 否则两个调用会用同一个 since 并发拉到同一条消息 → 重复上屏
-let _consumingInbox = false, _inboxRerun = false;
-async function _consumePushInbox() {
-  if (_consumingInbox) { _inboxRerun = true; return; }
-  _consumingInbox = true;
+// 只负责「取」：SW 推送收件箱 + 云端心跳主动消息。不去重、不写库、不碰DOM。
+// 拆出来是为了能在启动早期就发起，跟本地数据加载并行，别让首屏干等一个网络往返
+async function _fetchInboxPayload() {
+  // ① 后台收到 push 时 SW 写进 IndexedDB 的收件箱
+  let pushMsgs = [];
   try {
-    const pushMsgs = await new Promise((resolve, reject) => {
+    pushMsgs = await new Promise((resolve, reject) => {
       const req = indexedDB.open('XinyePushInbox', 1);
       req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
       req.onsuccess = () => {
@@ -661,23 +675,47 @@ async function _consumePushInbox() {
       };
       req.onerror = reject;
     });
+  } catch (e) { console.log('[Push] 收件箱读取失败:', e.message); }
 
-    // 同时从云端拉取心跳主动消息
-    let cloudMsgs = [];
-    try {
-      const srv = getCloudOrLocalUrl();
-      if (srv) {
-        const lastSync = parseInt(localStorage.getItem('heartbeat_lastSyncTime') || '0');
-        const r = await fetch(buildServerFetchUrl(srv, `/api/proactive-messages?since=${lastSync}`), {
-          headers: buildServerHeaders(srv),
-          signal: AbortSignal.timeout(6000)
-        });
-        if (r.ok) {
-          const d = await r.json();
-          if (d.ok && Array.isArray(d.messages)) cloudMsgs = d.messages;
-        }
+  // ② 云端心跳主动消息
+  let cloudMsgs = [];
+  try {
+    const srv = getCloudOrLocalUrl();
+    if (srv) {
+      const lastSync = parseInt(localStorage.getItem('heartbeat_lastSyncTime') || '0');
+      const r = await fetch(buildServerFetchUrl(srv, `/api/proactive-messages?since=${lastSync}`), {
+        headers: buildServerHeaders(srv),
+        signal: AbortSignal.timeout(6000)
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.ok && Array.isArray(d.messages)) cloudMsgs = d.messages;
       }
-    } catch(e) { console.log('[Heartbeat] 拉取主动消息跳过:', e.message); }
+    }
+  } catch(e) { console.log('[Heartbeat] 拉取主动消息跳过:', e.message); }
+
+  return { pushMsgs, cloudMsgs };
+}
+
+// 启动早期发起的拉取（一次性；被 _consumePushInbox 取走后清空，之后都是实时拉）
+let _earlyInboxFetch = null;
+function _startEarlyInboxFetch() {
+  if (!_earlyInboxFetch) _earlyInboxFetch = _fetchInboxPayload();
+  return _earlyInboxFetch;
+}
+
+// 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
+// 4个触发源（启动/visibilitychange/30秒轮询/SW消息）可能同时打进来，必须防重入，
+// 否则两个调用会用同一个 since 并发拉到同一条消息 → 重复上屏
+// opts.silent：启动首屏专用——只写库不碰DOM（调用方马上要整体渲染，由那次渲染一并带出来）
+let _consumingInbox = false, _inboxRerun = false;
+async function _consumePushInbox(opts = {}) {
+  if (_consumingInbox) { _inboxRerun = true; return []; }
+  _consumingInbox = true;
+  const _savedRows = [];
+  try {
+    const _pre = _earlyInboxFetch; _earlyInboxFetch = null;
+    const { pushMsgs, cloudMsgs } = _pre ? await _pre : await _fetchInboxPayload();
 
     // 已消费过的心跳消息id集合（防 push + 云端重复）
     const consumed = JSON.parse(localStorage.getItem('heartbeat_consumedIds') || '[]');
@@ -713,7 +751,7 @@ async function _consumePushInbox() {
       if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
     }
 
-    if (!allMessages.length) return;
+    if (!allMessages.length) return _savedRows;
 
     // 逐条追加，不用 renderMessages：整屏重绘会清空重建，页面会从顶部弹回底部
     const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
@@ -721,9 +759,10 @@ async function _consumePushInbox() {
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
     for (const msg of allMessages) {
       const _saved = await addMessage('assistant', msg.content, null, msg.time);
-      if (_hasRendered && _saved) await appendMsgDOM(_saved);
+      if (_saved) _savedRows.push(_saved);
+      if (!opts.silent && _hasRendered && _saved) await appendMsgDOM(_saved);
     }
-    if (!_hasRendered) renderMessages();
+    if (!opts.silent && !_hasRendered) renderMessages();
 
     // 弹出本地通知（不依赖FCM，只要有Notification权限就行）
     // ⚠️ APK 里交给原生的 ProactiveService 弹（2026-09-11）：
@@ -745,7 +784,8 @@ async function _consumePushInbox() {
     }
 
     console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allMessages.length} 条）`);
-  } catch(e) { console.log('[Push] inbox消费失败:', e.message); }
+    return _savedRows;
+  } catch(e) { console.log('[Push] inbox消费失败:', e.message); return _savedRows; }
   finally {
     _consumingInbox = false;
     if (_inboxRerun) { _inboxRerun = false; setTimeout(_consumePushInbox, 500); }

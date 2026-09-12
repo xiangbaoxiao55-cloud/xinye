@@ -1422,6 +1422,8 @@ export function initSettings() {
     closeSettings();
     if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
     toast('设置已保存');
+    // 顺手把心跳配置（安静时间/心跳开关/预设）同步到云端，省掉"改完忘了点同步"这个坑
+    _syncHeartbeatConfig(true);
   };
 
   // ======================== TTS 预设按钮 ========================
@@ -1744,45 +1746,51 @@ export function initSettings() {
 
   // ======================== 心跳系统 ========================
   const _btnSyncHB = $('#btnSyncHeartbeatConfig');
-  if (_btnSyncHB) {
-    _btnSyncHB.onclick = async () => {
-      const srv = getCloudOrLocalUrl();
-      if (!srv) { alert('请先填写云服务器地址'); return; }
-      _btnSyncHB.textContent = '同步中…';
-      try {
-        const allPresets = getApiPresets();
-        const mainNames = settings.fallbackPresetNames || [];
-        const subNames = settings.subFallbackPresetNames || [];
-        const mainPresets = mainNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
-        const subPresets = subNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
-        const payload = {
-          heartbeatEnabled: !!settings.heartbeatEnabled,
-          quietHoursStart: String(settings.quietHoursStart ?? 0).padStart(2, '0') + ':00',
-          quietHoursEnd: String(settings.quietHoursEnd ?? 8).padStart(2, '0') + ':00',
-          mainPresets: mainPresets.map(p => ({
-            name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
-            model: p.model, apiFormat: p.apiFormat || 'openai',
-          })),
-          subPresets: subPresets.map(p => ({
-            name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
-            model: p.model, apiFormat: p.apiFormat || 'openai',
-          })),
-        };
-        const r = await fetch(buildServerFetchUrl(srv, '/api/heartbeat-config'), {
-          method: 'POST',
-          headers: { ...buildServerHeaders(srv), 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const d = await r.json();
-        _btnSyncHB.textContent = '☁️ 同步API配置到云端';
-        if (d.ok) toast('✅ 心跳配置已同步到云端');
-        else alert('同步失败：' + (d.error || '未知'));
-      } catch(e) {
-        _btnSyncHB.textContent = '☁️ 同步API配置到云端';
-        alert('请求失败：' + e.message);
-      }
-    };
-  }
+  // 把心跳配置（安静时间/预设）推到云端。silent=true 给「保存设置」顺手调用：
+  // 不弹提示、失败也不吵。⚠️ 这一步不能省——安静时间改了不同步，云端还按老时间发早安
+  // （2026-09-11 她就是把结束时间从 6 点改到 7 点，云端没收到）
+  const _syncHeartbeatConfig = async (silent) => {
+    const srv = getCloudOrLocalUrl();
+    if (!srv) { if (!silent) alert('请先填写云服务器地址'); return false; }
+    if (!silent && _btnSyncHB) _btnSyncHB.textContent = '同步中…';
+    try {
+      const allPresets = getApiPresets();
+      const mainNames = settings.fallbackPresetNames || [];
+      const subNames = settings.subFallbackPresetNames || [];
+      const mainPresets = mainNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
+      const subPresets = subNames.map(n => allPresets.find(p => p.name === n)).filter(Boolean);
+      const payload = {
+        heartbeatEnabled: !!settings.heartbeatEnabled,
+        quietHoursStart: String(settings.quietHoursStart ?? 0).padStart(2, '0') + ':00',
+        quietHoursEnd: String(settings.quietHoursEnd ?? 8).padStart(2, '0') + ':00',
+        mainPresets: mainPresets.map(p => ({
+          name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
+          model: p.model, apiFormat: p.apiFormat || 'openai',
+        })),
+        subPresets: subPresets.map(p => ({
+          name: p.name, apiKey: p.apiKey, baseUrl: p.baseUrl,
+          model: p.model, apiFormat: p.apiFormat || 'openai',
+        })),
+      };
+      const r = await fetch(buildServerFetchUrl(srv, '/api/heartbeat-config'), {
+        method: 'POST',
+        headers: { ...buildServerHeaders(srv), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (_btnSyncHB) _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+      if (d.ok) { if (!silent) toast('✅ 心跳配置已同步到云端'); return true; }
+      if (!silent) alert('同步失败：' + (d.error || '未知'));
+      console.log('[心跳] 同步失败:', d.error || '未知');
+      return false;
+    } catch(e) {
+      if (_btnSyncHB) _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+      if (!silent) alert('请求失败：' + e.message);
+      console.log('[心跳] 同步请求失败:', e.message);
+      return false;
+    }
+  };
+  if (_btnSyncHB) _btnSyncHB.onclick = () => _syncHeartbeatConfig(false);
 
   const _btnRefreshHB = $('#btnRefreshHeartbeat');
   const _hbStatusEl = $('#heartbeatStatus');
