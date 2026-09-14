@@ -14,7 +14,6 @@ import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, ren
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
 import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
-import { showFortuneWheel, spinFortune, formatFortuneResult } from './modules/fortune.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -27,7 +26,7 @@ Object.assign(window, {
   removeBookmark, toggleBmExpand,
   fetchModelList, testEmbeddingApi, testVisionApi, describeImagesWithVision,
   updateTtsTypeUI, triggerDrawImage, generateImage, sendKiss, compositeRefImages, base64ToFile, autoSaveGenImage,
-  checkerActivate, openFortune,
+  checkerActivate,
   maybeTTS, autoResize, resetIdleTimer, updateSendBtn,
   scheduleAutoSave, updateHeaderStatus, sendMessage,
   exportTTSCache,
@@ -336,14 +335,6 @@ async function describeImagesWithVision(imgs) {
 }
 
 // ---- 亲嘴功能 ----
-function openFortune() {
-  showFortuneWheel(async (result) => {
-    const text = `[🎰 命运转盘] ${formatFortuneResult(result)}`;
-    const userInput = document.getElementById('userInput');
-    if (userInput) { userInput.value = text; window.sendMessage?.(); }
-  });
-}
-
 function sendKiss() {
   if (window.isRequesting) return;
   const btn = document.getElementById('btnKiss');
@@ -435,7 +426,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.14-2019';
+  if (_verEl) _verEl.textContent = 'v2026.09.14-2032';
 
   await openDB();
   await migrateFromLocalStorage();

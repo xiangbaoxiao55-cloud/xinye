@@ -7,7 +7,6 @@ import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthrop
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
-import { spinFortune, formatFortuneResult } from './fortune.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 
 // ======================== DOM 元素 ========================
@@ -367,7 +366,7 @@ export async function renderMessages() {
   const usAv = await (typeof window.getEffectiveUserAvatar === 'function' ? window.getEffectiveUserAvatar() : getUserAvatar());
   const limit = settings.displayLimit || 0;
   const displayMsgs = limit > 0 ? messages.slice(-limit) : messages;
-  const _lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+  const _lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
   for (const msg of displayMsgs) {
     const row = document.createElement('div');
     const isUser = msg.role === 'user';
@@ -400,10 +399,6 @@ export async function renderMessages() {
         _imgHtmlPart = _lazyImgPlaceholder(msg.id, 'genImageData');
       }
       _bubbleInner = `${_imgHtmlPart}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
-    } else if (!isUser && msg.isFortuneCard) {
-      const _fr = msg.fortuneResult || {};
-      const _ftags = Object.values(_fr).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
-      _bubbleInner = `<div class="fortune-bubble"><div class="fortune-bubble-title"><i class="ic ic-dice"></i> 命运转盘</div><div class="fortune-bubble-tags">${_ftags}</div></div>`;
     } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
       const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
       _bubbleInner = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
@@ -417,7 +412,7 @@ export async function renderMessages() {
         <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
         <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn}</div>
-        ${!isUser && !msg.isGenImage && !msg.isFortuneCard && !msg.isEmailCard ? _versionSwitcherHtml(msg, msg === _lastAiMsg) : ''}
+        ${!isUser && !msg.isGenImage && !msg.isEmailCard ? _versionSwitcherHtml(msg, msg === _lastAiMsg) : ''}
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
     const _isEmailRender = msg.isEmailCard || msg.content?.startsWith('[✉️');
@@ -485,10 +480,6 @@ export async function appendMsgDOM(msg) {
     const _imgSrc2 = _origUrl2 ? null : (msg.genImageData.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(msg.genImageData) : msg.genImageData);
     const _imgHtmlPart2 = _origUrl2 ? `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(_origUrl2)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>` : `<img class="gen-img" src="${escHtml(_imgSrc2)}" alt="炘也画的图" data-src="${escHtml(_imgSrc2)}">`;
     _bi = `${_imgHtmlPart2}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
-  } else if (!isUser && msg.isFortuneCard) {
-    const _fr2 = msg.fortuneResult || {};
-    const _ftags2 = Object.values(_fr2).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
-    _bi = `<div class="fortune-bubble"><div class="fortune-bubble-title"><i class="ic ic-dice"></i> 命运转盘</div><div class="fortune-bubble-tags">${_ftags2}</div></div>`;
   } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
     const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
     _bi = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
@@ -502,7 +493,7 @@ export async function appendMsgDOM(msg) {
       <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn2}</div>
-      ${!isUser && !msg.isGenImage && !msg.isFortuneCard && !msg.isEmailCard ? _versionSwitcherHtml(msg, true) : ''}
+      ${!isUser && !msg.isGenImage && !msg.isEmailCard ? _versionSwitcherHtml(msg, true) : ''}
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
   const _isEmailRender2 = msg.isEmailCard || msg.content?.startsWith('[✉️');
@@ -1217,7 +1208,6 @@ export async function sendMessage() {
       } else {
         const _isGenImg = m.isGenImage || (role === 'assistant' && m.content?.startsWith('[🎨'));
         const _isGiftCard = m.isGiftCard || (role === 'assistant' && m.content?.startsWith('[🎁'));
-        const _isFortuneCard = m.isFortuneCard || (role === 'assistant' && m.content?.startsWith('[🎰'));
         const _isEmailCard = m.isEmailCard || (role === 'assistant' && m.content?.startsWith('[✉️'));
         if (_isGenImg) {
           const _promptMatch = m.content?.match(/(?:提示词|描述)：([\s\S]+?)(?:\n你说|$)/);
@@ -1236,13 +1226,6 @@ export async function sendMessage() {
           _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
           apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[礼物卡片已送出：${_occasion}]` });
           _apiMeta.push({ label: 'tool · 礼物卡片', time: m.time });
-        } else if (_isFortuneCard) {
-          const _fortuneText = (m.content || '').replace(/^\[🎰 .+?\]\n?/, '');
-          const _fakeId = `fortune_${m.id || Date.now()}`;
-          apiMsgs.push({ role: 'assistant', content: null, tool_calls: [{ id: _fakeId, type: 'function', function: { name: 'spin_fortune', arguments: '{}' } }] });
-          _apiMeta.push({ label: settings.aiName || '炘也', time: m.time });
-          apiMsgs.push({ role: 'tool', tool_call_id: _fakeId, content: `[命运转盘结果：${_fortuneText}]` });
-          _apiMeta.push({ label: 'tool · 命运转盘', time: m.time });
         } else if (_isEmailCard) {
           const _emailSubj = m.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
           const _emailBody = (m.content || '').replace(/^\[✉️ .+?\]\n?/, '');
@@ -1513,20 +1496,6 @@ export async function sendMessage() {
       }
     });
 
-    _toolDefs.push({
-      type: 'function',
-      function: {
-        name: 'spin_fortune',
-        description: '命运转盘——随机组合情趣标签（体位/场景/道具/设定/身体/精神），结果直接用在当前互动中。想给兔宝惊喜、增加随机性、或兔宝说"转一下"时调用。',
-        parameters: {
-          type: 'object',
-          properties: {
-            dimensions: { type: 'string', description: '可选，指定要转的维度（逗号分隔），如"position,scenario,props"。不传则全部6维都转' }
-          }
-        }
-      }
-    });
-
     function _safeParseArgs(name, argsStr) {
       try { return JSON.parse(argsStr); } catch(_) {}
       if (name === 'generate_image') {
@@ -1660,18 +1629,6 @@ export async function sendMessage() {
         await appendMsgDOM(_giftMsg);
         console.log('[send_gift] 礼物已送出:', args.occasion || '(无场景)');
         return `[礼物卡片已送出：${args.occasion || '小惊喜'}]`;
-      }
-      if (name === 'spin_fortune') {
-        const dimIds = args.dimensions ? args.dimensions.split(',').map(s => s.trim()) : null;
-        const result = spinFortune(dimIds);
-        const formatted = formatFortuneResult(result);
-        const desc = `[🎰 命运转盘]\n${formatted}`;
-        const fortuneMsg = await addMessage('assistant', desc);
-        fortuneMsg.isFortuneCard = true;
-        fortuneMsg.fortuneResult = result;
-        await appendMsgDOM(fortuneMsg);
-        console.log('[spin_fortune]', formatted);
-        return `[命运转盘结果：${formatted}] 请根据这些标签组合来展开互动，自然地融入当前场景。`;
       }
       if (name === 'send_email') {
         const _emailServerUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
@@ -3059,7 +3016,7 @@ export async function sendMessage() {
 // ======================== 重新生成最后一条AI回复 ========================
 export async function regenerateLastAI() {
   if (window.isRequesting) return;
-  const lastAiIdx = [...messages].reverse().findIndex(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+  const lastAiIdx = [...messages].reverse().findIndex(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
   if (lastAiIdx < 0) return;
   const aiMsg = messages[messages.length - 1 - lastAiIdx];
   if (!aiMsg) return;
@@ -3194,7 +3151,7 @@ function _updateVersionSwitcherDOM(msg) {
   row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
   const timeEl = row.querySelector('.msg-time');
   if (timeEl) {
-    const _isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+    const _isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
     const html = _versionSwitcherHtml(msg, _isLast);
     if (html) timeEl.insertAdjacentHTML('afterend', html);
   }
@@ -3223,7 +3180,7 @@ export function switchVersion(msgId, direction) {
     linkifyEl(bubble, msg.versions[next].content);
     window.applyStickerTags?.(bubble);
   }
-  const isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isFortuneCard && !m.isEmailCard);
+  const isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
   row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
   const timeEl = row.querySelector('.msg-time');
   if (timeEl) timeEl.insertAdjacentHTML('afterend', _versionSwitcherHtml(msg, isLast));
