@@ -114,7 +114,7 @@
   </div>
 
   <!-- 输入区 -->
-  <div class="input-area">
+  <div class="input-area" id="inputArea">
     <div class="input-tools-row">
       <button class="btn-img" id="btnQuickNote" onclick="quickNoteOpen()" title="随手记"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
       <button class="btn-img" id="btnSticker" onclick="openStickerPanel()" title="发贴纸"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.3L12 17l-6.2 4.2 2.4-7.3L2 9.4h7.6z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
@@ -123,6 +123,7 @@
     </div>
     <div class="input-main-row">
       <div class="input-wrapper">
+        <button class="btn-tools-toggle" id="btnToolsToggle" title="更多工具"><i class="ic ic-plus"></i></button>
         <div class="img-preview" id="imgPreview"></div>
         <div class="ta-grow">
           <textarea id="userInput" placeholder="说点什么…" rows="1"></textarea>

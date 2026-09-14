@@ -19,14 +19,14 @@
 
 /* ---- 图片上传预览 ---- */
 /* Grid 伪元素法：textarea 高度自动跟随内容，兼容所有移动端 */
-.input-wrapper{display:flex;flex-direction:column;flex:1;gap:0;min-width:0}
+.input-wrapper{display:flex;flex-direction:column;flex:1;gap:0;min-width:0;position:relative}
 .input-wrapper .ta-grow{display:grid;flex:1;min-width:0}
 .input-wrapper .ta-grow::after{
   content:attr(data-value) ' ';
   white-space:pre-wrap;word-break:break-word;
   visibility:hidden;pointer-events:none;
   grid-area:1/1;
-  padding:12px 14px;font-size:15px;font-family:inherit;line-height:1.5;
+  padding:12px 14px 12px 44px;font-size:15px;font-family:inherit;line-height:1.5;
   min-height:44px;max-height:140px;box-sizing:border-box;
 }
 .input-wrapper .ta-grow textarea{

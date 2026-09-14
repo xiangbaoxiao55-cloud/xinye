@@ -380,6 +380,17 @@ function updateSendBtn() {
 userInput.addEventListener('input', updateSendBtn);
 updateSendBtn();
 
+// 输入区工具行（随手记/贴纸/传图/画图）默认收起，点输入框里的 ⊕ 才展开；点了任一工具后自动收起
+{
+  const _ia = document.getElementById('inputArea');
+  const _tt = document.getElementById('btnToolsToggle');
+  const _tr = document.querySelector('.input-tools-row');
+  if (_ia && _tt) {
+    _tt.addEventListener('click', () => _ia.classList.toggle('tools-open'));
+    _tr?.addEventListener('click', e => { if (e.target.closest('button')) _ia.classList.remove('tools-open'); });
+  }
+}
+
 // 判断是否为移动端（触屏 + 窄屏）
 const isMobile = /Android|iPhone|iPad|iPod|HarmonyOS/i.test(navigator.userAgent)
   || ('ontouchstart' in window && screen.width < 768);
@@ -426,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.14-2038';
+  if (_verEl) _verEl.textContent = 'v2026.09.14-2047';
 
   await openDB();
   await migrateFromLocalStorage();

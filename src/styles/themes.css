@@ -125,24 +125,24 @@ html[data-theme="dark"]{
 }
 .tab-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;padding:5px 0 6px;border:none;background:none;cursor:pointer;
+  gap:1px;padding:4px 0 5px;border:none;background:none;cursor:pointer;
   font-size:11px;font-weight:600;color:var(--text-light);font-family:inherit;
   transition:color .15s;
 }
 /* 图标是内联 SVG（HTML 里写死 24px），只能从 CSS 缩放 */
 .tab-btn .tab-icon{font-size:22px;line-height:1;display:flex;align-items:center}
-.tab-btn .tab-icon svg{width:20px;height:20px;display:block}
+.tab-btn .tab-icon svg{width:18px;height:18px;display:block}
 .tab-btn.active{color:var(--pink-deep)}
 .tab-btn:active{opacity:.7}
 
 /* ---- chat区给tab栏让位 ----
    高度必须等于 .bottom-tabs 的实际高度（50px + 底部安全区，桌面无安全区时就是 50px），
    否则底栏会盖住聊天区最后一条消息。上一条硬编码 56px 配 62px 的底栏就一直重叠 6px。 */
-.app{padding-bottom:calc(50px + env(safe-area-inset-bottom, 0px))}
+.app{padding-bottom:calc(46px + env(safe-area-inset-bottom, 0px))}
 
 /* ---- 随手记（日记/共读页浮动） ---- */
 #quickNoteFloatBtn{
-  position:fixed;bottom:calc(60px + env(safe-area-inset-bottom,0px));left:16px;
+  position:fixed;bottom:calc(54px + env(safe-area-inset-bottom,0px));left:16px;
   width:44px;height:44px;border-radius:50%;
   background:linear-gradient(135deg,#f06292,#e91e63);
   color:#fff;font-size:20px;border:none;cursor:pointer;
