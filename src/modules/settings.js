@@ -46,7 +46,6 @@ window._updateImageRatioOpts = function(res, currentValue) {
 const settingsPanel = document.querySelector('#settingsPanel');
 const overlay       = document.querySelector('#overlay');
 const exportOverlay = document.querySelector('#exportModalOverlay');
-const btnSearch     = document.querySelector('#btnSearch');
 
 // ── 本地服务器连通状态 ────────────────────────────────────────────────────────
 let _localServerOnline = false;
@@ -881,7 +880,6 @@ export async function applyUI(skipRender = false) {
   $('#typingAvatar').src = aiAv;
   document.title = `${settings.aiName || '炘也'}的小窝`;
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
-  if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
   await applyBg();
   // 迁移旧参考图 → 新key（首次运行一次）
   if (!await dbGet('images', 'aiRef').catch(() => null)) {
@@ -1421,7 +1419,6 @@ export function initSettings() {
     resetIdleTimer();
     checkLocalServer();
     closeSettings();
-    if (btnSearch) btnSearch.classList.toggle('hidden', !settings.braveKey);
     toast('设置已保存');
     // 顺手把心跳配置（安静时间/心跳开关/预设）同步到云端，省掉"改完忘了点同步"这个坑
     _syncHeartbeatConfig(true);

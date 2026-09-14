@@ -1085,11 +1085,6 @@ export async function sendMessage() {
           }
         } catch(_e) {}
       }
-      if (window._forceSearch && settings.braveKey) {
-        apiMsgs.push({ role: 'system', content: '【指令】请务必先使用 web_search 工具搜索相关最新信息，再整合结果回答。' });
-        _apiMeta.push({ label: 'system · 强制搜索' });
-        window._forceSearch = false;
-      }
     }
     const n = Math.max(1, settings.contextCount || 20);
     const recent = messages.slice(-n);

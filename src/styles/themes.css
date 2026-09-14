@@ -25,7 +25,6 @@ html[data-theme="dark"]{
 [data-theme="dark"] .btn-img{background:none;color:var(--text-light)}
 [data-theme="dark"] .btn-kiss{background:rgba(80,30,60,.7);color:#f48fb1;border-color:rgba(244,143,177,.4)}
 [data-theme="dark"] .btn-kiss:hover{background:rgba(233,30,99,.4)}
-[data-theme="dark"] .btn-search{background:none;color:var(--text-light);border-color:rgba(180,120,180,.3)}
 [data-theme="dark"] .btn-diary{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
 
 /* ---- 写日记弹窗 ---- */
@@ -105,7 +104,6 @@ html[data-theme="dark"]{
   border-color:rgba(255,255,255,.1);
 }
 [data-theme="dark"] .btn-img:hover{background:rgba(60,40,70,.7);color:var(--pink-deep)}
-[data-theme="dark"] .btn-search:hover{background:rgba(60,40,70,.7);color:var(--pink-deep)}
 
 /* ---- 导出/编辑模态框暗夜模式遗漏 ---- */
 [data-theme="dark"] .modal{box-shadow:0 8px 32px rgba(0,0,0,.4)}

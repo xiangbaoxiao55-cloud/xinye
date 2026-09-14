@@ -381,14 +381,7 @@ function sendKiss() {
   sendMessage();
 }
 
-const btnSearch = $('#btnSearch');
-if (!settings.braveKey) btnSearch.classList.add('hidden');
 btnSend.onclick = sendMessage;
-// 🔍按钮：强制炘也先用 web_search 工具搜索再回答
-window._forceSearch = false;
-btnSearch.onclick = () => {
-  if (settings.braveKey) { window._forceSearch = true; sendMessage(); }
-};
 // 发送按钮：空时变灰
 function updateSendBtn() {
   btnSend.disabled = window.isRequesting || userInput.value.trim() === '';
@@ -442,7 +435,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.14-1934';
+  if (_verEl) _verEl.textContent = 'v2026.09.14-1941';
 
   await openDB();
   await migrateFromLocalStorage();

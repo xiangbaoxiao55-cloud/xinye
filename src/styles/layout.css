@@ -101,16 +101,6 @@
 .btn-send:hover{transform:scale(1.1)}
 .btn-send:active{transform:scale(.92)}
 .btn-send:disabled{color:var(--text-light);opacity:.45;cursor:not-allowed;transform:none}
-.btn-search{
-  height:30px;padding:0 10px;border:none;border-radius:15px;
-  background:none;color:var(--text-light);
-  font-size:12px;cursor:pointer;flex-shrink:0;
-  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;
-  border:0.5px solid var(--pink);
-}
-.btn-search:hover{background:var(--pink-light);color:var(--pink-deep)}
-.btn-search:disabled{opacity:.5;cursor:not-allowed}
-.btn-search.hidden{display:none}
 
 /* ====================== 装修模式浮动按钮（在 .app 外部） ====================== */
 #btnDecoFloat{
