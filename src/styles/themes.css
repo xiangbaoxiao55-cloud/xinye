@@ -110,9 +110,12 @@ html[data-theme="dark"]{
 [data-theme="dark"] .modal{box-shadow:0 8px 32px rgba(0,0,0,.4)}
 [data-theme="dark"] .diary-modal-hint{color:#8a6878}
 
-/* ---- 底部 Tab 栏（无底色，只用模糊把滚过的内容化开） ---- */
+/* ---- 底部 Tab 栏（无底色，只用模糊把滚过的内容化开） ----
+   z-index 必须**低于**设置面板(101)/遮罩(100)/模态框(150)：它原来是 8500，
+   浮在这些面板之上，玻璃模糊把面板底部的粉色「保存设置」按钮糊成一块玫红，
+   还把按钮挡得点不到（点下去命中底栏切页面）。90 仍高于 .app(20) 和顶栏(10)。 */
 .bottom-tabs{
-  position:fixed;bottom:0;left:0;right:0;z-index:8500;
+  position:fixed;bottom:0;left:0;right:0;z-index:90;
   display:flex;background:none;
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   padding-bottom:env(safe-area-inset-bottom,0px);
