@@ -876,7 +876,6 @@ export async function applyUI(skipRender = false) {
   const aiAv = await getAiAvatar();
   window._xinyeAvatarSrc = aiAv;
   $('#headerAvatar').src = aiAv;
-  $('#headerName').textContent = settings.aiName || '炘也';
   $('#typingAvatar').src = aiAv;
   document.title = `${settings.aiName || '炘也'}的小窝`;
   document.documentElement.style.setProperty('--bubble-opacity', settings.bubbleOpacity);
@@ -911,12 +910,10 @@ export function updateHeaderStatus() {
   const start = new Date(settings.togetherSince || '2026-02-13');
   const today = new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   const days = Math.floor((today - start) / (1000*60*60*24)) + 1;
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  const todayCount = messages.filter(m => m.time >= todayStart.getTime()).length;
   const el = document.getElementById('headerStatus');
   if (el) {
     const badge = document.getElementById('rpStatusBadge');
-    el.textContent = `在一起第 ${days} 天 · 今日 ${todayCount} 条`;
+    el.innerHTML = `<span class="header-days">${days}</span><span class="header-days-unit">天</span>`;
     if (badge) el.appendChild(badge);
   }
 }

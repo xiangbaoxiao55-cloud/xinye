@@ -101,16 +101,13 @@ export function initRp() {
   }
 
   function applyRpHeader() {
-    const charName = localStorage.getItem(_PFX + 'rp_char_name') || '';
     const charAvatar = localStorage.getItem(_PFX + 'rp_char_avatar') || '';
     const headerAv = document.getElementById('headerAvatar');
-    const headerNm = document.getElementById('headerName');
     const typingAv = document.getElementById('typingAvatar');
     const statusEl = document.getElementById('headerStatus');
     const badge = document.getElementById('rpStatusBadge');
     if (rpActive) {
       if (charAvatar && headerAv) headerAv.src = charAvatar;
-      if (charName && headerNm) headerNm.textContent = charName;
       if (charAvatar && typingAv) typingAv.src = charAvatar;
       if (statusEl) {
         statusEl.innerHTML = '<i class="ic ic-masks"></i> RP进行中';
@@ -121,7 +118,6 @@ export function initRp() {
         if (headerAv) headerAv.src = av;
         if (typingAv) typingAv.src = av;
       });
-      if (headerNm) headerNm.textContent = (typeof settings !== 'undefined' && settings.aiName) || '炘也';
       if (typeof window.updateHeaderStatus === 'function') window.updateHeaderStatus();
     }
   }
