@@ -233,7 +233,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       ${styleLabel}${styleRefLabel}
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
-        <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）">■ 停止</button>
+        <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）"><i class="ic ic-stop"></i> 停止</button>
         <button class="draw-task-reroll" title="用同样的prompt重roll"><i class="ic ic-refresh"></i> 重roll</button>
         <button class="draw-task-copy" title="复制完整prompt"><i class="ic ic-clipboard"></i></button>
         <button class="draw-task-save" title="存为模版"><i class="ic ic-save"></i></button>
@@ -359,12 +359,12 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     const fail=results.filter(r=>r.status==='rejected').length;
     if(ok>0 && fail===0) setStatus(`✓ ${ok}张完成`);
     else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
-    else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg">❌ ${results[0].reason?.message||'失败'}</div>`}
+    else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
     const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
     if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
-    taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg">❌ ${err.message}</div>`;
+    taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${err.message}</div>`;
     setStatus('失败','err');
     toast(err.message,'error');
   }
@@ -2946,7 +2946,7 @@ async function restoreTaskCards(){
       <div class="draw-task-top">
         <span class="draw-task-label">${labelText}</span>
         ${styleLabel}${styleRefLabel}
-        <span class="draw-task-status">✓ ${t.images.length}张完成</span>
+        <span class="draw-task-status"><i class="ic ic-check"></i> ${t.images.length}张完成</span>
         <div class="draw-task-btns">
           <button class="draw-task-reroll" title="用同样的prompt重roll"><i class="ic ic-refresh"></i> 重roll</button>
           <button class="draw-task-copy" title="复制完整prompt"><i class="ic ic-clipboard"></i></button>

@@ -525,7 +525,7 @@ function renderCardIdle(el, card) {
 
   el.innerHTML = `
     <div class="sb-card-placeholder">
-      ${refHtml || '<div class="icon">🖼</div>'}
+      ${refHtml || '<div class="icon"><i class="ic ic-image"></i></div>'}
       <span>${refs.length ? '参考图 ×' + refs.length : '双击或输入prompt'}</span>
     </div>
     <div class="sb-card-prompt">
@@ -603,7 +603,7 @@ function renderCardDone(el, card) {
     <div class="sb-card-info">
       <span class="sb-card-info-prompt" title="${(card.prompt || '').replace(/"/g, '&quot;')}">${truncate(card.prompt, 40)}</span>
       <span>${card.size || ''}</span>
-      <button class="sb-card-export" title="存入图库">📥</button>
+      <button class="sb-card-export" title="存入图库"><i class="ic ic-download"></i></button>
     </div>`;
 
   el.querySelector('img').addEventListener('click', e => {
@@ -1926,7 +1926,7 @@ function createProjectCard(proj, cardsCount, isAssets) {
   card.className = 'ps-card' + (isAssets ? ' assets' : '');
   card.dataset.id = proj.id;
   
-  const icon = isAssets ? '<i class="ic ic-folder"></i>' : '🎬';
+  const icon = isAssets ? '<i class="ic ic-folder"></i>' : '<i class="ic ic-layers"></i>';
   const time = new Date(proj.updatedAt).toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'});
   
   card.innerHTML = `
@@ -2116,7 +2116,7 @@ async function openAssetsModal() {
       item.dataset.id = card.id;
       item.innerHTML = `
         <img src="${card.imageData}" alt="">
-        <div class="asset-check">✓</div>
+        <div class="asset-check"><i class="ic ic-check"></i></div>
       `;
       item.onclick = () => item.classList.toggle('selected');
       grid.appendChild(item);

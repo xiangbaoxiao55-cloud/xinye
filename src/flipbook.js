@@ -197,7 +197,7 @@ function renderBookshelf() {
   let html = '<div class="shelf-row"><div class="shelf-books">';
   F.books.forEach((book, i) => {
     const spineColor = SPINE_COLORS[i % SPINE_COLORS.length];
-    const icon = book.type === 'story' ? '<i class="ic ic-book-open"></i>' : '🎬';
+    const icon = book.type === 'story' ? '<i class="ic ic-book-open"></i>' : '<i class="ic ic-layers"></i>';
     const subtitle = book.type === 'story' ? `来自：${escHtml(book.projectName)}` : '';
     html += `
       <div class="book-item ${book.type === 'story' ? 'story-book' : ''}" data-id="${book.id}" data-type="${book.type}"
@@ -737,11 +737,11 @@ function toggleAutoplay() {
   const btn = $('btn-autoplay');
   if (F.autoplay) {
     startAutoplay();
-    btn.textContent = '⏸ 暂停';
+    btn.innerHTML = '<i class="ic ic-pause"></i> 暂停';
     btn.classList.add('playing');
   } else {
     stopAutoplay();
-    btn.textContent = '▶ 播放';
+    btn.innerHTML = '<i class="ic ic-play"></i> 播放';
     btn.classList.remove('playing');
   }
 }
@@ -771,11 +771,11 @@ function startAutoplay() {
         // 翻到最后一页，停止播放和音乐
         F.autoplay = false;
         stopAutoplay();
-        $('btn-autoplay').textContent = '▶ 播放';
+        $('btn-autoplay').innerHTML = '<i class="ic ic-play"></i> 播放';
         $('btn-autoplay').classList.remove('playing');
         const audio = $('bg-music');
         if (!audio.paused) { audio.pause(); audio.currentTime = 0; }
-        $('btn-music-toggle').textContent = '▶ 播放';
+        $('btn-music-toggle').innerHTML = '<i class="ic ic-play"></i> 播放';
         $('btn-music-toggle').classList.remove('playing');
       }
     }, F.autoInterval * 1000);
@@ -802,7 +802,7 @@ function loadMusic(file) {
   $('btn-music-toggle').classList.remove('hidden');
 
   audio.play().then(() => {
-    $('btn-music-toggle').textContent = '⏸ 暂停';
+    $('btn-music-toggle').innerHTML = '<i class="ic ic-pause"></i> 暂停';
     $('btn-music-toggle').classList.add('playing');
   }).catch(() => {
     toast('点击播放按钮开始播放');
@@ -816,11 +816,11 @@ function toggleMusic() {
 
   if (audio.paused) {
     audio.play();
-    btn.textContent = '⏸ 暂停';
+    btn.innerHTML = '<i class="ic ic-pause"></i> 暂停';
     btn.classList.add('playing');
   } else {
     audio.pause();
-    btn.textContent = '▶ 播放';
+    btn.innerHTML = '<i class="ic ic-play"></i> 播放';
     btn.classList.remove('playing');
   }
 }
@@ -829,7 +829,7 @@ function toggleMusic() {
 function toggleFullscreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
-    $('btn-fullscreen').textContent = '⊡';
+    $('btn-fullscreen').innerHTML = '<i class="ic ic-minimize"></i>';
   } else {
     document.exitFullscreen().catch(() => {});
     $('btn-fullscreen').innerHTML = '<i class="ic ic-maximize"></i>';

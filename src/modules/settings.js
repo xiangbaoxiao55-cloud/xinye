@@ -1465,7 +1465,7 @@ export function initSettings() {
   };
 
   $('#btnClearTtsCache').onclick = async () => {
-    if (!confirm('确定清除所有已缓存的语音？\n清除后点击🔈需重新生成。')) return;
+    if (!confirm('确定清除所有已缓存的语音？\n清除后点播放键需重新生成。')) return;
     await dbClear('ttsCache');
     document.querySelector('#chatArea')?.querySelectorAll('.btn-tts,.btn-tts-dl').forEach(b => b.classList.remove('cached'));
     toast('语音缓存已清除');
@@ -1599,8 +1599,8 @@ export function initSettings() {
     html += `PushManager: ${hasPM ? _ic('check-circle') + '支持' : _ic('x-circle') + '不支持'}<br>`;
     if (epType) html += `订阅类型: ${epType === 'FCM' ? _ic('alert') + 'FCM（鸿蒙可能不支持）' : epType}<br>`;
     if (lastReg) html += `上次注册: ${new Date(lastReg).toLocaleString('zh-CN')}<br>`;
-    if (!hasPM) html += `<span style="color:#e44">⚠️ 此浏览器不支持Web Push，心跳消息仅在打开APP时拉取</span>`;
-    else if (epType === 'FCM') html += `<span style="color:#e90">⚠️ FCM端点在鸿蒙系统可能无法送达，心跳消息会在打开APP时自动拉取</span>`;
+    if (!hasPM) html += `<span style="color:#e44">${_ic('alert')}此浏览器不支持Web Push，心跳消息仅在打开APP时拉取</span>`;
+    else if (epType === 'FCM') html += `<span style="color:#e90">${_ic('alert')}FCM端点在鸿蒙系统可能无法送达，心跳消息会在打开APP时自动拉取</span>`;
     _pushDiag.innerHTML = html;
     _pushDiag.style.display = '';
   }
@@ -1870,7 +1870,7 @@ export function initSettings() {
 
   $('#fileInputImport').onchange = async function() {
     if (!this.files[0]) return;
-    const full = confirm('📥 完整导入（含聊天记录）？\n\n确定 = 完整导入，恢复聊天+设置+预设（会覆盖现有聊天记录）\n取消 = 只恢复设置/预设/贴纸，聊天记录不动');
+    const full = confirm('完整导入（含聊天记录）？\n\n确定 = 完整导入，恢复聊天+设置+预设（会覆盖现有聊天记录）\n取消 = 只恢复设置/预设/贴纸，聊天记录不动');
     if (full && !confirm('完整导入将覆盖当前聊天记录，确定继续吗？')) {
       this.value = ''; return;
     }
@@ -1900,7 +1900,7 @@ function _openModelPicker(title, items, targetInputId) {
   const search = $('#modelPickerSearch');
   const titleEl = $('#modelPickerTitle');
   if (!overlay || !list) return;
-  titleEl.textContent = title;
+  titleEl.innerHTML = title;
   search.value = '';
   const render = (filter) => {
     const q = (filter || '').toLowerCase();
@@ -1941,7 +1941,7 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
     const data = await res.json();
     const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
     if (!models.length) { toast('（无可用模型）'); return; }
-    _openModelPicker('📋 选择模型', models.map(m => ({ label: m, value: m })), modelInputId);
+    _openModelPicker('<i class="ic ic-clipboard"></i> 选择模型', models.map(m => ({ label: m, value: m })), modelInputId);
   } catch(e) {
     toast(`❌ 获取失败：${e.message}`);
   }

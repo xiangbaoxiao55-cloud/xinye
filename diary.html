@@ -445,7 +445,7 @@ html.dark .img-thumb{border-color:var(--border)}
       <div class="xy-review-status" id="xyReviewStatus"><i class="ic ic-heart"></i> 炘也正在看…</div>
       <div class="xy-review-bubble" id="xyReviewBubble"></div>
       <div class="xy-review-meta" id="xyReviewMeta">
-        <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none">× 清除重来</button>
+        <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none"><i class="ic ic-x"></i> 清除重来</button>
         <span id="xyReviewTime"></span>
       </div>
     </div>
@@ -1000,7 +1000,7 @@ function renderDetailSnippets(dateStr) {
     html += `<div class="snippet-item">
       <span class="snippet-time">${escHtml(s.time)}</span>
       <span class="snippet-text">${escHtml(s.text)}</span>
-      <button class="snippet-del" onclick="deleteSnippet('${escHtml(dateStr)}',${i})" title="删除">×</button>
+      <button class="snippet-del" onclick="deleteSnippet('${escHtml(dateStr)}',${i})" title="删除"><i class="ic ic-x"></i></button>
     </div>`;
   });
   html += '</div>';
@@ -1529,7 +1529,7 @@ function renderImgStrip() {
   const strip = document.getElementById('imgStrip');
   if (!strip) return;
   let html = _sheetImgs.map((src, i) =>
-    `<div class="img-thumb-wrap"><img class="img-thumb" src="${src}" onclick="openLightbox(${i},'sheet')"><button class="img-del-btn" onclick="removeSheetImg(${i})">×</button></div>`
+    `<div class="img-thumb-wrap"><img class="img-thumb" src="${src}" onclick="openLightbox(${i},'sheet')"><button class="img-del-btn" onclick="removeSheetImg(${i})"><i class="ic ic-x"></i></button></div>`
   ).join('');
   html += `<button class="img-add-btn" onclick="addDiaryImg()">＋</button>`;
   strip.innerHTML = html;
