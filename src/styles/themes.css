@@ -1,5 +1,7 @@
 /* ====================== 暗夜模式 ====================== */
-[data-theme="dark"]{
+/* 变量必须挂在 html 上：vConsole 会给自己根节点挂 data-theme="dark"，
+   写成裸的 [data-theme="dark"] 会让 vConsole 子树永远解析成暗色变量 */
+html[data-theme="dark"]{
   --pink-light:#2e1a2a;--pink:#6b3a58;--pink-deep:#c084a8;
   --apricot:#2a1e14;--apricot-deep:#8c6840;
   --warm-bg:#16121e;--warm-bg2:#201828;
