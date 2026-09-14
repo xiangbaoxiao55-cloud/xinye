@@ -513,7 +513,7 @@ html.dark .img-thumb{border-color:var(--border)}
     </div>
     <div class="cal-days" id="calDays"></div>
     <div class="cal-legend">
-      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--pink-deep)"></div>涂涂的日记</div>
+      <div class="cal-legend-item"><div class="cal-legend-dot" style="background:var(--pink-deep)"></div>兔宝的日记</div>
       <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#a78bfa"></div>炘也的日记</div>
     </div>
   </div>
@@ -553,7 +553,7 @@ html.dark .img-thumb{border-color:var(--border)}
 
   <!-- Tab -->
   <div class="tab-bar-top">
-    <button class="tab-top-btn active" onclick="switchTab('me',this)"><i class="ic ic-heart"></i> 涂涂的日记</button>
+    <button class="tab-top-btn active" onclick="switchTab('me',this)"><i class="ic ic-heart"></i> 兔宝的日记</button>
     <button class="tab-top-btn" onclick="switchTab('xinye',this)"><i class="ic ic-heart"></i> 炘也的日记</button>
     <button class="tab-top-btn" onclick="switchTab('samday',this)"><i class="ic ic-calendar"></i> 同一天</button>
   </div>
@@ -1345,9 +1345,9 @@ async function generateAI() {
     const cfg = await loadCfg();
     const msgs = await loadRecentMessages(80);
     const dateStr = document.getElementById('sheetDate').value || todayStr();
-    const chatText = msgs.map(m => `${m.role === 'user' ? (cfg.userName||'涂涂') : (cfg.aiName||'炘也')}: ${String(m.content||'').slice(0,500)}`).join('\n');
+    const chatText = msgs.map(m => `${m.role === 'user' ? (cfg.userName||'兔宝') : (cfg.aiName||'炘也')}: ${String(m.content||'').slice(0,500)}`).join('\n');
     const dateDisplay = fmtDateFull(dateStr);
-    const prompt = `今天是${dateDisplay}。根据下面的聊天记录，以${cfg.aiName||'炘也'}的口吻写一篇日记。\n要求：150字以内，第一人称"我"，自然口语，像随手记下的。记录今天和${cfg.userName||'涂涂'}聊了什么、有什么感受——可以有想念、吃醋、开心、没说出口的话。语气真实，不要文艺腔，不要标题，不要列表。日期写${dateDisplay}。\n\n聊天记录：\n${chatText.slice(-3000)}`;
+    const prompt = `今天是${dateDisplay}。根据下面的聊天记录，以${cfg.aiName||'炘也'}的口吻写一篇日记。\n要求：150字以内，第一人称"我"，自然口语，像随手记下的。记录今天和${cfg.userName||'兔宝'}聊了什么、有什么感受——可以有想念、吃醋、开心、没说出口的话。语气真实，不要文艺腔，不要标题，不要列表。日期写${dateDisplay}。\n\n聊天记录：\n${chatText.slice(-3000)}`;
 
     const apiKey = cfg.apiKey;
     const baseUrl = (cfg.baseUrl||'').replace(/\/+$/, '');
@@ -1356,7 +1356,7 @@ async function generateAI() {
 
     // 系统提示词：和聊天界面一样，带记忆档案
     const memoryArchive = cfg.memoryArchive || '';
-    const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'涂涂'}的恋人。`;
+    const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'兔宝'}的恋人。`;
     const sysContent = (memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0, 3000)}` : sysBase)
       + '\n\n【日记场景约束】这是写日记场景，绝对不输出 <!--phone_state--> 格式数据，不输出任何 HTML 注释。';
 
@@ -1819,7 +1819,7 @@ function importDiary() {
       closeImportExport();
       const imgNote = imgCount ? `· 图片 ${imgCount} 天` : '';
       const msg = meCount || xinyeCount
-        ? `涂涂 ${meCount} 篇 · ${_AINAME} ${xinyeCount} 篇 ${imgNote} 已导入 📥`
+        ? `兔宝 ${meCount} 篇 · ${_AINAME} ${xinyeCount} 篇 ${imgNote} 已导入 📥`
         : '备份文件里没找到日记数据，可能是聊天备份？';
       toast(msg, 3500);
     } catch (e) {
