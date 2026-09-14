@@ -19,13 +19,13 @@ html[data-theme="dark"]{
 [data-theme="dark"] .typing-dots{border-color:rgba(255,255,255,.06)}
 [data-theme="dark"] .typing-dots{background:rgba(36,28,46,.92)}
 [data-theme="dark"] .btn-icon{background:rgba(46,28,58,.55);color:var(--text-light)}
-[data-theme="dark"] .input-area textarea{background:rgba(36,26,46,.6);color:var(--text);border-color:rgba(255,255,255,.15)}
+[data-theme="dark"] .input-area textarea{background:none;color:var(--text);border-color:rgba(255,255,255,.15)}
 [data-theme="dark"] .input-area textarea::placeholder{color:#7a5878}
 [data-theme="dark"] .btn-send:not(:disabled){color:#dd9dc6}
-[data-theme="dark"] .btn-img{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
+[data-theme="dark"] .btn-img{background:none;color:var(--text-light)}
 [data-theme="dark"] .btn-kiss{background:rgba(80,30,60,.7);color:#f48fb1;border-color:rgba(244,143,177,.4)}
 [data-theme="dark"] .btn-kiss:hover{background:rgba(233,30,99,.4)}
-[data-theme="dark"] .btn-search{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
+[data-theme="dark"] .btn-search{background:none;color:var(--text-light);border-color:rgba(180,120,180,.3)}
 [data-theme="dark"] .btn-diary{background:rgba(46,28,58,.6);color:var(--text-light);border-color:rgba(180,120,180,.3)}
 
 /* ---- 写日记弹窗 ---- */

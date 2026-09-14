@@ -84,12 +84,11 @@
   width:100%;border:0.5px solid rgba(255,255,255,.6);border-radius:var(--radius);
   padding:12px 14px;font-size:15px;font-family:inherit;
   min-height:44px;max-height:140px;
-  background:rgba(255,255,255,.5);color:var(--text);outline:none;
-  transition:border-color .2s,background .2s;line-height:1.5;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  background:none;color:var(--text);outline:none;
+  transition:border-color .2s;line-height:1.5;
   overflow-y:auto;
 }
-.input-area textarea:focus{border-color:var(--pink-deep);background:rgba(255,255,255,.7)}
+.input-area textarea:focus{border-color:var(--pink-deep);background:none}
 .input-area.drag-over{outline:2px dashed var(--pink-deep);outline-offset:-4px;background:rgba(233,30,99,.06)}
 .input-area textarea::placeholder{color:#cba4a4}
 .btn-send{
@@ -104,7 +103,7 @@
 .btn-send:disabled{color:var(--text-light);opacity:.45;cursor:not-allowed;transform:none}
 .btn-search{
   height:30px;padding:0 10px;border:none;border-radius:15px;
-  background:rgba(255,255,255,.55);color:var(--text-light);
+  background:none;color:var(--text-light);
   font-size:12px;cursor:pointer;flex-shrink:0;
   transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;
   border:0.5px solid var(--pink);
