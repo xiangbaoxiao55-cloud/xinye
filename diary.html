@@ -191,12 +191,19 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
   padding-top:env(safe-area-inset-top,0);
 }
 .detail-date{flex:1;font-size:15px;font-weight:700;color:var(--text)}
+/* 详情页三钮去色块（兔宝 2026-09-14 定）：返回只留箭头、编辑只留粉字、删除保持浅灰字。
+   只覆盖详情页，日记主页顶栏和「同一天跨年」箭头的 .btn-back 不受影响。 */
+.detail-header .btn-back{
+  width:44px;height:44px;background:none;border:none;border-radius:0;
+  color:var(--text-mid);font-size:24px;font-weight:400;margin-left:-10px;
+}
+.detail-header .btn-back:active{background:none;color:var(--pink-deep)}
 .btn-edit{
-  padding:6px 14px;border:1.5px solid var(--pink);border-radius:20px;
-  background:var(--pink-light);color:var(--pink-deep);font-size:13px;font-weight:600;
+  padding:6px 2px;border:none;background:none;
+  color:var(--pink-deep);font-size:13px;font-weight:600;
   cursor:pointer;font-family:inherit;
 }
-.btn-edit:active{background:var(--pink);color:#fff}
+.btn-edit:active{color:var(--pink)}
 .btn-del{
   padding:6px 12px;border:none;border-radius:20px;
   background:none;color:var(--text-light);font-size:13px;cursor:pointer;font-family:inherit;
@@ -379,11 +386,11 @@ html.dark .hm-cell.l4{background:var(--pink)}
 /* ---- 炘也看看 ---- */
 .xy-review-section{margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)}
 .btn-xy-review{
-  width:100%;padding:12px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
-  background:var(--pink-light);color:var(--pink-deep);font-size:14px;font-weight:600;
-  cursor:pointer;font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:10px 0;border:none;background:none;
+  color:var(--pink-deep);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:color .2s;display:flex;align-items:center;justify-content:center;gap:6px;
 }
-.btn-xy-review:active{background:var(--pink);color:#fff}
+.btn-xy-review:active{color:var(--pink)}
 .btn-xy-review:disabled{opacity:.45;cursor:not-allowed}
 .xy-review-status{font-size:13px;color:var(--text-light);text-align:center;padding:8px 0;display:none}
 .xy-review-status.show{display:block}
