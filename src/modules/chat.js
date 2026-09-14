@@ -2700,8 +2700,7 @@ export async function sendMessage() {
               if (_hasDigest && _hasSearchTool) {
                 const _digestDiv = document.createElement('div');
                 _digestDiv.className = 'tool-digest';
-                _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
-                _digestDiv.innerHTML = '<i class="ic ic-thought"></i> ';
+                _digestDiv.style.cssText = 'margin:8px 0;padding:0;font-size:13px;color:var(--text-color);opacity:0.85';
                 _digestDiv.appendChild(document.createTextNode(_m2.content));
                 const _typingEl = document.querySelector('#typing');
                 if (_typingEl && _typingEl.parentNode) {
@@ -2869,8 +2868,7 @@ export async function sendMessage() {
             if (_hasDigest && _hasSearchTool) {
               const _digestDiv = document.createElement('div');
               _digestDiv.className = 'tool-digest';
-              _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
-              _digestDiv.innerHTML = '<i class="ic ic-thought"></i> ';
+              _digestDiv.style.cssText = 'margin:8px 0;padding:0;font-size:13px;color:var(--text-color);opacity:0.85';
                 _digestDiv.appendChild(document.createTextNode(_m2.content));
               const _typingEl = document.querySelector('#typing');
               if (_typingEl && _typingEl.parentNode) {
