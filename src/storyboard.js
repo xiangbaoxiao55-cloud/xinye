@@ -99,13 +99,21 @@ async function ensureAssetsProject() {
   if (!assets) {
     await db.put('projects', {
       id: '__ASSETS__',
-      name: '📦 资产库',
+      name: '资产库',
       panX: 0,
       panY: 0,
       zoom: 1,
       createdAt: Date.now(),
       updatedAt: Date.now()
     });
+    return;
+  }
+  // 老版本把 emoji 写进了这个系统项目的名字里；卡片上已经有文件夹图标了，显示重复。
+  // 只动「资产库」这一个 __ASSETS__ 项目，不碰用户自己建的项目名。
+  const stripped = String(assets.name || '').replace(/^\s*[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]+\s*/u, '');
+  if (stripped !== assets.name) {
+    assets.name = stripped || '资产库';
+    await db.put('projects', assets);
   }
 }
 
