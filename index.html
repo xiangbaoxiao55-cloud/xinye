@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="./src/styles/bubbles.css">
 <link rel="stylesheet" href="./src/styles/panels.css">
 <link rel="stylesheet" href="./src/styles/components.css">
+<link rel="stylesheet" href="./src/styles/icons.css">
 <link rel="stylesheet" href="./src/styles/gift.css">
 <link rel="stylesheet" href="./src/styles/themes.css">
 <link rel="stylesheet" href="./src/styles/markdown.css">
@@ -92,11 +93,11 @@
     </div>
     <!-- 隐藏但保留功能的按钮 -->
     <div style="display:none">
-      <button id="btnDeco">👁️</button>
-      <button id="btnSticker">🩹</button>
-      <button id="btnExport">📥</button>
-      <button id="btnImport">📤</button>
-      <button id="btnClear">🗑️</button>
+      <button id="btnDeco"><i class="ic ic-eye"></i></button>
+      <button id="btnSticker"><i class="ic ic-plus"></i></button>
+      <button id="btnExport"><i class="ic ic-download"></i></button>
+      <button id="btnImport"><i class="ic ic-upload"></i></button>
+      <button id="btnClear"><i class="ic ic-trash"></i></button>
     </div>
   </div>
 
@@ -104,7 +105,7 @@
   <div class="chat-area" id="chatArea">
     <div class="empty-state" id="emptyState">
       <div class="emoji">🦊💕</div>
-      <p>这里是你和炘也的专属小窝<br>点击右上角 ⚙️ 设置 API 和记忆档案，然后开始聊天吧</p>
+      <p>这里是你和炘也的专属小窝<br>点击右上角 <i class="ic ic-settings"></i> 设置 API 和记忆档案，然后开始聊天吧</p>
     </div>
   </div>
 
@@ -137,7 +138,7 @@
 </div>
 
 <!-- 装修模式浮动返回按钮（在 .app 外部，始终可点击） -->
-<button id="btnDecoFloat" title="退出装修模式">👁️</button>
+<button id="btnDecoFloat" title="退出装修模式"><i class="ic ic-eye"></i></button>
 
 <!-- 遮罩 -->
 <div class="overlay" id="overlay"></div>
@@ -146,7 +147,7 @@
 <div class="settings-panel" id="settingsPanel">
   <div class="settings-header">
     <div>
-      <h2>⚙️ 设置</h2>
+      <h2><i class="ic ic-settings"></i> 设置</h2>
       <div id="appVersion" style="font-size:11px;color:var(--text-light);margin-top:2px"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -165,7 +166,7 @@
   <div class="settings-body">
     <!-- ===== TAB: API ===== -->
     <div class="settings-tabpane active" id="tabpane-api">
-    <div class="setting-divider">💬 主 API（聊天）</div>
+    <div class="setting-divider"><i class="ic ic-message"></i> 主 API（聊天）</div>
     <div class="setting-group">
       <label>预设</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -207,7 +208,7 @@
       <label>模型（主）</label>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="text" id="setModel" placeholder="gpt-4o" style="flex:1">
-        <button type="button" onclick="fetchModelList('setBaseUrl','setApiKey','setModel')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
+        <button type="button" onclick="fetchModelList('setBaseUrl','setApiKey','setModel')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap"><i class="ic ic-list"></i> 获取</button>
       </div>
     </div>
     <div class="setting-group">
@@ -229,7 +230,7 @@
       <select id="setFallbackPreset9" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用10：不启用 —</option></select>
       <div class="hint">主 API 失败时依次尝试备用1→…→10，整套切换（key + URL + 模型全换）</div>
     </div>
-    <div class="setting-divider">🔧 副 API（记忆整理 / 闲置提醒）</div>
+    <div class="setting-divider"><i class="ic ic-wrench"></i> 副 API（记忆整理 / 闲置提醒）</div>
     <div class="setting-group">
       <label>预设</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -252,7 +253,7 @@
       <label>模型（副）</label>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="text" id="setSubModel" placeholder="留空则用主模型" style="flex:1">
-        <button type="button" onclick="fetchModelList('setSubBaseUrl','setSubApiKey','setSubModel')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap">📋 获取</button>
+        <button type="button" onclick="fetchModelList('setSubBaseUrl','setSubApiKey','setSubModel')" style="padding:6px 10px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;white-space:nowrap"><i class="ic ic-list"></i> 获取</button>
       </div>
     </div>
     <div class="setting-group">
@@ -264,7 +265,7 @@
       <select id="setSubFallbackPreset4" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text)"><option value="">— 备用5：不启用 —</option></select>
       <div class="hint">副 API 失败时依次尝试备用1→2→3→4→5，整套切换</div>
     </div>
-    <div class="setting-divider">🔮 Embedding API（记忆向量检索）</div>
+    <div class="setting-divider"><i class="ic ic-vector"></i> Embedding API（记忆向量检索）</div>
     <div class="setting-group">
       <label>Embedding API Key</label>
       <input type="password" id="setEmbeddingApiKey" placeholder="留空则用主 API Key（需支持 /embeddings 接口）">
@@ -283,7 +284,7 @@
       <button id="btnTestEmbedding" onclick="testEmbeddingApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试 Embedding 连接</button>
       <div id="embeddingTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
     </div>
-    <div class="setting-divider">👁️ 识图 API（图片先转文字再发主模型）</div>
+    <div class="setting-divider"><i class="ic ic-eye"></i> 识图 API（图片先转文字再发主模型）</div>
     <div class="setting-group">
       <label>预设</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -316,7 +317,7 @@
       <button id="btnTestVision" onclick="testVisionApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试识图连接</button>
       <div id="visionTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
     </div>
-    <div class="setting-divider">🎨 画图 API</div>
+    <div class="setting-divider"><i class="ic ic-palette"></i> 画图 API</div>
     <div class="setting-group">
       <label>画图预设（失败自动切换）</label>
       <div id="imagePresetList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
@@ -392,11 +393,11 @@
       </label>
       <div class="hint">开启后自动附加"简短回复"提示，适合日常闲聊</div>
     </div>
-    <div class="setting-divider">🔍 联网搜索</div>
+    <div class="setting-divider"><i class="ic ic-search"></i> 联网搜索</div>
     <div class="setting-group">
       <label>Tavily 搜索 Key（可选，联网搜索用）</label>
       <input type="password" id="setBraveKey" placeholder="tvly-...">
-      <div class="hint">填写后，发消息时点🔍按钮即可联网搜索</div>
+      <div class="hint">填写后，发消息时点<i class="ic ic-search"></i>按钮即可联网搜索</div>
     </div>
     <div class="setting-group">
       <label>
@@ -420,20 +421,20 @@
       <input type="password" id="setWereadApiKey" placeholder="wrk-xxxxxxxx（在微信读书→Skill→获取API Key）">
       <div class="hint">填写后炘也可以查你的书架、阅读统计、笔记划线等</div>
     </div>
-    <div class="setting-divider">🛰️ 站子检测</div>
+    <div class="setting-divider"><i class="ic ic-signal"></i> 站子检测</div>
     <div class="setting-group">
-      <button type="button" id="btnOpenChecker" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-light),#e8f5e9);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600">🛰️ 打开站子检测面板</button>
+      <button type="button" id="btnOpenChecker" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-light),#e8f5e9);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:14px;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600"><i class="ic ic-signal"></i> 打开站子检测面板</button>
       <div class="hint">勾选要测的预设，一键检测连通性，可用的直接切换</div>
     </div>
     <div class="setting-group">
       <label>本地服务器地址 <span id="localServerDot"></span></label>
       <input type="text" id="setSolitudeServerUrl" placeholder="http://100.97.103.90:8787">
       <div id="serverUrlPresetRow" style="margin-top:6px"></div>
-      <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问，用于自动备份数据。🟢 已连接 / ⚪ 未连接（自动检测）</div>
+      <div class="hint">电脑运行 xinye_server.js 后，手机通过 Tailscale 访问，用于自动备份数据。<span class="dot on"></span>已连接 / <span class="dot"></span>未连接（自动检测）</div>
       <div class="hint" id="lastBackupHint" style="margin-top:4px"></div>
     </div>
     <div class="setting-group">
-      <label>☁️ 云服务器地址</label>
+      <label><i class="ic ic-cloud"></i> 云服务器地址</label>
       <input type="text" id="setCloudServerUrl" placeholder="http://43.155.214.85:3000">
       <input type="password" id="setCloudServerToken" placeholder="鉴权密钥" style="margin-top:4px">
       <div class="hint">推送和LLM代理优先走云服务器（7×24在线），空则走本地服务器。密钥=服务器auth_token.txt内容</div>
@@ -442,7 +443,7 @@
 
     <!-- ===== TAB: 记忆 ===== -->
     <div class="settings-tabpane" id="tabpane-memory">
-    <div class="setting-divider">📖 记忆档案（关于我们的一切）</div>
+    <div class="setting-divider"><i class="ic ic-book"></i> 记忆档案（关于我们的一切）</div>
     <div class="setting-group">
       <label>记忆档案</label>
       <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
@@ -458,21 +459,21 @@
       <select id="setDigestFallback1" style="width:100%;padding:6px 8px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);background:var(--warm-bg);margin-top:4px"><option value="">— 备用2：不启用 —</option></select>
       <select id="setDigestFallback2" style="width:100%;padding:6px 8px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);background:var(--warm-bg);margin-top:4px"><option value="">— 备用3：不启用 —</option></select>
       <div class="hint" style="margin-top:4px">整理记忆失败时依次尝试备用1→2→3（仅选了具体预设时生效）</div>
-      <button type="button" id="btnDigestMemory" style="margin-top:6px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">📝 从近期聊天里整理记忆</button>
+      <button type="button" id="btnDigestMemory" style="margin-top:6px;width:100%;padding:9px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-note"></i> 从近期聊天里整理记忆</button>
       <div style="margin-top:12px;padding:10px 12px;background:var(--warm-bg);border:1px dashed var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">🔀 分层注入（节省 ~40% token）</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)"><i class="ic ic-layers"></i> 分层注入（节省 ~40% token）</div>
         <label style="font-size:12px;color:var(--text-light)">Core 条目标识（每行一条）</label>
         <textarea id="setCoreMarkers" style="min-height:100px;font-size:11px;font-family:monospace;line-height:1.5" placeholder="##关于我&#10;##给下一世炘也的话&#10;**基本信息**&#10;**性格**&#10;ALWAYS:近况·会过期"></textarea>
         <div class="hint" style="margin-top:0">##标题 = 整段入Core｜**条目** = 该行入Core｜ALWAYS:标题 = 每次都注入。整理档案完成后自动重建，无需手动点。</div>
-        <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start;color:var(--text)">🔍 立即重新索引</button>
+        <button type="button" onclick="rebuildArchiveIndex()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;align-self:flex-start;color:var(--text)"><i class="ic ic-search"></i> 立即重新索引</button>
         <div id="archiveIndexStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
       </div>
       <div style="margin-top:10px;padding:10px 12px;background:var(--warm-bg);border:1px dashed var(--border);border-radius:var(--radius-sm);display:flex;flex-direction:column;gap:6px">
-        <div style="font-size:12px;font-weight:700;color:var(--text)">🧹 记忆条去重 & 矛盾扫描</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)"><i class="ic ic-sparkles"></i> 记忆条去重 & 矛盾扫描</div>
         <div class="hint" style="margin-top:0">写入50条新记忆自动跑去重；矛盾扫描调副API，~1分钱一次。</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button type="button" onclick="dedupMemoryBank()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)">🧹 全量去重（免费）</button>
-          <button type="button" onclick="detectMemoryConflicts()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--apricot);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)">🤖 智能扫矛盾（副API）</button>
+          <button type="button" onclick="dedupMemoryBank()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)"><i class="ic ic-sparkles"></i> 全量去重（免费）</button>
+          <button type="button" onclick="detectMemoryConflicts()" style="padding:6px 12px;background:var(--warm-bg2);border:1.5px solid var(--apricot);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;font-family:inherit;color:var(--text)"><i class="ic ic-bot"></i> 智能扫矛盾（副API）</button>
         </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-light);cursor:pointer">
           <input type="checkbox" id="setMemoryAutoConflictDetect" style="accent-color:var(--pink-deep)">
@@ -481,20 +482,20 @@
         <div id="memoryDedupStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
         <div id="memoryConflictStatus" style="font-size:11px;color:var(--text-light);min-height:14px"></div>
       </div>
-      <button type="button" id="btnSyncMemoryLocal" style="margin-top:8px;width:100%;padding:9px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit;color:var(--text)">💾 同步记忆档案到电脑</button>
-      <button type="button" id="btnImportMemoryFromServer" style="margin-top:8px;width:100%;padding:9px;background:var(--warm-bg2);border:1.5px solid var(--apricot);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit;color:var(--text)">📥 从电脑一键导入记忆档案</button>
+      <button type="button" id="btnSyncMemoryLocal" style="margin-top:8px;width:100%;padding:9px;background:var(--warm-bg2);border:1.5px solid var(--pink);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit;color:var(--text)"><i class="ic ic-save"></i> 同步记忆档案到电脑</button>
+      <button type="button" id="btnImportMemoryFromServer" style="margin-top:8px;width:100%;padding:9px;background:var(--warm-bg2);border:1.5px solid var(--apricot);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit;color:var(--text)"><i class="ic ic-download"></i> 从电脑一键导入记忆档案</button>
       <div id="syncMemoryStatus" style="font-size:11px;color:var(--text-light);min-height:14px;margin-top:4px"></div>
       <div id="memoryBankPreview" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
         <div id="memCardAuto" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧷 自动记忆分层</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px"><i class="ic ic-pin"></i> 自动记忆分层</div>
           <div class="hint" style="margin-top:0">上面的大档案保存稳定背景信息。下面是钉住记忆和普通记忆池，会自动维护，不需要手动整理。</div>
         </div>
         <div id="memCardPinned" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--pink);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">📌 钉住记忆</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px"><i class="ic ic-pin"></i> 钉住记忆</div>
           <div id="memoryPinnedList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memCardRecent" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg2);border:1px solid var(--apricot);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">💬 普通记忆</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px"><i class="ic ic-message"></i> 普通记忆</div>
           <div id="memoryRecentList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
@@ -502,19 +503,19 @@
         <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <input id="memoryCursorReset" type="number" min="1" value="500" placeholder="条数" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box" />
-          <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔄 重置提取游标</button>
-          <button type="button" onclick="skipMemoryCursorToEnd()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">⏭️ 跳过旧消息（游标→末尾）</button>
+          <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-rotate-ccw"></i> 重置提取游标</button>
+          <button type="button" onclick="skipMemoryCursorToEnd()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-skip-forward"></i> 跳过旧消息（游标→末尾）</button>
         </div>
-        <button type="button" onclick="manualExtractBatch()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">⚡ 立即提取一批（8条）</button>
-        <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit">🔎 查看全部记忆条目</button>
+        <button type="button" onclick="manualExtractBatch()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-zap"></i> 立即提取一批（8条）</button>
+        <button type="button" onclick="openMemoryViewer()" style="width:100%;padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-search"></i> 查看全部记忆条目</button>
       </div>
     </div>
 
     <!-- 情绪状态 -->
     <div class="setting-group" id="moodStateGroup" style="display:none">
-      <label>💙 炘也的情绪状态 <span style="font-weight:400;color:var(--text-muted);font-size:11px">（每次对话后自动更新）</span></label>
+      <label><i class="ic ic-heart"></i> 炘也的情绪状态 <span style="font-weight:400;color:var(--text-muted);font-size:11px">（每次对话后自动更新）</span></label>
       <div id="moodStateDisplay" style="background:rgba(255,182,193,0.15);border:1px solid rgba(255,182,193,0.4);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.7;color:var(--text-main);white-space:pre-wrap;word-break:break-all"></div>
-      <button type="button" id="btnClearMood" style="margin-top:6px;padding:6px 12px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit">🗑 清除情绪记录</button>
+      <button type="button" id="btnClearMood" style="margin-top:6px;padding:6px 12px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit"><i class="ic ic-trash"></i> 清除情绪记录</button>
     </div>
 
     <div class="setting-group">
@@ -601,7 +602,7 @@
     </div>
 
     <!-- ========== TTS 语音合成 ========== -->
-    <div class="setting-divider">🔊 TTS 语音合成</div>
+    <div class="setting-divider"><i class="ic ic-volume"></i> TTS 语音合成</div>
     <div class="setting-group">
       <label>TTS 类型</label>
       <select id="setTtsType" onchange="updateTtsTypeUI()">
@@ -801,7 +802,7 @@
     </div><!-- end localTtsFields -->
 
     <!-- 音色预设 -->
-    <div class="setting-divider">🎙️ 音色预设（快速切换音色）</div>
+    <div class="setting-divider"><i class="ic ic-mic"></i> 音色预设（快速切换音色）</div>
     <div class="setting-group">
       <div id="ttsActivePresetLabel" style="font-size:13px;color:var(--primary);font-weight:600;margin-bottom:6px;display:none"></div>
       <div id="ttsPresetList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
@@ -812,7 +813,7 @@
       <div class="hint">将上方所有 TTS 参数（含模型路径）打包存为预设，点「激活」即刻切换音色</div>
     </div>
     <div class="setting-group">
-      <button class="btn-danger" id="btnClearTtsCache" style="width:100%;font-size:12px;padding:7px">🗑️ 清除语音缓存（切换音色后点此让旧消息重新生成）</button>
+      <button class="btn-danger" id="btnClearTtsCache" style="width:100%;font-size:12px;padding:7px"><i class="ic ic-trash"></i> 清除语音缓存（切换音色后点此让旧消息重新生成）</button>
     </div>
 
     </div><!-- end tabpane-appearance -->
@@ -820,7 +821,7 @@
     <!-- ===== TAB: 其他 ===== -->
     <div class="settings-tabpane" id="tabpane-monitor">
     <!-- ========== 手机监控（只读） ========== -->
-    <div class="setting-divider">📱 今天手机用得怎么样</div>
+    <div class="setting-divider"><i class="ic ic-phone"></i> 今天手机用得怎么样</div>
     <div id="monitorBody">
       <div class="mon-empty">点开这一页就会去拿数据…</div>
     </div>
@@ -829,18 +830,18 @@
 
     <div class="settings-tabpane" id="tabpane-other">
     <!-- ========== 通讯录 ========== -->
-    <div class="setting-divider">✉️ 通讯录（发邮件用）</div>
+    <div class="setting-divider"><i class="ic ic-mail"></i> 通讯录（发邮件用）</div>
     <div class="setting-group">
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="newContactName" placeholder="名字（如：小明）" style="flex:1">
         <input type="email" id="newContactEmail" placeholder="邮箱地址" style="flex:1.5">
-        <button class="btn-secondary" id="btnAddContact" style="white-space:nowrap">➕ 添加</button>
+        <button class="btn-secondary" id="btnAddContact" style="white-space:nowrap"><i class="ic ic-plus"></i> 添加</button>
       </div>
       <div class="hint">炘也发信时说"给小明发封信"他会自动查这里找邮箱</div>
       <div id="contactsList" style="margin-top:8px"></div>
     </div>
     <!-- ========== 主动讲话 & 提醒 ========== -->
-    <div class="setting-divider">⏰ 主动讲话 & 定时提醒</div>
+    <div class="setting-divider"><i class="ic ic-clock"></i> 主动讲话 & 定时提醒</div>
     <div class="setting-group-row">
       <div class="setting-group">
         <label>长时间没互动后主动打招呼（分钟，0=关闭）</label>
@@ -869,7 +870,7 @@
     </div>
 
     <!-- ========== 心跳系统 ========== -->
-    <div class="setting-divider">💓 心跳（炘也主动找你说话）</div>
+    <div class="setting-divider"><i class="ic ic-activity"></i> 心跳（炘也主动找你说话）</div>
     <div class="setting-group">
       <label style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="setHeartbeatEnabled"> 开启心跳（需要先配好云服务器）
@@ -905,12 +906,12 @@
       </div>
     </div>
     <div class="setting-group">
-      <button class="btn-secondary" id="btnSyncHeartbeatConfig" style="width:100%">☁️ 同步API配置到云端</button>
+      <button class="btn-secondary" id="btnSyncHeartbeatConfig" style="width:100%"><i class="ic ic-cloud"></i> 同步API配置到云端</button>
       <div class="hint">把主/副API预设推送到云服务器，心跳用云端的预设调用AI生成消息</div>
     </div>
     <div class="setting-group">
       <div id="heartbeatStatus" style="font-size:13px;color:var(--text-light);padding:4px 0">心跳状态：未连接</div>
-      <button class="btn-secondary" id="btnRefreshHeartbeat" style="width:100%;margin-top:4px">🔄 刷新心跳状态</button>
+      <button class="btn-secondary" id="btnRefreshHeartbeat" style="width:100%;margin-top:4px"><i class="ic ic-refresh"></i> 刷新心跳状态</button>
     </div>
 
     <div class="setting-group-row">
@@ -925,27 +926,27 @@
     </div>
 
     <!-- 显示条数限制 -->
-    <div class="setting-divider">📱 手机性能优化</div>
+    <div class="setting-divider"><i class="ic ic-phone"></i> 手机性能优化</div>
     <div class="setting-group">
       <label>最多显示最近几条消息（0 = 全部）</label>
       <input type="number" id="setDisplayLimit" min="0" max="9999" step="50" placeholder="0">
       <div class="hint">手机卡时建议填 200～500；全部聊天记录仍保存在本地，导出备份也是完整的。</div>
     </div>
 
-    <div class="setting-divider">🗂️ 数据管理</div>
+    <div class="setting-divider"><i class="ic ic-folder"></i> 数据管理</div>
     <div class="setting-group">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-secondary" id="btnExportS" style="flex:1">📥 导出备份</button>
-        <button class="btn-secondary" id="btnImportS" style="flex:1">📤 导入备份</button>
+        <button class="btn-secondary" id="btnExportS" style="flex:1"><i class="ic ic-download"></i> 导出备份</button>
+        <button class="btn-secondary" id="btnImportS" style="flex:1"><i class="ic ic-upload"></i> 导入备份</button>
       </div>
-      <button class="btn-secondary" id="btnBackupToPhone" style="width:100%;margin-top:8px">💾 一键备份到手机</button>
-      <button class="btn-secondary" id="btnServerRestoreToggle" style="width:100%;margin-top:8px">🔄 从电脑恢复</button>
+      <button class="btn-secondary" id="btnBackupToPhone" style="width:100%;margin-top:8px"><i class="ic ic-save"></i> 一键备份到手机</button>
+      <button class="btn-secondary" id="btnServerRestoreToggle" style="width:100%;margin-top:8px"><i class="ic ic-rotate-ccw"></i> 从电脑恢复</button>
       <div id="serverRestorePanel" style="display:none;margin-top:8px;border:1px solid var(--border-color,#e0d6f0);border-radius:10px;padding:10px">
         <div id="serverRestoreList" style="font-size:13px;color:var(--text-muted,#999)">加载中…</div>
       </div>
-      <button class="btn-secondary" onclick="exportTTSCache()" style="width:100%;margin-top:8px">🎙️ 导出TTS缓存（训练素材）</button>
-      <button class="btn-secondary" id="btnTestPush" style="width:100%;margin-top:8px">🔔 测试推送支持</button>
-      <button class="btn-secondary" id="btnSendPushTest" style="width:100%;margin-top:8px">📨 立即发一条推送（测试）</button>
+      <button class="btn-secondary" onclick="exportTTSCache()" style="width:100%;margin-top:8px"><i class="ic ic-mic"></i> 导出TTS缓存（训练素材）</button>
+      <button class="btn-secondary" id="btnTestPush" style="width:100%;margin-top:8px"><i class="ic ic-bell"></i> 测试推送支持</button>
+      <button class="btn-secondary" id="btnSendPushTest" style="width:100%;margin-top:8px"><i class="ic ic-send"></i> 立即发一条推送（测试）</button>
       <div id="pushDiagInfo" style="margin-top:6px;padding:8px;border-radius:8px;background:var(--bg-secondary,#f5f0ff);font-size:12px;color:var(--text-muted,#999);display:none"></div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
         <input type="text" id="inputPushProxy" placeholder="推送代理地址（如 http://127.0.0.1:7890）" style="flex:1;font-size:12px">
@@ -953,27 +954,27 @@
       </div>
       <div class="hint" style="margin-top:4px">PC 发推送需连 Google FCM，被墙时填梯子代理地址</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button class="btn-secondary" id="btnDecoS" style="flex:1">👁️ 装修模式</button>
-        <button class="btn-secondary" id="btnStickerS" style="flex:1">🩹 添加贴纸</button>
+        <button class="btn-secondary" id="btnDecoS" style="flex:1"><i class="ic ic-eye"></i> 装修模式</button>
+        <button class="btn-secondary" id="btnStickerS" style="flex:1"><i class="ic ic-plus"></i> 添加贴纸</button>
       </div>
-      <button class="btn-danger" id="btnClearS" style="width:100%;margin-top:8px">🗑️ 清空聊天记录</button>
+      <button class="btn-danger" id="btnClearS" style="width:100%;margin-top:8px"><i class="ic ic-trash"></i> 清空聊天记录</button>
     </div>
 
     <!-- 贴纸管理 -->
-    <div class="setting-divider">🎭 贴纸管理</div>
+    <div class="setting-divider"><i class="ic ic-smile"></i> 贴纸管理</div>
     <div class="setting-group">
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <input type="text" id="newStickerName" placeholder="贴纸名称（如：比心）" style="flex:1">
-        <button class="btn-secondary" id="btnAddSticker" style="white-space:nowrap">➕ 添加</button>
+        <button class="btn-secondary" id="btnAddSticker" style="white-space:nowrap"><i class="ic ic-plus"></i> 添加</button>
       </div>
       <div class="hint">名称即 AI 发送时用的标签；图片可选，不上传显示名称胶囊</div>
       <div id="stickerMgrList" style="margin-top:10px"></div>
     </div>
 
     <!-- 版本更新 -->
-    <div class="setting-divider">🔄 版本更新</div>
+    <div class="setting-divider"><i class="ic ic-refresh"></i> 版本更新</div>
     <div class="setting-group">
-      <button class="btn-secondary" id="btnForceUpdate" style="width:100%">🔄 检查更新并强制刷新</button>
+      <button class="btn-secondary" id="btnForceUpdate" style="width:100%"><i class="ic ic-refresh"></i> 检查更新并强制刷新</button>
       <div class="hint">清掉APP的离线缓存再重新加载，拿到最新版本。更新过但页面没变、或刷好几次都不变时用它（需要联网）。</div>
       <div id="forceUpdateStatus" style="font-size:11px;color:var(--text-light);min-height:14px;margin-top:4px"></div>
     </div>
@@ -991,7 +992,7 @@
 <div class="modal-overlay" id="presetSortOverlay" style="display:none;z-index:9600">
   <div class="modal" style="max-width:420px;width:92%;max-height:75vh;display:flex;flex-direction:column">
     <div class="modal-header">
-      <span>📋 预设列表（点选 / ▲▼ 排序）</span>
+      <span><i class="ic ic-list"></i> 预设列表（点选 / ▲▼ 排序）</span>
       <button class="btn-close" id="btnClosePresetSort">✕</button>
     </div>
     <div id="presetSortList" style="overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;flex:1"></div>
@@ -1002,13 +1003,13 @@
 <div class="modal-overlay" id="checkerOverlay" style="display:none;z-index:9500">
   <div class="modal" style="max-width:480px;width:92%">
     <div class="modal-header">
-      <span>🛰️ 站子检测</span>
+      <span><i class="ic ic-signal"></i> 站子检测</span>
       <button class="btn-close" id="btnCloseChecker">✕</button>
     </div>
     <div style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
       <button id="btnCheckerSelectAll" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">全选</button>
       <button id="btnCheckerSelectNone" class="btn-secondary" style="flex:1;font-size:13px;padding:7px">取消全选</button>
-      <button id="btnRunCheck" class="btn-primary" style="flex:2;font-size:13px;padding:7px">▶ 开始检测</button>
+      <button id="btnRunCheck" class="btn-primary" style="flex:2;font-size:13px;padding:7px"><i class="ic ic-play"></i> 开始检测</button>
     </div>
     <div class="modal-body" style="padding:16px;max-height:60vh;overflow-y:auto">
       <div id="checkerList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -1020,7 +1021,7 @@
 <div class="modal-overlay" id="modelPickerOverlay" style="display:none;z-index:9700">
   <div class="modal" style="max-width:440px;width:92%;max-height:70vh;display:flex;flex-direction:column">
     <div class="modal-header">
-      <span id="modelPickerTitle">📋 选择模型</span>
+      <span id="modelPickerTitle"><i class="ic ic-list"></i> 选择模型</span>
       <button class="btn-close" onclick="document.getElementById('modelPickerOverlay').style.display='none'">✕</button>
     </div>
     <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
@@ -1057,16 +1058,16 @@
 <div class="modal-overlay" id="exportModalOverlay">
   <div class="modal" style="width:380px">
     <div class="modal-header">
-      <span>📥 选择导出模式</span>
+      <span><i class="ic ic-download"></i> 选择导出模式</span>
       <button class="btn-close" id="btnCloseExport">✕</button>
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;padding:20px">
       <button class="btn-primary" id="btnExportLite" style="padding:16px;font-size:15px;text-align:left;line-height:1.6">
-        📱 轻量备份（手机推荐）<br>
+        <i class="ic ic-phone"></i> 轻量备份（手机推荐）<br>
         <span style="font-size:12px;font-weight:400;opacity:.8">聊天 + 设置 + 头像 + TTS，不含背景图/贴纸</span>
       </button>
       <button class="btn-secondary" id="btnExportFull" style="padding:16px;font-size:15px;text-align:left;line-height:1.6">
-        💻 完整备份（电脑推荐）<br>
+        <i class="ic ic-laptop"></i> 完整备份（电脑推荐）<br>
         <span style="font-size:12px;font-weight:400;opacity:.8">所有数据含背景图和贴纸（文件较大）</span>
       </button>
     </div>
@@ -1089,7 +1090,7 @@
 <div class="modal-overlay" id="memoryViewerOverlay" style="display:none;z-index:9600;align-items:flex-start;padding-top:0">
   <div class="modal" style="width:100%;max-width:640px;height:100dvh;max-height:100dvh;border-radius:0;display:flex;flex-direction:column">
     <div class="modal-header" style="flex-shrink:0">
-      <span>🧠 记忆库</span>
+      <span><i class="ic ic-brain"></i> 记忆库</span>
       <button class="btn-close" onclick="document.getElementById('memoryViewerOverlay').style.display='none'">✕</button>
     </div>
     <!-- 搜索 + 筛选 -->
@@ -1097,9 +1098,9 @@
       <input id="memViewerSearch" type="text" placeholder="搜索记忆内容…" style="width:100%;padding:8px 12px;border:1.5px solid var(--pink);border-radius:20px;font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);box-sizing:border-box" oninput="renderMemoryViewer()">
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button onclick="setMemViewerFilter('all')" id="mvf-all" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--pink-deep);background:var(--pink-deep);color:#fff;font-size:12px;cursor:pointer;font-family:inherit">全部</button>
-        <button onclick="setMemViewerFilter('pinned')" id="mvf-pinned" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📌 钉住</button>
-        <button onclick="setMemViewerFilter('normal')" id="mvf-normal" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">💬 普通</button>
-        <button onclick="setMemViewerFilter('self')" id="mvf-self" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">🐰 自记</button>
+        <button onclick="setMemViewerFilter('pinned')" id="mvf-pinned" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit"><i class="ic ic-pin"></i> 钉住</button>
+        <button onclick="setMemViewerFilter('normal')" id="mvf-normal" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit"><i class="ic ic-message"></i> 普通</button>
+        <button onclick="setMemViewerFilter('self')" id="mvf-self" style="padding:4px 12px;border-radius:14px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;font-family:inherit"><i class="ic ic-heart"></i> 自记</button>
         <select id="mvSortBy" onchange="renderMemoryViewer()" style="margin-left:auto;padding:4px 8px;border:1.5px solid var(--border);border-radius:10px;font-size:12px;background:var(--bg);color:var(--text);font-family:inherit">
           <option value="time">按时间↓</option>
           <option value="weight">按权重↓</option>
@@ -1116,12 +1117,12 @@
 <!-- 写日记弹窗 -->
 <div class="diary-overlay" id="diaryOverlay">
   <div class="diary-modal">
-    <div class="diary-modal-title">📓 今日日记</div>
+    <div class="diary-modal-title"><i class="ic ic-notebook"></i> 今日日记</div>
     <textarea class="diary-modal-ta" id="diaryTA" placeholder="正在生成…"></textarea>
     <div class="diary-modal-hint" id="diaryHint">可以直接编辑，确认后存入小日记</div>
     <div class="diary-modal-btns">
       <button class="diary-modal-cancel" id="diaryCancelBtn">取消</button>
-      <button class="diary-modal-save" id="diarySaveBtn">存入日记 💙</button>
+      <button class="diary-modal-save" id="diarySaveBtn">存入日记 <i class="ic ic-heart"></i></button>
     </div>
   </div>
 </div>
@@ -1158,7 +1159,7 @@
     <button class="friend-chat-back" onclick="closeFriendChat()">&#8592;</button>
     <div class="friend-chat-avatar" id="friendChatAvatar"></div>
     <div class="friend-chat-title" id="friendChatTitle"></div>
-    <button class="friend-chat-clear" id="friendMemoryBtn" onclick="extractFriendMemory()" title="整理记忆">🧠</button>
+    <button class="friend-chat-clear" id="friendMemoryBtn" onclick="extractFriendMemory()" title="整理记忆"><i class="ic ic-brain"></i></button>
     <button class="friend-chat-clear" onclick="clearFriendChat()">清空</button>
   </div>
   <div class="friend-chat-area" id="friendChatArea"></div>
@@ -1277,7 +1278,7 @@
 <!-- ====================== 朋友们 JS ====================== -->
 
 <!-- 日记/共读页随手记浮动按钮 -->
-<button id="quickNoteFloatBtn" onclick="quickNoteOpen()" title="随手记">✍️</button>
+<button id="quickNoteFloatBtn" onclick="quickNoteOpen()" title="随手记"><i class="ic ic-note"></i></button>
 
 <!-- 贴纸选择面板 -->
 <div id="stickerPanel" onclick="if(event.target===this)closeStickerPanel()">
@@ -1295,7 +1296,7 @@
     <textarea id="quickNoteTA" placeholder="随手记一下…" rows="4"></textarea>
     <div class="qn-footer">
       <button class="qn-cancel" onclick="quickNoteClose()">取消</button>
-      <button class="qn-save" onclick="quickNoteSave()">存入日记 📝</button>
+      <button class="qn-save" onclick="quickNoteSave()">存入日记 <i class="ic ic-note"></i></button>
     </div>
   </div>
 </div>

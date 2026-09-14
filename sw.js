@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260914-1721';
+const CACHE_NAME = 'xinye-20260914-1740';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -31,7 +31,7 @@ const STATIC_ASSETS = [
   '/src/styles/bubbles.css', '/src/styles/panels.css', '/src/styles/components.css',
   '/src/styles/gift.css', '/src/styles/fortune.css',
   '/src/styles/themes.css', '/src/styles/markdown.css', '/src/styles/friends.css',
-  '/src/styles/monitor.css',
+  '/src/styles/monitor.css', '/src/styles/icons.css',
   '/draw.html', '/src/draw.js', '/src/styles/draw.css',
   '/flipbook.html', '/src/flipbook.js', '/src/styles/flipbook.css',
   '/data/style_library.json'
