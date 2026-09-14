@@ -305,7 +305,7 @@ export async function getMemoryContextBlocks() {
     const recentItems = [...pool].sort((a, b) => (b.createdAt||0) - (a.createdAt||0)).slice(0, MEMORY_RAG_RECENT);
     const recentIds = new Set(recentItems.map(i => i.id));
 
-    const method = queryVec ? '向量语义匹配 ✅' : '关键词匹配降级 ⚠️';
+    const method = queryVec ? '向量语义匹配' : '关键词匹配降级';
     console.log(`[Memory RAG] 检索方式：${method}，query前50字：「${query.slice(0,50)}」`);
     const semanticPool = pool.filter(i => !recentIds.has(i.id));
     const relevant = await getRelevantMemoriesAsync(queryVec, query, semanticPool, MEMORY_RAG_INJECT);
@@ -648,9 +648,9 @@ export async function rebuildArchiveIndex(silent = false) {
   settings.memoryArchiveExtended = extended;
   settings.memoryArchiveExtendedChunked = true;
   await saveSettings();
-  const msg = `✅ 索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length}个chunk（来自${parsed.extended.length}章节）`;
-  if (statusEl) statusEl.textContent = msg;
-  if (!silent) toast(msg);
+  const _plain = `索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length}个chunk（来自${parsed.extended.length}章节）`;
+  if (statusEl) setStatus(statusEl, 'check-circle', _plain);
+  if (!silent) toast('✅ ' + _plain);
   else console.log('[ArchiveIndex]', msg);
 }
 
@@ -672,10 +672,10 @@ export function renderMemoryEntryChip(item) {
   const w = Math.min(5, Math.max(1, item.weight || 0));
   const starsEl = w ? `<span style="font-size:11px;color:#e8a0b4;letter-spacing:1px" title="情绪权重">${'★'.repeat(w)}${'☆'.repeat(5-w)}</span>` : '';
   const srcEl = item.source === 'self' ? `<span style="font-size:10px;color:#9e6aae;background:rgba(158,106,174,.1);padding:1px 6px;border-radius:8px">炘也自记</span>` : item.source === 'ai' ? `<span style="font-size:10px;color:var(--text-light);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:8px">AI整理</span>` : '';
-  const pinBtn = `<button onclick="toggleMemoryPin('${escHtml(item.id)}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75">${isPinned ? '📌' : '🔗'}</button>`;
-  const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;color:var(--text);opacity:${item.resolved?'1':'.65'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.65'}">${item.resolved ? '🌫️' : '✓'}</button>`;
-  const editBtn = `<button onclick="editMemoryEntry('${escHtml(item.id)}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✏️</button>`;
-  const delBtn = `<button onclick="deleteMemoryEntry('${escHtml(item.id)}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;line-height:1;opacity:.4;color:var(--text-light);transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">✕</button>`;
+  const pinBtn = `<button onclick="toggleMemoryPin('${escHtml(item.id)}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.75;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.75">${isPinned ? '<i class="ic ic-pin"></i>' : '<i class="ic ic-link"></i>'}</button>`;
+  const resolvedBtn = `<button onclick="toggleMemoryResolved('${escHtml(item.id)}')" title="${item.resolved?'恢复':'标记已过去（不再主动浮现）'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;color:var(--text);opacity:${item.resolved?'1':'.65'};transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=${item.resolved?'1':'.65'}">${item.resolved ? '<i class="ic ic-cloud"></i>' : '<i class="ic ic-check"></i>'}</button>`;
+  const editBtn = `<button onclick="editMemoryEntry('${escHtml(item.id)}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;opacity:.5;transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5"><i class="ic ic-pen"></i></button>`;
+  const delBtn = `<button onclick="deleteMemoryEntry('${escHtml(item.id)}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;line-height:1;opacity:.4;color:var(--text-light);transition:opacity .15s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4"><i class="ic ic-x"></i></button>`;
 
   const resolvedOverlay = item.resolved ? `<div style="position:absolute;inset:0;border-radius:14px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:none"><span style="color:rgba(255,255,255,.6);font-size:11px">已过去</span></div>` : '';
   return `<div id="memchip_${escHtml(item.id)}" style="position:relative;display:flex;gap:10px;padding:12px 14px;border-radius:14px;background:${cardBg};border:1px solid ${cardBorder};box-shadow:0 1px 8px rgba(0,0,0,.06);transition:box-shadow .2s;${item.resolved?'opacity:.55':''}">
@@ -721,8 +721,8 @@ export function renderMemoryBankPreview() {
 
   const totalCount = bank.archived.length;
   archiveEl.textContent = totalCount > 8
-    ? `💬 共 ${totalCount} 条普通记忆，点「查看全部记忆条目」浏览`
-    : totalCount > 0 ? `💬 共 ${totalCount} 条普通记忆` : '';
+    ? `<i class="ic ic-message"></i> 共 ${totalCount} 条普通记忆，点「查看全部记忆条目」浏览`
+    : totalCount > 0 ? `<i class="ic ic-message"></i> 共 ${totalCount} 条普通记忆` : '';
 }
 
 export function rememberLatestExchange() {
@@ -928,7 +928,7 @@ export function renderMemoryViewer() {
   if (!listEl) return;
   if (!pool.length) { listEl.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0">没有符合条件的记忆</div>'; return; }
 
-  const kindLabel = { pinned: '📌', normal: '💬' };
+  const kindLabel = { pinned: '<i class="ic ic-pin"></i>', normal: '<i class="ic ic-message"></i>' };
   const kindColor = { pinned: 'var(--pink-deep)', normal: 'var(--text-light)' };
   listEl.innerHTML = pool.map(m => {
     const eid = escHtml(m.id);
@@ -943,16 +943,16 @@ export function renderMemoryViewer() {
         ${m.emotion ? `<span style="font-size:11px;color:var(--text-light)">· ${escHtml(m.emotion)}</span>` : ''}
         <span style="font-size:11px;color:#e8a0b4;letter-spacing:1px">${stars}</span>
         <div style="margin-left:auto;display:flex;gap:2px">
-          <button onclick="toggleMemoryPin('${eid}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.7">${isPinned?'📌':'🔗'}</button>
-          <button onclick="editMemoryEntry('${eid}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.5">✏️</button>
-          <button onclick="deleteMemoryEntry('${eid}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;opacity:.4;color:var(--text-light)">✕</button>
+          <button onclick="toggleMemoryPin('${eid}')" title="${isPinned?'取消钉住':'钉住'}" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.7">${isPinned?'<i class="ic ic-pin"></i>':'<i class="ic ic-link"></i>'}</button>
+          <button onclick="editMemoryEntry('${eid}')" title="编辑" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;opacity:.5"><i class="ic ic-pen"></i></button>
+          <button onclick="deleteMemoryEntry('${eid}')" title="删除" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;opacity:.4;color:var(--text-light)"><i class="ic ic-x"></i></button>
         </div>
       </div>
       <div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap;word-break:break-word">${escHtml(m.content || '')}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${tags}</div>
       <div style="font-size:10px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap">
-        <span>📅 ${created}</span>
-        <span>👁 ${m.accessCount || 0}次</span>
+        <span><i class="ic ic-calendar"></i> ${created}</span>
+        <span><i class="ic ic-eye"></i> ${m.accessCount || 0}次</span>
       </div>
     </div>`;
   }).join('');
@@ -1055,9 +1055,9 @@ export async function dedupMemoryBank(silent = false) {
   renderMemoryBankPreview();
 
   const ts = new Date().toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  const msg = `🧹 ${ts} 去重：合并${mergedCount}对 · 疑似${markedSet.size}条 · 候选${withVec.length}`;
-  console.log('[Dedup]', msg);
-  if (statusEl) statusEl.textContent = msg;
+  const _plain = `${ts} 去重：合并${mergedCount}对 · 疑似${markedSet.size}条 · 候选${withVec.length}`;
+  console.log('[Dedup]', _plain);
+  if (statusEl) setStatus(statusEl, 'trash', _plain);
   if (!silent) toast(`✅ 合并${mergedCount}对，标记${markedSet.size}条疑似重复`);
   return { merged: mergedCount, marked: markedSet.size, conflictPairs };
 }
@@ -1091,10 +1091,10 @@ export async function detectMemoryConflicts(silent = false) {
   }
 
   if (!pairs.length) {
-    const msg = '✅ 没找到可疑候选对（灰色区域0.6~0.82无内容）';
-    console.log('[Conflict]', msg);
-    if (statusEl) statusEl.textContent = msg;
-    if (!silent) toast(msg);
+    const _plain = '没找到可疑候选对（灰色区域0.6~0.82无内容）';
+    console.log('[Conflict]', _plain);
+    if (statusEl) setStatus(statusEl, 'check-circle', _plain);
+    if (!silent) toast('✅ ' + _plain);
     return { reviewed: 0, removed: 0 };
   }
 
@@ -1193,15 +1193,15 @@ ${numbered.map(n => n.text).join('\n\n')}
     renderMemoryBankPreview();
 
     const ts = new Date().toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    const msg = `🤖 ${ts} 矛盾扫描：审${top.length}对 · 删${removed}条 · 保${kept}条`;
-    console.log('[Conflict]', msg);
-    if (statusEl) statusEl.textContent = msg;
+    const _plain = `${ts} 矛盾扫描：审${top.length}对 · 删${removed}条 · 保${kept}条`;
+    console.log('[Conflict]', _plain);
+    if (statusEl) setStatus(statusEl, 'bot', _plain);
     if (!silent) toast(`✅ 审${top.length}对，删${removed}条矛盾旧条`);
     return { reviewed: top.length, removed };
   } catch(e) {
     console.warn('[Conflict] 失败：', e);
     if (!silent) toast('矛盾判定失败：' + e.message);
-    if (statusEl) statusEl.textContent = '❌ ' + e.message;
+    if (statusEl) setStatus(statusEl, 'x-circle', e.message);
     return { reviewed: top.length, removed: 0 };
   }
 }

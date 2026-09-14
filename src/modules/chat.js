@@ -1,4 +1,4 @@
-import { toast, fallbackCopy, escHtml, fmtTime, nowStr, saveFile, $ } from './utils.js';
+import { toast, fallbackCopy, escHtml, fmtTime, nowStr, saveFile, setStatus, $ } from './utils.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
@@ -92,6 +92,13 @@ function getMsgActiveContent(msg) {
 }
 
 const _REGEN_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+/** 去掉 setStatus 挂在元素上的图标类。气泡先显示「思考中…」、再被正式回复覆盖，
+ *  覆盖前必须先清，否则 .status-ico::before 的图标会赖在正文最前面。 */
+function _clearIco(el) {
+  if (!el) return;
+  el.className = String(el.className || '').replace(/\bic-[a-z-]+\b|\bstatus-ico\b/g, '').replace(/\s+/g, ' ').trim();
+}
 
 // 单版本和多版本都返回同一个 .version-switcher 容器：两种分支的 DOM 结构一致，
 // 按钮才不会被块级布局挤到预设名下面一行。
@@ -225,7 +232,7 @@ export function renderBookmarksPanel() {
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
           <span style="font-size:12px;font-weight:700;color:var(--pink-deep)">${escHtml(aiName)}</span>
-          <button onclick="removeBookmark(${b.id})" title="取消收藏" class="bm-card-rm">✕</button>
+          <button onclick="removeBookmark(${b.id})" title="取消收藏" class="bm-card-rm"><i class="ic ic-x"></i></button>
         </div>
         <div id="bmv-${b.id}"></div>
         <div class="bm-card-body" id="bmc-${b.id}"></div>
@@ -235,8 +242,8 @@ export function renderBookmarksPanel() {
           <button class="bm-tag-add" onclick="window.addBmTag(${b.id})">+ tag</button>
         </div>
         <div class="bm-card-footer">
-          ${msgTime ? `<span>💬 ${msgTime}</span>` : ''}
-          <span>🔖 ${saved}</span>
+          ${msgTime ? `<span><i class="ic ic-message"></i> ${msgTime}</span>` : ''}
+          <span><i class="ic ic-bookmark"></i> ${saved}</span>
           <button class="bm-copy-btn" onclick="window.copyBmContent(${b.id})">复制</button>
         </div>
       </div>
@@ -396,10 +403,10 @@ export async function renderMessages() {
     } else if (!isUser && msg.isFortuneCard) {
       const _fr = msg.fortuneResult || {};
       const _ftags = Object.values(_fr).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
-      _bubbleInner = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags}</div></div>`;
+      _bubbleInner = `<div class="fortune-bubble"><div class="fortune-bubble-title"><i class="ic ic-dice"></i> 命运转盘</div><div class="fortune-bubble-tags">${_ftags}</div></div>`;
     } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
       const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
-      _bubbleInner = `<div class="email-sent-tip">✉️ 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
+      _bubbleInner = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -481,10 +488,10 @@ export async function appendMsgDOM(msg) {
   } else if (!isUser && msg.isFortuneCard) {
     const _fr2 = msg.fortuneResult || {};
     const _ftags2 = Object.values(_fr2).map(v => `<span class="fortune-bubble-tag"><span class="fortune-bubble-tag-dim">${escHtml(v.name)}</span> ${escHtml(v.tag)}</span>`).join('');
-    _bi = `<div class="fortune-bubble"><div class="fortune-bubble-title">🎰 命运转盘</div><div class="fortune-bubble-tags">${_ftags2}</div></div>`;
+    _bi = `<div class="fortune-bubble"><div class="fortune-bubble-title"><i class="ic ic-dice"></i> 命运转盘</div><div class="fortune-bubble-tags">${_ftags2}</div></div>`;
   } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
     const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
-    _bi = `<div class="email-sent-tip">✉️ 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
+    _bi = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -852,22 +859,22 @@ export function renderTokenLog(msgId) {
   const cacheHtml = (cacheRead !== null || cacheWrite !== null) ? `<br>
     缓存读取 ${cacheRead ?? '—'} &nbsp;·&nbsp; 缓存写入 ${cacheWrite ?? '—'}
     <span style="opacity:.5;font-size:10px">（cache_read / cache_write）</span>` : '';
-  const modelHtml = model ? `<br><span style="opacity:.6;font-size:10px">🧠 模型：${escHtml(model)}</span>` : '';
+  const modelHtml = model ? `<br><span style="opacity:.6;font-size:10px"><i class="ic ic-brain"></i> 模型：${escHtml(model)}</span>` : '';
   panel.innerHTML = `
     <div class="token-log-section">
-      <b>📊 Token 用量</b><br>
+      <b><i class="ic ic-bar-chart"></i> Token 用量</b><br>
       输入 ${inputTok} &nbsp;+&nbsp; 输出 ${outputTok} &nbsp;=&nbsp; 合计 ${totalTok}
       ${cacheHtml}
       ${modelHtml}
       ${isStream ? '<br><span style="opacity:.55;font-size:10px">（流式模式：Token 数需 API 支持才会返回）</span>' : ''}
     </div>
     <div class="token-log-section">
-      <b>📤 发出去的完整请求</b>
+      <b><i class="ic ic-upload"></i> 发出去的完整请求</b>
       <span style="opacity:.6">（${requestMsgs.length} 条 · 约 ${reqChars} 字符）</span>
       <pre>${escHtml(reqFormatted)}</pre>
     </div>
     <div class="token-log-section">
-      <b>📥 收到的完整回复</b>
+      <b><i class="ic ic-download"></i> 收到的完整回复</b>
       <span style="opacity:.6">（约 ${replyChars} 字符）</span>
       <pre>${escHtml(reply)}</pre>
     </div>
@@ -932,7 +939,7 @@ export async function sendMessage() {
     const _rpInject = typeof window.getRpInjection === 'function' ? window.getRpInjection() : null;
     if (_rpInject) {
       apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _rpInject, cache_control: { type: 'ephemeral' } }] });
-      _apiMeta.push({ label: 'system · 🎭RP场景 🔒缓存' });
+      _apiMeta.push({ label: 'system · RP场景 · 缓存' });
     } else {
       const { stable: _stableBlocks, dynamic: _dynamicBlocks } = await getMemoryContextBlocks();
       if (settings.systemPrompt.trim()) {
@@ -1017,7 +1024,7 @@ export async function sendMessage() {
       }
       if (_stableBlocks.length > 0) {
         apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stableBlocks.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
-        _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
+        _apiMeta.push({ label: 'system · 记忆档案+设定 · 缓存' });
       }
       if (_dynamicBlocks.length > 0) {
         apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });
@@ -1033,7 +1040,7 @@ export async function sendMessage() {
       const _rpUserName = typeof window.getRpUserName === 'function' ? window.getRpUserName() : '';
       if (_rpUserName) {
         apiMsgs.push({ role: 'system', content: `【我的角色名】${_rpUserName}` });
-        _apiMeta.push({ label: 'system · 🎭我的角色名' });
+        _apiMeta.push({ label: 'system · 我的角色名' });
       }
       localStorage.removeItem(_PFX + 'xinye_kiss_hint');
     } else {
@@ -2451,7 +2458,7 @@ export async function sendMessage() {
                   if (_toolCallMap[_ev.toolDelta.index]) _toolCallMap[_ev.toolDelta.index].args += _ev.toolDelta.arguments;
                 }
                 if (!_hasTools) {
-                  if (_ev.thinking) { _think += _ev.thinking; if (_bubbleEl) { _bubbleEl.textContent = '💭 思考中...\n' + _think.slice(-200); scrollBottom(); } }
+                  if (_ev.thinking) { _think += _ev.thinking; if (_bubbleEl) { setStatus(_bubbleEl, 'thought', '思考中…\n' + _think.slice(-200)); scrollBottom(); } }
                   if (_ev.content) {
                     if (!_aiMsg) {
                       typing.classList.remove('show');
@@ -2459,7 +2466,7 @@ export async function sendMessage() {
                       await appendMsgDOM(_aiMsg);
                       _bubbleEl = chatArea.querySelector('.msg-row:last-child .msg-bubble');
                     }
-                    _content += _ev.content; _bubbleEl.textContent = _content; scrollBottom();
+                    _content += _ev.content; _clearIco(_bubbleEl); _bubbleEl.textContent = _content; scrollBottom();
                   }
                 }
               } else {
@@ -2479,7 +2486,7 @@ export async function sendMessage() {
                 }
                 if (!_hasTools) {
                   const _tk = _d.reasoning_content || _d.thinking || '';
-                  if (_tk) { _think += _tk; if (_bubbleEl) { _bubbleEl.textContent = '💭 思考中...\n' + _think.slice(-200); scrollBottom(); } }
+                  if (_tk) { _think += _tk; if (_bubbleEl) { setStatus(_bubbleEl, 'thought', '思考中…\n' + _think.slice(-200)); scrollBottom(); } }
                   if (_d.content) {
                     if (!_aiMsg) {
                       typing.classList.remove('show');
@@ -2487,7 +2494,7 @@ export async function sendMessage() {
                       await appendMsgDOM(_aiMsg);
                       _bubbleEl = chatArea.querySelector('.msg-row:last-child .msg-bubble');
                     }
-                    _content += _d.content; _bubbleEl.textContent = _content; scrollBottom();
+                    _content += _d.content; _clearIco(_bubbleEl); _bubbleEl.textContent = _content; scrollBottom();
                   }
                 }
               } catch(_) {}
@@ -2500,7 +2507,7 @@ export async function sendMessage() {
             const _idx = messages.findIndex(m => m.id === _aiMsg.id);
             if (_idx >= 0) messages[_idx].content = _partial;
             try { await updateMessage(_aiMsg.id, _partial); } catch(_e) {}
-            if (_bubbleEl) _bubbleEl.textContent = _partial;
+            if (_bubbleEl) { _clearIco(_bubbleEl); _bubbleEl.textContent = _partial; }
           }
         }
         if (/^\s*\[Backend Error\]/i.test(_content)) {
@@ -2513,7 +2520,7 @@ export async function sendMessage() {
           if (_xmlTcs) {
             _tcs = _xmlTcs;
             _content = _content.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim();
-            if (_bubbleEl) _bubbleEl.textContent = _content;
+            if (_bubbleEl) { _clearIco(_bubbleEl); _bubbleEl.textContent = _content; }
           }
         }
         if (!_tcs.length) {
@@ -2521,7 +2528,7 @@ export async function sendMessage() {
           if (_dsmlTcs) {
             _tcs = _dsmlTcs;
             _content = _content.replace(/<｜｜DSML｜｜tool_calls>[\s\S]*?<\/｜｜DSML｜｜tool_calls>/g, '').trim();
-            if (_bubbleEl) _bubbleEl.textContent = _content;
+            if (_bubbleEl) { _clearIco(_bubbleEl); _bubbleEl.textContent = _content; }
           }
         }
         return { content: _content, think: _think, tool_calls: _tcs.length ? _tcs : null, aiMsg: _aiMsg, bubbleEl: _bubbleEl, usage: _streamUsage2 };
@@ -2742,7 +2749,8 @@ export async function sendMessage() {
                 const _digestDiv = document.createElement('div');
                 _digestDiv.className = 'tool-digest';
                 _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
-                _digestDiv.textContent = `💭 ${_m2.content}`;
+                _digestDiv.innerHTML = '<i class="ic ic-thought"></i> ';
+                _digestDiv.appendChild(document.createTextNode(_m2.content));
                 const _typingEl = document.querySelector('#typing');
                 if (_typingEl && _typingEl.parentNode) {
                   _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
@@ -2910,7 +2918,8 @@ export async function sendMessage() {
               const _digestDiv = document.createElement('div');
               _digestDiv.className = 'tool-digest';
               _digestDiv.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(100,150,255,0.08);border-left:3px solid rgba(100,150,255,0.4);border-radius:4px;font-size:13px;color:var(--text-color);opacity:0.85';
-              _digestDiv.textContent = `💭 ${_m2.content}`;
+              _digestDiv.innerHTML = '<i class="ic ic-thought"></i> ';
+                _digestDiv.appendChild(document.createTextNode(_m2.content));
               const _typingEl = document.querySelector('#typing');
               if (_typingEl && _typingEl.parentNode) {
                 _typingEl.parentNode.insertBefore(_digestDiv, _typingEl);
@@ -3008,8 +3017,8 @@ export async function sendMessage() {
               _simpleEvtType = '';
               if (!_sev) continue;
               if (_sev.usage) _streamUsage = { ..._streamUsage, ..._sev.usage };
-              if (_sev.thinking) { thinkText += _sev.thinking; bubbleEl.textContent = '💭 思考中...\n' + thinkText.slice(-200); scrollBottom(); }
-              if (_sev.content) { fullText += _sev.content; bubbleEl.textContent = fullText; scrollBottom(); }
+              if (_sev.thinking) { thinkText += _sev.thinking; setStatus(bubbleEl, 'thought', '思考中…\n' + thinkText.slice(-200)); scrollBottom(); }
+              if (_sev.content) { fullText += _sev.content; _clearIco(bubbleEl); bubbleEl.textContent = fullText; scrollBottom(); }
             } else {
             if (!trimmed || trimmed === 'data: [DONE]') continue;
             if (!trimmed.startsWith('data: ')) continue;
@@ -3018,8 +3027,8 @@ export async function sendMessage() {
               if (chunk.usage) _streamUsage = chunk.usage;
               const delta = chunk.choices?.[0]?.delta;
               const tk = delta?.reasoning_content || delta?.thinking || '';
-              if (tk) { thinkText += tk; bubbleEl.textContent = '💭 思考中...\n' + thinkText.slice(-200); scrollBottom(); }
-              if (delta?.content) { fullText += delta.content; bubbleEl.textContent = fullText; scrollBottom(); }
+              if (tk) { thinkText += tk; setStatus(bubbleEl, 'thought', '思考中…\n' + thinkText.slice(-200)); scrollBottom(); }
+              if (delta?.content) { fullText += delta.content; _clearIco(bubbleEl); bubbleEl.textContent = fullText; scrollBottom(); }
             } catch(_) {}
             }
           }
@@ -3135,15 +3144,15 @@ export async function regenerateLastAI() {
               if (!t.startsWith('data: ')) continue;
               const ev = parseAnthropicEvent(_evtType, t.slice(6));
               _evtType = '';
-              if (ev?.thinking) { thinkText += ev.thinking; if (bubbleEl) { bubbleEl.textContent = '💭 思考中...'; } }
-              if (ev?.content) { fullText += ev.content; if (bubbleEl) { bubbleEl.textContent = fullText; scrollBottom(); } }
+              if (ev?.thinking) { thinkText += ev.thinking; if (bubbleEl) { setStatus(bubbleEl, 'thought', '思考中…'); } }
+              if (ev?.content) { fullText += ev.content; if (bubbleEl) { _clearIco(bubbleEl); bubbleEl.textContent = fullText; scrollBottom(); } }
             } else {
               if (!t.startsWith('data: ') || t === 'data: [DONE]') continue;
               try {
                 const chunk = JSON.parse(t.slice(6));
                 const delta = chunk.choices?.[0]?.delta;
-                if (delta?.reasoning_content || delta?.thinking) { thinkText += delta.reasoning_content || delta.thinking; if (bubbleEl) { bubbleEl.textContent = '💭 思考中...'; } }
-                if (delta?.content) { fullText += delta.content; if (bubbleEl) { bubbleEl.textContent = fullText; scrollBottom(); } }
+                if (delta?.reasoning_content || delta?.thinking) { thinkText += delta.reasoning_content || delta.thinking; if (bubbleEl) { setStatus(bubbleEl, 'thought', '思考中…'); } }
+                if (delta?.content) { fullText += delta.content; if (bubbleEl) { _clearIco(bubbleEl); bubbleEl.textContent = fullText; scrollBottom(); } }
               } catch(_) {}
             }
           }

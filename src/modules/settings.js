@@ -440,7 +440,7 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
   hdr.innerHTML = `
     <span data-a="check" style="font-size:15px;min-width:18px;color:var(--pink-deep);cursor:pointer;user-select:none" title="切换为当前使用">${isActive ? '✓' : '○'}</span>
     <span style="flex:1;font-size:13px;font-weight:${isActive ? '600' : '400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name || '未命名'}</span>
-    <button data-a="rename" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">✏</button>
+    <button data-a="rename" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)"><i class="ic ic-pen"></i></button>
     <button data-a="copy" title="复制预设" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">复</button>
     <button data-a="up" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▲</button>
     <button data-a="dn" style="padding:2px 6px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">▼</button>
@@ -705,9 +705,9 @@ export function renderTtsPresets() {
     div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:' + cardBg + ';border-radius:10px;border:1px solid ' + cardBorder;
     div.innerHTML = `
       <span style="flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.name)}</span>
-      <button class="btn-secondary" style="padding:4px 8px;font-size:12px;white-space:nowrap;flex-shrink:0">✏</button>
+      <button class="btn-secondary" style="padding:4px 8px;font-size:12px;white-space:nowrap;flex-shrink:0"><i class="ic ic-pen"></i></button>
       <button class="btn-secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;flex-shrink:0">激活</button>
-      <button class="btn-danger" style="padding:4px 8px;font-size:12px;flex-shrink:0">✕</button>`;
+      <button class="btn-danger" style="padding:4px 8px;font-size:12px;flex-shrink:0"><i class="ic ic-x"></i></button>`;
     list.appendChild(div);
     div.querySelectorAll('button')[0].onclick = () => {
       const n = prompt('改名：', p.name || '');

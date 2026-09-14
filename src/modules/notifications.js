@@ -196,7 +196,7 @@ export async function proactiveMsg(type) {
   if (settings.systemPrompt?.trim()) _stableBlocks.push(settings.systemPrompt.trim());
   if (_stableBlocks.length > 0) {
     apiMsgs.push({ role: 'system', content: [{ type: 'text', text: _stableBlocks.join('\n\n---\n\n'), cache_control: { type: 'ephemeral' } }] });
-    _apiMeta.push({ label: 'system · 记忆档案+设定 🔒缓存' });
+    _apiMeta.push({ label: 'system · 记忆档案+设定 · 缓存' });
   }
   if (_dynamicBlocks.length > 0) {
     apiMsgs.push({ role: 'system', content: _dynamicBlocks.join('\n\n---\n\n') });

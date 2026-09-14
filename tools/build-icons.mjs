@@ -78,6 +78,31 @@ const ICONS = {
   'skip-forward': "<path d='M5 4.5 15 12 5 19.5z'/><path d='M19 5v14'/>",
   play:     "<path d='M6 3.5 20 12 6 20.5z'/>",
   thought:  "<circle cx='12' cy='8.8' r='6.3'/><circle cx='7.6' cy='17.8' r='1.6'/><circle cx='12.2' cy='20.6' r='1.05'/>",
+  camera:   "<path d='M22 8.5v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h3l1.5-2.5h7L17 6.5h3a2 2 0 0 1 2 2z'/><circle cx='12' cy='13' r='3.5'/>",
+  globe:    "<circle cx='12' cy='12' r='9'/><path d='M3 12h18'/><path d='M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z'/>",
+  music:    "<path d='M9 18V5.5l11-2v12'/><circle cx='6.5' cy='18' r='2.5'/><circle cx='17.5' cy='15.5' r='2.5'/>",
+  flower:   "<circle cx='12' cy='12' r='2.3'/><circle cx='12' cy='6.6' r='2.6'/><circle cx='17.4' cy='9.9' r='2.6'/><circle cx='15.3' cy='16.2' r='2.6'/><circle cx='8.7' cy='16.2' r='2.6'/><circle cx='6.6' cy='9.9' r='2.6'/>",
+  'arrow-left': "<path d='M19 12H5'/><path d='m11 6-6 6 6 6'/>",
+  'check-square': "<rect x='3.5' y='3.5' width='17' height='17' rx='3'/><path d='m8 12.3 2.7 2.7L16.5 9'/>",
+  check:    "<path d='m4.5 12.5 5 5 10-11'/>",
+  star:     "<path d='M12 2.8 15 9l6.8.9-4.9 4.8 1.2 6.8L12 18.3 5.9 21.5l1.2-6.8L2.2 9.9 9 9z'/>",
+
+  // ── 文档 / 编辑 ─────────────────────────────
+  pen:      "<path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4.5 1 1-4.5z'/>",
+  bookmark: "<path d='M19 21 12 16.5 5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5z'/>",
+  calendar: "<rect x='3.5' y='5' width='17' height='16' rx='2.5'/><path d='M3.5 10h17'/><path d='M8 3v4'/><path d='M16 3v4'/>",
+  'file-text': "<path d='M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5z'/><path d='M14 2.5v5h5'/><path d='M9 13h6'/><path d='M9 17h4'/>",
+  clipboard: "<rect x='5.5' y='4.5' width='13' height='17' rx='2.5'/><path d='M9 4.5V3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5v1'/>",
+  paperclip: "<path d='M20.5 11.5 12 20a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.3-8.3'/>",
+  'bar-chart': "<path d='M4 20h16'/><path d='M7 20V11'/><path d='M12 20V4.5'/><path d='M17 20v-6'/>",
+  ruler:    "<path d='M15.5 2.5 21.5 8.5 8.5 21.5 2.5 15.5z'/><path d='M6.5 11.5 8 13'/><path d='M9.5 8.5 11 10'/><path d='M12.5 5.5 14 7'/>",
+  history:  "<path d='M3 12a9 9 0 1 0 3-6.7L3 8'/><path d='M3 3v5h5'/><path d='M12 7.5V12l3.2 2'/>",
+  user:     "<path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/>",
+  masks:    "<path d='M5 4h14v5.5a7 7 0 0 1-14 0z'/><path d='M9.3 8h.01'/><path d='M14.7 8h.01'/><path d='M9.4 11.2s1 1.3 2.6 1.3 2.6-1.3 2.6-1.3'/>",
+  maximize: "<path d='M8 3H5a2 2 0 0 0-2 2v3'/><path d='M16 3h3a2 2 0 0 1 2 2v3'/><path d='M21 16v3a2 2 0 0 1-2 2h-3'/><path d='M3 16v3a2 2 0 0 0 2 2h3'/>",
+  lock:     "<rect x='4.5' y='10.5' width='15' height='10' rx='2.5'/><path d='M8 10.5V7a4 4 0 0 1 8 0v3.5'/>",
+  unlock:   "<rect x='4.5' y='10.5' width='15' height='10' rx='2.5'/><path d='M8 10.5V7a4 4 0 0 1 7.4-2.1'/>",
+  'rotate-cw': "<path d='M22 5v5h-5'/><path d='M19.4 15a8 8 0 1 1-1.9-8.3L22 10'/>",
 };
 
 function uri(inner) {
