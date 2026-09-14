@@ -1,7 +1,7 @@
 import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, messages } from './state.js';
 import { mainApiFetch, subApiFetch, getSubApiCfg, getApiPresets } from './api.js';
 import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, parseAnthropicEvent } from './anthropic.js';
-import { toast, isDarkMode, escHtml, fmtTime, $, nowStr } from './utils.js';
+import { toast, isDarkMode, escHtml, fmtTime, $, nowStr, setStatus } from './utils.js';
 
 const DEFAULT_AI_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="#ffe0b2" width="100" height="100" rx="50"/><text x="50" y="64" text-anchor="middle" font-size="52">🦊</text></svg>')}`;
 
@@ -151,10 +151,10 @@ export async function testEmbeddingApi() {
   btn.disabled = false; btn.textContent = '测试 Embedding 连接';
   if (vec && vec.length > 0) {
     result.style.color = '#4caf50';
-    result.textContent = `✅ 成功！返回向量维度：${vec.length}，模型：${settings.embeddingModel || 'text-embedding-3-small'}。记忆检索将使用向量语义匹配。`;
+    setStatus(result, 'check-circle', `成功！返回向量维度：${vec.length}，模型：${settings.embeddingModel || 'text-embedding-3-small'}。记忆检索将使用向量语义匹配。`);
   } else {
     result.style.color = '#e57373';
-    result.textContent = `❌ 失败，将降级使用关键词匹配。请检查：Key是否正确、URL是否支持 /embeddings 接口、模型名是否正确。详见控制台（F12）。`;
+    setStatus(result, 'x-circle', `失败，将降级使用关键词匹配。请检查：Key是否正确、URL是否支持 /embeddings 接口、模型名是否正确。详见控制台（F12）。`);
   }
 }
 
@@ -319,7 +319,7 @@ export async function getMemoryContextBlocks() {
     if (ragStatusEl) {
       const now = new Date(); const h = String(now.getHours()).padStart(2,'0'); const m2 = String(now.getMinutes()).padStart(2,'0');
       const withVec = bank.archived.filter(i => i.embedding).length;
-      ragStatusEl.textContent = `🔍 上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条，有向量${withVec}条) → 近期${recentItems.length}条 + 语义${relevant.length}条`;
+      setStatus(ragStatusEl, 'search', `上次检索：${h}:${m2} · ${method} · 候选${pool.length}条(共${bank.archived.length}条，有向量${withVec}条) → 近期${recentItems.length}条 + 语义${relevant.length}条`);
       ragStatusEl.style.borderColor = queryVec ? 'var(--pink)' : 'var(--apricot)';
     }
 
@@ -625,7 +625,7 @@ export async function rebuildArchiveIndex(silent = false) {
     return;
   }
   const statusEl = document.getElementById('archiveIndexStatus');
-  if (statusEl) statusEl.textContent = '⏳ 解析档案结构…';
+  if (statusEl) setStatus(statusEl, 'clock-dash', '解析档案结构…');
   const parsed = parseArchiveForInjection(archiveText, markersText);
   if (!parsed) { if (!silent) toast('档案解析失败'); return; }
   settings.memoryArchiveCore   = parsed.core;
@@ -640,7 +640,7 @@ export async function rebuildArchiveIndex(silent = false) {
   for (const { title, chunks } of chapterChunks) {
     for (const text of chunks) {
       processed++;
-      if (statusEl) statusEl.textContent = `⏳ 向量计算 (${processed}/${totalChunks})：${title}`;
+      if (statusEl) setStatus(statusEl, 'clock-dash', `向量计算 (${processed}/${totalChunks})：${title}`);
       const emb = await getEmbedding(text);
       extended.push({ title, text, embedding: emb });
     }
@@ -851,7 +851,7 @@ export function skipMemoryCursorToEnd() {
   bank.lastProcessedIndex = -999;
   saveSettings();
   const el = document.getElementById('memoryExtractStatus');
-  if (el) el.textContent = `⏭️ 游标已跳至末尾：${oldTime ? new Date(oldTime).toLocaleDateString() : '无'} → ${new Date(newTime).toLocaleDateString()}`;
+  if (el) setStatus(el, 'skip-forward', `游标已跳至末尾：${oldTime ? new Date(oldTime).toLocaleDateString() : '无'} → ${new Date(newTime).toLocaleDateString()}`);
   toast(`✅ 游标已跳到末尾，从现在起只提取新消息`);
 }
 
@@ -866,7 +866,7 @@ export function resetMemoryCursor() {
   bank.lastProcessedIndex = -999;
   saveSettings();
   const el = document.getElementById('memoryExtractStatus');
-  if (el) el.textContent = `🔄 游标已重置：${new Date(oldTime || Date.now()).toLocaleDateString()} → ${new Date(newTime).toLocaleDateString()}（将重扫最近${Math.min(n, messages.length)}条消息）`;
+  if (el) setStatus(el, 'rotate-ccw', `游标已重置：${new Date(oldTime || Date.now()).toLocaleDateString()} → ${new Date(newTime).toLocaleDateString()}（将重扫最近${Math.min(n, messages.length)}条消息）`);
   toast(`✅ 游标重置完成，下次发消息开始重新提取最近${Math.min(n, messages.length)}条`);
 }
 
@@ -875,20 +875,20 @@ export async function manualExtractBatch() {
   if (_manualExtracting) { toast('⏳ 正在提取中，稍等…'); return; }
   _manualExtracting = true;
   const btn = document.querySelector('button[onclick="manualExtractBatch()"]');
-  if (btn) btn.textContent = '⏳ 提取中…';
+  if (btn) setStatus(btn, 'clock-dash', '提取中…');
   const el = document.getElementById('memoryExtractStatus');
   try {
     await updateMoodState();
     if (el) {
       const bank = ensureMemoryState();
       const cursorStr = bank.lastProcessedTime ? new Date(bank.lastProcessedTime).toLocaleDateString() : '无';
-      el.textContent = `⚡ 手动提取完成 · 游标${cursorStr}`;
+      setStatus(el, 'zap', `手动提取完成 · 游标${cursorStr}`);
     }
   } catch(e) {
-    if (el) el.textContent = `⚡ 手动提取失败: ${e.message}`;
+    if (el) setStatus(el, 'zap', `手动提取失败: ${e.message}`);
   } finally {
     _manualExtracting = false;
-    if (btn) btn.textContent = '⚡ 立即提取一批（8条）';
+    if (btn) setStatus(btn, 'zap', '立即提取一批（8条）');
   }
 }
 
@@ -1014,7 +1014,7 @@ export async function dedupMemoryBank(silent = false) {
   }
 
   const statusEl = document.getElementById('memoryDedupStatus');
-  if (statusEl) statusEl.textContent = `⏳ 去重中（${withVec.length}条）…`;
+  if (statusEl) setStatus(statusEl, 'clock-dash', `去重中（${withVec.length}条）…`);
   console.log(`[Dedup] 开始：候选${withVec.length}条（总${items.length}条）`);
 
   const toDelete = new Set();
@@ -1080,7 +1080,7 @@ export async function detectMemoryConflicts(silent = false) {
   }
 
   const statusEl = document.getElementById('memoryConflictStatus');
-  if (statusEl) statusEl.textContent = `⏳ 扫描候选对（${withVec.length}条）…`;
+  if (statusEl) setStatus(statusEl, 'clock-dash', `扫描候选对（${withVec.length}条）…`);
 
   const pairs = [];
   for (let i = 0; i < withVec.length; i++) {
@@ -1109,7 +1109,7 @@ export async function detectMemoryConflicts(silent = false) {
   const pickLow  = lowBin.slice(0, 10);
   const top = [...pickHigh, ...pickMid, ...pickLow];
   console.log(`[Conflict] 候选${pairs.length}对，分箱采样：高${highBin.length}(取${pickHigh.length}) + 中${midBin.length}(取${pickMid.length}) + 低${lowBin.length}(取${pickLow.length}) = 给副API ${top.length}对`);
-  if (statusEl) statusEl.textContent = `⏳ 副API审${top.length}对（高${pickHigh.length}/中${pickMid.length}/低${pickLow.length}）…`;
+  if (statusEl) setStatus(statusEl, 'clock-dash', `副API审${top.length}对（高${pickHigh.length}/中${pickMid.length}/低${pickLow.length}）…`);
 
   const numbered = top.map((p, i) => {
     const aTime = p.a.updatedAt || p.a.createdAt || 0;
@@ -1145,7 +1145,7 @@ ${numbered.map(n => n.text).join('\n\n')}
     });
     if (!res || !res.ok) {
       if (!silent) toast('副API调用失败');
-      if (statusEl) statusEl.textContent = '❌ 副API失败';
+      if (statusEl) setStatus(statusEl, 'x-circle', '副API失败');
       return { reviewed: top.length, removed: 0 };
     }
     const data = await res.json();
@@ -1164,7 +1164,7 @@ ${numbered.map(n => n.text).join('\n\n')}
     if (!match) {
       console.warn('[Conflict] 副API返回无法解析：', raw.slice(0, 200));
       if (!silent) toast('返回格式错误，看vConsole');
-      if (statusEl) statusEl.textContent = '❌ 返回格式错误';
+      if (statusEl) setStatus(statusEl, 'x-circle', '返回格式错误');
       return { reviewed: top.length, removed: 0 };
     }
     const parsed = JSON.parse(match[0]);
@@ -1452,7 +1452,7 @@ ${chatText}
       }
     }
   } catch(err) { if (!silent) toast('整理失败：' + err.message); }
-  finally { if (!silent) { btn.disabled = false; btn.textContent = '📝 从近期聊天里整理记忆'; } }
+  finally { if (!silent) { btn.disabled = false; setStatus(btn, 'note', '从近期聊天里整理记忆'); } }
 }
 
 export async function autoDigestMemory() {
@@ -1567,7 +1567,7 @@ export async function updateMoodState() {
   const sub = getSubApiCfg();
   if (!sub.apiKey) {
     const el = document.getElementById('memoryExtractStatus');
-    if (el) el.textContent = '🤖 自动提取状态：副API未配置，跳过';
+    if (el) setStatus(el, 'bot', '自动提取状态：副API未配置，跳过');
     return;
   }
   try {
@@ -1635,7 +1635,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       _extractFailCount++;
       console.warn(`[Memory Extract] 副API请求失败(${res?.status})，连续失败${_extractFailCount}次，游标不前进`);
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 自动提取：副API失败(${res?.status})，连续${_extractFailCount}次`;
+      if (el) setStatus(el, 'bot', `自动提取：副API失败(${res?.status})，连续${_extractFailCount}次`);
       if (_extractFailCount >= 3) {
         toast('⚠️ 记忆提取连续3次失败，请检查副API配置');
       }
@@ -1653,7 +1653,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     if (!raw) {
       console.warn('[Memory Extract] 副API返回空内容，完整响应：', JSON.stringify(data?.choices?.[0]));
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 自动提取：返回空内容，游标保持`;
+      if (el) setStatus(el, 'bot', `自动提取：返回空内容，游标保持`);
       await saveSettings(); return;
     }
     const match = raw.match(/\{[\s\S]*\}/);
@@ -1683,7 +1683,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
       console.log(`[Memory Extract] ✅ 提取完成：新增${newCount}条，合并${mergeCount}条 → ${parsed.memories.map(m => `「${m.summary}」`).join('，')}`);
       const el = document.getElementById('memoryExtractStatus');
-      if (el) el.textContent = `🤖 末次提取：${ts} · +${newCount}条 合并${mergeCount}条 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`;
+      if (el) setStatus(el, 'bot', `末次提取：${ts} · +${newCount}条 合并${mergeCount}条 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`);
     } else {
       console.log(`[Memory Extract] 判定不值得记，游标推至 ${new Date(batchLastTime).toLocaleString()}`);
       renderMemoryBankPreview();
@@ -1691,7 +1691,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
       if (el) {
         const now = new Date();
         const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        el.textContent = `🤖 末次提取：${ts} · 判定不值得记 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`;
+        setStatus(el, 'bot', `末次提取：${ts} · 判定不值得记 · 游标${new Date(bankNow.lastProcessedTime).toLocaleDateString()}`);
       }
     }
 
@@ -1701,7 +1701,7 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     _extractFailCount++;
     console.warn('[Memory Extract] 提取异常（游标未前进）', e);
     const el = document.getElementById('memoryExtractStatus');
-    if (el) el.textContent = `🤖 自动提取异常：${e.message}`;
+    if (el) setStatus(el, 'bot', `自动提取异常：${e.message}`);
     if (_extractFailCount >= 3) {
       toast('⚠️ 记忆提取连续异常，请检查副API');
     }

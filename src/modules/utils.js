@@ -12,6 +12,19 @@ export function toast(msg) {
   console.log(`[Toast ${t}] ${msg}`);
 }
 
+/**
+ * 给「状态文本」元素换图标并改文字。
+ * 图标走 icons.css 的 .status-ico::before（CSS mask），颜色跟 currentColor 走；
+ * 用伪元素而不是 <i> 节点，是因为这些元素的 textContent 会被反复重写，<i> 会被冲掉。
+ */
+export function setStatus(el, icon, text) {
+  if (!el) return;
+  el.className = String(el.className || '').replace(/\bic-[a-z-]+\b|\bstatus-ico\b/g, '').trim();
+  el.classList.add('status-ico');
+  if (icon) el.classList.add('ic-' + icon);
+  el.textContent = text;
+}
+
 export function fallbackCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;

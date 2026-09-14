@@ -1,4 +1,4 @@
-import { $, toast, escHtml, isDarkMode, readFileAsBase64 } from './utils.js';
+import { $, toast, escHtml, isDarkMode, readFileAsBase64, setStatus } from './utils.js';
 import { settings, saveSettings, ensureMemoryState, messages } from './state.js';
 import { dbPut, dbGet, dbClear } from './db.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getImageCurPresetIdx, setImageCurPresetIdx } from './api.js';
@@ -169,7 +169,7 @@ export async function openSettings() {
   if (_coreMarkersEl) _coreMarkersEl.value = settings.memoryArchiveCoreMarkers || '';
   const _idxStatus = document.getElementById('archiveIndexStatus');
   if (_idxStatus && settings.memoryArchiveExtended?.length) {
-    _idxStatus.textContent = `✅ 已索引：Core ${(settings.memoryArchiveCore||'').length}字 · 常驻 ${(settings.memoryArchiveAlways||'').length}字 · ${settings.memoryArchiveExtended.length} 个Extended章节`;
+    setStatus(_idxStatus, 'check-circle', `已索引：Core ${(settings.memoryArchiveCore||'').length}字 · 常驻 ${(settings.memoryArchiveAlways||'').length}字 · ${settings.memoryArchiveExtended.length} 个Extended章节`);
   }
   renderMemoryBankPreview();
   // 情绪状态展示
@@ -927,8 +927,9 @@ export function updateHeaderStatus() {
 export function updateLocalServerDot() {
   const dot = document.getElementById('localServerDot');
   if (!dot) return;
-  if (!settings.solitudeServerUrl) { dot.textContent = ''; return; }
-  dot.textContent = _localServerOnline ? ' 🟢' : ' ⚪';
+  if (!settings.solitudeServerUrl) { dot.className = ''; dot.textContent = ''; return; }
+  dot.className = _localServerOnline ? 'dot on' : 'dot';
+  dot.textContent = '';
   dot.title = _localServerOnline ? 'Tailscale 已连接' : '未连接（离线将跳过同步）';
 }
 
@@ -1008,7 +1009,7 @@ export function initSettings() {
     const statusEl = $('#syncMemoryStatus');
     const btn = $('#btnSyncMemoryLocal');
     btn.disabled = true;
-    btn.textContent = '⏳ 同步中…';
+    setStatus(btn, 'clock-dash', '同步中…');
     try {
       const res = await fetch(`${settings.solitudeServerUrl.replace(/\/+$/, '')}/api/memory`, {
         method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -1018,14 +1019,14 @@ export function initSettings() {
       const charCount = content.length;
       const vMatch = content.match(/^# .+?v(\d+)/m);
       const ver = vMatch ? `v${vMatch[1]}` : '';
-      statusEl.textContent = `✅ 已同步 ${charCount} 字${ver ? '（' + ver + '）' : ''} → 电脑`;
+      setStatus(statusEl, 'check-circle', `已同步 ${charCount} 字${ver ? '（' + ver + '）' : ''} → 电脑`);
       toast(`✅ 记忆档案已同步到电脑（${charCount}字）`);
     } catch(e) {
-      statusEl.textContent = `❌ 同步失败：${e.message}`;
+      setStatus(statusEl, 'x-circle', `同步失败：${e.message}`);
       toast(`❌ 同步失败：${e.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = '💾 同步记忆档案到电脑';
+      setStatus(btn, 'save', '同步记忆档案到电脑');
     }
   };
 
@@ -1034,7 +1035,7 @@ export function initSettings() {
     const statusEl = $('#syncMemoryStatus');
     const btn = $('#btnImportMemoryFromServer');
     btn.disabled = true;
-    btn.textContent = '⏳ 导入中…';
+    setStatus(btn, 'clock-dash', '导入中…');
     statusEl.textContent = '正在从电脑读取最新记忆档案…';
     try {
       const res = await fetch(`${settings.solitudeServerUrl.replace(/\/+$/, '')}/api/memory/latest`, {
@@ -1063,14 +1064,14 @@ export function initSettings() {
       // 重建索引
       if (window.rebuildArchiveIndex) await window.rebuildArchiveIndex();
 
-      statusEl.textContent = `✅ 已导入 ${charCount} 字${ver ? '（' + ver + '）' : ''} ← 电脑（${data.filename}）`;
+      setStatus(statusEl, 'check-circle', `已导入 ${charCount} 字${ver ? '（' + ver + '）' : ''} ← 电脑（${data.filename}）`);
       toast(`✅ 记忆档案已导入（${charCount}字）\n记得点「🔄 重建索引」刷新分层！`);
     } catch(e) {
-      statusEl.textContent = `❌ 导入失败：${e.message}`;
+      setStatus(statusEl, 'x-circle', `导入失败：${e.message}`);
       toast(`❌ 导入失败：${e.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = '📥 从电脑一键导入记忆档案';
+      setStatus(btn, 'download', '从电脑一键导入记忆档案');
     }
   };
 
@@ -1114,7 +1115,7 @@ export function initSettings() {
       if (!document.getElementById(`checker-cb-${i}`)?.checked) return;
       const statusEl = document.getElementById(`checker-status-${i}`);
       const useBtn = document.getElementById(`checker-use-${i}`);
-      statusEl.textContent = '⏳'; statusEl.style.color = 'var(--text-light)';
+      setStatus(statusEl, 'clock-dash', ''); statusEl.style.color = 'var(--text-light)';
       const baseUrl = (p.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
       const isAnthropic = (p.apiFormat === 'anthropic');
       const url = isAnthropic
@@ -1139,21 +1140,21 @@ export function initSettings() {
         clearTimeout(tid);
         const ms = Date.now() - t0;
         if (res.ok || res.status === 400) {
-          statusEl.textContent = `✅ ${ms}ms`; statusEl.style.color = '#4caf50';
+          setStatus(statusEl, 'check-circle', `${ms}ms`); statusEl.style.color = '#4caf50';
           if (useBtn) useBtn.style.display = 'block';
         } else {
-          statusEl.textContent = `❌ ${res.status}`; statusEl.style.color = '#e57373';
+          setStatus(statusEl, 'x-circle', `${res.status}`); statusEl.style.color = '#e57373';
         }
       } catch(e) {
         if (e.name === 'AbortError') {
-          statusEl.textContent = '⏱️ 超时'; statusEl.style.color = '#ff9800';
+          setStatus(statusEl, 'clock-dash', '超时'); statusEl.style.color = '#ff9800';
         } else {
-          statusEl.textContent = `❌ 连不上`; statusEl.style.color = '#e57373';
+          setStatus(statusEl, 'x-circle', `连不上`); statusEl.style.color = '#e57373';
         }
       }
     });
     await Promise.all(tasks);
-    btn.disabled = false; btn.textContent = '▶ 重新检测';
+    btn.disabled = false; setStatus(btn, 'play', '重新检测');
   };
 
   // ======================== 识图预设按钮 ========================
@@ -1592,10 +1593,11 @@ export function initSettings() {
     const lastReg = localStorage.getItem('push_last_registered');
     const notifPerm = typeof Notification !== 'undefined' ? Notification.permission : '不支持';
     const hasPM = 'PushManager' in window;
+    const _ic = n => `<i class="ic ic-${n}"></i> `;
     let html = `<b>推送诊断</b><br>`;
-    html += `通知权限: ${notifPerm === 'granted' ? '✅已授权' : notifPerm === 'denied' ? '❌已拒绝' : '⚠️未请求'}<br>`;
-    html += `PushManager: ${hasPM ? '✅支持' : '❌不支持'}<br>`;
-    if (epType) html += `订阅类型: ${epType === 'FCM' ? '⚠️FCM（鸿蒙可能不支持）' : epType}<br>`;
+    html += `通知权限: ${notifPerm === 'granted' ? _ic('check-circle') + '已授权' : notifPerm === 'denied' ? _ic('x-circle') + '已拒绝' : _ic('alert') + '未请求'}<br>`;
+    html += `PushManager: ${hasPM ? _ic('check-circle') + '支持' : _ic('x-circle') + '不支持'}<br>`;
+    if (epType) html += `订阅类型: ${epType === 'FCM' ? _ic('alert') + 'FCM（鸿蒙可能不支持）' : epType}<br>`;
     if (lastReg) html += `上次注册: ${new Date(lastReg).toLocaleString('zh-CN')}<br>`;
     if (!hasPM) html += `<span style="color:#e44">⚠️ 此浏览器不支持Web Push，心跳消息仅在打开APP时拉取</span>`;
     else if (epType === 'FCM') html += `<span style="color:#e90">⚠️ FCM端点在鸿蒙系统可能无法送达，心跳消息会在打开APP时自动拉取</span>`;
@@ -1613,14 +1615,14 @@ export function initSettings() {
       try {
         const r = await fetch(buildServerFetchUrl(srv, '/api/push-test'), { method: 'POST', headers: buildServerHeaders(srv) });
         const d = await r.json();
-        _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
+        setStatus(_btnSendPushTest, 'send', '立即发一条推送（测试）');
         if (d.ok) {
           const detail = (d.results || []).map(r => `${r.type}: ${r.status}${r.code ? '('+r.code+')' : ''}${r.msg ? ' '+r.msg : ''}`).join('\n');
           alert(`推送已发送（${d.sent}个订阅，清理${d.cleaned || 0}个过期）\n\n${detail || '无详情'}`);
         }
         else alert('发送失败：' + (d.reason || '未知'));
       } catch(e) {
-        _btnSendPushTest.textContent = '📨 立即发一条推送（测试）';
+        setStatus(_btnSendPushTest, 'send', '立即发一条推送（测试）');
         alert('请求失败：' + e.message);
       }
     };
@@ -1778,13 +1780,13 @@ export function initSettings() {
         body: JSON.stringify(payload),
       });
       const d = await r.json();
-      if (_btnSyncHB) _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+      if (_btnSyncHB) setStatus(_btnSyncHB, 'cloud', '同步API配置到云端');
       if (d.ok) { if (!silent) toast('✅ 心跳配置已同步到云端'); return true; }
       if (!silent) alert('同步失败：' + (d.error || '未知'));
       console.log('[心跳] 同步失败:', d.error || '未知');
       return false;
     } catch(e) {
-      if (_btnSyncHB) _btnSyncHB.textContent = '☁️ 同步API配置到云端';
+      if (_btnSyncHB) setStatus(_btnSyncHB, 'cloud', '同步API配置到云端');
       if (!silent) alert('请求失败：' + e.message);
       console.log('[心跳] 同步请求失败:', e.message);
       return false;
@@ -1802,16 +1804,16 @@ export function initSettings() {
         headers: buildServerHeaders(srv),
       });
       const d = await r.json();
-      if (!d.ok) { _hbStatusEl.textContent = '心跳状态：获取失败'; return; }
-      const parts = [`心跳状态：${d.timerActive ? '✅ 已开启' : '⏸️ 未开启'}`];
+      if (!d.ok) { setStatus(_hbStatusEl, 'alert', '心跳状态：获取失败'); return; }
+      const parts = [`心跳状态：${d.timerActive ? '已开启' : '未开启'}`];
       if (d.configLoaded) parts.push('配置已同步');
       if (d.consecutiveFailures > 0) parts.push(`失败${d.consecutiveFailures}次`);
       if (d.lastHeartbeatAt) parts.push(`上次心跳 ${new Date(d.lastHeartbeatAt).toLocaleString()}`);
       if (d.nextHeartbeatAt) parts.push(`下次 ${new Date(d.nextHeartbeatAt).toLocaleString()}`);
       if (d.proactiveMessages > 0) parts.push(`已生成${d.proactiveMessages}条消息`);
-      _hbStatusEl.textContent = parts.join(' · ');
+      setStatus(_hbStatusEl, d.timerActive ? 'check-circle' : 'clock-dash', parts.join(' · '));
     } catch(e) {
-      _hbStatusEl.textContent = '心跳状态：连接失败';
+      setStatus(_hbStatusEl, 'alert', '心跳状态：连接失败');
     }
   };
   if (_btnRefreshHB) _btnRefreshHB.onclick = _refreshHeartbeatStatus;
@@ -1954,7 +1956,7 @@ export async function testVisionApi() {
   settings.visionModel = $('#setVisionModel').value.trim();
   if (!settings.visionApiKey) {
     result.style.display = 'block'; result.style.color = '#e57373';
-    result.textContent = '❌ 请先填写识图 API Key。'; return;
+    setStatus(result, 'x-circle', '请先填写识图 API Key。'); return;
   }
   btn.disabled = true; btn.textContent = '测试中…';
   result.style.display = 'block'; result.style.color = 'var(--text-light)';
@@ -1986,21 +1988,21 @@ export async function testVisionApi() {
     btn.disabled = false; btn.textContent = '测试识图连接';
     if (!res.ok) {
       result.style.color = '#e57373';
-      result.textContent = `❌ HTTP ${res.status}：${data?.error?.message || JSON.stringify(data)}`;
+      setStatus(result, 'x-circle', `HTTP ${res.status}：${data?.error?.message || JSON.stringify(data)}`);
     } else {
       const desc = data?.choices?.[0]?.message?.content?.trim();
       if (desc) {
         result.style.color = '#4caf50';
-        result.textContent = `✅ 成功！模型：${model}，返回：${desc}`;
+        setStatus(result, 'check-circle', `成功！模型：${model}，返回：${desc}`);
         saveSettings();
       } else {
         result.style.color = '#e57373';
-        result.textContent = `❌ 请求成功但无内容返回：${JSON.stringify(data)}`;
+        setStatus(result, 'x-circle', `请求成功但无内容返回：${JSON.stringify(data)}`);
       }
     }
   } catch (e) {
     btn.disabled = false; btn.textContent = '测试识图连接';
     result.style.color = '#e57373';
-    result.textContent = `❌ 网络错误：${e.message}`;
+    setStatus(result, 'x-circle', `网络错误：${e.message}`);
   }
 }

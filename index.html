@@ -174,8 +174,8 @@
           <option value="">— 选择预设 —</option>
         </select>
         <button type="button" id="btnLoadPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活主</button>
-        <button type="button" id="btnRenamePreset" style="padding:8px 12px;background:#fff8e1;color:#f57c00;border:1.5px solid #ffe082;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">改名</button>
-        <button type="button" id="btnDelPreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
+        <button type="button" id="btnRenamePreset" style="padding:8px 12px;background:var(--apricot);color:#e08a00;border:1.5px solid var(--apricot-deep);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">改名</button>
+        <button type="button" id="btnDelPreset" style="padding:8px 12px;background:var(--user-bubble);color:#e57373;border:1.5px solid var(--pink);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
         <button type="button" id="btnOpenPresetSort" style="padding:8px 10px;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">列表↕</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
@@ -292,7 +292,7 @@
           <option value="">— 选择预设 —</option>
         </select>
         <button type="button" id="btnLoadVisionPreset" style="padding:8px 12px;background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">激活</button>
-        <button type="button" id="btnDelVisionPreset" style="padding:8px 12px;background:#ffebee;color:#e57373;border:1.5px solid #ffcdd2;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
+        <button type="button" id="btnDelVisionPreset" style="padding:8px 12px;background:var(--user-bubble);color:#e57373;border:1.5px solid var(--pink);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;white-space:nowrap">删除</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <input type="text" id="visionPresetName" placeholder="预设名称（如：GLM-4.6V / Gemini Flash）" style="flex:1">
@@ -498,9 +498,9 @@
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px"><i class="ic ic-message"></i> 普通记忆</div>
           <div id="memoryRecentList" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
-        <div id="memoryRagStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🔍 记忆检索状态：等待第一次对话…</div>
+        <div id="memoryRagStatus" class="status-ico ic-search" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">记忆检索状态：等待第一次对话…</div>
         <div id="memoryArchiveStat" style="padding:10px 12px;border-radius:12px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)"></div>
-        <div id="memoryExtractStatus" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">🤖 自动提取状态：等待副API工作…</div>
+        <div id="memoryExtractStatus" class="status-ico ic-bot" style="padding:8px 12px;border-radius:10px;background:var(--warm-bg);border:1px dashed var(--text-light);font-size:12px;color:var(--text-light)">自动提取状态：等待副API工作…</div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <input id="memoryCursorReset" type="number" min="1" value="500" placeholder="条数" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--bg);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box" />
           <button type="button" onclick="resetMemoryCursor()" style="padding:9px;background:transparent;color:var(--text);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit"><i class="ic ic-rotate-ccw"></i> 重置提取游标</button>
@@ -947,7 +947,7 @@
       <button class="btn-secondary" onclick="exportTTSCache()" style="width:100%;margin-top:8px"><i class="ic ic-mic"></i> 导出TTS缓存（训练素材）</button>
       <button class="btn-secondary" id="btnTestPush" style="width:100%;margin-top:8px"><i class="ic ic-bell"></i> 测试推送支持</button>
       <button class="btn-secondary" id="btnSendPushTest" style="width:100%;margin-top:8px"><i class="ic ic-send"></i> 立即发一条推送（测试）</button>
-      <div id="pushDiagInfo" style="margin-top:6px;padding:8px;border-radius:8px;background:var(--bg-secondary,#f5f0ff);font-size:12px;color:var(--text-muted,#999);display:none"></div>
+      <div id="pushDiagInfo" style="margin-top:6px;padding:8px;border-radius:8px;background:var(--warm-bg2);font-size:12px;color:var(--text-light);display:none"></div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
         <input type="text" id="inputPushProxy" placeholder="推送代理地址（如 http://127.0.0.1:7890）" style="flex:1;font-size:12px">
         <button class="btn-secondary" id="btnSavePushProxy" style="white-space:nowrap;font-size:12px">保存</button>

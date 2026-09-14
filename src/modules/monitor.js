@@ -113,7 +113,7 @@ function _limitsBlock(d) {
   return `<div class="mon-group-title">额度</div>
     <div class="mon-limits">${chips}</div>
     ${rel}
-    <button class="mon-ask" id="monAskBtn">想调整 ✍️</button>
+    <button class="mon-ask" id="monAskBtn">想调整 <i class="ic ic-note"></i></button>
     ${histHtml}`;
 }
 
@@ -146,7 +146,7 @@ function _render(d) {
   if (managed.length) {
     html += `<div class="mon-group-title">今天 · 额度内</div>` + managed.map(_appRow).join('');
   } else {
-    html += `<div class="mon-empty" style="margin-bottom:4px">今天还没碰过要管的那几个 🌿</div>`;
+    html += `<div class="mon-empty" style="margin-bottom:4px">今天还没碰过要管的那几个</div>`;
   }
 
   if (free.length) {
