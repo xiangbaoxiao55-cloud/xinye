@@ -29,6 +29,16 @@ const _tokenLogs = new Map();
 const _openPanels = new Set();
 
 // ======================== 按需加载图片（防OOM） ========================
+// 回填时必须把占位节点整块换掉：只写 el.innerHTML 的话，占位 span 的固定 160×120
+// 盒子会留在文档流里，图片被压到 160 宽、还溢出盖住下面的「保存/重试/改画」和气泡上边缘
+function _replaceLazyImg(el, html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const frag = document.createDocumentFragment();
+  while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+  el.replaceWith(frag);
+}
+
 const _imgObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (!entry.isIntersecting) return;
@@ -45,9 +55,9 @@ const _imgObserver = new IntersectionObserver((entries) => {
         const origUrl = src.startsWith('__HTTP_URL__:') ? src.slice(13) : null;
         const imgSrc = origUrl ? null : (src.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(src) : src);
         if (origUrl) {
-          el.innerHTML = `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>`;
+          _replaceLazyImg(el, `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>`);
         } else {
-          el.innerHTML = `<img class="gen-img" src="${escHtml(imgSrc)}" alt="炘也画的图" data-src="${escHtml(imgSrc)}">`;
+          _replaceLazyImg(el, `<img class="gen-img" src="${escHtml(imgSrc)}" alt="炘也画的图" data-src="${escHtml(imgSrc)}">`);
         }
         // 同时回写内存，后续操作（保存/重试等）可直接用
         const mm = messages.find(m => m.id === msgId);
@@ -55,7 +65,7 @@ const _imgObserver = new IntersectionObserver((entries) => {
       } else if (field === 'images') {
         const allImgs = full.images || (full.image ? [full.image] : []);
         if (allImgs.length) {
-          el.innerHTML = allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('');
+          _replaceLazyImg(el, allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join(''));
           const mm = messages.find(m => m.id === msgId);
           if (mm) { mm.images = full.images; mm.image = full.image; delete mm._hasImages; }
         }
