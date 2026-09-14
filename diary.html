@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>我们的日记本</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -162,7 +163,7 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .sheet-textarea:focus{border-color:var(--pink);background:var(--bg)}
 .sheet-btns{display:flex;gap:10px;flex-shrink:0}
 .btn-ai{
-  flex:1;padding:12px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
+  flex:1;gap:6px;padding:12px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);
   background:var(--pink-light);color:var(--pink-deep);font-size:14px;font-weight:600;
   cursor:pointer;font-family:inherit;transition:all .2s;
 }
@@ -440,8 +441,8 @@ html.dark .img-thumb{border-color:var(--border)}
     <div class="detail-text" id="detailText"></div>
     <div id="detailSnippets"></div>
     <div class="xy-review-section" id="xyReviewSection" style="display:none">
-      <button class="btn-xy-review" id="btnXyReview" onclick="doXyReview()">💙 让炘也看看</button>
-      <div class="xy-review-status" id="xyReviewStatus">💙 炘也正在看…</div>
+      <button class="btn-xy-review" id="btnXyReview" onclick="doXyReview()"><i class="ic ic-heart"></i> 让炘也看看</button>
+      <div class="xy-review-status" id="xyReviewStatus"><i class="ic ic-heart"></i> 炘也正在看…</div>
       <div class="xy-review-bubble" id="xyReviewBubble"></div>
       <div class="xy-review-meta" id="xyReviewMeta">
         <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none">× 清除重来</button>
@@ -457,7 +458,7 @@ html.dark .img-thumb{border-color:var(--border)}
 <!-- 写/编辑 底部面板 -->
 <div class="write-sheet" id="writeSheet">
   <div class="sheet-handle"></div>
-  <div class="sheet-title" id="sheetTitle">📓 写日记</div>
+  <div class="sheet-title" id="sheetTitle"><i class="ic ic-notebook"></i> 写日记</div>
   <div class="sheet-date-row">
     <span class="sheet-date-label">日期</span>
     <input class="sheet-date-input" type="date" id="sheetDate">
@@ -473,10 +474,10 @@ html.dark .img-thumb{border-color:var(--border)}
   <textarea class="sheet-textarea" id="sheetTA" placeholder="今天想写点什么…"></textarea>
   <div class="img-strip" id="imgStrip"></div>
   <input type="file" id="diaryImgInput" accept="image/*" multiple style="display:none" onchange="onDiaryImgSelected(this)">
-  <div class="ai-status" id="aiStatus">✨ 炘也正在写日记…</div>
+  <div class="ai-status" id="aiStatus"><i class="ic ic-sparkles"></i> 炘也正在写日记…</div>
   <div class="sheet-btns" id="sheetBtns">
-    <button class="btn-ai" id="btnAI" onclick="generateAI()">✨ 让炘也写</button>
-    <button class="btn-save" id="btnSave" onclick="saveEntry()">存入日记 💙</button>
+    <button class="btn-ai" id="btnAI" onclick="generateAI()"><i class="ic ic-sparkles"></i> 让炘也写</button>
+    <button class="btn-save" id="btnSave" onclick="saveEntry()">存入日记 <i class="ic ic-heart"></i></button>
   </div>
 </div>
 
@@ -514,12 +515,12 @@ html.dark .img-thumb{border-color:var(--border)}
 <!-- 导入导出面板 -->
 <div class="ie-overlay" id="ieOverlay" onclick="if(event.target===this)closeImportExport()">
   <div class="ie-sheet">
-    <div class="ie-title">📦 日记 导入 / 导出</div>
+    <div class="ie-title"><i class="ic ic-storage"></i> 日记 导入 / 导出</div>
     <div class="ie-btns">
-      <button class="ie-btn" onclick="exportDiary()">📤 导出日记（仅文字）</button>
-      <button class="ie-btn" onclick="exportDiaryFull()">🖼️ 导出日记（含图片·完整备份）</button>
-      <button class="ie-btn" onclick="importDiary()">📥 导入日记（兼容旧版格式）</button>
-      <button class="ie-btn" onclick="importCSVDiary()">📊 导入历史日记（CSV / TSV / TXT）</button>
+      <button class="ie-btn" onclick="exportDiary()"><i class="ic ic-upload"></i> 导出日记（仅文字）</button>
+      <button class="ie-btn" onclick="exportDiaryFull()"><i class="ic ic-image"></i> 导出日记（含图片·完整备份）</button>
+      <button class="ie-btn" onclick="importDiary()"><i class="ic ic-download"></i> 导入日记（兼容旧版格式）</button>
+      <button class="ie-btn" onclick="importCSVDiary()"><i class="ic ic-bar-chart"></i> 导入历史日记（CSV / TSV / TXT）</button>
     </div>
     <button class="ie-btn-cancel" onclick="closeImportExport()">取消</button>
   </div>
@@ -529,7 +530,7 @@ html.dark .img-thumb{border-color:var(--border)}
 <div class="app">
   <div class="header">
     <button class="btn-back" onclick="goBack()">‹</button>
-    <div class="header-title">🌸 日记本</div>
+    <div class="header-title"><i class="ic ic-flower"></i> 日记本</div>
     <button class="btn-icon-sm" id="btnCal" onclick="openCalendar()" title="日历"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.5"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="15" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="12" cy="15" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="16" cy="15" r="1.2" fill="currentColor" opacity="0.6"/></svg></button>
     <button class="btn-icon-sm" id="btnSearch" onclick="toggleSearch()" title="搜索"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9.5" cy="9.5" r="2.5" fill="currentColor" opacity="0.25"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <button class="btn-icon-sm" id="btnDark" onclick="toggleDark()" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
@@ -545,9 +546,9 @@ html.dark .img-thumb{border-color:var(--border)}
 
   <!-- Tab -->
   <div class="tab-bar-top">
-    <button class="tab-top-btn active" onclick="switchTab('me',this)">💗 涂涂的日记</button>
-    <button class="tab-top-btn" onclick="switchTab('xinye',this)">💙 炘也的日记</button>
-    <button class="tab-top-btn" onclick="switchTab('samday',this)">🗓️ 同一天</button>
+    <button class="tab-top-btn active" onclick="switchTab('me',this)"><i class="ic ic-heart"></i> 涂涂的日记</button>
+    <button class="tab-top-btn" onclick="switchTab('xinye',this)"><i class="ic ic-heart"></i> 炘也的日记</button>
+    <button class="tab-top-btn" onclick="switchTab('samday',this)"><i class="ic ic-calendar"></i> 同一天</button>
   </div>
 
   <!-- 同一天 日期导航（固定，仅 samday tab 时显示） -->
@@ -837,7 +838,7 @@ function renderPanel(tab) {
   if (!filtered.length) {
     el.innerHTML = (isMe ? buildHeatmapHtml() : '') + `<div class="empty-state">
       <div class="empty-emoji">${isMe ? '📝' : '💙'}</div>
-      <div class="empty-text">${isMe ? '还没有日记\n点右下角 ✏️ 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 ✏️\n让${_AINAME}用AI生成一篇`}</div>
+      <div class="empty-text">${isMe ? '还没有日记\n点右下角 <i class="ic ic-pen"></i> 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 <i class="ic ic-pen"></i>\n让${_AINAME}用AI生成一篇`}</div>
     </div>`;
     if (isMe) { const grid = el.querySelector('.heatmap-grid'); if (grid) grid.scrollLeft = grid.scrollWidth; }
     return;
@@ -871,7 +872,7 @@ function renderPanel(tab) {
       const totalChars = (note ? note.length : 0) + snippets.reduce((s, x) => s + x.text.length, 0);
       const snipCountBadge = snippets.length ? `<span class="snip-badge">${snippets.length} 条</span>` : '';
       const imgCount = entry?.imgCount || 0;
-      const imgBadge = imgCount ? `<span class="img-badge">📷 ${imgCount}</span>` : '';
+      const imgBadge = imgCount ? `<span class="img-badge"><i class="ic ic-camera"></i> ${imgCount}</span>` : '';
       html += `<div class="entry-card" onclick="openDetail('${dateStr}','me')">
         <div class="entry-date-row">
           <div><div class="entry-day">${+d}</div><div class="entry-weekday">星期${wd}</div></div>
@@ -1041,11 +1042,11 @@ async function openDetail(dateStr, tab) {
       xyBubble.textContent = entry.xinyeReview.text; xyBubble.classList.add('show');
       xyTimeSpan.textContent = `炘也 · ${entry.xinyeReview.time}`;
       xyClearBtn.style.display = 'inline';
-      xyBtn.textContent = '💙 再让炘也看看';
+      xyBtn.innerHTML = '<i class="ic ic-heart"></i> 再让炘也看看';
     } else {
       xyBubble.textContent = ''; xyBubble.classList.remove('show');
       xyTimeSpan.textContent = ''; xyClearBtn.style.display = 'none';
-      xyBtn.textContent = '💙 让炘也看看'; xyBtn.disabled = false;
+      xyBtn.innerHTML = '<i class="ic ic-heart"></i> 让炘也看看'; xyBtn.disabled = false;
     }
   } else {
     document.getElementById('detailMood').textContent = '💙';
@@ -1078,7 +1079,7 @@ function clearXyReview() {
   const timeSpan = document.getElementById('xyReviewTime');
   bubble.textContent = ''; bubble.classList.remove('show');
   timeSpan.textContent = ''; clearBtn.style.display = 'none';
-  btn.textContent = '💙 让炘也看看'; btn.disabled = false;
+  btn.innerHTML = '<i class="ic ic-heart"></i> 让炘也看看'; btn.disabled = false;
 }
 function editCurrentEntry() {
   if (!currentDetailKey) return;
@@ -1110,7 +1111,7 @@ async function openSheet(dateStr, tab) {
   editingKey = dateStr || null;
 
   document.getElementById('sheetDate').value = sheetDateStr;
-  document.getElementById('sheetTitle').textContent = sheetMode === 'edit' ? '✏️ 编辑日记' : '📓 写日记';
+  document.getElementById('sheetTitle').innerHTML = sheetMode === 'edit' ? '<i class="ic ic-pen"></i> 编辑日记' : '<i class="ic ic-notebook"></i> 写日记';
 
   // 填入已有内容
   if (sheetMode === 'edit') {
@@ -1281,7 +1282,7 @@ async function doXyReview() {
       const xyClearBtn2 = document.getElementById('btnXyClear');
       if (xyTimeSpan2) xyTimeSpan2.textContent = `炘也 · ${reviewTime}`;
       if (xyClearBtn2) xyClearBtn2.style.display = 'inline';
-      btn.textContent = '💙 再让炘也看看';
+      btn.innerHTML = '<i class="ic ic-heart"></i> 再让炘也看看';
     }
   } catch (e) {
     if (e.name !== 'AbortError') { bubble.textContent = '呜……出错了，待会儿再试试'; bubble.classList.add('show'); }
@@ -1879,11 +1880,11 @@ function toggleDark() {
 // ===== 初始化 =====
 if (_AINAME !== '炘也') {
   const _aiStatus = document.getElementById('aiStatus');
-  if (_aiStatus) _aiStatus.textContent = `✨ ${_AINAME}正在写日记…`;
+  if (_aiStatus) _aiStatus.innerHTML = `<i class="ic ic-sparkles"></i> ${_AINAME}正在写日记…`;
   const _btnAI = document.getElementById('btnAI');
-  if (_btnAI) _btnAI.textContent = `✨ 让${_AINAME}写`;
+  if (_btnAI) _btnAI.innerHTML = `<i class="ic ic-sparkles"></i> 让${_AINAME}写`;
   document.querySelectorAll('.tab-top-btn').forEach(btn => {
-    if (btn.textContent.includes('炘也的日记')) btn.textContent = `💙 ${_AINAME}的日记`;
+    if (btn.textContent.includes('炘也的日记')) btn.innerHTML = `<i class="ic ic-heart"></i> ${_AINAME}的日记`;
   });
   document.querySelectorAll('.cal-legend-item').forEach(el => {
     if (el.textContent.includes('炘也的日记')) el.lastChild.textContent = `${_AINAME}的日记`;

@@ -125,7 +125,7 @@ export function showFortuneWheel(onSendToChat) {
 
   const title = document.createElement('div');
   title.className = 'fortune-title';
-  title.textContent = '🎰 命运转盘';
+  title.innerHTML = '<i class="ic ic-dice"></i> 命运转盘';
   panel.appendChild(title);
 
   const dimToggles = document.createElement('div');
@@ -153,13 +153,13 @@ export function showFortuneWheel(onSendToChat) {
 
   const btnSpin = document.createElement('button');
   btnSpin.className = 'fortune-btn fortune-btn-spin';
-  btnSpin.textContent = '🎰 转！';
+  btnSpin.innerHTML = '<i class="ic ic-dice"></i> 转！';
   btnSpin.onclick = () => _doSpin(cardsWrap, activeDims, btnSend);
   btnRow.appendChild(btnSpin);
 
   const btnSend = document.createElement('button');
   btnSend.className = 'fortune-btn fortune-btn-send';
-  btnSend.textContent = '💬 发给聊天';
+  btnSend.innerHTML = '<i class="ic ic-message"></i> 发给聊天';
   btnSend.disabled = true;
   btnSend.onclick = () => {
     if (btnSend._result && onSendToChat) {
@@ -176,19 +176,19 @@ export function showFortuneWheel(onSendToChat) {
 
   const btnTags = document.createElement('button');
   btnTags.className = 'fortune-btn fortune-btn-tags';
-  btnTags.textContent = '⚙️ 管理标签';
+  btnTags.innerHTML = '<i class="ic ic-settings"></i> 管理标签';
   btnTags.onclick = () => _showTagManager(panel);
   btnRow2.appendChild(btnTags);
 
   const btnHistory = document.createElement('button');
   btnHistory.className = 'fortune-btn fortune-btn-history';
-  btnHistory.textContent = '📜 历史';
+  btnHistory.innerHTML = '<i class="ic ic-history"></i> 历史';
   btnHistory.onclick = () => _showHistory(panel);
   btnRow2.appendChild(btnHistory);
 
   const btnClose = document.createElement('button');
   btnClose.className = 'fortune-btn fortune-btn-close';
-  btnClose.textContent = '✕ 关闭';
+  btnClose.innerHTML = '<i class="ic ic-x"></i> 关闭';
   btnClose.onclick = _closeFortune;
   btnRow2.appendChild(btnClose);
 
@@ -330,7 +330,7 @@ function _renderAllTagsList(container, dimId, onCustomChange) {
     row.appendChild(badge);
     const del = document.createElement('button');
     del.className = 'fortune-del-btn';
-    del.textContent = '✕';
+    del.innerHTML = '<i class="ic ic-x"></i>';
     del.onclick = () => {
       const c = _getCustomTags();
       c[dimId] = (c[dimId] || []).filter(t => t !== tag);
@@ -385,7 +385,7 @@ function _showHistory(panel) {
 
   const clearBtn = document.createElement('button');
   clearBtn.className = 'fortune-btn';
-  clearBtn.textContent = '🗑️ 清空历史';
+  clearBtn.innerHTML = '<i class="ic ic-trash"></i> 清空历史';
   clearBtn.style.marginTop = '8px';
   clearBtn.onclick = () => {
     localStorage.removeItem(FORTUNE_HISTORY_KEY());

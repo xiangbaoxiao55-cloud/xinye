@@ -104,7 +104,7 @@ export function showGift(message, imageUrl = null, occasion = '') {
 
   const emoji = document.createElement('div');
   emoji.className = 'gift-card-emoji';
-  emoji.textContent = '🎁';
+  emoji.innerHTML = '<i class="ic ic-gift"></i>';
   card.appendChild(emoji);
 
   if (occasion) {

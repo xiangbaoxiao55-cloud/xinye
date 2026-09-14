@@ -25,10 +25,10 @@ function createStickerDOM(s) {
   el.style.transform = `rotate(${s.rot}deg)`;
   el.innerHTML = `
     <img src="${s.data}" alt="sticker">
-    <button class="sticker-del">✕</button>
+    <button class="sticker-del"><i class="ic ic-x"></i></button>
     <div class="sticker-resize"></div>
     <div class="sticker-rotate-line"></div>
-    <div class="sticker-rotate">↻</div>`;
+    <div class="sticker-rotate"><i class="ic ic-rotate-cw"></i></div>`;
   stickerLayer.appendChild(el);
 
   el.querySelector('.sticker-del').addEventListener('click', async (e) => {
@@ -248,7 +248,7 @@ export function renderStickerMgr() {
         onkeydown="if(event.key==='Enter'){this.blur()}">
       <label class="sticker-mgr-upload">上传图<input type="file" accept="image/*" style="display:none" onchange="uploadStickerImg(${i},this)"></label>
       ${s.image ? `<span class="sticker-mgr-upload" onclick="clearStickerImg(${i})" style="color:#e57373">删图</span>` : ''}
-      <button class="sticker-mgr-del" onclick="deleteStickerItem(${i})" title="删除">✕</button>
+      <button class="sticker-mgr-del" onclick="deleteStickerItem(${i})" title="删除"><i class="ic ic-x"></i></button>
     </div>`;
   }).join('');
 }

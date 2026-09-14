@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>健康数据体检</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <style>
   :root{
     --bg:#f6f6f8; --card:#fff; --fg:#1c1c1e; --dim:#8a8a8e; --line:#e5e5ea;
@@ -179,7 +180,7 @@ function renderSingle(res, ms){
   html += `<div class="card"><div class="row"><span class="k">HTTP</span><span class="v"><span class="pill ok">200</span> ${ms}ms</span></div>`;
   html += `<div class="row"><span class="k">这条记录的日期</span><span class="v"><b class="hl">${fmt('id',res.id||res.date)||'—'}</b></span></div></div>`;
 
-  html += '<div class="card"><div class="k" style="margin-bottom:6px">🟢 有值</div>';
+  html += '<div class="card"><div class="k" style="margin-bottom:6px"><span class="dot on"></span> 有值</div>';
   if (!has.length) html += '<div class="note">一个都没有…</div>';
   for (const k of has){
     html += `<div class="row"><span class="k">${NAMES[k]||k}<br><span style="font-size:11px;opacity:.6">${k}</span></span><span class="v">${fmt(k,res[k])}</span></div>`;
@@ -187,7 +188,7 @@ function renderSingle(res, ms){
   html += '</div>';
 
   if (miss.length){
-    html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 空的（接口给了字段，但没数据）</div>';
+    html += '<div class="card"><div class="k" style="margin-bottom:6px"><span class="dot"></span> 空的（接口给了字段，但没数据）</div>';
     html += miss.map(k=>`<div class="row"><span class="k">${NAMES[k]||k}</span><span class="v miss">—</span></div>`).join('');
     html += '</div>';
   }
@@ -227,7 +228,7 @@ function renderMulti(rows, ms, askedDays){
       <div class="note" style="margin-top:8px">我请求了 ${askedDays} 天，但只回来 1 条——说明 Worker 里还写着"只拉今天"。把新代码贴进 Cloudflare 就好了。</div></div>`;
   }
 
-  html += '<div class="card"><div class="k" style="margin-bottom:8px">📊 每个字段在这段时间里出现过几天</div>';
+  html += '<div class="card"><div class="k" style="margin-bottom:8px"><i class="ic ic-bar-chart"></i> 每个字段在这段时间里出现过几天</div>';
   const sorted = [...cover.entries()].sort((a,b)=>b[1].n-a[1].n);
   for (const [k, c] of sorted){
     const pct = Math.round(c.n/rows.length*100);
@@ -243,7 +244,7 @@ function renderMulti(rows, ms, askedDays){
   // 没出现过的（从映射表里找）
   const never = Object.keys(NAMES).filter(k => !cover.has(k) && !['date','updated'].includes(k) && NAMES[k] !== k);
   if (never.length){
-    html += '<div class="card"><div class="k" style="margin-bottom:6px">⚪ 整段时间都是空的</div>';
+    html += '<div class="card"><div class="k" style="margin-bottom:6px"><span class="dot"></span> 整段时间都是空的</div>';
     html += never.map(k=>`<div class="row"><span class="k">${NAMES[k]}<br><span style="font-size:11px;opacity:.5">${k}</span></span><span class="v miss">—</span></div>`).join('');
     html += '</div>';
   }

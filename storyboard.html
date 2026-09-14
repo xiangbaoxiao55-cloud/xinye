@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>故事板</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <link rel="stylesheet" href="./src/styles/storyboard.css">
 </head>
 <body>
@@ -14,8 +15,8 @@
     <div class="ps-header">
       <h1>我的故事项目</h1>
       <div class="ps-header-actions">
-        <a href="./flipbook.html" class="btn-secondary">📚 故事书架</a>
-        <button id="ps-new-project" class="btn-primary">➕ 新建项目</button>
+        <a href="./flipbook.html" class="btn-secondary"><i class="ic ic-book-open"></i> 故事书架</a>
+        <button id="ps-new-project" class="btn-primary"><i class="ic ic-plus"></i> 新建项目</button>
       </div>
     </div>
     <div id="ps-grid" class="ps-grid">
@@ -26,16 +27,16 @@
 
 <!-- 项目右键菜单 -->
 <div id="project-ctx-menu" class="hidden">
-  <button data-action="rename">✏️ 重命名</button>
-  <button data-action="duplicate">📋 复制项目</button>
+  <button data-action="rename"><i class="ic ic-pen"></i> 重命名</button>
+  <button data-action="duplicate"><i class="ic ic-clipboard"></i> 复制项目</button>
   <hr>
-  <button data-action="delete">🗑 删除</button>
+  <button data-action="delete"><i class="ic ic-trash"></i> 删除</button>
 </div>
 
 <!-- 顶栏 -->
 <div id="topbar">
   <div class="topbar-left">
-    <button id="btn-back-projects" class="topbar-back" title="返回项目列表">←</button>
+    <button id="btn-back-projects" class="topbar-back" title="返回项目列表"><i class="ic ic-arrow-left"></i></button>
     <div class="project-switcher">
       <input id="project-name" class="topbar-title" value="未命名项目" spellcheck="false">
       <button id="btn-project-menu" class="btn-dropdown" title="切换项目">▼</button>
@@ -43,9 +44,9 @@
     <span id="save-status" class="save-ok">已保存</span>
   </div>
   <div class="topbar-right">
-    <a href="./flipbook.html" class="topbar-btn-link" title="故事书架">📚</a>
+    <a href="./flipbook.html" class="topbar-btn-link" title="故事书架"><i class="ic ic-book-open"></i></a>
     <button id="btn-fit" title="适应画布">⊡</button>
-    <button id="btn-settings" title="设置">⚙</button>
+    <button id="btn-settings" title="设置"><i class="ic ic-settings"></i></button>
     <span id="zoom-label">100%</span>
     <button id="btn-zoom-out" title="缩小">−</button>
     <button id="btn-zoom-in" title="放大">＋</button>
@@ -68,39 +69,39 @@
 <!-- 浮动按钮 -->
 <div id="fab-group">
   <button id="fab-add" class="fab" title="添加生成卡片">＋</button>
-  <button id="fab-assets" class="fab fab-sm" title="从资产库添加">📦</button>
-  <button id="fab-upload" class="fab fab-sm" title="上传图片">📷</button>
+  <button id="fab-assets" class="fab fab-sm" title="从资产库添加"><i class="ic ic-folder"></i></button>
+  <button id="fab-upload" class="fab fab-sm" title="上传图片"><i class="ic ic-camera"></i></button>
   <button id="fab-text" class="fab fab-sm" title="添加文本">T</button>
-  <button id="fab-agent" class="fab fab-sm fab-agent" title="创作助手">🤖</button>
+  <button id="fab-agent" class="fab fab-sm fab-agent" title="创作助手"><i class="ic ic-bot"></i></button>
 </div>
 
 <!-- 右键菜单（画布空白处） -->
 <div id="ctx-menu" class="hidden">
-  <button data-action="generate">🎨 生成图片</button>
-  <button data-action="upload">📷 上传图片</button>
-  <button data-action="text">📝 文本卡片</button>
+  <button data-action="generate"><i class="ic ic-palette"></i> 生成图片</button>
+  <button data-action="upload"><i class="ic ic-camera"></i> 上传图片</button>
+  <button data-action="text"><i class="ic ic-note"></i> 文本卡片</button>
 </div>
 
 <!-- 卡片右键菜单 -->
 <div id="card-ctx-menu" class="hidden">
-  <button data-action="regenerate">🔄 重新生成</button>
-  <button data-action="edit-prompt">✏️ 编辑</button>
-  <button data-action="gen-from">🎨 以此生图</button>
-  <button data-action="add-refs">📌 设为参考图</button>
-  <button data-action="duplicate">📋 复制</button>
-  <button data-action="download">💾 下载</button>
-  <button data-action="export-pdf">📄 导出PDF</button>
-  <button data-action="export-story">📚 导出为故事书</button>
+  <button data-action="regenerate"><i class="ic ic-refresh"></i> 重新生成</button>
+  <button data-action="edit-prompt"><i class="ic ic-pen"></i> 编辑</button>
+  <button data-action="gen-from"><i class="ic ic-palette"></i> 以此生图</button>
+  <button data-action="add-refs"><i class="ic ic-pin"></i> 设为参考图</button>
+  <button data-action="duplicate"><i class="ic ic-clipboard"></i> 复制</button>
+  <button data-action="download"><i class="ic ic-save"></i> 下载</button>
+  <button data-action="export-pdf"><i class="ic ic-file-text"></i> 导出PDF</button>
+  <button data-action="export-story"><i class="ic ic-book-open"></i> 导出为故事书</button>
   <hr>
-  <button data-action="add-to-assets">📦 添加到资产库</button>
+  <button data-action="add-to-assets"><i class="ic ic-folder"></i> 添加到资产库</button>
   <hr>
-  <button data-action="delete">🗑 删除</button>
+  <button data-action="delete"><i class="ic ic-trash"></i> 删除</button>
 </div>
 
 <!-- Lightbox -->
 <div id="lightbox" class="hidden">
   <img id="lb-img" src="">
-  <button id="lb-close">✕</button>
+  <button id="lb-close"><i class="ic ic-x"></i></button>
 </div>
 
 <!-- Toast -->
@@ -109,7 +110,7 @@
 <!-- 设置弹窗 -->
 <div id="modal-settings" class="modal hidden">
   <div class="modal-box">
-    <h3>设置 <button class="modal-close" onclick="document.getElementById('modal-settings').classList.add('hidden')">✕</button></h3>
+    <h3>设置 <button class="modal-close" onclick="document.getElementById('modal-settings').classList.add('hidden')"><i class="ic ic-x"></i></button></h3>
     <div class="form-group">
       <label>画图预设 <small>（与画图台共享）</small></label>
       <div id="settings-presets-info" class="settings-info"></div>
@@ -144,18 +145,18 @@
 <!-- 创作助手面板 -->
 <div id="agent-panel" class="agent-panel hidden">
   <div class="agent-header">
-    <span>🤖 创作助手</span>
+    <span><i class="ic ic-bot"></i> 创作助手</span>
     <div class="agent-header-actions">
-      <button id="agent-clear" title="清空对话">🗑</button>
-      <button id="agent-close">✕</button>
+      <button id="agent-clear" title="清空对话"><i class="ic ic-trash"></i></button>
+      <button id="agent-close"><i class="ic ic-x"></i></button>
     </div>
   </div>
   <div id="agent-messages" class="agent-messages">
-    <div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 ✨</div>
+    <div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 <i class="ic ic-sparkles"></i></div>
   </div>
   <div class="agent-ref-bar hidden" id="agent-ref-bar"></div>
   <div class="agent-input-area">
-    <button id="agent-attach" class="agent-btn-icon" title="附加选中卡片的图片">📎</button>
+    <button id="agent-attach" class="agent-btn-icon" title="附加选中卡片的图片"><i class="ic ic-paperclip"></i></button>
     <textarea id="agent-input" placeholder="描述你的创作想法..." rows="2"></textarea>
     <button id="agent-send" class="btn-primary">发送</button>
   </div>
@@ -164,7 +165,7 @@
 <!-- PDF导出预览 -->
 <div id="modal-pdf" class="modal hidden">
   <div class="modal-box modal-pdf-box">
-    <h3>导出PDF <button class="modal-close" id="pdf-close">✕</button></h3>
+    <h3>导出PDF <button class="modal-close" id="pdf-close"><i class="ic ic-x"></i></button></h3>
     <p class="pdf-hint">拖拽调整顺序，一页一图，横图横版竖图竖版</p>
     <div id="pdf-preview" class="pdf-preview"></div>
     <div class="pdf-actions">
@@ -177,7 +178,7 @@
 <!-- 资产库浮层 -->
 <div id="modal-assets" class="modal hidden">
   <div class="modal-box modal-assets-box">
-    <h3>从资产库添加 <button class="modal-close" id="assets-close">✕</button></h3>
+    <h3>从资产库添加 <button class="modal-close" id="assets-close"><i class="ic ic-x"></i></button></h3>
     <div id="assets-grid" class="assets-grid">
       <!-- 资产卡片动态生成 -->
     </div>
@@ -191,7 +192,7 @@
 <!-- 故事书导出弹窗 -->
 <div id="modal-story" class="modal hidden">
   <div class="modal-box">
-    <h3>导出为故事书 <button class="modal-close" id="story-close">✕</button></h3>
+    <h3>导出为故事书 <button class="modal-close" id="story-close"><i class="ic ic-x"></i></button></h3>
     <div class="form-group">
       <label>故事书名称</label>
       <input id="story-name" class="input" placeholder="输入故事名称">

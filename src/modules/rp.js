@@ -113,7 +113,7 @@ export function initRp() {
       if (charName && headerNm) headerNm.textContent = charName;
       if (charAvatar && typingAv) typingAv.src = charAvatar;
       if (statusEl) {
-        statusEl.textContent = '🎭 RP进行中';
+        statusEl.innerHTML = '<i class="ic ic-masks"></i> RP进行中';
         if (badge) { statusEl.appendChild(badge); badge.classList.remove('show'); }
       }
     } else {

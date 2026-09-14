@@ -407,7 +407,7 @@ function renderImgPreviews() {
   window.pendingImages.forEach((src, i) => {
     const wrap = document.createElement('div'); wrap.className = 'img-thumb-wrap';
     const img = document.createElement('img'); img.src = src; img.className = 'img-thumb';
-    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.textContent = '✕';
+    const btn = document.createElement('button'); btn.className = 'img-remove'; btn.innerHTML = '<i class="ic ic-x"></i>';
     btn.onclick = () => { window.pendingImages.splice(i, 1); renderImgPreviews(); };
     wrap.appendChild(img); wrap.appendChild(btn); preview.appendChild(wrap);
   });

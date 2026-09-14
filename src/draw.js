@@ -224,9 +224,9 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   const taskId=uid();
   taskWrap.dataset.taskId=taskId;
   const promptShort=prompt.length>100?prompt.slice(0,100)+'…':prompt;
-  const labelText=tplName?`📄 ${tplName} · ${n}张 · ${size}`:`🎨 ${n}张 · ${size}`;
-  const styleLabel=styles&&styles.length?`<span class="draw-task-styles">${styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
-  const styleRefLabel=styleRefName?`<span class="draw-task-styles">🖼️ ${styleRefName}</span>`:'';
+  const labelText=tplName?`<i class="ic ic-file-text"></i> ${tplName} · ${n}张 · ${size}`:`<i class="ic ic-palette"></i> ${n}张 · ${size}`;
+  const styleLabel=styles&&styles.length?`<span class="draw-task-styles">${styles.map(s=>'<i class="ic ic-palette"></i>'+s.name).join(' ')}</span>`:'';
+  const styleRefLabel=styleRefName?`<span class="draw-task-styles"><i class="ic ic-image"></i> ${styleRefName}</span>`:'';
   taskWrap.innerHTML=`<div class="draw-task-header">
     <div class="draw-task-top">
       <span class="draw-task-label">${labelText}</span>
@@ -234,10 +234,10 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       <span class="draw-task-status">生成中...</span>
       <div class="draw-task-btns">
         <button class="draw-task-stop" title="停止备用切换（当前请求继续完成）">■ 停止</button>
-        <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
-        <button class="draw-task-copy" title="复制完整prompt">📋</button>
-        <button class="draw-task-save" title="存为模版">💾</button>
-        <button class="draw-task-del" title="删除此卡片">✕</button>
+        <button class="draw-task-reroll" title="用同样的prompt重roll"><i class="ic ic-refresh"></i> 重roll</button>
+        <button class="draw-task-copy" title="复制完整prompt"><i class="ic ic-clipboard"></i></button>
+        <button class="draw-task-save" title="存为模版"><i class="ic ic-save"></i></button>
+        <button class="draw-task-del" title="删除此卡片"><i class="ic ic-x"></i></button>
       </div>
     </div>
     <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
@@ -251,7 +251,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     const existingEdit=taskWrap.querySelector('.draw-task-edit');
     if(existingEdit){existingEdit.remove();return;}
     // 构建画风参考选项
-    const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}"${sr.id===styleRefName?'':''}>🖼️ ${sr.name}</option>`).join('');
+    const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}"${sr.id===styleRefName?'':''}>${sr.name}</option>`).join('');
     // styleRefName 存的是名字，需要反查 id（首次传入是名字用于显示，重roll时需重查）
     const activeId=S.styleRefs.find(r=>r.name===styleRefName)?.id||'';
     const editDiv=document.createElement('div');
@@ -262,7 +262,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
       <div class="dte-actions">
         <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${n}"></label>
-        <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
+        <button class="btn-primary btn-sm dte-confirm"><i class="ic ic-refresh"></i> 确认重roll</button>
         <button class="btn-sm btn-outline dte-cancel">取消</button>
       </div>`;
     taskWrap.querySelector('.draw-task-header').after(editDiv);
@@ -803,7 +803,9 @@ function renderStyleRefStrip(){
     S.styleRefs.forEach(sr=>{
       const btn=document.createElement('button');
       btn.className='btn-tiny';
-      btn.textContent=(sr.images.length?'🖼️ ':'')+sr.name;
+      btn.textContent='';
+      if(sr.images.length){const _i=document.createElement('i');_i.className='ic ic-image';btn.append(_i,' ');}
+      btn.append(sr.name);
       btn.title='点击使用此画风参考';
       btn.onclick=()=>{S.curStyleRefId=sr.id;renderStyleRefStrip()};
       strip.appendChild(btn);
@@ -827,7 +829,7 @@ function renderNewStyleRefPreview(){
     const img=document.createElement('img');
     img.src=b64;img.style.cssText='width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid var(--border)';
     const del=document.createElement('button');
-    del.textContent='✕';del.className='custom-ref-del';
+    del.innerHTML='<i class="ic ic-x"></i>';del.className='custom-ref-del';
     del.onclick=()=>{_pendingStyleRefB64s.splice(i,1);renderNewStyleRefPreview()};
     wrap.append(img,del);preview.appendChild(wrap);
   });
@@ -884,8 +886,8 @@ function renderStyleRefList(){
     info.style.cssText='flex:1;font-size:12px;overflow:hidden;min-width:0';
     const nameRow=document.createElement('div');
     nameRow.style.cssText='overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
-    nameRow.textContent=sr.name+(S.curStyleRefId===sr.id?' ✓':'');
-    if(S.curStyleRefId===sr.id) nameRow.style.color='var(--accent)';
+    nameRow.textContent=sr.name;
+    if(S.curStyleRefId===sr.id){const _i=document.createElement('i');_i.className='ic ic-check';nameRow.append(' ',_i);nameRow.style.color='var(--accent)';}
     info.appendChild(nameRow);
     if(sr.description){
       const descRow=document.createElement('div');
@@ -901,7 +903,7 @@ function renderStyleRefList(){
       renderStyleRefStrip();renderStyleRefList();
     };
     const editBtn=document.createElement('button');
-    editBtn.className='btn-tiny';editBtn.textContent='✏️';editBtn.title='编辑名称和描述';
+    editBtn.className='btn-tiny';editBtn.innerHTML='<i class="ic ic-pen"></i>';editBtn.title='编辑名称和描述';
     editBtn.onclick=()=>{
       // 切换为内联编辑
       const nameInput=document.createElement('input');
@@ -912,7 +914,7 @@ function renderStyleRefList(){
       descInput.placeholder='风格描述（空=通用提示）';
       descInput.style.cssText='font-size:11px;width:130px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text)';
       const okBtn=document.createElement('button');
-      okBtn.className='btn-tiny';okBtn.textContent='✓';okBtn.title='保存';
+      okBtn.className='btn-tiny';okBtn.innerHTML='<i class="ic ic-check"></i>';okBtn.title='保存';
       okBtn.onclick=async()=>{
         const newName=nameInput.value.trim();
         if(!newName){toast('名称不能为空','warn');return;}
@@ -923,7 +925,7 @@ function renderStyleRefList(){
         toast('已保存 ✓');
       };
       const cancelBtn=document.createElement('button');
-      cancelBtn.className='btn-tiny';cancelBtn.textContent='✕';cancelBtn.title='取消';
+      cancelBtn.className='btn-tiny';cancelBtn.innerHTML='<i class="ic ic-x"></i>';cancelBtn.title='取消';
       cancelBtn.onclick=()=>renderStyleRefList();
       info.innerHTML='';
       info.style.cssText='flex:1;display:flex;flex-direction:column;gap:3px;min-width:0';
@@ -932,7 +934,7 @@ function renderStyleRefList(){
       el.append(thumbs,info,okBtn,cancelBtn);
     };
     const delBtn=document.createElement('button');
-    delBtn.className='btn-tiny';delBtn.textContent='🗑';delBtn.title='删除';
+    delBtn.className='btn-tiny';delBtn.innerHTML='<i class="ic ic-trash"></i>';delBtn.title='删除';
     delBtn.onclick=async()=>{
       if(!confirm(`删除"${sr.name}"？`)) return;
       await deleteStyleRef(sr.id);
@@ -975,7 +977,7 @@ function renderRefArea(){
       const thumb=document.createElement('img');
       thumb.src=b64;thumb.className='custom-ref-thumb';
       const del=document.createElement('button');
-      del.textContent='✕';del.className='custom-ref-del';
+      del.innerHTML='<i class="ic ic-x"></i>';del.className='custom-ref-del';
       del.title='移除这张';
       del.onclick=()=>{S.customRefB64s.splice(i,1);renderRefArea();};
       wrap.append(thumb,del);
@@ -1016,7 +1018,7 @@ function openCharModal(){
   document.getElementById('char-form-title').textContent='添加角色';
   document.getElementById('char-name-input').value='';
   document.getElementById('char-prompt-input').value='';
-  document.getElementById('char-ref-preview').innerHTML='🖼️';
+  document.getElementById('char-ref-preview').innerHTML='<i class="ic ic-image"></i>';
   document.getElementById('btn-cancel-char-edit').style.display='none';
   renderCharList();
   document.getElementById('modal-chars').style.display='flex';
@@ -1039,7 +1041,7 @@ function renderCharList(){
       document.getElementById('char-name-input').value=ch.name;
       document.getElementById('char-prompt-input').value=ch.prompt||'';
       const prev=document.getElementById('char-ref-preview');
-      prev.innerHTML=ch.refImage?`<img src="${ch.refImage}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--rs)">`:'🖼️';
+      prev.innerHTML=ch.refImage?`<img src="${ch.refImage}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--rs)">`:'<i class="ic ic-image"></i>';
       document.getElementById('btn-cancel-char-edit').style.display='';
     };
     const bDel=document.createElement('button');bDel.className='btn-tiny';bDel.style.color='var(--err)';bDel.textContent='删';
@@ -1067,7 +1069,7 @@ async function saveChar(){
   document.getElementById('char-form-title').textContent='添加角色';
   document.getElementById('char-name-input').value='';
   document.getElementById('char-prompt-input').value='';
-  document.getElementById('char-ref-preview').innerHTML='🖼️';
+  document.getElementById('char-ref-preview').innerHTML='<i class="ic ic-image"></i>';
   document.getElementById('btn-cancel-char-edit').style.display='none';
   renderCharList();renderRefArea();
   toast('角色已保存 ✓');
@@ -1095,14 +1097,14 @@ async function loadAestheticProfile(){
     for(const m of S.masterHistory){
       const div=document.createElement('div');
       div.className=`master-msg master-msg-${m.role}`;
-      if(m._hasImage) div.insertAdjacentHTML('beforeend','<span style="opacity:.6;font-size:12px">🖼️ 附图</span><br>');
+      if(m._hasImage) div.insertAdjacentHTML('beforeend','<span style="opacity:.6;font-size:12px"><i class="ic ic-image"></i> 附图</span><br>');
       div.insertAdjacentHTML('beforeend',miniMd(m.content));
       const del=document.createElement('button');
-      del.className='msg-del';del.textContent='✕';del.title='删除这条';
+      del.className='msg-del';del.innerHTML='<i class="ic ic-x"></i>';del.title='删除这条';
       del.onclick=e=>{e.stopPropagation();div.remove();_removeFromHistory(m)};
       const copy=document.createElement('button');
-      copy.className='msg-del';copy.textContent='📋';copy.title='复制';
-      copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(m.content).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
+      copy.className='msg-del';copy.innerHTML='<i class="ic ic-clipboard"></i>';copy.title='复制';
+      copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(m.content).then(()=>{copy.textContent='✓';setTimeout(()=>copy.innerHTML='<i class="ic ic-clipboard"></i>',1500)})};
       div.appendChild(copy);
       div.appendChild(del);
       chat.appendChild(div);
@@ -1216,7 +1218,7 @@ async function generatePromptWithAI(){
 
   S.aiGenBusy=true;
   const btn=document.getElementById('btn-ai-gen');
-  btn.disabled=true;btn.textContent='✨ 生成中...';
+  btn.disabled=true;btn.innerHTML='<i class="ic ic-sparkles"></i> 生成中...';
   const ta=document.getElementById('final-prompt-edit');
   ta.value='';ta.placeholder='AI正在生成...';
 
@@ -1236,7 +1238,7 @@ async function generatePromptWithAI(){
     toast('生成失败：'+e.message,'error');
   }finally{
     S.aiGenBusy=false;
-    btn.disabled=false;btn.textContent='✨ AI 生成 Prompt';
+    btn.disabled=false;btn.innerHTML='<i class="ic ic-sparkles"></i> AI 生成 Prompt';
     ta.placeholder='AI生成的Prompt会出现在这里，也可以直接编辑...';
   }
 }
@@ -1588,7 +1590,7 @@ function _renderMasterImgPreview(){
     img.src='data:image/jpeg;base64,'+b64;
     img.style.cssText='width:60px;height:60px;object-fit:cover;border-radius:6px;display:block';
     const rm=document.createElement('button');
-    rm.className='preview-rm';rm.textContent='✕';
+    rm.className='preview-rm';rm.innerHTML='<i class="ic ic-x"></i>';
     rm.style.cssText='position:absolute;top:-4px;right:-4px;width:16px;height:16px;font-size:10px;line-height:1;padding:0;border-radius:50%;background:var(--err,#e57373);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center';
     rm.onclick=()=>{S.masterPendingImgs.splice(i,1);_renderMasterImgPreview()};
     wrap.append(img,rm);prev.appendChild(wrap);
@@ -1616,24 +1618,24 @@ function addMasterMsg(role,text,isTemp=false,imgs=null){
       const extracted=_extractPromptLine(text);
       if(extracted){
         const fill=document.createElement('button');
-        fill.className='msg-del msg-fill';fill.textContent='▶ 填入';fill.title='填入工作台';
+        fill.className='msg-del msg-fill';fill.innerHTML='<i class="ic ic-play"></i> 填入';fill.title='填入工作台';
         fill.onclick=e=>{
           e.stopPropagation();
           const ta=document.getElementById('final-prompt-edit');
           if(ta){ta.value=extracted;ta.dispatchEvent(new Event('input'))}
           switchTab('studio');
           toast('已填入工作台 ✓');
-          fill.textContent='✓';setTimeout(()=>fill.textContent='▶ 填入',1500);
+          fill.textContent='✓';setTimeout(()=>fill.innerHTML='<i class="ic ic-play"></i> 填入',1500);
         };
         el.appendChild(fill);
       }
     }
     const del=document.createElement('button');
-    del.className='msg-del';del.textContent='✕';del.title='删除这条';
+    del.className='msg-del';del.innerHTML='<i class="ic ic-x"></i>';del.title='删除这条';
     del.onclick=e=>{e.stopPropagation();el.remove();_removeFromHistory({role,content:text})};
     const copy=document.createElement('button');
-    copy.className='msg-del';copy.textContent='📋';copy.title='复制';
-    copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(text).then(()=>{copy.textContent='✓';setTimeout(()=>copy.textContent='📋',1500)})};
+    copy.className='msg-del';copy.innerHTML='<i class="ic ic-clipboard"></i>';copy.title='复制';
+    copy.onclick=e=>{e.stopPropagation();navigator.clipboard.writeText(text).then(()=>{copy.textContent='✓';setTimeout(()=>copy.innerHTML='<i class="ic ic-clipboard"></i>',1500)})};
     el.appendChild(copy);
     el.appendChild(del);
   }
@@ -1759,10 +1761,10 @@ function _paintGallery(){
     el.style.cssText='position:relative;overflow:hidden;border-radius:var(--r);cursor:pointer;background:var(--card2)';
     const badge=analyzedSet.size===0?''
       :analyzedSet.has(item.id)
-        ?'<div class="gallery-badge analyzed">✓</div>'
+        ?'<div class="gallery-badge analyzed"><i class="ic ic-check"></i></div>'
         :'<div class="gallery-badge new-img">NEW</div>';
     const cb=selecting?`<label class="gal-cb"><input type="checkbox" ${S.gallerySelected.has(item.id)?'checked':''}><span class="gal-check"></span></label>`:'';
-    const delBtn=selecting?'':'<button class="gal-quick-del" title="删除">✕</button>';
+    const delBtn=selecting?'':'<button class="gal-quick-del" title="删除"><i class="ic ic-x"></i></button>';
     el.innerHTML=`<img data-id="${item.id}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
     _galObserver.observe(el.querySelector('img'));
     const qdel=el.querySelector('.gal-quick-del');
@@ -1807,7 +1809,7 @@ function toggleGallerySelect(){
   if(!S.gallerySelecting) S.gallerySelected.clear();
   S.analyzePicking=false; // 退出分析模式
   const btn=document.getElementById('btn-gallery-select');
-  btn.textContent=S.gallerySelecting?'✕ 退出多选':'☑ 多选';
+  btn.innerHTML=S.gallerySelecting?'<i class="ic ic-x"></i> 退出多选':'<i class="ic ic-check-square"></i> 多选';
   btn.classList.toggle('active',S.gallerySelecting);
   _paintGallery();
 }
@@ -1973,7 +1975,7 @@ async function openTemplates(){
       el.className='template-item';
       const styleNames=(t.styles||[]).map(s=>s['中文风格名']||s.name).filter(Boolean);
       const metaParts=[`${t.tokens?.length||0}个词条`];
-      if(styleNames.length) metaParts.push(styleNames.map(n=>'🎨'+n).join(' '));
+      if(styleNames.length) metaParts.push(styleNames.map(n=>'<i class="ic ic-palette"></i>'+n).join(' '));
       metaParts.push(fmt(t.createdAt));
       el.innerHTML=`<div class="template-name">${t.name}</div><div class="template-meta">${metaParts.join(' · ')}</div><div class="template-actions"></div>`;
       const bLoad=document.createElement('button');
@@ -2045,7 +2047,7 @@ function renderDetailStyles(styles){
   for(const s of styles){
     const el=document.createElement('span');
     el.className='detail-tag';el.style.cssText='background:var(--purple);color:#fff;cursor:pointer';
-    el.textContent='🎨 '+s.name;el.title=s.tokens;
+    el.innerHTML='<i class="ic ic-palette"></i> '+s.name;el.title=s.tokens;
     el.onclick=()=>{navigator.clipboard.writeText(s.tokens);toast('已复制：'+s.name)};
     c.appendChild(el);
   }
@@ -2115,9 +2117,9 @@ function _buildPresetCard(preset,isActive,type){
   const hdr=document.createElement('div');
   hdr.className='preset-card-hdr';
   hdr.innerHTML=`
-    <span class="preset-check" title="点击切换为当前使用">${isActive?'✓':'○'}</span>
+    <span class="preset-check" title="点击切换为当前使用">${isActive?'<i class="ic ic-check"></i>':'○'}</span>
     <span class="preset-name" title="点击切换">${preset.name||'未命名'}</span>
-    <button class="btn-tiny" data-a="rename" title="改名" style="padding:2px 5px">✏</button>
+    <button class="btn-tiny" data-a="rename" title="改名" style="padding:2px 5px"><i class="ic ic-pen"></i></button>
     <button class="btn-tiny" data-a="copy" title="复制预设" style="padding:2px 5px">复</button>
     <button class="btn-tiny" data-a="up" title="上移" style="padding:2px 5px">▲</button>
     <button class="btn-tiny" data-a="dn" title="下移" style="padding:2px 5px">▼</button>
@@ -2355,7 +2357,7 @@ async function exportFullDB(){
     saveBlob(blob,`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`);
     toast(`全部数据已导出 ✓\n${counts.join('、')}`);
   }catch(e){toast('导出失败：'+e.message,'error')}
-  finally{if(btn){btn.disabled=false;btn.textContent='📦 导出全部数据'}}
+  finally{if(btn){btn.disabled=false;btn.innerHTML='<i class="ic ic-storage"></i> 导出全部数据'}}
 }
 
 async function importFullDB(file){
@@ -2643,8 +2645,8 @@ function showStyleTip(style,event){
     +`<div style="color:var(--teal);font-size:12px;margin-bottom:4px;word-break:break-all">${tokens}</div>`
     +`<div style="font-size:11px;color:var(--sub)">强度 ${strength}${role?' · '+role:''}</div>`
     +`<div style="font-size:11px;color:var(--sub)">适合: ${subjects}</div>`
-    +(risk?`<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠ ${risk}</div>`:'')
-    +(rescue?`<div style="font-size:11px;color:var(--teal);margin-top:2px">💡 ${rescue}</div>`:'');
+    +(risk?`<div style="font-size:11px;color:var(--warn);margin-top:4px"><i class="ic ic-alert"></i> ${risk}</div>`:'')
+    +(rescue?`<div style="font-size:11px;color:var(--teal);margin-top:2px"><i class="ic ic-zap"></i> ${rescue}</div>`:'');
   tip.style.display='block';
   const rect=event.target.getBoundingClientRect();
   const left=Math.min(rect.left,window.innerWidth-310);
@@ -2726,13 +2728,13 @@ function bindEvents(){
     document.getElementById('char-form-title').textContent='添加角色';
     document.getElementById('char-name-input').value='';
     document.getElementById('char-prompt-input').value='';
-    document.getElementById('char-ref-preview').innerHTML='🖼️';
+    document.getElementById('char-ref-preview').innerHTML='<i class="ic ic-image"></i>';
     document.getElementById('btn-cancel-char-edit').style.display='none';
   };
   document.getElementById('btn-pick-char-ref').onclick=()=>document.getElementById('char-ref-input').click();
   document.getElementById('btn-clear-char-ref').onclick=()=>{
     editingCharRefB64=null;
-    document.getElementById('char-ref-preview').innerHTML='🖼️';
+    document.getElementById('char-ref-preview').innerHTML='<i class="ic ic-image"></i>';
   };
   document.getElementById('char-ref-input').onchange=async e=>{
     const f=e.target.files[0];if(!f) return;
@@ -2863,7 +2865,7 @@ function bindEvents(){
     const btn=document.getElementById('btn-analyze-aesthetic');
     btn.disabled=true;btn.textContent='分析中...';
     try{await analyzePreference();switchTab('master')}catch(e){toast(e.message,'error')}
-    finally{btn.disabled=false;btn.textContent='✨ 分析偏好'}
+    finally{btn.disabled=false;btn.innerHTML='<i class="ic ic-sparkles"></i> 分析偏好'}
   };
   document.getElementById('btn-master-send').onclick=async()=>{
     const input=document.getElementById('master-input');
@@ -2886,7 +2888,7 @@ function bindEvents(){
   document.getElementById('btn-inspire-nsfw').onclick=()=>{
     _inspireNsfwMode=!_inspireNsfwMode;
     const btn=document.getElementById('btn-inspire-nsfw');
-    btn.textContent=_inspireNsfwMode?'🔓':'🔒';
+    btn.innerHTML=_inspireNsfwMode?'<i class="ic ic-unlock"></i>':'<i class="ic ic-lock"></i>';
     btn.title=_inspireNsfwMode?'春宫模式 ON — 再点关闭':'点击开启春宫模式';
     toast(_inspireNsfwMode?'🔓 春宫模式已开启':'🔒 已切回普通模式');
   };
@@ -2937,18 +2939,18 @@ async function restoreTaskCards(){
     taskWrap.className='draw-task';
     taskWrap.dataset.taskId=t.id;
     const promptShort=t.prompt.length>100?t.prompt.slice(0,100)+'…':t.prompt;
-    const labelText=t.tplName?`📄 ${t.tplName} · ${t.n}张 · ${t.size}`:`🎨 ${t.n}张 · ${t.size}`;
-    const styleLabel=t.styles&&t.styles.length?`<span class="draw-task-styles">${t.styles.map(s=>'🎨'+s.name).join(' ')}</span>`:'';
-    const styleRefLabel=t.styleRefName?`<span class="draw-task-styles">🖼️ ${t.styleRefName}</span>`:'';
+    const labelText=t.tplName?`<i class="ic ic-file-text"></i> ${t.tplName} · ${t.n}张 · ${t.size}`:`<i class="ic ic-palette"></i> ${t.n}张 · ${t.size}`;
+    const styleLabel=t.styles&&t.styles.length?`<span class="draw-task-styles">${t.styles.map(s=>'<i class="ic ic-palette"></i>'+s.name).join(' ')}</span>`:'';
+    const styleRefLabel=t.styleRefName?`<span class="draw-task-styles"><i class="ic ic-image"></i> ${t.styleRefName}</span>`:'';
     taskWrap.innerHTML=`<div class="draw-task-header">
       <div class="draw-task-top">
         <span class="draw-task-label">${labelText}</span>
         ${styleLabel}${styleRefLabel}
         <span class="draw-task-status">✓ ${t.images.length}张完成</span>
         <div class="draw-task-btns">
-          <button class="draw-task-reroll" title="用同样的prompt重roll">🔄 重roll</button>
-          <button class="draw-task-copy" title="复制完整prompt">📋</button>
-          <button class="draw-task-del" title="删除此卡片">✕</button>
+          <button class="draw-task-reroll" title="用同样的prompt重roll"><i class="ic ic-refresh"></i> 重roll</button>
+          <button class="draw-task-copy" title="复制完整prompt"><i class="ic ic-clipboard"></i></button>
+          <button class="draw-task-del" title="删除此卡片"><i class="ic ic-x"></i></button>
         </div>
       </div>
       <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
@@ -2972,7 +2974,7 @@ async function restoreTaskCards(){
     taskWrap.querySelector('.draw-task-reroll').onclick=()=>{
       const existingEdit=taskWrap.querySelector('.draw-task-edit');
       if(existingEdit){existingEdit.remove();return;}
-      const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}">🖼️ ${sr.name}</option>`).join('');
+      const srOpts=S.styleRefs.map(sr=>`<option value="${sr.id}">${sr.name}</option>`).join('');
       const activeId=S.styleRefs.find(r=>r.name===t.styleRefName)?.id||'';
       const editDiv=document.createElement('div');
       editDiv.className='draw-task-edit';
@@ -2982,7 +2984,7 @@ async function restoreTaskCards(){
         <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
         <div class="dte-actions">
           <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${t.n}"></label>
-          <button class="btn-primary btn-sm dte-confirm">🔄 确认重roll</button>
+          <button class="btn-primary btn-sm dte-confirm"><i class="ic ic-refresh"></i> 确认重roll</button>
           <button class="btn-sm btn-outline dte-cancel">取消</button>
         </div>`;
       taskWrap.querySelector('.draw-task-header').after(editDiv);

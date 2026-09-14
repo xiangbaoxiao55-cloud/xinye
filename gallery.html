@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>我们的画廊</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
@@ -343,7 +344,7 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
   <!-- Header -->
   <div class="header">
     <button class="btn-back" onclick="goBack()">‹</button>
-    <div class="header-title" id="headerTitle">🖼️ 我们的画廊</div>
+    <div class="header-title" id="headerTitle"><i class="ic ic-image"></i> 我们的画廊</div>
     <button class="btn-icon-sm" id="btnSelect" onclick="toggleSelectMode()" title="多选">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     </button>
@@ -370,7 +371,7 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
   <div class="grid-wrap" id="gridWrap">
     <div class="masonry" id="masonry"></div>
     <div class="load-more" id="loadMore" style="display:none">
-      <button class="load-more-btn" onclick="loadNextPage()">加载更多 ✨</button>
+      <button class="load-more-btn" onclick="loadNextPage()">加载更多 <i class="ic ic-sparkles"></i></button>
     </div>
     <div class="loading" id="loadingEl" style="display:none">加载中...</div>
   </div>
@@ -382,15 +383,15 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
 <!-- Selection bar -->
 <div class="sel-bar" id="selBar">
   <span class="sel-count" id="selCount">已选 0 张</span>
-  <button class="sel-tag" onclick="batchTag()">🏷️ 标签</button>
-  <button class="sel-fav" onclick="batchFav()">❤️ 收藏</button>
+  <button class="sel-tag" onclick="batchTag()"><i class="ic ic-tag"></i> 标签</button>
+  <button class="sel-fav" onclick="batchFav()"><i class="ic ic-heart"></i> 收藏</button>
   <button class="sel-cancel" onclick="toggleSelectMode()">取消</button>
 </div>
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox">
   <div class="lb-top">
-    <button class="lb-close" onclick="closeLightbox()">✕</button>
+    <button class="lb-close" onclick="closeLightbox()"><i class="ic ic-x"></i></button>
     <span class="lb-counter" id="lbCounter"></span>
     <div style="width:36px"></div>
   </div>
@@ -402,7 +403,7 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
   <div class="lb-bottom" id="lbBottom">
     <div class="lb-prompt-row">
       <div class="lb-prompt" id="lbPrompt"></div>
-      <button class="lb-copy" id="lbCopy" onclick="copyPrompt()" title="复制 prompt">📋</button>
+      <button class="lb-copy" id="lbCopy" onclick="copyPrompt()" title="复制 prompt"><i class="ic ic-clipboard"></i></button>
     </div>
     <div class="lb-tags" id="lbTags"></div>
     <div class="lb-meta" id="lbMeta"></div>
@@ -415,7 +416,7 @@ html.dark .sel-bar{background:var(--card);border-color:var(--border)}
   <div class="modal">
     <div class="modal-title">导入图片</div>
     <div class="import-zone" id="importZone" onclick="document.getElementById('importFile').click()">
-      <div class="icon">📷</div>
+      <div class="icon"><i class="ic ic-camera"></i></div>
       <div class="text">点击选择图片 或 拖放到这里</div>
     </div>
     <input type="file" id="importFile" accept="image/*" multiple style="display:none" onchange="onFilesSelected(event)">
@@ -931,7 +932,7 @@ async function renderTagBar() {
   _allImages.forEach(i => (i.tags || []).forEach(t => { if (tagCounts[t] !== undefined) tagCounts[t]++; }));
 
   let h = `<button class="tag-tab ${_currentTag==='all'?'active':''}" onclick="switchTag('all')">全部 <span class="count">${allC}</span></button>`;
-  h += `<button class="tag-tab ${_currentTag==='fav'?'active':''}" onclick="switchTag('fav')">❤️ <span class="count">${favC}</span></button>`;
+  h += `<button class="tag-tab ${_currentTag==='fav'?'active':''}" onclick="switchTag('fav')"><i class="ic ic-heart"></i> <span class="count">${favC}</span></button>`;
   tags.forEach(t => {
     h += `<button class="tag-tab ${_currentTag===t.id?'active':''}" onclick="switchTag('${t.id}')" oncontextmenu="event.preventDefault();showTagEdit('${t.id}','${t.name.replace(/'/g,"\\'")}')">
       ${esc(t.name)} <span class="count">${tagCounts[t.id]||0}</span>
@@ -956,7 +957,7 @@ function renderGrid() {
 
   if (batch.length === 0) {
     masonry.innerHTML = `<div class="empty-state">
-      <div class="icon">🖼️</div>
+      <div class="icon"><i class="ic ic-image"></i></div>
       <div class="title">${_searchQuery ? '没有找到匹配的图' : '还没有图片'}</div>
       <div class="desc">${_searchQuery ? '换个关键词试试？' : '点右下角 ＋ 导入图片<br>画图台和聊天画的图也会自动出现'}</div>
     </div>`;
@@ -1071,7 +1072,7 @@ function toggleSelectMode() {
   document.getElementById('selBar').classList.toggle('show', _selectMode);
   document.getElementById('fab').style.display = _selectMode ? 'none' : '';
   document.getElementById('selCount').textContent = '已选 0 张';
-  document.getElementById('headerTitle').textContent = _selectMode ? '选择图片' : '🖼️ 我们的画廊';
+  document.getElementById('headerTitle').innerHTML = _selectMode ? '选择图片' : '<i class="ic ic-image"></i> 我们的画廊';
   // Clear selection UI
   document.querySelectorAll('.g-card.selected').forEach(c => {
     c.classList.remove('selected');
@@ -1142,23 +1143,23 @@ async function updateLbInfo(item) {
   const meta = document.getElementById('lbMeta');
   let mh = `<span>${fmtDate(item.createdAt)}</span>`;
   if (item.source === 'draw') {
-    mh += '<span>🎨 画图台</span>';
-    if (item.personaName) mh += `<span>👤 ${esc(item.personaName)}</span>`;
+    mh += '<span><i class="ic ic-palette"></i> 画图台</span>';
+    if (item.personaName) mh += `<span><i class="ic ic-user"></i> ${esc(item.personaName)}</span>`;
     if (item.rating) mh += `<span>${'⭐'.repeat(item.rating)}</span>`;
-    if (item.params && item.params.size) mh += `<span>📐 ${item.params.size}</span>`;
+    if (item.params && item.params.size) mh += `<span><i class="ic ic-ruler"></i> ${item.params.size}</span>`;
   } else if (item.source === 'chat') {
-    mh += '<span>💬 聊天画图</span>';
+    mh += '<span><i class="ic ic-message"></i> 聊天画图</span>';
   } else {
-    mh += '<span>📥 导入</span>';
+    mh += '<span><i class="ic ic-download"></i> 导入</span>';
   }
   meta.innerHTML = mh;
 
   // Actions
   const acts = document.getElementById('lbActions');
-  let ah = `<button class="lb-act" onclick="lbToggleFav()">${item.favorite?'❤️ 已收藏':'🤍 收藏'}</button>`;
-  ah += `<button class="lb-act" onclick="lbTagPicker()">🏷️ 标签</button>`;
-  ah += `<button class="lb-act" onclick="lbDownload()">💾 保存</button>`;
-  if (item.source === 'imported') ah += `<button class="lb-act danger" onclick="lbDelete()">🗑️ 删除</button>`;
+  let ah = `<button class="lb-act" onclick="lbToggleFav()">${item.favorite?'<i class="ic ic-heart"></i> 已收藏':'<i class="ic ic-heart"></i> 收藏'}</button>`;
+  ah += `<button class="lb-act" onclick="lbTagPicker()"><i class="ic ic-tag"></i> 标签</button>`;
+  ah += `<button class="lb-act" onclick="lbDownload()"><i class="ic ic-save"></i> 保存</button>`;
+  if (item.source === 'imported') ah += `<button class="lb-act danger" onclick="lbDelete()"><i class="ic ic-trash"></i> 删除</button>`;
   acts.innerHTML = ah;
 }
 

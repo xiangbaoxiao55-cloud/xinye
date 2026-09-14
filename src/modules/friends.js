@@ -54,7 +54,7 @@ function renderFriendsList() {
   const list = document.getElementById('friendsList');
   if (!list) return;
   if (_friends.length === 0) {
-    list.innerHTML = '<div class="friends-empty"><div style="font-size:36px">🤝</div><div>还没有AI朋友</div><div style="font-size:12px;opacity:.7">点右上角 + 添加</div></div>';
+    list.innerHTML = '<div class="friends-empty"><div style="font-size:36px"><i class="ic ic-users"></i></div><div>还没有AI朋友</div><div style="font-size:12px;opacity:.7">点右上角 + 添加</div></div>';
     return;
   }
   list.innerHTML = _friends.map(f => `
@@ -64,7 +64,7 @@ function renderFriendsList() {
         <div class="friend-card-name">${escHtml(f.name)}</div>
         <div class="friend-card-model">${escHtml(f.model||'')}</div>
       </div>
-      <button class="friend-card-edit" onclick="event.stopPropagation();openFriendModal('${f.id}')" title="编辑">✏️</button>
+      <button class="friend-card-edit" onclick="event.stopPropagation();openFriendModal('${f.id}')" title="编辑"><i class="ic ic-pen"></i></button>
     </div>
   `).join('');
 }
@@ -301,7 +301,7 @@ window.extractFriendMemory = async function() {
   if (!_currentFriend || _friendSending) return;
   if (_friendMessages.length < 2) { toast('聊天记录太少，先多聊几句吧～'); return; }
   const btn = document.getElementById('friendMemoryBtn');
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  if (btn) { btn.innerHTML = '<i class="ic ic-refresh"></i>'; btn.disabled = true; }
   try {
     const rawBase = (_currentFriend.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const apiUrl = /\/v\d+$/.test(rawBase) ? rawBase + '/chat/completions' : rawBase + '/v1/chat/completions';
@@ -333,7 +333,7 @@ window.extractFriendMemory = async function() {
   } catch(e) {
     toast('整理失败：' + (e.message || '未知错误'));
   } finally {
-    if (btn) { btn.textContent = '🧠'; btn.disabled = false; }
+    if (btn) { btn.innerHTML = '<i class="ic ic-brain"></i>'; btn.disabled = false; }
   }
 };
 
@@ -421,7 +421,7 @@ window.sendFriendMessage = async function() {
     finalizeFriendMsgRow(aiRow, aiMeta, aiRec);
   } catch(e) {
     const errMsg = e.name === 'AbortError' ? '请求超时' : (e.message || '请求失败');
-    if (bubble) { bubble.textContent = '❌ ' + errMsg; bubble.style.color = '#e57373'; }
+    if (bubble) { bubble.innerHTML = '<i class="ic ic-x-circle"></i> ' + escHtml(errMsg); bubble.style.color = '#e57373'; }
     if (userRec.id) { try { await dbDelete('friendMessages', userRec.id); } catch(e){} }
     _friendMessages.pop();
     userRow?.remove();

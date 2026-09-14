@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>共读</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <style>
 :root {
   --pink: #f06292;
@@ -356,8 +357,8 @@ body.dark .footer-center { color: var(--text); }
 <div class="page active" id="shelfPage">
   <div class="shelf-header">
     <div style="display:flex;align-items:center;gap:6px">
-      <button class="btn-icon" onclick="goHome()">←</button>
-      <span class="shelf-heading">🍓 书架</span>
+      <button class="btn-icon" onclick="goHome()"><i class="ic ic-arrow-left"></i></button>
+      <span class="shelf-heading"><i class="ic ic-book-open"></i> 书架</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="btn-icon" id="btnDarkShelf" onclick="toggleDark()" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
@@ -371,7 +372,7 @@ body.dark .footer-center { color: var(--text); }
 <!-- 阅读器 -->
 <div class="page" id="readerPage">
   <div class="top-bar">
-    <button class="btn-icon" onclick="goShelf()">←</button>
+    <button class="btn-icon" onclick="goShelf()"><i class="ic ic-arrow-left"></i></button>
     <div class="top-title" id="readerTitle"></div>
     <button class="btn-icon btn-sm" onclick="changeFontSize(-1)" title="字小一点">A-</button>
     <button class="btn-icon btn-sm" onclick="changeFontSize(1)" title="字大一点">A+</button>
@@ -395,9 +396,9 @@ body.dark .footer-center { color: var(--text); }
 
 <!-- 选中工具栏 -->
 <div id="selBar">
-  <button class="sel-btn" onclick="doAnnotate()">✏️ 批注</button>
-  <button class="sel-btn" onclick="doAskXinye()">💙 问炘也</button>
-  <button class="sel-btn" onclick="clearSel()">✕</button>
+  <button class="sel-btn" onclick="doAnnotate()"><i class="ic ic-pen"></i> 批注</button>
+  <button class="sel-btn" onclick="doAskXinye()"><i class="ic ic-heart"></i> 问炘也</button>
+  <button class="sel-btn" onclick="clearSel()"><i class="ic ic-x"></i></button>
 </div>
 
 <!-- 批注弹窗 -->
@@ -409,12 +410,12 @@ body.dark .footer-center { color: var(--text); }
     <div class="ann-actions" id="annActionsView" style="display:none;flex-wrap:wrap">
       <button class="btn-cancel-ann" style="flex:1" onclick="closeAnn()">关闭</button>
       <button class="btn-del-ann" style="flex:1" onclick="deleteAnn()">删除</button>
-      <button class="btn-cancel-ann" style="flex:1" onclick="startEditAnn()">✏️ 编辑</button>
-      <button class="btn-save-ann" style="flex:2;background:#64b5f6" onclick="askFromAnnotation()">💙 问炘也</button>
+      <button class="btn-cancel-ann" style="flex:1" onclick="startEditAnn()"><i class="ic ic-pen"></i> 编辑</button>
+      <button class="btn-save-ann" style="flex:2;background:#64b5f6" onclick="askFromAnnotation()"><i class="ic ic-heart"></i> 问炘也</button>
     </div>
     <!-- 炘也回复 -->
     <div id="annXinyeNote" class="ann-xinye-note" style="display:none"></div>
-    <button id="annContinueBtn" class="btn-save-ann" style="display:none;margin-top:8px;background:#9575cd;width:100%" onclick="continueWithXinye()">💬 继续和炘也聊</button>
+    <button id="annContinueBtn" class="btn-save-ann" style="display:none;margin-top:8px;background:#9575cd;width:100%" onclick="continueWithXinye()"><i class="ic ic-message"></i> 继续和炘也聊</button>
     <!-- 新建/编辑模式：输入框 -->
     <textarea class="ann-input" id="annInput" placeholder="写下你的想法……" style="display:none"></textarea>
     <div class="ann-actions" id="annActionsEdit" style="display:none">
@@ -427,7 +428,7 @@ body.dark .footer-center { color: var(--text); }
 <!-- 问炘也弹窗 -->
 <div id="askModal">
   <div class="ann-sheet">
-    <div style="font-size:13px;color:#999;margin-bottom:10px">💙 问炘也</div>
+    <div style="font-size:13px;color:#999;margin-bottom:10px"><i class="ic ic-heart"></i> 问炘也</div>
     <div class="ann-quote" id="askQuote"></div>
     <div id="askReply" style="display:none;background:#f0f7ff;border-radius:12px;padding:12px;font-size:14px;line-height:1.8;margin-bottom:12px;color:#3a3a5a;white-space:pre-wrap"></div>
     <div id="askLoading" style="display:none;text-align:center;padding:16px;color:#90caf9;font-size:14px">炘也在想……</div>
@@ -437,7 +438,7 @@ body.dark .footer-center { color: var(--text); }
     </div>
     <div class="ann-actions" id="askSaveActions" style="display:none">
       <button class="btn-cancel-ann" onclick="closeAsk()">关闭</button>
-      <button class="btn-save-ann" style="background:#64b5f6" onclick="saveAskReply()">存进书里 💙</button>
+      <button class="btn-save-ann" style="background:#64b5f6" onclick="saveAskReply()">存进书里 <i class="ic ic-heart"></i></button>
     </div>
   </div>
 </div>
@@ -454,7 +455,7 @@ body.dark .footer-center { color: var(--text); }
 <div id="annListModal" onclick="closeAnnList()">
   <div class="chap-sheet" onclick="event.stopPropagation()">
     <div class="chap-header" style="display:flex;align-items:center;justify-content:space-between">
-      <span>📝 所有批注</span>
+      <span><i class="ic ic-note"></i> 所有批注</span>
       <span id="annListCount" style="font-size:12px;color:#aaa;font-weight:400"></span>
     </div>
     <div class="chap-list" id="annListContent"></div>
@@ -464,9 +465,9 @@ body.dark .footer-center { color: var(--text); }
 <!-- 上传弹窗 -->
 <div id="uploadModal">
   <div class="upload-sheet">
-    <div class="upload-title">📥 添加书籍</div>
+    <div class="upload-title"><i class="ic ic-download"></i> 添加书籍</div>
     <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-      <div style="font-size:40px;margin-bottom:8px">📖</div>
+      <div style="font-size:40px;margin-bottom:8px"><i class="ic ic-book-open"></i></div>
       <div>点击选择文件</div>
       <div style="font-size:12px;color:#ccc;margin-top:4px">支持 .epub / .txt</div>
     </div>
@@ -479,10 +480,10 @@ body.dark .footer-center { color: var(--text); }
 <div id="bookMenuModal" onclick="closeBookMenu()">
   <div class="book-menu-sheet" onclick="event.stopPropagation()">
     <div class="book-menu-title" id="bookMenuTitle"></div>
-    <div class="menu-item" onclick="menuEditTitle()">✏️ 编辑书名 / 作者</div>
-    <div class="menu-item" onclick="menuChangeCover()">🎨 换封面</div>
-    <div class="menu-item" onclick="menuExport()">📤 导出（含批注）</div>
-    <div class="menu-item danger" onclick="menuDelete()">🗑️ 删除这本书</div>
+    <div class="menu-item" onclick="menuEditTitle()"><i class="ic ic-pen"></i> 编辑书名 / 作者</div>
+    <div class="menu-item" onclick="menuChangeCover()"><i class="ic ic-palette"></i> 换封面</div>
+    <div class="menu-item" onclick="menuExport()"><i class="ic ic-upload"></i> 导出（含批注）</div>
+    <div class="menu-item danger" onclick="menuDelete()"><i class="ic ic-trash"></i> 删除这本书</div>
     <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>
   </div>
 </div>
@@ -500,8 +501,8 @@ body.dark .footer-center { color: var(--text); }
 <div id="shelfMenuModal" onclick="closeShelfMenu()">
   <div class="book-menu-sheet" onclick="event.stopPropagation()">
     <div class="book-menu-title">书架管理</div>
-    <div class="menu-item" onclick="exportAll()">📤 全部导出（含批注）</div>
-    <div class="menu-item" onclick="document.getElementById('importAllInput').click();closeShelfMenu()">📥 全部导入</div>
+    <div class="menu-item" onclick="exportAll()"><i class="ic ic-upload"></i> 全部导出（含批注）</div>
+    <div class="menu-item" onclick="document.getElementById('importAllInput').click();closeShelfMenu()"><i class="ic ic-download"></i> 全部导入</div>
     <div class="menu-item" onclick="closeShelfMenu()" style="color:#aaa">取消</div>
   </div>
 </div>
@@ -578,7 +579,7 @@ async function init() {
   } catch (e) {
     console.error('[共读] init失败:', e);
     const list = document.getElementById('bookList');
-    if (list) list.innerHTML = `<div class="empty-shelf"><div style="font-size:36px">⚠️</div><div style="color:#f06292">加载失败<br><small style="color:#aaa">${e.message||e}</small><br><br><button onclick="init()" style="background:var(--pink);color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:14px">重试</button></div></div>`;
+    if (list) list.innerHTML = `<div class="empty-shelf"><div style="font-size:36px"><i class="ic ic-alert"></i></div><div style="color:#f06292">加载失败<br><small style="color:#aaa">${e.message||e}</small><br><br><button onclick="init()" style="background:var(--pink);color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:14px">重试</button></div></div>`;
   }
 }
 
@@ -587,14 +588,14 @@ function renderShelf() {
   const list = document.getElementById('bookList');
   if (!list) return;
   if (!books || !books.length) {
-    list.innerHTML = '<div class="empty-shelf"><div style="font-size:52px">📖</div><div>还没有书<br>点右上角添加</div></div>';
+    list.innerHTML = '<div class="empty-shelf"><div style="font-size:52px"><i class="ic ic-book-open"></i></div><div>还没有书<br>点右上角添加</div></div>';
     return;
   }
   list.innerHTML = books
     .sort((a,b) => (b.lastRead||0) - (a.lastRead||0))
     .map(b => `
       <div class="book-card" onclick="openBook('${b.id}')">
-        <div class="book-cover">${b.cover || (b.format==='epub'?'📘':'📄')}</div>
+        <div class="book-cover">${b.cover || (b.format==='epub'?'<i class="ic ic-book-open"></i>':'<i class="ic ic-file-text"></i>')}</div>
         <div class="book-title">${esc(b.title)}</div>
         <div class="book-author">${esc(b.author||'')}</div>
         <div class="book-meta">${b.annotationCount?b.annotationCount+' 条批注':'暂无批注'}</div>
@@ -611,10 +612,10 @@ function openBookMenu(e, bookId) {
   // 每次打开前还原原始菜单内容（防止 delete/editTitle 替换 innerHTML 后残留）
   document.querySelector('#bookMenuModal .book-menu-sheet').innerHTML = `
     <div class="book-menu-title" id="bookMenuTitle"></div>
-    <div class="menu-item" onclick="menuEditTitle()">✏️ 编辑书名 / 作者</div>
-    <div class="menu-item" onclick="menuChangeCover()">🎨 换封面</div>
-    <div class="menu-item" onclick="menuExport()">📤 导出（含批注）</div>
-    <div class="menu-item danger" onclick="menuDelete()">🗑️ 删除这本书</div>
+    <div class="menu-item" onclick="menuEditTitle()"><i class="ic ic-pen"></i> 编辑书名 / 作者</div>
+    <div class="menu-item" onclick="menuChangeCover()"><i class="ic ic-palette"></i> 换封面</div>
+    <div class="menu-item" onclick="menuExport()"><i class="ic ic-upload"></i> 导出（含批注）</div>
+    <div class="menu-item danger" onclick="menuDelete()"><i class="ic ic-trash"></i> 删除这本书</div>
     <div class="menu-item" onclick="closeBookMenu()" style="color:#aaa">取消</div>`;
   document.getElementById('bookMenuTitle').textContent = '《' + b.title + '》';
   document.getElementById('bookMenuModal').classList.add('show');
@@ -636,7 +637,7 @@ async function menuDelete() {
   const sheet = document.querySelector('.book-menu-sheet');
   sheet.innerHTML = `
     <div class="book-menu-title" style="color:#e57373">确认删除《${esc(b.title)}》？</div>
-    <div class="menu-item" style="color:#e57373;font-weight:600" onclick="confirmDelete('${id}')">🗑️ 确认删除</div>
+    <div class="menu-item" style="color:#e57373;font-weight:600" onclick="confirmDelete('${id}')"><i class="ic ic-trash"></i> 确认删除</div>
     <div class="menu-item" style="color:#aaa" onclick="closeBookMenu()">取消</div>`;
 }
 async function confirmDelete(id) {
@@ -1381,12 +1382,12 @@ function menuEditTitle() {
   if (!b) { closeBookMenu(); return; }
   const sheet = document.querySelector('#bookMenuModal .book-menu-sheet');
   sheet.innerHTML = `
-    <div class="book-menu-title">✏️ 编辑书籍信息</div>
+    <div class="book-menu-title"><i class="ic ic-pen"></i> 编辑书籍信息</div>
     <input id="editTitleInput" type="text" value="${esc(b.title)}"
       style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:10px;outline:none">
     <input id="editAuthorInput" type="text" value="${esc(b.author||'')}" placeholder="作者（选填）"
       style="width:100%;padding:10px 14px;border:1.5px solid #ddd;border-radius:12px;font-size:15px;font-family:inherit;box-sizing:border-box;margin-bottom:14px;outline:none">
-    <div class="menu-item" style="font-weight:600;color:var(--pink-deep);text-align:center" onclick="confirmEditTitle('${b.id}')">✓ 保存</div>
+    <div class="menu-item" style="font-weight:600;color:var(--pink-deep);text-align:center" onclick="confirmEditTitle('${b.id}')"><i class="ic ic-check"></i> 保存</div>
     <div class="menu-item" style="color:#aaa;text-align:center" onclick="closeBookMenu()">取消</div>`;
   setTimeout(() => document.getElementById('editTitleInput').focus(), 100);
 }
@@ -1508,7 +1509,7 @@ function openAnnList() {
       html += `<div class="ann-list-item" onclick="jumpToAnn(${a.chapterIndex},'${a.id}')">
         <div class="ann-list-quote">${esc(a.fullQuote || a.selectedText)}</div>
         ${a.note ? `<div class="ann-list-note">${esc(a.note)}</div>` : ''}
-        ${a.xinye_note ? `<div class="ann-list-xinye">💙 ${esc(a.xinye_note)}</div>` : ''}
+        ${a.xinye_note ? `<div class="ann-list-xinye"><i class="ic ic-heart"></i> ${esc(a.xinye_note)}</div>` : ''}
       </div>`;
     });
   });

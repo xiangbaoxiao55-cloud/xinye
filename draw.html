@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>画图台</title>
 <link rel="stylesheet" href="./src/styles/draw.css">
+<link rel="stylesheet" href="./src/styles/icons.css">
 </head>
 <body>
 <div id="app">
   <!-- Sidebar -->
   <div id="sidebar">
-    <div class="sidebar-brand">🎨</div>
+    <div class="sidebar-brand"><i class="ic ic-palette"></i></div>
     <div id="persona-list"></div>
     <div class="sidebar-footer">
       <button id="btn-new-persona" class="sidebar-add" title="新建模板">＋</button>
@@ -24,7 +25,7 @@
       <button class="nav-tab active" data-tab="studio">工作台</button>
       <button class="nav-tab" data-tab="gallery">图库</button>
       <button class="nav-tab" data-tab="master">✦ 大师</button>
-      <a class="nav-tab" href="./storyboard.html" style="text-decoration:none">📐 故事板</a>
+      <a class="nav-tab" href="./storyboard.html" style="text-decoration:none"><i class="ic ic-ruler"></i> 故事板</a>
     </nav>
 
     <!-- 工作台 -->
@@ -51,7 +52,7 @@
           <div class="section-header"><span>想画什么？</span></div>
           <textarea id="user-desc" placeholder="一句话描述你想要的画面..." rows="2"></textarea>
           <div style="margin-top:8px">
-            <button id="btn-ai-gen" class="btn-primary">✨ AI 生成 Prompt</button>
+            <button id="btn-ai-gen" class="btn-primary"><i class="ic ic-sparkles"></i> AI 生成 Prompt</button>
           </div>
         </div>
 
@@ -87,7 +88,7 @@
             <span>风格探索</span>
             <span id="styles-selected-preview" style="display:flex;gap:4px;flex-wrap:wrap;flex:1;overflow:hidden"></span>
             <button class="btn-tiny" onclick="event.stopPropagation();openAddStyle()">+ 自定义</button>
-            <button class="btn-tiny" onclick="event.stopPropagation();randomStyles()">🎲 随机</button>
+            <button class="btn-tiny" onclick="event.stopPropagation();randomStyles()"><i class="ic ic-dice"></i> 随机</button>
             <button class="btn-tiny" onclick="event.stopPropagation();clearStyles()">清空</button>
             <span id="styles-toggle-icon" style="color:var(--sub);font-size:11px;margin-left:2px">▶</span>
           </div>
@@ -127,7 +128,7 @@
             <label>垫图
               <input type="file" id="ref-image-input" accept="image/*" style="display:none" multiple>
               <button id="btn-pick-ref" class="btn-tiny">＋ 追加图</button>
-              <button id="btn-clear-ref" class="btn-tiny" style="display:none">✕ 全清</button>
+              <button id="btn-clear-ref" class="btn-tiny" style="display:none"><i class="ic ic-x"></i> 全清</button>
             </label>
           </div>
           <div id="ref-char-row"></div>
@@ -139,7 +140,7 @@
           <div class="section-header">
             <span>画风参考</span>
             <span id="style-ref-active-name" style="font-size:11px;color:var(--sub);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"></span>
-            <button id="btn-style-ref-clear" class="btn-tiny" style="display:none">✕ 取消</button>
+            <button id="btn-style-ref-clear" class="btn-tiny" style="display:none"><i class="ic ic-x"></i> 取消</button>
             <button id="btn-style-ref-manage" class="btn-tiny">管理</button>
           </div>
           <div id="style-ref-strip" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
@@ -176,20 +177,20 @@
         </div>
         <span class="gallery-stats" id="gallery-stats"></span>
         <span id="gallery-pending-label" style="color:var(--warn);font-size:12px;white-space:nowrap"></span>
-        <button id="btn-gallery-select" class="btn-outline" style="white-space:nowrap" onclick="toggleGallerySelect()">☑ 多选</button>
-        <button id="btn-gallery-import" class="btn-outline" style="white-space:nowrap">📥 存入图库</button>
-        <button id="btn-analyze-aesthetic" class="btn-tiny" style="white-space:nowrap">✨ 分析偏好</button>
+        <button id="btn-gallery-select" class="btn-outline" style="white-space:nowrap" onclick="toggleGallerySelect()"><i class="ic ic-check-square"></i> 多选</button>
+        <button id="btn-gallery-import" class="btn-outline" style="white-space:nowrap"><i class="ic ic-download"></i> 存入图库</button>
+        <button id="btn-analyze-aesthetic" class="btn-tiny" style="white-space:nowrap"><i class="ic ic-sparkles"></i> 分析偏好</button>
       </div>
       <div id="gallery-batch-bar" style="display:none">
         <span class="batch-count"></span>
         <button class="btn-outline btn-sm" onclick="_batchSelectAll()">全选/取消</button>
-        <button class="btn-danger btn-sm" onclick="_batchDeleteGallery()">🗑 删除选中</button>
+        <button class="btn-danger btn-sm" onclick="_batchDeleteGallery()"><i class="ic ic-trash"></i> 删除选中</button>
       </div>
       <div id="gallery-analyze-bar" style="display:none">
         <span class="batch-count"></span>
         <button class="btn-outline btn-sm" onclick="_batchSelectAll()">全选/取消</button>
-        <button class="btn-primary btn-sm" onclick="_confirmAnalyze()">✨ 确认分析</button>
-        <button class="btn-outline btn-sm" onclick="_cancelAnalyze()">✕ 取消</button>
+        <button class="btn-primary btn-sm" onclick="_confirmAnalyze()"><i class="ic ic-sparkles"></i> 确认分析</button>
+        <button class="btn-outline btn-sm" onclick="_cancelAnalyze()"><i class="ic ic-x"></i> 取消</button>
       </div>
       <div id="gallery-grid"></div>
     </div>
@@ -210,11 +211,11 @@
       <div id="master-img-preview" style="display:none;flex-wrap:wrap;gap:6px;padding:4px 2px"></div>
       <input type="file" id="master-img-input" accept="image/*" multiple style="display:none">
       <div id="master-input-area">
-        <button id="btn-master-img" class="btn-outline" title="上传图片给大师看">🖼️</button>
+        <button id="btn-master-img" class="btn-outline" title="上传图片给大师看"><i class="ic ic-image"></i></button>
         <textarea id="master-input" placeholder="跟大师说说你现在想画什么..." rows="2"></textarea>
         <button id="btn-master-send" class="btn-primary">获取建议</button>
-        <button id="btn-inspire" class="btn-outline">🎲 骰子灵感</button>
-        <button id="btn-inspire-nsfw" class="btn-outline btn-nsfw-toggle" title="切换春宫模式">🔒</button>
+        <button id="btn-inspire" class="btn-outline"><i class="ic ic-dice"></i> 骰子灵感</button>
+        <button id="btn-inspire-nsfw" class="btn-outline btn-nsfw-toggle" title="切换春宫模式"><i class="ic ic-lock"></i></button>
       </div>
     </div>
   </div>
@@ -264,7 +265,7 @@
       <div class="form-group">
         <label>参考图（垫图用）</label>
         <div style="display:flex;align-items:center;gap:8px">
-          <div id="char-ref-preview" style="width:48px;height:48px;border-radius:var(--rs);background:var(--card2);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🖼️</div>
+          <div id="char-ref-preview" style="width:48px;height:48px;border-radius:var(--rs);background:var(--card2);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="ic ic-image"></i></div>
           <input type="file" id="char-ref-input" accept="image/*" style="display:none">
           <button id="btn-pick-char-ref" class="btn-tiny">选图</button>
           <button id="btn-clear-char-ref" class="btn-tiny">清除</button>
@@ -307,7 +308,7 @@
 <!-- 图片详情 -->
 <div id="modal-detail" class="modal-overlay" style="display:none">
   <div class="modal-box modal-detail-box">
-    <button id="btn-close-detail" class="modal-close">✕</button>
+    <button id="btn-close-detail" class="modal-close"><i class="ic ic-x"></i></button>
     <div class="detail-left">
       <img id="detail-image" src="" alt="">
     </div>
@@ -378,8 +379,8 @@
       <div style="font-size:11px;color:var(--sub);margin-top:4px">填了之后，API返回URL格式图片时会走代理，避免CORS失败</div>
     </div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <button id="btn-export-full" class="btn-outline">📦 导出全部数据</button>
-      <label class="btn-outline" style="cursor:pointer">📦 导入全部数据<input type="file" id="input-import-full" accept=".json" style="display:none"></label>
+      <button id="btn-export-full" class="btn-outline"><i class="ic ic-storage"></i> 导出全部数据</button>
+      <label class="btn-outline" style="cursor:pointer"><i class="ic ic-storage"></i> 导入全部数据<input type="file" id="input-import-full" accept=".json" style="display:none"></label>
     </div>
     <div id="import-full-status" style="display:none;margin-top:6px;padding:8px 12px;border-radius:8px;background:var(--card2);color:var(--accent);font-size:13px;font-weight:500"></div>
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -489,7 +490,7 @@
       <div id="new-style-ref-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-      <button id="btn-save-style-ref" class="btn-primary">💾 保存套装</button>
+      <button id="btn-save-style-ref" class="btn-primary"><i class="ic ic-save"></i> 保存套装</button>
       <button class="btn-outline" onclick="closeModal('modal-style-ref')">关闭</button>
     </div>
   </div>

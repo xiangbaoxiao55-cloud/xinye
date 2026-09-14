@@ -345,7 +345,7 @@ export async function backupToPhone() {
   } catch(e) {
     toast('❌ 备份失败：' + e.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 一键备份到手机'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ic ic-save"></i> 一键备份到手机'; }
   }
 }
 

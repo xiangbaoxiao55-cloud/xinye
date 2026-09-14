@@ -510,14 +510,14 @@ function renderCardIdle(el, card) {
   if (refs.length === 1) {
     refHtml = `<div class="sb-ref-thumb">
       <img src="${refs[0]}" alt="参考">
-      <button class="sb-ref-remove-single" data-index="0" title="移除">✕</button>
+      <button class="sb-ref-remove-single" data-index="0" title="移除"><i class="ic ic-x"></i></button>
     </div>`;
   } else if (refs.length > 1) {
     refHtml = `<div class="sb-ref-strip">
       ${refs.map((r,i) => `
         <div class="sb-ref-item">
           <img src="${r}" alt="参考${i+1}">
-          <button class="sb-ref-remove-single" data-index="${i}" title="移除">✕</button>
+          <button class="sb-ref-remove-single" data-index="${i}" title="移除"><i class="ic ic-x"></i></button>
         </div>
       `).join('')}
     </div>`;
@@ -1191,17 +1191,17 @@ function showCardContextMenu(x, y, cardId) {
 
   const genBtn = menu.querySelector('[data-action="gen-from"]');
   genBtn.style.display = allSelCount > 0 ? '' : 'none';
-  genBtn.textContent = allSelCount > 1 ? `🎨 以 ${allSelCount} 张图生图` : '🎨 以此生图';
+  genBtn.innerHTML = allSelCount > 1 ? `<i class="ic ic-palette"></i> 以 ${allSelCount} 张图生图` : '<i class="ic ic-palette"></i> 以此生图';
 
   const addRefsBtn = menu.querySelector('[data-action="add-refs"]');
   const isTarget = card?.type === 'generate';
   addRefsBtn.style.display = (refsCount > 0 && isTarget) ? '' : 'none';
-  if (refsCount > 0) addRefsBtn.textContent = `📌 将 ${refsCount} 张图设为参考图`;
+  if (refsCount > 0) addRefsBtn.innerHTML = `<i class="ic ic-pin"></i> 将 ${refsCount} 张图设为参考图`;
 
   const pdfBtn = menu.querySelector('[data-action="export-pdf"]');
   const pdfCount = S.selectedIds.length > 1 ? S.cards.filter(c => S.selectedIds.includes(c.id) && c.imageData).length : (card?.imageData ? 1 : 0);
   pdfBtn.style.display = pdfCount > 0 ? '' : 'none';
-  pdfBtn.textContent = pdfCount > 1 ? `📄 导出PDF (${pdfCount}张)` : '📄 导出PDF';
+  pdfBtn.innerHTML = pdfCount > 1 ? `<i class="ic ic-file-text"></i> 导出PDF (${pdfCount}张)` : '<i class="ic ic-file-text"></i> 导出PDF';
 }
 
 function clampMenuPosition(menu) {
@@ -1463,7 +1463,7 @@ function openSettings() {
       `<div style="padding:2px 0">• ${p.name} <span style="color:var(--dim)">(${p.format || 'images'})</span></div>`
     ).join('');
   } else {
-    info.textContent = '未配置。请在画图台 ⚙ 设置中添加预设。';
+    info.innerHTML = '未配置。请在画图台 <i class="ic ic-settings"></i> 设置中添加预设。';
   }
 
   document.getElementById('settings-local-server').value = S.localServer;
@@ -1749,7 +1749,7 @@ async function agentSend() {
         cards.map((c, i) => `<div class="card-preview">${i + 1}. ${c.prompt.slice(0, 50)}${c.prompt.length > 50 ? '…' : ''}</div>`).join('');
       const genBtn = document.createElement('button');
       genBtn.className = 'agent-auto-gen';
-      genBtn.textContent = `🎨 一键生图（${cards.length}张）`;
+      genBtn.innerHTML = `<i class="ic ic-palette"></i> 一键生图（${cards.length}张）`;
       genBtn.onclick = () => {
         genBtn.disabled = true;
         genBtn.textContent = '生成中...';
@@ -1807,7 +1807,7 @@ function attachAgentRefs() {
   selected.forEach((c, i) => {
     const item = document.createElement('span');
     item.className = 'ref-item';
-    item.innerHTML = `<img src="${c.imageData}"><button class="ref-remove" data-idx="${i}">✕</button>`;
+    item.innerHTML = `<img src="${c.imageData}"><button class="ref-remove" data-idx="${i}"><i class="ic ic-x"></i></button>`;
     bar.appendChild(item);
   });
   bar.classList.remove('hidden');
@@ -1835,7 +1835,7 @@ function clearAgentChat() {
   clearAgentRefs();
   if (S.projectId) db.del('settings', `agentChat_${S.projectId}`);
   const msgBox = document.getElementById('agent-messages');
-  msgBox.innerHTML = '<div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 ✨</div>';
+  msgBox.innerHTML = '<div class="agent-welcome">描述你的创作想法，我来帮你规划分镜、写prompt、生成图片 <i class="ic ic-sparkles"></i></div>';
 }
 
 function initAgent() {
@@ -1926,7 +1926,7 @@ function createProjectCard(proj, cardsCount, isAssets) {
   card.className = 'ps-card' + (isAssets ? ' assets' : '');
   card.dataset.id = proj.id;
   
-  const icon = isAssets ? '📦' : '🎬';
+  const icon = isAssets ? '<i class="ic ic-folder"></i>' : '🎬';
   const time = new Date(proj.updatedAt).toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'});
   
   card.innerHTML = `
@@ -2071,7 +2071,7 @@ async function toggleProjectDropdown() {
   
   dropdown.innerHTML = regular.map(p => `
     <button data-id="${p.id}" class="${p.id === S.projectId ? 'current' : ''}">${p.name}</button>
-  `).join('') + '<hr><button data-action="new">➕ 新建项目</button>';
+  `).join('') + '<hr><button data-action="new"><i class="ic ic-plus"></i> 新建项目</button>';
   
   dropdown.querySelectorAll('button').forEach(btn => {
     btn.onclick = async () => {

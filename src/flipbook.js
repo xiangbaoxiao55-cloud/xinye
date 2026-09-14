@@ -108,7 +108,7 @@ function applyDarkMode() {
   document.documentElement.classList.toggle('dark', F.darkMode);
   document.documentElement.classList.toggle('light', !F.darkMode);
   const btn = $('btn-dark');
-  if (btn) btn.textContent = F.darkMode ? '☀️' : '🌙';
+  if (btn) btn.innerHTML = F.darkMode ? '<i class="ic ic-sun"></i>' : '<i class="ic ic-moon"></i>';
 }
 
 // ── 初始化 ───────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ function renderBookshelf() {
   let html = '<div class="shelf-row"><div class="shelf-books">';
   F.books.forEach((book, i) => {
     const spineColor = SPINE_COLORS[i % SPINE_COLORS.length];
-    const icon = book.type === 'story' ? '📚' : '🎬';
+    const icon = book.type === 'story' ? '<i class="ic ic-book-open"></i>' : '🎬';
     const subtitle = book.type === 'story' ? `来自：${escHtml(book.projectName)}` : '';
     html += `
       <div class="book-item ${book.type === 'story' ? 'story-book' : ''}" data-id="${book.id}" data-type="${book.type}"
@@ -832,7 +832,7 @@ function toggleFullscreen() {
     $('btn-fullscreen').textContent = '⊡';
   } else {
     document.exitFullscreen().catch(() => {});
-    $('btn-fullscreen').textContent = '⛶';
+    $('btn-fullscreen').innerHTML = '<i class="ic ic-maximize"></i>';
   }
 }
 
