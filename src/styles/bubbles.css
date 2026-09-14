@@ -49,7 +49,7 @@
 [data-theme="dark"] .thinking-header{color:#b09ec0}
 [data-theme="dark"] .thinking-body{color:#a090b0}
 .msg-time{
-  font-size:11px;color:var(--text);margin-top:5px;padding:0;
+  font-size:11px;color:var(--text-light);margin-top:5px;padding:0;
   display:flex;align-items:center;gap:6px;width:fit-content;
 }
 .msg-row.user .msg-time{align-self:flex-end}
