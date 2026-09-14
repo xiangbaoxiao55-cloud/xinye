@@ -28,10 +28,18 @@ function _dtReq(store, mode, fn) {
 }
 function _xinyeStore() { return window.__APP_ID__ === 'choubao' ? 'choubaoXinyeEntries' : 'xinyeEntries'; }
 
+// 与 diary.html 的 _snipCmp 必须一致：有 ts 按 ts，没有就退回 "HH:MM" 字符串
+function _snipCmp(a, b) {
+  const ta = a && a.ts, tb = b && b.ts;
+  if (ta && tb) return ta - tb;
+  return String((a && a.time) || '').localeCompare(String((b && b.time) || ''));
+}
+
 async function _addSnippet(dateStr, snippet) {
   const old = (await _dtReq('userEntries', 'readonly', s => s.get(dateStr))) || {};
   const snippets = Array.isArray(old.snippets) ? old.snippets.slice() : [];
   snippets.push(snippet);
+  snippets.sort(_snipCmp);   // 跟着日记页保持一致的时间升序
   await _dtReq('userEntries', 'readwrite', s => s.put({
     dateStr, note: old.note || '', mood: old.mood || '', snippets, imgCount: old.imgCount || 0,
   }));

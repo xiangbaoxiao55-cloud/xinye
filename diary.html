@@ -642,6 +642,20 @@ function _idbDelete(store, key) {
   }));
 }
 
+// 随手记一律按时间升序：新写的可能先进库、localStorage 里旧的随后才合并进来，会时间倒挂
+function _snipCmp(a, b) {
+  const ta = a && a.ts, tb = b && b.ts;
+  if (ta && tb) return ta - tb;
+  return String((a && a.time) || '').localeCompare(String((b && b.time) || ''));
+}
+function sortSnippets(entry) {
+  if (!entry || !Array.isArray(entry.snippets) || entry.snippets.length < 2) return false;
+  const sorted = entry.snippets.slice().sort(_snipCmp);
+  if (sorted.every((s, i) => s === entry.snippets[i])) return false;
+  entry.snippets = sorted;
+  return true;
+}
+
 async function initDiaryDB() {
   const [userRows, xinyeRows, cbRows] = await Promise.all([
     _idbGetAll('userEntries'), _idbGetAll('xinyeEntries'), _idbGetAll('choubaoXinyeEntries'),
@@ -691,6 +705,11 @@ async function initDiaryDB() {
       _cbXinyeCache[dateStr] = text; await _idbPut('choubaoXinyeEntries', { dateStr, text });
       localStorage.removeItem(k);
     }
+  }
+
+  // 顺手把已经乱序的旧数据排回来（只写回真正变了的）
+  for (const ds of Object.keys(_meCache)) {
+    if (sortSnippets(_meCache[ds])) await _idbPut('userEntries', _meCache[ds]);
   }
 }
 
