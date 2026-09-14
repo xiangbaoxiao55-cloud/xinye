@@ -11,6 +11,14 @@ const _ttsQueue = [];
 let _ttsQueueRunning = false;
 let _ttsQueueGen = 0;      // 队列代数：卡死复位时旧的一代作废
 let _ttsQueueTick = 0;     // 最近一次有进展的时间戳（看门狗用）
+let _ttsPhase = 'idle';    // idle / gen / play —— 越靠后的阶段容忍越久才判卡死
+let _ttsStallTimer = null;
+
+// IDB 在 PWA 从后台恢复时整条事务可能挂住，读和写都不 resolve —— 直接 await 会永远等下去。
+// TTS 队列里宁可拿不到缓存（重新生成一次）也不能卡死在这。
+function _withTimeout(p, ms, fallback) {
+  return Promise.race([p, new Promise(r => setTimeout(() => r(fallback), ms))]);
+}
 
 // 被浏览器自动播放策略拦下的语音，等下次用户手势再补播（无手势时 audio.play() 会被拒）
 const _pendingAutoplay = [];
@@ -383,6 +391,8 @@ function _playBlobAndWait(blob, msgId, barCtrl) {
     }
     const audio = new Audio(audioUrl);
     currentAudio = audio;
+    _ttsPhase = 'play';
+    _ttsQueueTick = Date.now();
     if (barCtrl) barCtrl.setPlaying(true);
 
     let finished = false, started = false;
@@ -394,6 +404,8 @@ function _playBlobAndWait(blob, msgId, barCtrl) {
       if (currentAudio === audio) currentAudio = null;
       try { URL.revokeObjectURL(audioUrl); } catch(_) {}
       if (barCtrl) barCtrl.setPlaying(false);
+      _ttsPhase = 'idle';
+      _ttsQueueTick = Date.now();
       if (why) console.warn('[TTS Queue] 播放提前结束：', why, msgId);
       resolve();
     };
@@ -409,6 +421,7 @@ function _playBlobAndWait(blob, msgId, barCtrl) {
     audio.addEventListener('playing', () => { started = true; });
     audio.addEventListener('timeupdate', () => {
       started = true;
+      _ttsQueueTick = Date.now();   // 播放心跳：长音频播放期间队列也算「有进展」
       if (barCtrl && audio.duration) barCtrl.setProgress(audio.currentTime / audio.duration);
     });
     audio.onended = () => finish(null);
@@ -433,10 +446,10 @@ function _playBlobAndWait(blob, msgId, barCtrl) {
 export function enqueueTTS(text, msgId, showBar = false) {
   const _raw = text;
   text = stripForTTS(text);
-  if (!text) { console.warn('[TTS] stripForTTS 后为空，跳过播放', msgId, '原文前30字:', (_raw || '').slice(0, 30)); return; }
+  if (!text) { console.warn('[TTS] stripForTTS 后为空，跳过生成', msgId, '原文前30字:', (_raw || '').slice(0, 30)); return; }
   _ttsQueue.push({ text, msgId, showBar });
-  console.log('[TTS Queue] 入队', msgId, '待播', _ttsQueue.length, '条，running=', _ttsQueueRunning);
-  // 看门狗：三层兜底之后仍卡住（超过 8 分钟没进展）就作废当前这一代重跑，别让队列死在那。
+  console.log('[TTS Queue] 入队', msgId, '待播', _ttsQueue.length, '条，running=', _ttsQueueRunning, '阶段=', _ttsPhase);
+  // 看门狗：兜底都失效（超过 8 分钟没进展）就作废当前这一代重跑，别让队列死在那。
   // 积压太多时只留最近 2 条，免得一口气把几分钟前的旧语音全放出来。
   if (_ttsQueueRunning && Date.now() - _ttsQueueTick > 480000) {
     console.warn('[TTS Queue] 队列疑似卡死，强制复位，待播', _ttsQueue.length, '条');
@@ -447,25 +460,57 @@ export function enqueueTTS(text, msgId, showBar = false) {
   if (!_ttsQueueRunning) _drainTTSQueue();
 }
 
+// 巡检：队列卡住时「不生成语音」和「不播语音」是同一个症状 —— 语音的生成就发生在队列循环里，
+// 生成完的下一步才是播放。卡在哪一步，后面的消息连生成都轮不到。
+// 所以这里盯的是「队列有没有进展」，一旦长时间不动就作废该代重跑。
+function _armStallWatch() {
+  if (_ttsStallTimer) return;
+  _ttsStallTimer = setInterval(() => {
+    if (!_ttsQueueRunning) { clearInterval(_ttsStallTimer); _ttsStallTimer = null; return; }
+    if (_ttsPhase === 'gen') return;   // 生成阶段有 fetch 超时兜底，别插手
+    const tol = _ttsPhase === 'play' ? 240000 : 90000;   // 播放要等长音频，容忍久一点
+    const idle = Date.now() - _ttsQueueTick;
+    if (idle > tol) {
+      console.warn('[TTS Queue] 队列已', Math.round(idle / 1000), '秒无进展（阶段:', _ttsPhase, '），判定卡死，复位重跑');
+      _ttsQueueRunning = false;
+      _ttsQueueGen++;
+      clearInterval(_ttsStallTimer); _ttsStallTimer = null;
+      _drainTTSQueue();
+    }
+  }, 15000);
+}
+
 async function _drainTTSQueue() {
   const gen = ++_ttsQueueGen;
   _ttsQueueRunning = true;
+  _ttsPhase = 'idle';
   _ttsQueueTick = Date.now();
+  _armStallWatch();
   while (_ttsQueue.length) {
     if (gen !== _ttsQueueGen) { console.warn('[TTS Queue] 本代已作废，退出'); return; }
     _ttsQueueTick = Date.now();
     const { text, msgId, showBar } = _ttsQueue.shift();
     try {
-      let blob = await dbGet('ttsCache', msgId);
+      let blob = await _withTimeout(dbGet('ttsCache', msgId), 8000, null);
       if (!blob) {
+        _ttsPhase = 'gen';
         _ttsGenerating.set(msgId, Date.now());
-        try { blob = await generateTTSBlob(text); } finally { _ttsGenerating.delete(msgId); }
-        if (blob) { await dbPut('ttsCache', msgId, blob); markCached(msgId); }
+        try { blob = await generateTTSBlob(text); }
+        finally { _ttsGenerating.delete(msgId); _ttsPhase = 'idle'; _ttsQueueTick = Date.now(); }
+        if (blob) {
+          await _withTimeout(dbPut('ttsCache', msgId, blob), 8000, null);
+          markCached(msgId);
+          console.log('[TTS Queue] 语音已生成', msgId, blob.size + 'B');
+        } else {
+          console.warn('[TTS Queue] 这条没生成出语音，跳过', msgId);
+        }
+      } else {
+        console.log('[TTS Queue] 命中语音缓存', msgId);
       }
+      _ttsQueueTick = Date.now();
       const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
-      if (!blob) console.warn('[TTS] 语音未生成（generateTTSBlob 返回空），跳过播放', msgId);
       if (blob) await _playBlobAndWait(blob, msgId, barCtrl);
-    } catch(e) { console.warn('[TTS Queue]', e); }
+    } catch(e) { console.warn('[TTS Queue] 该条出错，继续下一条：', (e && e.message) || e, msgId); }
     _ttsQueueTick = Date.now();
   }
   if (gen === _ttsQueueGen) { _ttsQueueRunning = false; console.log('[TTS Queue] 队列已播完，清空'); }
