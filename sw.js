@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260914-1544';
+const CACHE_NAME = 'xinye-20260914-1552';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -128,7 +128,8 @@ async function _handlePush(data) {
         const db = req.result;
         const tx = db.transaction('inbox', 'readwrite');
         // 必须带上 proactiveId：前端靠它和云端拉取的同一消息去重，缺了就重复上屏
-        tx.objectStore('inbox').add({ role: 'assistant', content: data.content, time: data.time || Date.now(), proactiveId: data.proactiveId });
+        // appId：收件箱是炘也/臭宝共用的全局DB，不带这个前端没法分辨该谁上屏
+        tx.objectStore('inbox').add({ role: 'assistant', content: data.content, time: data.time || Date.now(), proactiveId: data.proactiveId, appId: data.appId || 'xinye' });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = reject;
       };
@@ -182,7 +183,7 @@ async function _pullAndNotify() {
           req.onsuccess = () => {
             const db = req.result;
             const tx = db.transaction('inbox', 'readwrite');
-            tx.objectStore('inbox').add({ role: 'assistant', content: m.content, time: m.time, id: m.id });
+            tx.objectStore('inbox').add({ role: 'assistant', content: m.content, time: m.time, id: m.id, appId: 'xinye' });
             tx.oncomplete = () => { db.close(); resolve(); };
             tx.onerror = reject;
           };

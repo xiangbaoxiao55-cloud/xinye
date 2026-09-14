@@ -442,7 +442,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.14-1544';
+  if (_verEl) _verEl.textContent = 'v2026.09.14-1552';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -651,7 +651,11 @@ function _retrySubscribeInBackground(reg, publicKey, srv) {
 
 // 只负责「取」：SW 推送收件箱 + 云端心跳主动消息。不去重、不写库、不碰DOM。
 // 拆出来是为了能在启动早期就发起，跟本地数据加载并行，别让首屏干等一个网络往返
+// ⚠️ 收件箱 XinyePushInbox 是炘也/臭宝**共用**的全局DB（不带 appId 前缀），
+//    所以取的时候必须按 appId 认领自己那份：否则炘也的主动消息会被臭宝先读到、
+//    以臭宝的身份写进臭宝的聊天里（2026-09-14 兔宝报的「臭宝里能看见炘也的主动消息」）
 async function _fetchInboxPayload() {
+  const _appId = window.__APP_ID__ || 'xinye';
   // ① 后台收到 push 时 SW 写进 IndexedDB 的收件箱
   let pushMsgs = [];
   try {
@@ -665,7 +669,12 @@ async function _fetchInboxPayload() {
         const items = [], keys = [];
         store.openCursor().onsuccess = e => {
           const cursor = e.target.result;
-          if (cursor) { items.push(cursor.value); keys.push(cursor.key); cursor.continue(); }
+          if (cursor) {
+            // 别人的记录照样删（不然永远堆在库里），只是不认领
+            // 老记录（2026-09-14 之前 SW 没写 appId）按炘也算，不然会丢消息
+            if ((cursor.value.appId || 'xinye') === _appId) items.push(cursor.value);
+            keys.push(cursor.key); cursor.continue();
+          }
           else {
             keys.forEach(k => store.delete(k));
             tx.oncomplete = () => { db.close(); resolve(items); };
@@ -678,9 +687,11 @@ async function _fetchInboxPayload() {
   } catch (e) { console.log('[Push] 收件箱读取失败:', e.message); }
 
   // ② 云端心跳主动消息
+  // 只有炘也拉：云端 _hbMessages 是炘也的心跳生成的，而且两个APP共用
+  // localStorage 的 heartbeat_lastSyncTime，臭宝一拉就把游标推走、炘也那份被吞
   let cloudMsgs = [];
   try {
-    const srv = getCloudOrLocalUrl();
+    const srv = _appId === 'xinye' ? getCloudOrLocalUrl() : null;
     if (srv) {
       const lastSync = parseInt(localStorage.getItem('heartbeat_lastSyncTime') || '0');
       const r = await fetch(buildServerFetchUrl(srv, `/api/proactive-messages?since=${lastSync}`), {
