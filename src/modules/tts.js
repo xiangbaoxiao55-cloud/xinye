@@ -9,6 +9,8 @@ export function clearMimoRefCache() { _mimoRefCache.clear(); }
 export function clearMimoRefCacheEn() { _mimoRefCache.clear(); }
 const _ttsQueue = [];
 let _ttsQueueRunning = false;
+let _ttsQueueGen = 0;      // 队列代数：卡死复位时旧的一代作废
+let _ttsQueueTick = 0;     // 最近一次有进展的时间戳（看门狗用）
 
 // 被浏览器自动播放策略拦下的语音，等下次用户手势再补播（无手势时 audio.play() 会被拒）
 const _pendingAutoplay = [];
@@ -30,9 +32,21 @@ function _armGestureResume() {
         }
         const audio = new Audio(url);
         currentAudio = audio;
-        audio.onended = () => { currentAudio = null; URL.revokeObjectURL(url); resolve(); };
-        audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(url); resolve(); };
-        audio.play().catch(resolve);
+        let done = false;
+        let _guard = null;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          clearTimeout(_guard);
+          if (currentAudio === audio) currentAudio = null;
+          try { URL.revokeObjectURL(url); } catch(_) {}
+          resolve();
+        };
+        // 补播同样可能等不到 ended/error，加硬超时免得后面的补播全被堵住
+        _guard = setTimeout(finish, 180000);
+        audio.onended = finish;
+        audio.onerror = finish;
+        audio.play().catch(finish);
       });
     }
   };
@@ -358,17 +372,88 @@ export async function playTTS(text, btnEl, msgId) {
   }
 }
 
+// 播放一条语音并等它结束。鸿蒙上 ended/error 可能永远不来（切后台、音频焦点被抢、
+// play() 挂起），没有兜底的话 _ttsQueueRunning 会一直卡在 true，之后所有自动语音都不再播。
+function _playBlobAndWait(blob, msgId, barCtrl) {
+  return new Promise(resolve => {
+    let audioUrl;
+    try { audioUrl = URL.createObjectURL(blob); } catch(e) {
+      console.warn('[TTS Queue] blob不可读，跳过', msgId, e.name);
+      resolve(); return;
+    }
+    const audio = new Audio(audioUrl);
+    currentAudio = audio;
+    if (barCtrl) barCtrl.setPlaying(true);
+
+    let finished = false, started = false;
+    let hardTimer = null, startTimer = null, watchTimer = null;
+    const finish = (why) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hardTimer); clearTimeout(startTimer); clearInterval(watchTimer);
+      if (currentAudio === audio) currentAudio = null;
+      try { URL.revokeObjectURL(audioUrl); } catch(_) {}
+      if (barCtrl) barCtrl.setPlaying(false);
+      if (why) console.warn('[TTS Queue] 播放提前结束：', why, msgId);
+      resolve();
+    };
+    // 硬超时：拿到时长就按时长+20秒，拿不到用 180 秒兜底
+    const armHard = () => {
+      if (finished) return;
+      const ms = (isFinite(audio.duration) && audio.duration > 0) ? audio.duration * 1000 + 20000 : 180000;
+      clearTimeout(hardTimer);
+      hardTimer = setTimeout(() => finish('硬超时'), ms);
+    };
+    armHard();
+    audio.addEventListener('loadedmetadata', armHard);
+    audio.addEventListener('playing', () => { started = true; });
+    audio.addEventListener('timeupdate', () => {
+      started = true;
+      if (barCtrl && audio.duration) barCtrl.setProgress(audio.currentTime / audio.duration);
+    });
+    audio.onended = () => finish(null);
+    audio.onerror = () => finish('audio error');
+    // 播放中途被系统抢走音频焦点时 paused 变 true 但 ended 不会触发，靠巡检兜底。
+    // 页面在后台时不判定（那是正常的暂停），交给硬超时。
+    watchTimer = setInterval(() => {
+      if (audio.ended) finish(null);
+      else if (started && audio.paused && !document.hidden) finish('被打断');
+    }, 1000);
+    // play() 本身也可能挂起不 settle，15 秒还没开声就跳过，别堵住整个队列
+    startTimer = setTimeout(() => { if (!started) finish('play 未开始'); }, 15000);
+    audio.play().catch(e => {
+      console.warn('[TTS] 自动播放被拒', e?.name, e?.message, msgId);
+      // 自动播放策略拦截：留着，等用户手势补播；不要丢
+      if (e && e.name === 'NotAllowedError') { _pendingAutoplay.push({ msgId, blob }); _armGestureResume(); }
+      finish('play 被拒');
+    });
+  });
+}
+
 export function enqueueTTS(text, msgId, showBar = false) {
   const _raw = text;
   text = stripForTTS(text);
   if (!text) { console.warn('[TTS] stripForTTS 后为空，跳过播放', msgId, '原文前30字:', (_raw || '').slice(0, 30)); return; }
   _ttsQueue.push({ text, msgId, showBar });
+  console.log('[TTS Queue] 入队', msgId, '待播', _ttsQueue.length, '条，running=', _ttsQueueRunning);
+  // 看门狗：三层兜底之后仍卡住（超过 8 分钟没进展）就作废当前这一代重跑，别让队列死在那。
+  // 积压太多时只留最近 2 条，免得一口气把几分钟前的旧语音全放出来。
+  if (_ttsQueueRunning && Date.now() - _ttsQueueTick > 480000) {
+    console.warn('[TTS Queue] 队列疑似卡死，强制复位，待播', _ttsQueue.length, '条');
+    if (_ttsQueue.length > 2) _ttsQueue.splice(0, _ttsQueue.length - 2);
+    _ttsQueueRunning = false;
+    _ttsQueueGen++;
+  }
   if (!_ttsQueueRunning) _drainTTSQueue();
 }
 
 async function _drainTTSQueue() {
+  const gen = ++_ttsQueueGen;
   _ttsQueueRunning = true;
+  _ttsQueueTick = Date.now();
   while (_ttsQueue.length) {
+    if (gen !== _ttsQueueGen) { console.warn('[TTS Queue] 本代已作废，退出'); return; }
+    _ttsQueueTick = Date.now();
     const { text, msgId, showBar } = _ttsQueue.shift();
     try {
       let blob = await dbGet('ttsCache', msgId);
@@ -379,31 +464,11 @@ async function _drainTTSQueue() {
       }
       const barCtrl = (blob && showBar) ? showVoiceBar(msgId, blob) : null;
       if (!blob) console.warn('[TTS] 语音未生成（generateTTSBlob 返回空），跳过播放', msgId);
-      if (blob) await new Promise(resolve => {
-        let audioUrl;
-        try { audioUrl = URL.createObjectURL(blob); } catch(e) {
-          console.warn('[TTS Queue] blob不可读，跳过', msgId, e.name);
-          resolve(); return;
-        }
-        const audio = new Audio(audioUrl);
-        currentAudio = audio;
-        if (barCtrl) barCtrl.setPlaying(true);
-        audio.addEventListener('timeupdate', () => {
-          if (barCtrl && audio.duration) barCtrl.setProgress(audio.currentTime / audio.duration);
-        });
-        audio.onended = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
-        audio.onerror = () => { currentAudio = null; URL.revokeObjectURL(audioUrl); if (barCtrl) barCtrl.setPlaying(false); resolve(); };
-        audio.play().catch(e => {
-          if (barCtrl) barCtrl.setPlaying(false);
-          console.warn('[TTS] 自动播放被拒', e?.name, e?.message, msgId);
-          // 自动播放策略拦截：留着，等用户手势补播；不要丢
-          if (e && e.name === 'NotAllowedError') { _pendingAutoplay.push({ msgId, blob }); _armGestureResume(); }
-          resolve();
-        });
-      });
+      if (blob) await _playBlobAndWait(blob, msgId, barCtrl);
     } catch(e) { console.warn('[TTS Queue]', e); }
+    _ttsQueueTick = Date.now();
   }
-  _ttsQueueRunning = false;
+  if (gen === _ttsQueueGen) { _ttsQueueRunning = false; console.log('[TTS Queue] 队列已播完，清空'); }
 }
 
 export function showVoiceBar(msgId, blob) {
