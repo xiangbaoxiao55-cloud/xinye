@@ -57,10 +57,24 @@
 </head>
 <body>
 
-<!-- 启动加载遮罩 -->
-<div id="splashLoading" style="position:fixed;inset:0;z-index:99999;background:#1a0a14;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div style="font-size:48px">🧡</div>
-  <div style="color:#e8a0b8;font-size:16px;font-family:sans-serif">正在加载…</div>
+<!-- 启动加载遮罩（心形路径 = icons.css 的 ic-heart，颜色走粉色系；纯内联，不依赖外部 CSS/JS） -->
+<style>
+  @keyframes splashBeat{0%,100%{transform:scale(1);opacity:.88}45%{transform:scale(1.08);opacity:1}}
+  @keyframes splashBreathe{0%,100%{opacity:.5}50%{opacity:.95}}
+  #splashLoading .sp-heart{animation:splashBeat 1.7s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(228,120,170,.4))}
+  #splashLoading .sp-text{animation:splashBreathe 1.7s ease-in-out infinite}
+</style>
+<div id="splashLoading" style="position:fixed;inset:0;z-index:99999;background:radial-gradient(circle at 50% 44%,rgba(200,110,160,.16),rgba(200,110,160,0) 58%),linear-gradient(135deg,#16121e 0%,#2a1a2e 50%,#1c1420 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <svg class="sp-heart" width="54" height="54" viewBox="0 0 24 24" aria-hidden="true">
+    <defs>
+      <linearGradient id="splashHeartGrad" x1="0" y1="0" x2="0.9" y2="1">
+        <stop offset="0%" stop-color="#f7a8c4"/>
+        <stop offset="100%" stop-color="#b06f98"/>
+      </linearGradient>
+    </defs>
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 1 0-7.8 7.8l1.1 1.1L12 21.2l7.8-7.8 1.1-1.1a5.5 5.5 0 0 0 0-7.8z" fill="url(#splashHeartGrad)"/>
+  </svg>
+  <div class="sp-text" style="color:#e8a0b8;font-size:14px;font-family:'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif;letter-spacing:.08em">正在加载…</div>
 </div>
 
 <!-- 背景层 (z-0) -->

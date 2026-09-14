@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.14-2121';
+  if (_verEl) _verEl.textContent = 'v2026.09.14-2125';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -488,7 +488,13 @@ async function checkPendingMessage() {
   if (!_inboxInTime) _inboxDone.then(rows => { (rows || []).forEach(r => appendMsgDOM(r)); }).catch(() => {});
   if (typeof window.syncRpHeader === 'function') window.syncRpHeader(); // RP顶栏覆盖updateHeaderStatus
   const _splash = document.getElementById('splashLoading');
-  if (_splash) _splash.style.display = 'none';
+  if (_splash) {
+    // 淡出而不是硬切；期间设 pointer-events:none，别让透明遮罩继续吃点击
+    _splash.style.pointerEvents = 'none';
+    _splash.style.transition = 'opacity .45s ease';
+    _splash.style.opacity = '0';
+    setTimeout(() => { _splash.style.display = 'none'; }, 470);
+  }
   await checkPendingMessage();
   setupReminders();
   resetIdleTimer();
