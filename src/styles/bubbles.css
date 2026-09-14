@@ -32,11 +32,11 @@
   border:0.5px solid rgba(255,255,255,.5);
 }
 .msg-row.ai .msg-bubble{
-  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  background:rgba(255,253,251,var(--bubble-opacity,0.85));
   border-top-left-radius:4px;
 }
 .msg-row.user .msg-bubble{
-  background:rgba(252,228,236,var(--bubble-opacity,0.85));
+  background:rgba(255,206,224,var(--bubble-opacity,0.85));
   border-top-right-radius:4px;
 }
 .thinking-block{margin:0 0 8px 0;font-size:13px}
@@ -180,7 +180,7 @@
 .typing-indicator.show{display:flex;align-items:center;gap:12px}
 .typing-dots{
   display:flex;gap:4px;padding:14px 18px;
-  background:rgba(250,245,240,var(--bubble-opacity,0.85));
+  background:rgba(255,253,251,var(--bubble-opacity,0.85));
   border-radius:var(--radius);border-top-left-radius:4px;
   border:0.5px solid rgba(255,255,255,.5);
   box-shadow:0 2px 8px var(--shadow);

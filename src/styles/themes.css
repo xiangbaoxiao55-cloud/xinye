@@ -13,11 +13,11 @@ html[data-theme="dark"]{
 }
 [data-theme="dark"] html{background:#16121e}
 [data-theme="dark"] body{background:linear-gradient(135deg,#16121e 0%,#2a1a2e 50%,#1c1420 100%)}
-[data-theme="dark"] .msg-row.ai .msg-bubble{background:rgba(36,28,46,var(--bubble-opacity,0.92))}
-[data-theme="dark"] .msg-row.user .msg-bubble{background:rgba(46,26,40,var(--bubble-opacity,0.92))}
+[data-theme="dark"] .msg-row.ai .msg-bubble{background:rgba(52,45,66,var(--bubble-opacity,0.92))}
+[data-theme="dark"] .msg-row.user .msg-bubble{background:rgba(98,43,74,var(--bubble-opacity,0.92))}
 [data-theme="dark"] .msg-bubble,
 [data-theme="dark"] .typing-dots{border-color:rgba(255,255,255,.06)}
-[data-theme="dark"] .typing-dots{background:rgba(36,28,46,.92)}
+[data-theme="dark"] .typing-dots{background:rgba(52,45,66,.92)}
 [data-theme="dark"] .btn-icon{background:none;color:var(--text-light);border-color:transparent}
 [data-theme="dark"] .btn-icon:hover{background:rgba(60,40,70,.7);color:var(--pink-deep);border-color:transparent}
 [data-theme="dark"] .input-area textarea{background:none;color:var(--text);border-color:rgba(255,255,255,.15)}
