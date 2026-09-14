@@ -657,12 +657,23 @@ async function initDiaryDB() {
     if (k.startsWith('rbdiary_')) {
       const dateStr = k.slice('rbdiary_'.length);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
-      if (_meCache[dateStr]) { localStorage.removeItem(k); continue; }
       try {
         const p = JSON.parse(localStorage.getItem(k));
-        const entry = { dateStr, note: p.note||'', mood: p.mood||'', snippets: Array.isArray(p.snippets)?p.snippets:[], imgCount: p.imgCount||0 };
-        _meCache[dateStr] = entry;
-        await _idbPut('userEntries', entry);
+        const exist = _meCache[dateStr];
+        if (exist) {
+          // IDB 里已有这天 → 把 LS 里多出来的随手记并进去，不能直接丢
+          const have = Array.isArray(exist.snippets) ? exist.snippets : [];
+          const add  = (Array.isArray(p.snippets) ? p.snippets : [])
+            .filter(s => s && s.text && !have.some(h => h.ts === s.ts && h.text === s.text));
+          if (add.length) {
+            exist.snippets = have.concat(add);
+            await _idbPut('userEntries', exist);
+          }
+        } else {
+          const entry = { dateStr, note: p.note||'', mood: p.mood||'', snippets: Array.isArray(p.snippets)?p.snippets:[], imgCount: p.imgCount||0 };
+          _meCache[dateStr] = entry;
+          await _idbPut('userEntries', entry);
+        }
       } catch {}
       localStorage.removeItem(k);
     } else if (k.startsWith('xinye_diary_')) {
@@ -1890,6 +1901,13 @@ if (_AINAME !== '炘也') {
     if (el.textContent.includes('炘也的日记')) el.lastChild.textContent = `${_AINAME}的日记`;
   });
 }
+// 聊天页写进 IDB 后调这里重读重绘（也顺带把历史遗留的 LS 条目搬进来）
+window.__diaryRefresh = async () => {
+  await initDiaryDB();
+  renderBoth();
+  if (currentDetailKey && currentDetailKey.tab === 'me') renderDetailSnippets(currentDetailKey.dateStr);
+};
+
 initDiaryDB().then(() => renderBoth());
 </script>
 </body>

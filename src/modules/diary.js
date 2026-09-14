@@ -2,6 +2,59 @@ import { toast } from './utils.js';
 import { settings, messages } from './state.js';
 import { getSubApiCfg } from './api.js';
 
+// ── DiaryTextDB（日记页真正的存储）────────────────────────────────────────
+// 写端必须直连这个库：diary.html 只从 IDB 读，写 localStorage 的话当场看不见，
+// 还得等日记页重载搬家，且搬家中途可能被丢。schema 与 diary.html / backup.js 保持一致。
+let _dtDB = null;
+function _openDiaryTextDB() {
+  if (_dtDB) return Promise.resolve(_dtDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('DiaryTextDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('userEntries'))         db.createObjectStore('userEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('xinyeEntries'))        db.createObjectStore('xinyeEntries', { keyPath: 'dateStr' });
+      if (!db.objectStoreNames.contains('choubaoXinyeEntries')) db.createObjectStore('choubaoXinyeEntries', { keyPath: 'dateStr' });
+    };
+    req.onsuccess = e => { _dtDB = e.target.result; res(_dtDB); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+function _dtReq(store, mode, fn) {
+  return _openDiaryTextDB().then(db => new Promise((res, rej) => {
+    const req = fn(db.transaction(store, mode).objectStore(store));
+    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+  }));
+}
+function _xinyeStore() { return window.__APP_ID__ === 'choubao' ? 'choubaoXinyeEntries' : 'xinyeEntries'; }
+
+async function _addSnippet(dateStr, snippet) {
+  const old = (await _dtReq('userEntries', 'readonly', s => s.get(dateStr))) || {};
+  const snippets = Array.isArray(old.snippets) ? old.snippets.slice() : [];
+  snippets.push(snippet);
+  await _dtReq('userEntries', 'readwrite', s => s.put({
+    dateStr, note: old.note || '', mood: old.mood || '', snippets, imgCount: old.imgCount || 0,
+  }));
+}
+async function _saveNote(dateStr, note) {
+  const old = (await _dtReq('userEntries', 'readonly', s => s.get(dateStr))) || {};
+  await _dtReq('userEntries', 'readwrite', s => s.put({
+    dateStr, note, mood: old.mood || '',
+    snippets: Array.isArray(old.snippets) ? old.snippets : [], imgCount: old.imgCount || 0,
+  }));
+}
+function _saveXinyeText(dateStr, text) {
+  return _dtReq(_xinyeStore(), 'readwrite', s => s.put({ dateStr, text }));
+}
+
+// 日记页是常驻 iframe，写完后让它重读 IDB 并重绘（没打开过就等它自己加载时读）
+function _refreshDiaryFrame() {
+  try {
+    const w = document.getElementById('diaryFrame')?.contentWindow;
+    if (w && typeof w.__diaryRefresh === 'function') w.__diaryRefresh();
+  } catch(e) {}
+}
+
 // ── Tab 切换状态 ───────────────────────────────────────────────────────────
 let _diaryLoaded = false, _readingLoaded = false, _galleryLoaded = false;
 let _currentTab = 'chat';
@@ -10,8 +63,13 @@ export function switchTab(tab) {
   if (_currentTab === tab) return;
   _currentTab = tab;
 
-  if (tab === 'diary' && !_diaryLoaded) {
-    document.getElementById('diaryFrame').src = 'diary.html' + (window.__APP_ID__ === 'choubao' ? '?app=choubao' : ''); _diaryLoaded = true;
+  if (tab === 'diary') {
+    if (!_diaryLoaded) {
+      document.getElementById('diaryFrame').src = 'diary.html' + (window.__APP_ID__ === 'choubao' ? '?app=choubao' : ''); _diaryLoaded = true;
+    } else {
+      // 已加载过的 iframe 不会重新走搬家逻辑，每次打开顺手重读一次
+      _refreshDiaryFrame();
+    }
   }
   if (tab === 'reading' && !_readingLoaded) {
     document.getElementById('readingFrame').src = 'reading.html'; _readingLoaded = true;
@@ -20,9 +78,11 @@ export function switchTab(tab) {
     document.getElementById('galleryFrame').src = 'gallery.html'; _galleryLoaded = true;
   }
 
-  document.getElementById('diaryOverlayFrame').classList.toggle('open', tab === 'diary');
-  document.getElementById('readingOverlayFrame').classList.toggle('open', tab === 'reading');
-  document.getElementById('galleryOverlayFrame').classList.toggle('open', tab === 'gallery');
+  // choubao.html 没有画廊 Tab，取不到就跳过（否则每次切 Tab 都会在这里抛异常）
+  [['diaryOverlayFrame','diary'], ['readingOverlayFrame','reading'], ['galleryOverlayFrame','gallery']].forEach(([id, t]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open', tab === t);
+  });
   const fp = document.getElementById('friendsPanel');
   if (fp) fp.classList.toggle('open', tab === 'friends');
 
@@ -116,32 +176,22 @@ export function initDiary() {
   document.getElementById('diaryCancelBtn').onclick = () => diaryOverlay.classList.remove('show');
   diaryOverlay.addEventListener('click', e => { if (e.target === diaryOverlay) diaryOverlay.classList.remove('show'); });
 
-  diarySaveBtn.onclick = () => {
+  diarySaveBtn.onclick = async () => {
     const text = diaryTA.value.trim();
     if (!text) return;
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const _dpfx = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
-    if (_diaryType === 'xinye') {
-      localStorage.setItem(_dpfx + 'xinye_diary_' + dateStr, text);
-      diaryOverlay.classList.remove('show');
-      toast('已存入日记 💙');
-    } else {
-      const key = 'rbdiary_' + dateStr;
-      let rec = {};
-      try { rec = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
-      if (!rec.water) rec.water = 0;
-      if (rec.poop === undefined) rec.poop = null;
-      if (!rec.todos) rec.todos = [];
-      if (!rec.timeline) rec.timeline = [];
-      if (!rec.weather) rec.weather = null;
-      if (!rec.bodyFeel) rec.bodyFeel = '';
-      if (!rec.mood) rec.mood = null;
-      rec.note = text;
-      localStorage.setItem(key, JSON.stringify(rec));
-      diaryOverlay.classList.remove('show');
-      toast('已存入今日日记 📓');
+    try {
+      if (_diaryType === 'xinye') await _saveXinyeText(dateStr, text);
+      else await _saveNote(dateStr, text);
+    } catch(e) {
+      console.error('[diary] 保存失败', e);
+      toast('保存失败，再试一次');
+      return;
     }
+    diaryOverlay.classList.remove('show');
+    _refreshDiaryFrame();
+    toast(_diaryType === 'xinye' ? '已存入日记 💙' : '已存入今日日记 📓');
   };
 
   // iframe 内部点返回/跳转聊天 → 切回聊天 tab
@@ -177,24 +227,21 @@ export function quickNoteClose() {
   document.getElementById('quickNoteModal').classList.remove('show');
 }
 
-export function quickNoteSave() {
+export async function quickNoteSave() {
   const text = document.getElementById('quickNoteTA').value.trim();
   if (!text) { document.getElementById('quickNoteTA').focus(); return; }
   const now = new Date();
   const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  let entry = {};
-  try { entry = JSON.parse(localStorage.getItem('rbdiary_' + dateStr) || '{}'); } catch {}
-  if (!Array.isArray(entry.snippets)) entry.snippets = [];
-  entry.snippets.push({ time: hm, text: text, ts: now.getTime() });
-  localStorage.setItem('rbdiary_' + dateStr, JSON.stringify(entry));
-  quickNoteClose();
   try {
-    const frame = document.getElementById('diaryFrame');
-    if (frame && frame.contentWindow && typeof frame.contentWindow.renderBoth === 'function') {
-      frame.contentWindow.renderBoth();
-    }
-  } catch(e) {}
+    await _addSnippet(dateStr, { time: hm, text: text, ts: now.getTime() });
+  } catch(e) {
+    console.error('[随手记] 写入失败', e);
+    toast('存入失败，再试一次');
+    return;
+  }
+  quickNoteClose();
+  _refreshDiaryFrame();
   _qnToast('已记录 ✓  ' + hm);
 }
 
