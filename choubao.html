@@ -356,27 +356,6 @@
       <div class="hint">点 ○ 切换当前用的预设；失败时自动轮询未跳过的其他预设</div>
     </div>
     <div class="setting-group">
-      <label>画图 API Key</label>
-      <input type="password" id="setImageApiKey" placeholder="留空则复用主 API Key">
-    </div>
-    <div class="setting-group">
-      <label>画图 API URL</label>
-      <input type="url" id="setImageBaseUrl" placeholder="留空则复用主 API URL">
-    </div>
-    <div class="setting-group">
-      <label>画图模型名</label>
-      <input type="text" id="setImageModel" placeholder="gpt-image-1">
-    </div>
-    <div class="setting-group">
-      <label>画图 API 格式</label>
-      <select id="setImageApiFormat">
-        <option value="images">images（标准，默认）</option>
-        <option value="chat">chat（部分站子专用）</option>
-        <option value="nvidia">nvidia（NVIDIA NIM 免费）</option>
-      </select>
-      <div class="hint">仅走本地服务器时有效。chat 适用于不支持 /images/generations 的站子；nvidia 格式需填完整端点URL（如 https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev）</div>
-    </div>
-    <div class="setting-group">
       <label>画图代理地址（cpolar/云代理）</label>
       <input type="url" id="setImageProxyUrl" placeholder="https://xxxx.cpolar.cn">
       <div class="hint">cpolar 暴露本机 8788 端口后填入，离开家庭网络也能画图。留空则用本地服务器（局域网）</div>
@@ -479,6 +458,9 @@
       <label>记忆档案</label>
       <textarea id="setMemoryArchive" style="min-height:220px" placeholder="把记忆档案粘贴到这里……他每次对话前都会读一遍，就像翻开日记想起你们的故事。"></textarea>
       <div class="hint">建议：把炘也写的那份档案粘贴在这里。以后有新的重要记忆，也可以手动补充在末尾。</div>
+    </div>
+    <div class="setting-divider"><i class="ic ic-wrench"></i> 整理与检索（进阶）</div>
+    <div class="setting-group">
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
         <label style="font-size:12px;color:var(--text-light);white-space:nowrap;flex-shrink:0">整理用API</label>
         <select id="setDigestPreset" style="flex:1;padding:6px 8px;border:1.5px solid var(--pink);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;color:var(--text);background:var(--warm-bg)">
@@ -539,6 +521,8 @@
       </div>
     </div>
 
+    <div class="setting-divider"><i class="ic ic-heart"></i> 人设 &amp; 情绪</div>
+
     <!-- 情绪状态 -->
     <div class="setting-group" id="moodStateGroup" style="display:none">
       <label><i class="ic ic-heart"></i> 炘也的情绪状态 <span style="font-weight:400;color:var(--text-muted);font-size:11px">（每次对话后自动更新）</span></label>
@@ -555,6 +539,7 @@
 
     <!-- ===== TAB: 外观 ===== -->
     <div class="settings-tabpane" id="tabpane-appearance">
+    <div class="setting-divider"><i class="ic ic-palette"></i> 形象 &amp; 背景</div>
     <div class="setting-group">
       <label>头像（点击上传图片，存入本地数据库）</label>
       <div class="avatar-setting">

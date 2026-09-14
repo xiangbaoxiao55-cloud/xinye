@@ -89,6 +89,42 @@ export function buildServerHeaders(srv, extraHeaders = {}) {
 }
 
 // ======================== 设置面板 打开/关闭 ========================
+// ======================== 设置分组折叠 ========================
+// 把 <div class="setting-divider"> 分组标题变成可点开的折叠块。
+// 只做 DOM 包裹，不删任何字段——所有 id、事件绑定、取值逻辑都不受影响。
+const _SG_EXPANDED = [/主 API/, /记忆档案/, /人设/, /形象/, /手机用得怎么样/, /数据管理/, /版本更新/];
+
+function _collapseSettingGroups() {
+  document.querySelectorAll('.settings-tabpane').forEach(pane => {
+    if (pane.dataset.sgCollapsed) return;
+    pane.dataset.sgCollapsed = '1';
+    const segs = [];
+    let cur = null;
+    for (const el of [...pane.children]) {
+      if (el.classList.contains('setting-divider')) {
+        cur = { divider: el, items: [] };
+        segs.push(cur);
+      } else if (cur) {
+        cur.items.push(el);
+      }
+    }
+    if (!segs.length) return;
+    for (const seg of segs) {
+      const box = document.createElement('details');
+      box.className = 'sg-group';
+      box.open = _SG_EXPANDED.some(re => re.test(seg.divider.textContent));
+      const sum = document.createElement('summary');
+      sum.className = 'sg-summary';
+      sum.innerHTML = seg.divider.innerHTML;
+      const body = document.createElement('div');
+      body.className = 'sg-body';
+      seg.items.forEach(it => body.appendChild(it));
+      box.append(sum, body);
+      seg.divider.replaceWith(box);
+    }
+  });
+}
+
 export async function openSettings() {
   $('#setApiKey').value = settings.apiKey;
   if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!settings.useLocalProxy;
@@ -151,10 +187,6 @@ export async function openSettings() {
   $('#setVisionApiKey').value = settings.visionApiKey || '';
   $('#setVisionBaseUrl').value = settings.visionBaseUrl || '';
   $('#setVisionModel').value = settings.visionModel || '';
-  $('#setImageApiKey').value = settings.imageApiKey || '';
-  $('#setImageBaseUrl').value = settings.imageBaseUrl || '';
-  $('#setImageModel').value = settings.imageModel || 'gpt-image-1';
-  $('#setImageApiFormat').value = settings.imageApiFormat || 'images';
   const _imgSize = settings.imageSize || '1024x1024';
   let _imgRes = '1K';
   for (const [res, opts] of Object.entries(_IMAGE_SIZE_MAP)) {
@@ -249,6 +281,7 @@ export async function openSettings() {
   renderImagePresets();
   renderStickerMgr();
   renderContacts();
+  _collapseSettingGroups();
 
   settingsPanel.classList.add('show');
   overlay.classList.add('show');
@@ -1345,10 +1378,6 @@ export function initSettings() {
     settings.visionApiKey = $('#setVisionApiKey').value.trim();
     settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
     settings.visionModel = $('#setVisionModel').value.trim();
-    settings.imageApiKey = $('#setImageApiKey').value.trim();
-    settings.imageBaseUrl = $('#setImageBaseUrl').value.trim();
-    settings.imageModel = $('#setImageModel').value.trim() || 'gpt-image-1';
-    settings.imageApiFormat = $('#setImageApiFormat').value || 'images';
     settings.imageProxyUrl = ($('#setImageProxyUrl')?.value || '').trim().replace(/\/$/, '');
     settings.imageProxyToken = ($('#setImageProxyToken')?.value || '').trim();
     settings.imageSize = $('#setImageRatio').value || '1024x1024';

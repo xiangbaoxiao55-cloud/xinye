@@ -130,6 +130,24 @@
   margin-top:4px;
 }
 
+/* ---- 设置分组折叠块（由 settings.js 的 _collapseSettingGroups 生成） ---- */
+.sg-group{border-bottom:1px solid var(--border,#e8d0d8)}
+.sg-summary{
+  display:flex;align-items:center;gap:8px;padding:9px 2px;
+  font-size:14px;font-weight:700;color:var(--pink-deep);
+  cursor:pointer;user-select:none;list-style:none;
+}
+.sg-summary::-webkit-details-marker{display:none}
+.sg-summary::after{
+  content:'';width:7px;height:7px;margin-left:auto;flex-shrink:0;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:rotate(45deg);opacity:.6;transition:transform .2s;
+}
+.sg-group:not([open]) .sg-summary::after{transform:rotate(-45deg)}
+.sg-body{display:flex;flex-direction:column;gap:16px;padding:2px 0 14px}
+/* .sg-body 显式 display 会盖过浏览器对 details 闭合内容的隐藏，必须自己来 */
+.sg-group:not([open]) > .sg-body{display:none}
+
 /* ====================== 模态框 ====================== */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(93,64,55,.4);
