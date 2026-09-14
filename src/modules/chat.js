@@ -91,17 +91,22 @@ function getMsgActiveContent(msg) {
   return msg.content;
 }
 
+const _REGEN_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// 单版本和多版本都返回同一个 .version-switcher 容器：两种分支的 DOM 结构一致，
+// 按钮才不会被块级布局挤到预设名下面一行。
 function _versionSwitcherHtml(msg, isLast) {
   if (!msg.versions || msg.versions.length <= 1) {
     const _label = (msg.versions?.[0]?.presetName || msg.presetName || '');
-    const _labelHtml = _label ? `<span class="ver-info single"> · ${escHtml(_label)}</span>` : '';
-    if (!isLast) return _labelHtml;
-    return `${_labelHtml}<button class="btn-regen" data-id="${msg.id}" title="重新生成">🔄</button>`;
+    const _labelHtml = _label ? `<span class="ver-info single">· ${escHtml(_label)}</span>` : '';
+    const _btnHtml = isLast ? `<button class="btn-regen" data-id="${msg.id}" title="重新生成">${_REGEN_ICON}</button>` : '';
+    if (!_labelHtml && !_btnHtml) return '';
+    return `<div class="version-switcher" data-id="${msg.id}">${_labelHtml}${_btnHtml}</div>`;
   }
   const idx = msg.activeVersion ?? 0;
   const total = msg.versions.length;
   const label = msg.versions[idx]?.presetName || '';
-  return `<div class="version-switcher" data-id="${msg.id}"><button class="ver-prev" data-id="${msg.id}" ${idx === 0 ? 'disabled' : ''}>◀</button><span class="ver-info">${idx + 1}/${total}${label ? ' · ' + escHtml(label) : ''}</span><button class="ver-next" data-id="${msg.id}" ${idx >= total - 1 ? 'disabled' : ''}>▶</button>${isLast ? '<button class="btn-regen" data-id="' + msg.id + '" title="重新生成">🔄</button>' : ''}</div>`;
+  return `<div class="version-switcher" data-id="${msg.id}"><button class="ver-prev" data-id="${msg.id}" ${idx === 0 ? 'disabled' : ''}>◀</button><span class="ver-info">${idx + 1}/${total}${label ? ' · ' + escHtml(label) : ''}</span><button class="ver-next" data-id="${msg.id}" ${idx >= total - 1 ? 'disabled' : ''}>▶</button>${isLast ? '<button class="btn-regen" data-id="' + msg.id + '" title="重新生成">' + _REGEN_ICON + '</button>' : ''}</div>`;
 }
 
 // ======================== 粘性预设切换（5分钟自动恢复） ========================

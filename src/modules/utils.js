@@ -35,7 +35,7 @@ export function isDarkMode() {
 
 export function fmtTime(ts) {
   const d = new Date(ts), p = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${String(d.getFullYear()).slice(2)}-${d.getMonth()+1}-${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 export function fmtFull(ts) {

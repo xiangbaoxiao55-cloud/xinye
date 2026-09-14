@@ -219,16 +219,15 @@
 .version-switcher .ver-prev:not(:disabled):active,
 .version-switcher .ver-next:not(:disabled):active{background:var(--pink);color:#fff}
 .ver-info{padding:0 4px;font-size:11px;opacity:.85}
-.ver-info.single{vertical-align:middle;margin-top:3px;display:inline-block}
+.ver-info.single{margin-top:0}
 .btn-regen{
-  border:none;background:rgba(255,255,255,.7);cursor:pointer;
-  width:22px;height:22px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:12px;margin-left:4px;margin-top:3px;
-  box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .15s;
+  border:none;background:none;cursor:pointer;
+  padding:0 2px;line-height:1;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--text-light);opacity:.7;
+  transition:opacity .15s,color .15s,transform .15s;
 }
-.btn-regen:active{background:var(--pink);transform:rotate(180deg)}
-.version-switcher .btn-regen{margin-top:0}
+.btn-regen:hover{opacity:1;color:var(--primary)}
+.btn-regen:active{transform:rotate(180deg)}
 [data-theme="dark"] .version-switcher .ver-prev,
-[data-theme="dark"] .version-switcher .ver-next,
-[data-theme="dark"] .btn-regen{background:rgba(46,28,58,.6);color:var(--text-light)}
+[data-theme="dark"] .version-switcher .ver-next{background:rgba(46,28,58,.6);color:var(--text-light)}
