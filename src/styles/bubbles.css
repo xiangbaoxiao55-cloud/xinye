@@ -8,7 +8,7 @@
 /* ---- 消息行 ---- */
 .msg-row{
   display:flex;align-items:flex-start;gap:12px;
-  max-width:82%;animation:msgIn .3s ease;
+  max-width:100%;animation:msgIn .3s ease;
 }
 .msg-row.user{align-self:flex-end;flex-direction:row-reverse}
 .msg-row.ai{align-self:flex-start}
