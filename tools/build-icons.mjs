@@ -77,6 +77,7 @@ const ICONS = {
   mic:      "<path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 11v1a7 7 0 0 1-14 0v-1'/><path d='M12 19v3'/><path d='M8.5 22h7'/>",
   'skip-forward': "<path d='M5 4.5 15 12 5 19.5z'/><path d='M19 5v14'/>",
   play:     "<path d='M6 3.5 20 12 6 20.5z'/>",
+  thought:  "<circle cx='12' cy='8.8' r='6.3'/><circle cx='7.6' cy='17.8' r='1.6'/><circle cx='12.2' cy='20.6' r='1.05'/>",
 };
 
 function uri(inner) {

@@ -766,7 +766,7 @@ export function linkifyEl(el, text) {
     const body = match[1].trim();
     if (body) {
       const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      thinkHtml += `<div class="thinking-block" onclick="this.classList.toggle('open')"><div class="thinking-header">💭 思考过程</div><div class="thinking-body">${esc(body)}</div></div>`;
+      thinkHtml += `<div class="thinking-block" onclick="this.classList.toggle('open')"><div class="thinking-header"><i class="ic ic-thought"></i>Thinking…</div><div class="thinking-body">${esc(body)}</div></div>`;
     }
   }
   let cleaned = text
