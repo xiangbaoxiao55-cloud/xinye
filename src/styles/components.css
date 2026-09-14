@@ -193,7 +193,7 @@
 /* 保存/重试/改画：无底无框的纯文字按钮，和 prompt 折叠、收藏图标同一行（2026-09-14） */
 .gen-img-actions{display:flex;align-items:center;gap:2px}
 .gen-img-actions button{
-  padding:2px 7px;border:none;background:none;border-radius:6px;
+  padding:2px 6px;border:none;background:none;border-radius:6px;
   color:var(--text-light);opacity:.8;font-size:11.5px;cursor:pointer;
   font-family:inherit;line-height:1.5;
   transition:opacity .15s,color .15s;
@@ -208,7 +208,10 @@
 
 /* ---- 画图 prompt 折叠 ---- */
 .gen-prompt-wrap{margin-top:8px}
-.gen-prompt-header{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+/* nowrap：这一行（保存/重试/改画 + prompt + 收藏）必须始终同一行。
+   图片最大高 260px，竖图（3:4）只有约 195px 宽 —— 光靠 wrap 会把收藏图标挤到第二行。
+   不换行时气泡会自动撑到这一行的宽度（shrink-to-fit），比图片宽一点总好过掉行。 */
+.gen-prompt-header{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:fit-content}
 .btn-gen-prompt-toggle{background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-light);opacity:.6;padding:2px 8px;margin-left:4px;border-radius:6px;font-family:inherit;transition:opacity .15s,background .15s}
 .btn-gen-prompt-toggle:hover{opacity:1;background:rgba(0,0,0,.05)}
 .gen-prompt-body{display:none;font-size:12px;color:var(--text-light);line-height:1.6;padding:8px 10px;background:rgba(0,0,0,.05);border-radius:8px;margin-top:6px;word-break:break-all}
