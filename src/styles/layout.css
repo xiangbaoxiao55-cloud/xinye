@@ -52,11 +52,10 @@
 .header-actions{display:flex;gap:6px}
 .btn-icon{
   width:36px;height:36px;border:0.5px solid rgba(255,255,255,.5);border-radius:50%;
-  background:rgba(255,255,255,.4);color:var(--text-light);
+  background:none;color:var(--text-light);
   font-size:16px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   transition:all .2s;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
 }
 .btn-icon:hover{background:var(--pink);color:#fff;transform:scale(1.08);border-color:var(--pink)}
 .btn-icon.active-deco{background:var(--pink-deep);color:#fff;border-color:var(--pink-deep)}
