@@ -136,8 +136,8 @@ html[data-theme="dark"]{
 .tab-btn:active{opacity:.7}
 
 /* ---- chat区给tab栏让位 ----
-   高度必须等于 .bottom-tabs 的实际高度（50px + 底部安全区，桌面无安全区时就是 50px），
-   否则底栏会盖住聊天区最后一条消息。上一条硬编码 56px 配 62px 的底栏就一直重叠 6px。 */
+   高度必须等于 .bottom-tabs 的实际高度（46px ≈ 底栏 43 + 2px 余量，再 + 底部安全区），
+   否则底栏会盖住聊天区最后一条消息。早先那版硬编码 56px 配 62px 的底栏就一直重叠 6px。 */
 .app{padding-bottom:calc(46px + env(safe-area-inset-bottom, 0px))}
 
 /* ---- 随手记（日记/共读页浮动） ---- */
