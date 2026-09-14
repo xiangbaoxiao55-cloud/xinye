@@ -13,8 +13,6 @@ html[data-theme="dark"]{
 }
 [data-theme="dark"] html{background:#16121e}
 [data-theme="dark"] body{background:linear-gradient(135deg,#16121e 0%,#2a1a2e 50%,#1c1420 100%)}
-[data-theme="dark"] .header{background:rgba(22,14,30,.8);border-bottom-color:rgba(255,255,255,.1)}
-[data-theme="dark"] .input-area{background:rgba(22,14,30,.7);border-top-color:rgba(255,255,255,.1)}
 [data-theme="dark"] .msg-row.ai .msg-bubble{background:rgba(36,28,46,var(--bubble-opacity,0.92))}
 [data-theme="dark"] .msg-row.user .msg-bubble{background:rgba(46,26,40,var(--bubble-opacity,0.92))}
 [data-theme="dark"] .msg-bubble,
@@ -113,18 +111,16 @@ html[data-theme="dark"]{
 [data-theme="dark"] .modal{box-shadow:0 8px 32px rgba(0,0,0,.4)}
 [data-theme="dark"] .diary-modal-hint{color:#8a6878}
 
-/* ---- 底部 Tab 栏 ---- */
+/* ---- 底部 Tab 栏（无底色，只用模糊把滚过的内容化开） ---- */
 .bottom-tabs{
   position:fixed;bottom:0;left:0;right:0;z-index:8500;
-  display:flex;background:rgba(255,255,255,.92);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border-top:1px solid rgba(200,160,180,.25);
+  display:flex;background:none;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   padding-bottom:env(safe-area-inset-bottom,0px);
   max-width:860px;margin:0 auto;
   /* 居中对齐（和 .app 一致） */
   left:50%;transform:translateX(-50%);width:100%;
 }
-[data-theme="dark"] .bottom-tabs{background:rgba(22,14,30,.92);border-top-color:rgba(255,255,255,.08)}
 .tab-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3px;padding:8px 0 10px;border:none;background:none;cursor:pointer;
