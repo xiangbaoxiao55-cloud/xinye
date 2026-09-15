@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#fff8f0" id="metaThemeColor">
+<script>/* 状态栏/导航栏配色必须早于样式表定好，否则启动会闪一下系统色 */
+try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia('(prefers-color-scheme:dark)').matches)document.getElementById('metaThemeColor').content='#16121e'}catch(e){}</script>
 <title>炘也的小窝</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💙</text></svg>">
 <script>if(location.protocol==='file:')location.replace('http://localhost:8787'+location.pathname.replace(/.*\//,'/')||'/');</script>

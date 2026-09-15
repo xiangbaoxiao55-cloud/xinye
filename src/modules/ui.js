@@ -16,6 +16,9 @@ export function toggleDeco() {
 // ======================== 暗夜模式 ========================
 export function applyTheme(dark) {
   document.documentElement.dataset.theme = dark ? 'dark' : '';
+  // 状态栏/导航栏配色：跟着主题走，取自 body 渐变在顶部的那一色
+  const metaTheme = document.getElementById('metaThemeColor');
+  if (metaTheme) metaTheme.content = dark ? '#16121e' : '#fff8f0';
   const btnDark = $('#btnDark');
   btnDark.innerHTML = dark
     ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
