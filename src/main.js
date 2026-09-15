@@ -125,9 +125,11 @@ if (performance.memory) {
       //    而 sessionStorage 是**同步**的——每打一条就要 JSON.parse + stringify +
       //    重写整个 200 条数组。TTS 队列 / 心跳轮询一密集打日志，主线程就被吃满，
       //    表现就是「用一会儿就一动一卡」。攒着、每秒最多落盘一次即可。
-      // ⚠️ error 立刻落盘（崩溃现场通常就在它前一条）；log/warn 还是攒着一秒一次，
-      //    否则就成了「每打一条日志同步写一次 localStorage」，那是另一种卡。
-      if (level === 'error') { _vcFlush(); return; }
+      // ⚠️ 这几类日志**立刻落盘**，不等那一秒的定时器：
+      //    error 前后通常就是崩溃现场；[设置面板]/[内存]/[自动备份]/[覆盖层预览] 是她崩的时候
+      //    我们最想看的那几行（尤其「开始」有、「出来了」没有 —— 那一对就是铁证）。
+      //    频率都很低（打开面板两条、内存一分钟一条），立即落盘不构成负担。
+      if (level === 'error' || /^\[(设置面板|内存|自动备份|覆盖层预览)\]/.test(text)) { _vcFlush(); return; }
       if (!_vcTimer) _vcTimer = setTimeout(_vcFlush, 1000);
     } catch {}
   }
@@ -502,7 +504,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1746';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1751';
 
   await openDB();
   await migrateFromLocalStorage();
