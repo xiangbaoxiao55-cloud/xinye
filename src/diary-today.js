@@ -14,24 +14,47 @@ async function _cfg() {
   if (!_cfgCache) _cfgCache = await loadCfg();
   return _cfgCache;
 }
-// 整理/对话这类高频小调用走副 API（没配副的就回落到主）
-function _api(cfg) {
-  const raw = String(cfg.subBaseUrl || cfg.baseUrl || '').replace(/\/+$/, '');
-  return {
+
+// 整理/对话这类高频小调用走副 API（没配副的就回落到主）。
+// 备用预设从 localStorage 读 —— 跟 modules/api.js 的 getApiPresets() 是同一份数据。
+// ⚠️ 只支持 openai 格式的预设（apiFormat === 'anthropic' 的跳过）：
+//    这条路径是「失败了也没关系」的小调用，不值得为它把 anthropic 的
+//    /messages + 分离 system 那套也搬过来；真要救急，主聊天那边的 subApiFetch 是完整的。
+function _lsPresets() {
+  try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_api_presets') || '[]'); } catch (e) { return []; }
+}
+function _apiCandidates(cfg) {
+  const base = {
     apiKey: cfg.subApiKey || cfg.apiKey || '',
-    url: /\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`,
+    baseUrl: String(cfg.subBaseUrl || cfg.baseUrl || '').replace(/\/+$/, ''),
     model: cfg.subModel || cfg.model || 'gpt-4o',
   };
+  const list = [base];
+  const names = Array.isArray(cfg.subFallbackPresetNames) ? cfg.subFallbackPresetNames : [];
+  const all = _lsPresets();
+  names.forEach(n => {
+    const p = all.find(x => x && x.name === n);
+    if (!p || (p.apiFormat && p.apiFormat !== 'openai')) return;
+    list.push({
+      apiKey: p.apiKey || base.apiKey,
+      baseUrl: String(p.baseUrl || base.baseUrl).replace(/\/+$/, ''),
+      model: p.model || base.model,
+    });
+  });
+  return list
+    .filter(c => c.apiKey && c.baseUrl)
+    .map(c => ({
+      apiKey: c.apiKey, model: c.model,
+      url: /\/v\d+$/.test(c.baseUrl) ? `${c.baseUrl}/chat/completions` : `${c.baseUrl}/v1/chat/completions`,
+    }));
 }
-async function _chat(messages, opt = {}) {
-  const cfg = await _cfg();
-  const s = _api(cfg);
-  if (!s.apiKey) throw new Error('NO_KEY');
-  const res = await fetch(s.url, {
+
+async function _chatOnce(ep, messages, opt) {
+  const res = await fetch(ep.url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.apiKey}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ep.apiKey}` },
     body: JSON.stringify({
-      model: s.model,
+      model: ep.model,
       messages,
       stream: !!opt.onDelta,
       temperature: opt.temperature == null ? 0.85 : opt.temperature,
@@ -59,11 +82,29 @@ async function _chat(messages, opt = {}) {
       if (!d || d === '[DONE]') continue;
       try {
         const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
-        if (delta) { full += delta; opt.onDelta(full); }
+        if (delta) { full += delta; opt.onDelta(full); opt.__started = true; }
       } catch (e) {}
     }
   }
   return full;
+}
+
+async function _chat(messages, opt = {}) {
+  const cfg = await _cfg();
+  const cands = _apiCandidates(cfg);
+  if (!cands.length) throw new Error('NO_KEY');
+  let lastErr = null;
+  for (let i = 0; i < cands.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 800));
+    try {
+      return await _chatOnce(cands[i], messages, opt);
+    } catch (e) {
+      lastErr = e;
+      // 已经开始吐字了就不能换站子重来，否则她屏幕上会出现两遍
+      if (opt.__started) throw e;
+    }
+  }
+  throw lastErr || new Error('ALL_FAILED');
 }
 
 // ══════════════ 今天区 ══════════════
@@ -129,7 +170,7 @@ function renderTodayZone() {
   // 思考标记
   const mark = entry && entry.deepMark && entry.deepMark.text;
   document.getElementById('tzMark').innerHTML = mark
-    ? `<div class="tz-mark">💭 ${escHtml(mark)}</div>` : '';
+    ? `<div class="tz-mark"><i class="ic ic-thought"></i> ${escHtml(mark)}</div>` : '';
 
   document.getElementById('tzHint').textContent = snips.length
     ? `今天记了 ${snips.length} 次` : '随便说，语音输入也行，错别字我认得出';

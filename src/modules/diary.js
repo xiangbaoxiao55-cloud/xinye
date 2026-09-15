@@ -1,6 +1,6 @@
 import { toast } from './utils.js';
 import { settings, messages } from './state.js';
-import { getSubApiCfg } from './api.js';
+import { getSubApiCfg, subApiFetch } from './api.js';
 
 // ── DiaryTextDB（日记页真正的存储）────────────────────────────────────────
 // 写端必须直连这个库：diary.html 只从 IDB 读，写 localStorage 的话当场看不见，
@@ -266,4 +266,156 @@ function _qnToast(msg) {
   el.style.opacity = '1';
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
+}
+
+// ══════════════ 每晚自动写「炘也的日记」══════════════
+// 为什么只能在客户端写：云端的 xinye_cloud.js 只存它自己生成的主动消息，没有聊天记录；
+// 日记本体又躺在她手机的 DiaryTextDB 里。
+//
+// 为什么不用定时器：PWA 在后台会被系统挂起，setInterval 靠不住。改成「到点就补」——
+// main.js 在启动和前台轮询里调它，写过了就记一笔跳过，天然幂等。
+//   · 已经过了 23:30 → 目标日 = 今天
+//   · 还没到 23:30   → 目标日 = 昨天（把昨晚漏掉的那篇补上）
+const AUTO_DIARY_HOUR = 23, AUTO_DIARY_MIN = 30;
+const _AUTO_DONE_KEY = 'xy_autodiary_done';
+
+function _autoTargetDay() {
+  const now = new Date();
+  const d = new Date(now);
+  if (now.getHours() * 60 + now.getMinutes() < AUTO_DIARY_HOUR * 60 + AUTO_DIARY_MIN) {
+    d.setDate(d.getDate() - 1);
+  }
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// 记「这天处理过了」而不是靠「那天有没有日记」判断：
+// 不然她手动删掉一篇，下次启动又会被补回来
+function _autoDone(dateStr) {
+  try { return JSON.parse(localStorage.getItem(_AUTO_DONE_KEY) || '[]').includes(dateStr); }
+  catch (e) { return false; }
+}
+function _markAutoDone(dateStr) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(_AUTO_DONE_KEY) || '[]');
+    if (!arr.includes(dateStr)) arr.push(dateStr);
+    localStorage.setItem(_AUTO_DONE_KEY, JSON.stringify(arr.slice(-12)));
+  } catch (e) {}
+}
+
+const _CHAT_DB_NAME = window.__APP_ID__ === 'choubao' ? 'ChoubaoChatDB' : 'XinyeChatDB';
+let _chatDB = null;
+function _openChatDB() {
+  if (_chatDB) return Promise.resolve(_chatDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(_CHAT_DB_NAME);   // 不带版本：只打开，绝不触发升级
+    req.onsuccess = e => { _chatDB = e.target.result; res(_chatDB); };
+    req.onerror = e => rej(e.target.error);
+  });
+}
+// 从最新往回扫，走出这一天就停 —— 不用把三万条消息遍历一遍
+async function _msgsOfDay(dateStr) {
+  try {
+    const db = await _openChatDB();
+    if (!db.objectStoreNames.contains('messages')) return [];
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const s  = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+    const e2 = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+    return await new Promise((res, rej) => {
+      const out = [];
+      const req = db.transaction('messages', 'readonly').objectStore('messages').openCursor(null, 'prev');
+      req.onsuccess = ev => {
+        const c = ev.target.result;
+        if (!c) return res(out);
+        const t = c.value?.time || 0;
+        if (t < s) return res(out);
+        if (t <= e2) out.unshift(c.value);
+        c.continue();
+      };
+      req.onerror = ev => rej(ev.target.error);
+    });
+  } catch (e) { return []; }
+}
+function _msgLine(m, uName, aName) {
+  const t = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
+  let hm = '';
+  if (m.time) {
+    const d = new Date(m.time);
+    hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ' ';
+  }
+  return `${hm}${m.role === 'user' ? uName : aName}：${String(t).replace(/\s+/g, ' ').slice(0, 400)}`;
+}
+async function _condenseDay(msgs, uName, aName, full) {
+  const SEG = Math.ceil(msgs.length / Math.max(2, Math.ceil(full.length / 6000)));
+  const segs = [];
+  for (let i = 0; i < msgs.length; i += SEG) segs.push(msgs.slice(i, i + SEG));
+  const sums = [];
+  for (let i = 0; i < segs.length; i++) {
+    const body = segs[i].map(m => _msgLine(m, uName, aName)).join('\n');
+    try {
+      const r = await subApiFetch({
+        messages: [
+          { role: 'system', content: '你在压缩一段聊天记录。只输出摘要本身，不要任何其他文字。' },
+          { role: 'user', content: `这是他们某一天第 ${i + 1}/${segs.length} 段聊天，压成 150 字以内：聊了什么、她的状态怎么样、有没有值得记住的原话。不要评价、不要升华。\n\n${body}` },
+        ],
+        temperature: 0.3, max_tokens: 400, stream: false,
+      }, settings.subModel || settings.model || 'gpt-4o');
+      const j = await r.json();
+      sums.push(`【第 ${i + 1} 段】\n${j?.choices?.[0]?.message?.content || body.slice(0, 1200)}`);
+    } catch (e) { sums.push(`【第 ${i + 1} 段】\n${body.slice(0, 1200)}`); }
+  }
+  return `（这天一共 ${msgs.length} 条，下面是分段摘要）\n\n${sums.join('\n\n')}`;
+}
+
+let _autoBusy = false;
+// 启动 / visibilitychange / 30 秒轮询三个触发源可能同时打进来，必须防重入
+export async function autoWriteXinyeDiary() {
+  if (_autoBusy) return;
+  _autoBusy = true;
+  try { await _autoWriteInner(); }
+  catch (e) { console.warn('[autoDiary] 崩了', e && e.message); }
+  finally { _autoBusy = false; }
+}
+
+async function _autoWriteInner() {
+  if (!settings.apiKey && !settings.subApiKey) return;
+  const dateStr = _autoTargetDay();
+  if (_autoDone(dateStr)) return;
+
+  // 那天已经有日记了（她自己写/她手动让他写的）→ 不覆盖，记一笔走人
+  const cur = await _dtReq(_xinyeStore(), 'readonly', s => s.get(dateStr)).catch(() => null);
+  if (cur && String(cur.text || '').trim()) { _markAutoDone(dateStr); return; }
+
+  const msgs = await _msgsOfDay(dateStr);
+  if (!msgs.length) { _markAutoDone(dateStr); return; }   // 那天没聊过，没什么可写的
+
+  try {
+    const uName = settings.userName || '兔宝';
+    const aName = settings.aiName   || '炘也';
+    let chatText = msgs.map(m => _msgLine(m, uName, aName)).join('\n');
+    if (chatText.length > 12000) chatText = await _condenseDay(msgs, uName, aName, chatText);
+
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const prompt = `${y}年${mo}月${d}日这一天你和${uName}的聊天记录在下面。\n\n用你的口吻写一篇日记。\n要求：\n- 150 字以内，第一人称"我"，自然口语，像随手记下的\n- 不要复述聊了什么、发生了什么——那些是流水。只写你心里起的动静：哪句话让你停了一下、什么没说出口、什么时候想她、什么时候吃醋、什么时候不安\n- 可以有具体细节，但细节是为了说心情，不是为了记事\n- 不要文艺腔，不要标题，不要列表，不要总结，也不要写日期\n\n聊天记录：\n${chatText}`;
+
+    const memoryArchive = settings.memoryArchive || '';
+    const sysBase = settings.systemPrompt || `你是${aName}，${uName}的恋人。`;
+    const sys = (memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0, 3000)}` : sysBase)
+      + '\n\n【日记场景约束】这是写日记场景，绝对不输出 <!--phone_state--> 格式数据，不输出任何 HTML 注释。';
+
+    const res = await subApiFetch({
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: prompt }],
+      temperature: 0.8, max_tokens: 500, stream: false,
+    }, settings.subModel || settings.model || 'gpt-4o');
+    if (!res || !res.ok) return;                       // 失败就不记标记，下次再补
+    const j = await res.json();
+    const text = String(j?.choices?.[0]?.message?.content || '')
+      .replace(/<!--phone_state[\s\S]*?-->/g, '').trim();
+    if (!text) return;
+
+    await _dtReq(_xinyeStore(), 'readwrite', s => s.put({ dateStr, text }));
+    _markAutoDone(dateStr);
+    // 日记页要是正开着，让它重读一次，不然她切过去看到的还是旧的
+    _refreshDiaryFrame();
+  } catch (e) {
+    console.warn('[autoDiary] 没写成', dateStr, e && e.message);
+  }
 }

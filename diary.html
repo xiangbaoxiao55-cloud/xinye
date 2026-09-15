@@ -1152,7 +1152,8 @@ async function openDetail(dateStr, tab) {
     }
     const dmEl = document.getElementById('detailMark');
     if (entry && entry.deepMark && entry.deepMark.text) {
-      dmEl.textContent = '💭 ' + entry.deepMark.text; dmEl.style.display = 'block';
+      dmEl.innerHTML = '<i class="ic ic-thought"></i> ' + escHtml(entry.deepMark.text);
+      dmEl.style.display = 'block';
     } else { dmEl.textContent = ''; dmEl.style.display = 'none'; }
     const _rn = (entry && Array.isArray(entry.deepTalk)) ? entry.deepTalk.filter(m => m.role === 'me').length : 0;
     xyBtn.disabled = false;

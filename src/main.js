@@ -8,7 +8,7 @@ import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getIm
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity, dedupMemoryBank, detectMemoryConflicts } from './modules/memory.js';
 import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmarksPanel, toggleBmExpand, removeBookmark, getAiAvatar, getUserAvatar, activeStore, addMessage, updateMessage, renderMessages, appendMsgDOM, scrollBottom, deleteMessage, renderMdHtml, linkifyEl, saveTokenLog, renderTokenLog, sendMessage } from './modules/chat.js';
 import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, loadChatStickers, renderStickerMgr, initStickers } from './modules/stickers.js';
-import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave } from './modules/diary.js';
+import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave, autoWriteXinyeDiary } from './modules/diary.js';
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
 import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, renderImagePresets, renderTtsPresets, updateTtsTypeUI, activateTtsPreset, deleteTtsPreset, checkerActivate, applyUI, updateHeaderStatus, checkLocalServer, notifySwLocalServer, updateLocalServerDot, isLocalServerOnline, initSettings, fetchModelList, testVisionApi, getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './modules/settings.js';
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
@@ -504,7 +504,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-2308';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-2318';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -602,13 +602,16 @@ async function checkPendingMessage() {
 
   // 页面从后台恢复时自动拉取心跳消息
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); }
+    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); autoWriteXinyeDiary(); }
   });
 
   // 前台定时轮询心跳消息（30秒），鸿蒙无FCM靠轮询兜底
   setInterval(() => {
-    if (document.visibilityState === 'visible') _consumePushInbox();
+    if (document.visibilityState === 'visible') { _consumePushInbox(); autoWriteXinyeDiary(); }
   }, 30_000);
+
+  // 每晚那篇「炘也的日记」：过点了就补，写过了就跳过（判据在模块里，很便宜）
+  setTimeout(() => autoWriteXinyeDiary(), 5000);
 
   // 注册 Periodic Background Sync（让SW在后台也能定期拉消息）
   _registerPeriodicSync();
