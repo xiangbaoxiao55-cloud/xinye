@@ -525,10 +525,11 @@ export function showVoiceBar(msgId, blob) {
   const bar = document.createElement('div');
   bar.className = 'tts-voice-bar';
   bar.dataset.id = msgId;
-  bar.innerHTML = `<div class="tts-vbar-row"><button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span></div><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div>`;
+  bar.innerHTML = `<div class="tts-vbar-row"><button class="tts-vbar-play">▶</button><div class="tts-vbar-waves"><span></span><span></span><span></span><span></span><span></span></div><span class="tts-vbar-dur">…</span><button class="tts-vbar-toggle" title="展开文字"><i class="ic ic-file-text"></i></button></div><div class="tts-vbar-progress"><div class="tts-vbar-progress-fill"></div></div>`;
   const playBtn = bar.querySelector('.tts-vbar-play');
   const fill = bar.querySelector('.tts-vbar-progress-fill');
   const durEl = bar.querySelector('.tts-vbar-dur');
+  const toggleBtn = bar.querySelector('.tts-vbar-toggle');
   let tmpUrl;
   try { tmpUrl = URL.createObjectURL(blob); } catch(e) {
     console.warn('[TTS] showVoiceBar blob不可读，跳过', msgId, e.name);
@@ -536,9 +537,12 @@ export function showVoiceBar(msgId, blob) {
     return null;
   }
   const tmpAudio = new Audio(tmpUrl);
+  // 语音条按真实时长伸缩：短的就短、长的封顶，条内一律单行不折行。
+  // 下限 140px 是 play+波形+时长+展开钮排一行放得下的最小宽度。
   tmpAudio.addEventListener('loadedmetadata', () => {
-    const dur = isFinite(tmpAudio.duration) ? Math.round(tmpAudio.duration) : '?';
-    durEl.textContent = `${dur}″`;
+    const d = tmpAudio.duration;
+    durEl.textContent = `${isFinite(d) ? Math.round(d) : '?'}″`;
+    if (isFinite(d)) bar.style.width = Math.min(260, Math.max(140, Math.round(128 + d * 1.4))) + 'px';
   });
   const ctrl = {
     setPlaying(playing) {
@@ -559,17 +563,14 @@ export function showVoiceBar(msgId, blob) {
   });
   observer.observe(btnEl, { attributes: true, attributeFilter: ['class'] });
   if (bubble) bubble.style.display = 'none';
-  const toggleBtn = document.createElement('span');
-  toggleBtn.className = 'tts-vbar-toggle';
-  toggleBtn.textContent = '展开文字';
   toggleBtn.onclick = (e) => {
     e.stopPropagation();
     const hidden = bubble.style.display === 'none';
     bubble.style.display = hidden ? '' : 'none';
-    toggleBtn.textContent = hidden ? '收起' : '展开文字';
+    toggleBtn.title = hidden ? '收起文字' : '展开文字';
+    toggleBtn.classList.toggle('open', hidden);
   };
   content.insertBefore(bar, bubble);
-  content.insertBefore(toggleBtn, bubble);
   return ctrl;
 }
 

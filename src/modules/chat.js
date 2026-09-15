@@ -92,6 +92,16 @@ function getMsgActiveContent(msg) {
 
 const _REGEN_ICON = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+// ---- 气泡底部那行的按钮图标 ----
+const _ICON_COPY = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const _ICON_TTS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const _ICON_TTS_DL = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+// 重新生成语音：喇叭 + 循环箭头。跟「重新生成消息」的纯环形回溯箭头区分开，
+// 缩小版的循环箭头套了个喇叭，一眼能看出是重做语音不是重做整条回复。
+const _ICON_TTS_REGEN = '<svg width="15" height="14" viewBox="0 0 26 24" fill="none"><path d="M8 9H5.6a1 1 0 00-1 1v3.4a1 1 0 001 1H8l4 3.4V5.6L8 9z" fill="currentColor" opacity="0.28" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M14.5 9.4a3.6 3.6 0 010 5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><g transform="translate(15.4,9.8) scale(0.42)"><path d="M1 4v6h6" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></g></svg>';
+const _ICON_TOKEN_LOG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+const _iconBookmark = on => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${on?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+
 /** 去掉 setStatus 挂在元素上的图标类。气泡先显示「思考中…」、再被正式回复覆盖，
  *  覆盖前必须先清，否则 .status-ico::before 的图标会赖在正文最前面。 */
 function _clearIco(el) {
@@ -99,20 +109,40 @@ function _clearIco(el) {
   el.className = String(el.className || '').replace(/\bic-[a-z-]+\b|\bstatus-ico\b/g, '').replace(/\s+/g, ' ').trim();
 }
 
-// 单版本和多版本都返回同一个 .version-switcher 容器：两种分支的 DOM 结构一致，
-// 按钮才不会被块级布局挤到预设名下面一行。
+function _verTitle(s) { return escHtml(s).replace(/"/g, '&quot;'); }
+
+// 单版本和多版本都返回同一个 .version-switcher 容器：两种分支的 DOM 结构一致。
+// 返回的是 inline 的 span——它现在住在底部那行的折叠区里（.ver-slot），不再是独立一行。
 function _versionSwitcherHtml(msg, isLast) {
   if (!msg.versions || msg.versions.length <= 1) {
     const _label = (msg.versions?.[0]?.presetName || msg.presetName || '');
-    const _labelHtml = _label ? `<span class="ver-info single">· ${escHtml(_label)}</span>` : '';
+    const _labelHtml = _label ? `<span class="ver-info single" title="${_verTitle(_label)}">· ${escHtml(_label)}</span>` : '';
     const _btnHtml = isLast ? `<button class="btn-regen" data-id="${msg.id}" title="重新生成">${_REGEN_ICON}</button>` : '';
     if (!_labelHtml && !_btnHtml) return '';
-    return `<div class="version-switcher" data-id="${msg.id}">${_labelHtml}${_btnHtml}</div>`;
+    return `<span class="version-switcher" data-id="${msg.id}">${_labelHtml}${_btnHtml}</span>`;
   }
   const idx = msg.activeVersion ?? 0;
   const total = msg.versions.length;
   const label = msg.versions[idx]?.presetName || '';
-  return `<div class="version-switcher" data-id="${msg.id}"><button class="ver-prev" data-id="${msg.id}" ${idx === 0 ? 'disabled' : ''}>◀</button><span class="ver-info">${idx + 1}/${total}${label ? ' · ' + escHtml(label) : ''}</span><button class="ver-next" data-id="${msg.id}" ${idx >= total - 1 ? 'disabled' : ''}>▶</button>${isLast ? '<button class="btn-regen" data-id="' + msg.id + '" title="重新生成">' + _REGEN_ICON + '</button>' : ''}</div>`;
+  return `<span class="version-switcher" data-id="${msg.id}"><button class="ver-prev" data-id="${msg.id}" ${idx === 0 ? 'disabled' : ''}>◀</button><span class="ver-info" title="${_verTitle(label)}">${idx + 1}/${total}${label ? ' · ' + escHtml(label) : ''}</span><button class="ver-next" data-id="${msg.id}" ${idx >= total - 1 ? 'disabled' : ''}>▶</button>${isLast ? '<button class="btn-regen" data-id="' + msg.id + '" title="重新生成">' + _REGEN_ICON + '</button>' : ''}</span>`;
+}
+
+/**
+ * 气泡底部那一行。常驻「时间 + 生成语音 + 重新生成语音 + ⋯」，
+ * 复制 / 下载语音 / 预设名·版本切换 / 请求详情 / 收藏 都收进 .foot-more，点 ⋯ 才展开。
+ * 用户消息只有「时间 + 复制」，不套折叠壳。
+ */
+function _footRowHtml(msg, isUser, { ver = '', tokenLog = '', bookmark = '' } = {}) {
+  const clock = `<span class="mt-clock">${fmtTime(msg.time)}</span>`;
+  const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制">${_ICON_COPY}</button>`;
+  if (isUser) return `<div class="msg-time">${clock}${copyBtn}</div>`;
+  return `<div class="msg-time">${clock}`
+    + `<button class="btn-tts" data-id="${msg.id}" title="播放语音">${_ICON_TTS}</button>`
+    + `<button class="btn-tts-regen" data-id="${msg.id}" title="重新生成语音">${_ICON_TTS_REGEN}</button>`
+    + `<button class="btn-foot-toggle" title="更多"><i class="ic ic-plus"></i></button>`
+    + `<span class="foot-more">${copyBtn}`
+    + `<button class="btn-tts-dl" data-id="${msg.id}" title="下载语音">${_ICON_TTS_DL}</button>`
+    + `<span class="ver-slot">${ver}</span>${tokenLog}${bookmark}</span></div>`;
 }
 
 // ======================== 粘性预设切换（5分钟自动恢复） ========================
@@ -373,11 +403,9 @@ export async function renderMessages() {
     row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
     const allImgs = msg.images || (msg.image ? [msg.image] : []);
     const imgHtml = allImgs.length ? allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('') : (msg._hasImages ? _lazyImgPlaceholder(msg.id, 'images') : '');
-    const copyBtn = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
-    const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
+    const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情">${_ICON_TOKEN_LOG}</button>`;
     const _isBookmarked = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
-    const bookmarkBtn = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-    const ttsBtn = isUser ? copyBtn : `${copyBtn} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button class="btn-tts-regen" data-id="${msg.id}" title="重新生成语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+    const bookmarkBtn = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}">${_iconBookmark(_isBookmarked)}</button>`;
     const _stickerName = isUser ? window.detectStickerMsg?.(msg.content) : null;
     const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
     let _bubbleInner;
@@ -411,8 +439,11 @@ export async function renderMessages() {
         <div class="${_bubbleCls}">${_bubbleInner}</div>
         <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
-        <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn}</div>
-        ${!isUser && !msg.isGenImage && !msg.isEmailCard ? _versionSwitcherHtml(msg, msg === _lastAiMsg) : ''}
+        ${_footRowHtml(msg, isUser, {
+          ver: (!isUser && !msg.isGenImage && !msg.isEmailCard) ? _versionSwitcherHtml(msg, msg === _lastAiMsg) : '',
+          tokenLog: tokenLogBtn,
+          bookmark: bookmarkBtn,
+        })}
         <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
       </div>`;
     const _isEmailRender = msg.isEmailCard || msg.content?.startsWith('[✉️');
@@ -459,11 +490,9 @@ export async function appendMsgDOM(msg) {
   row.className = `msg-row ${isUser ? 'user' : 'ai'}`;
   const allImgs = msg.images || (msg.image ? [msg.image] : []);
   const imgHtml = allImgs.length ? allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join('') : (msg._hasImages ? _lazyImgPlaceholder(msg.id, 'images') : '');
-  const copyBtn2 = `<button class="btn-copy" data-id="${msg.id}" title="复制"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
-  const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M8.5 15c1 1.5 6 1.5 7 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
+  const tokenLogBtn = isUser ? '' : `<button class="btn-token-log" data-id="${msg.id}" title="查看请求详情">${_ICON_TOKEN_LOG}</button>`;
   const _isBookmarked2 = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
-  const bookmarkBtn2 = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
-  const ttsBtn = isUser ? copyBtn2 : `${copyBtn2} <button class="btn-tts" data-id="${msg.id}" title="播放语音"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 5L6 9H3a1 1 0 00-1 1v4a1 1 0 001 1h3l5 4V5z" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M15.5 8.5a5 5 0 010 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M18.5 6a9 9 0 010 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button><button class="btn-tts-dl" data-id="${msg.id}" title="下载语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M7 12l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button class="btn-tts-regen" data-id="${msg.id}" title="重新生成语音"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 105.64-10.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  const bookmarkBtn2 = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}">${_iconBookmark(_isBookmarked2)}</button>`;
   const _sn = isUser ? window.detectStickerMsg?.(msg.content) : null;
   const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
   let _bi;
@@ -492,8 +521,11 @@ export async function appendMsgDOM(msg) {
       <div class="${_bc}">${_bi}</div>
       <button class="msg-del-btn" data-id="${msg.id}" title="删除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <button class="msg-edit-btn" data-id="${msg.id}" title="编辑此消息"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M16 3a2.83 2.83 0 114 4L8 19l-5 1 1-5L16 3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
-      <div class="msg-time">${fmtTime(msg.time)}${ttsBtn}${tokenLogBtn}${bookmarkBtn2}</div>
-      ${!isUser && !msg.isGenImage && !msg.isEmailCard ? _versionSwitcherHtml(msg, true) : ''}
+      ${_footRowHtml(msg, isUser, {
+        ver: (!isUser && !msg.isGenImage && !msg.isEmailCard) ? _versionSwitcherHtml(msg, true) : '',
+        tokenLog: tokenLogBtn,
+        bookmark: bookmarkBtn2,
+      })}
       <div class="token-log-panel" data-id="${msg.id}" style="display:none"></div>
     </div>`;
   const _isEmailRender2 = msg.isEmailCard || msg.content?.startsWith('[✉️');
@@ -640,6 +672,11 @@ chatArea.addEventListener('click', async e => {
   if (delBtn) {
     const id = Number(delBtn.dataset.id);
     if (confirm('删除这条消息？')) deleteMessage(id);
+    return;
+  }
+  const footToggle = e.target.closest('.btn-foot-toggle');
+  if (footToggle) {
+    footToggle.closest('.msg-time')?.classList.toggle('foot-open');
     return;
   }
   const copyBtn = e.target.closest('.btn-copy');
@@ -3146,12 +3183,10 @@ function _updateVersionSwitcherDOM(msg) {
     return delBtn && Number(delBtn.dataset.id) === msg.id;
   });
   if (!row) return;
-  row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
-  const timeEl = row.querySelector('.msg-time');
-  if (timeEl) {
+  const _slot = row.querySelector('.ver-slot');
+  if (_slot) {
     const _isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
-    const html = _versionSwitcherHtml(msg, _isLast);
-    if (html) timeEl.insertAdjacentHTML('afterend', html);
+    _slot.innerHTML = _versionSwitcherHtml(msg, _isLast);
   }
 }
 
@@ -3179,9 +3214,8 @@ export function switchVersion(msgId, direction) {
     window.applyStickerTags?.(bubble);
   }
   const isLast = msg === [...messages].reverse().find(m => m.role === 'assistant' && !m.isGenImage && !m.isEmailCard);
-  row.querySelectorAll('.version-switcher, .btn-regen, .ver-info.single').forEach(el => el.remove());
-  const timeEl = row.querySelector('.msg-time');
-  if (timeEl) timeEl.insertAdjacentHTML('afterend', _versionSwitcherHtml(msg, isLast));
+  const _slot = row.querySelector('.ver-slot');
+  if (_slot) _slot.innerHTML = _versionSwitcherHtml(msg, isLast);
 }
 
 export async function triggerProactiveReply(instruction, maxTokens = 200) {

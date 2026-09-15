@@ -48,8 +48,30 @@
 .msg-time{
   font-size:11px;color:var(--text-light);margin-top:5px;padding:0;
   display:flex;align-items:center;gap:6px;width:fit-content;
+  max-width:100%;flex-wrap:wrap;
 }
 .msg-row.user .msg-time{align-self:flex-end}
+.mt-clock{flex-shrink:0}
+/* 折叠区：默认只留「时间 + 生成语音 + 重新生成语音 + ⋯」，其余点 ⋯ 才出来。
+   foot-more 自己也能折行——多版本那条展开后总宽会超过手机可用宽度，
+   不折就会顶出屏幕；.ver-slot 是一整块不可断的 inline-flex，放不下时整块落到第二行。 */
+.foot-more{display:none;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.msg-time.foot-open .foot-more{display:flex;animation:_footIn .16s ease}
+@keyframes _footIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.ver-slot{display:inline-flex;align-items:center;gap:4px}
+.ver-slot:empty{display:none}
+.btn-foot-toggle{
+  border:none;background:none;cursor:pointer;
+  width:16px;height:16px;padding:0;line-height:1;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--text-light);opacity:.65;
+  transition:color .2s,opacity .2s,transform .2s;
+}
+.btn-foot-toggle .ic{font-size:12px;transition:transform .2s}
+.btn-foot-toggle:hover{opacity:1;color:var(--pink-deep)}
+.msg-time.foot-open .btn-foot-toggle{opacity:1;color:var(--pink-deep)}
+/* 只转里面的 + 号——转按钮本身会把 16px 的盒子撑成 23px，行高跟着跳 */
+.msg-time.foot-open .btn-foot-toggle .ic{transform:rotate(45deg)}
 
 .msg-edit-btn,.msg-del-btn{
   position:absolute;top:4px;
@@ -100,13 +122,18 @@
   color:var(--text-light);opacity:.6;transition:all .2s;
 }
 .btn-tts-regen:hover{opacity:1;transform:scale(1.15);color:var(--primary)}
-/* 炘也主动语音条（speak工具触发） */
+/* 炘也主动语音条（speak工具触发）。
+   宽度由 tts.js 按真实时长写成行内 style（短的就短、90″ 以上封顶），
+   align-self 必须显式写——.msg-content 是纵向 flex，默认 stretch 会把它拉满整行，
+   那样不管多长看起来都一样宽。 */
 .tts-voice-bar{
-  display:inline-flex;align-items:center;gap:8px;
+  display:flex;flex-direction:column;align-items:stretch;gap:5px;
+  align-self:flex-start;
+  width:180px;min-width:140px;max-width:260px;
   background:var(--card);border:1px solid var(--border);
   border-radius:20px;padding:8px 14px;margin-bottom:5px;
-  cursor:pointer;max-width:180px;user-select:none;
-  transition:opacity .2s;
+  cursor:pointer;user-select:none;
+  transition:opacity .2s,width .18s ease;
 }
 .tts-voice-bar:active{opacity:.7}
 .tts-vbar-play{
@@ -130,12 +157,18 @@
 .tts-voice-bar.playing .tts-vbar-waves span:nth-child(5){animation-delay:.05s}
 @keyframes ttsWaveBar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.1)}}
 .tts-vbar-dur{font-size:11px;color:var(--text-light);flex-shrink:0}
-.tts-voice-bar{flex-direction:column;align-items:stretch;gap:5px}
 .tts-vbar-row{display:flex;align-items:center;gap:8px}
 .tts-vbar-progress{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
 .tts-vbar-progress-fill{height:100%;width:0%;background:var(--pink,#e88);border-radius:2px;transition:width .25s linear}
-.tts-vbar-toggle{font-size:11px;color:var(--text-light);cursor:pointer;padding:2px 4px;opacity:.7;display:block;margin-bottom:3px}
-.tts-vbar-toggle:hover{opacity:1}
+/* 「展开文字」——住在语音条内最右端，跟时长同一行，整条语音条永远只有一行 */
+.tts-vbar-toggle{
+  border:none;background:none;cursor:pointer;padding:0;line-height:1;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  color:var(--text-light);opacity:.7;
+  transition:opacity .15s,color .15s;
+}
+.tts-vbar-toggle .ic{font-size:14px}
+.tts-vbar-toggle:hover,.tts-vbar-toggle.open{opacity:1;color:var(--pink-deep)}
 
 /* 收藏面板卡片 */
 .bm-card-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 5px rgba(0,0,0,.1);background:var(--bm-avatar) center/cover no-repeat}
@@ -194,10 +227,10 @@
 .typing-dots span:nth-child(3){animation-delay:.4s}
 @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
 
-/* ---- 版本切换器 + 重新生成 ---- */
+/* ---- 版本切换器 + 重新生成（现在住在底部那行的折叠区 .ver-slot 里） ---- */
 .version-switcher{
-  display:flex;align-items:center;gap:4px;margin-top:3px;
-  font-size:11px;color:var(--text-light);
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--text-light);white-space:nowrap;
 }
 .version-switcher .ver-prev,
 .version-switcher .ver-next{
@@ -210,7 +243,12 @@
 .version-switcher .ver-next:disabled{opacity:.3;cursor:default}
 .version-switcher .ver-prev:not(:disabled):active,
 .version-switcher .ver-next:not(:disabled):active{background:var(--pink);color:#fff}
-.ver-info{padding:0 4px;font-size:11px;opacity:.85}
+/* 预设名太长会把整行顶出屏幕（实测 20+ 字的站子名能把 .msg-time 撑到 393px、
+   溢出屏幕 80px）——截断加省略号，完整名字挂在 title 上。 */
+.ver-info{
+  padding:0 4px;font-size:11px;opacity:.85;
+  max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .ver-info.single{margin-top:0}
 .btn-regen{
   border:none;background:none;cursor:pointer;
