@@ -123,11 +123,12 @@ function renderTodayZone() {
   const head = _fmtHead(ds);
   const elDate = document.getElementById('tzDate');
   if (!elDate) return;
-  elDate.textContent = head.date;
-  document.getElementById('tzWeek').textContent = head.week;
-
   const entry = getUserEntry(ds);
   const snips = getSnippets(entry);
+  const mood = (entry && entry.mood) || '';
+
+  elDate.textContent = head.date;
+  document.getElementById('tzWeek').textContent = head.week + (mood ? '  ' + mood : '');
 
   // 展开成时间轴的行：整理过的一条口述可能拆成多行
   const rows = [];
@@ -181,7 +182,30 @@ function renderTodayZone() {
   document.getElementById('tzHint').textContent = snips.length
     ? `今天记了 ${snips.length} 次` : '随便说，语音输入也行，错别字我认得出';
 
+  _renderTodayImgs(ds);
   _maybeOrganize();
+}
+
+// 今天区的图片：跟详情页同一个数据源、同一套样式。
+// 单独存一份 _tzImgs 而不是直接用 _detailImgs：她在详情页看过别的日期之后，
+// _detailImgs 会变成那天的图，再回今天区点图就会张冠李戴。
+let _tzImgs = [];
+function _tzOpenImg(i) {
+  _detailImgs = _tzImgs;   // 借 openLightbox 的 detail 通道，先把它的数组换掉
+  openLightbox(i, 'detail');
+}
+async function _renderTodayImgs(ds) {
+  const el = document.getElementById('tzImages');
+  if (!el) return;
+  const entry = getUserEntry(ds);
+  if (!entry || !entry.imgCount) { _tzImgs = []; el.innerHTML = ''; return; }
+  try {
+    const imgs = await getDiaryImgs(ds);
+    if (ds !== todayStr()) return;             // 回来时已经不是今天了，丢弃
+    _tzImgs = imgs;
+    el.innerHTML = imgs.map((src, i) =>
+      `<img class="detail-img-item" src="${src}" onclick="tzOpenImg(${i})">`).join('');
+  } catch (e) { _tzImgs = []; el.innerHTML = ''; }
 }
 
 function tzToggleRaw(i) {
@@ -625,6 +649,7 @@ else _initToday();
 window.renderTodayZone = renderTodayZone;
 window.todaySave = todaySave;
 window.tzToggleRaw = tzToggleRaw;
+window.tzOpenImg = _tzOpenImg;
 window.openDeepTalk = openDeepTalk;
 window.openDeepTalkFromDetail = openDeepTalkFromDetail;
 window.closeDeepTalk = closeDeepTalk;

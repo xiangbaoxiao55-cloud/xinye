@@ -408,6 +408,11 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
   flex:1;min-width:0;font-size:14.5px;line-height:1.85;color:var(--text);
   white-space:pre-wrap;word-break:break-word;
 }
+/* 今天区的图片：复用详情页那套尺寸，空的时候完全不占位 */
+#tzImages{margin-top:16px}
+#tzImages:empty{display:none}
+/* 详情页里正文排到流水账后面了，给它一道分隔，别跟流水账糊在一起 */
+#detailSnippets:not(:empty) + .detail-text{border-top:1px dashed var(--border);padding-top:14px}
 .tz-mark{
   margin-top:4px;padding:12px 15px;border-radius:var(--radius-sm);font-size:14.5px;line-height:1.8;
   color:var(--text);white-space:pre-wrap;word-break:break-word;
@@ -524,8 +529,8 @@ html.dark .img-thumb{border-color:var(--border)}
   <div class="detail-body">
     <div id="detailImages" class="detail-imgs"></div>
     <div class="detail-mood" id="detailMood"></div>
-    <div class="detail-text" id="detailText"></div>
     <div id="detailSnippets"></div>
+    <div class="detail-text" id="detailText"></div>
     <div class="xy-review-section" id="xyReviewSection" style="display:none">
       <div class="xy-review-bubble" id="xyReviewBubble"></div>
       <div class="xy-review-meta" id="xyReviewMeta">
@@ -657,6 +662,7 @@ html.dark .img-thumb{border-color:var(--border)}
           <span class="tz-hint" id="tzHint"></span>
           <button class="tz-save" id="tzSaveBtn" onclick="todaySave()"><i class="ic ic-pen"></i> 记下</button>
         </div>
+        <div id="tzImages" class="detail-imgs"></div>
         <div id="tzTimeline"></div>
         <div id="tzNote"></div>
         <div id="tzMark"></div>
