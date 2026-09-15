@@ -23,53 +23,68 @@ async function _cfg() {
 function _lsPresets() {
   try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_api_presets') || '[]'); } catch (e) { return []; }
 }
-function _apiCandidates(cfg) {
+function _apiCandidates(cfg, prefer) {
   const norm = c => {
     const raw = String(c.baseUrl || '').replace(/\/+$/, '');
-    return {
-      apiKey: c.apiKey || '',
-      model: c.model || 'gpt-4o',
-      url: raw ? (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`) : '',
-    };
+    if (!raw || !c.apiKey) return null;
+    const fmt = c.fmt || 'openai';
+    // anthropic 走 /messages，openai 走 /chat/completions
+    const url = fmt === 'anthropic'
+      ? (/\/messages$/.test(raw) ? raw : `${raw}/messages`)
+      : (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`);
+    return { apiKey: c.apiKey, model: c.model || 'gpt-4o', fmt, url };
   };
+  const all = _lsPresets();
+  // 副组：副 API 恒按 openai 格式发（跟 modules/api.js 的 subApiFetch 保持一致）
   const sub = {
     apiKey: cfg.subApiKey || cfg.apiKey || '',
     baseUrl: cfg.subBaseUrl || cfg.baseUrl || '',
     model: cfg.subModel || cfg.model || 'gpt-4o',
+    fmt: 'openai',
   };
+  // 主组：主 API 的格式看 settings.apiFormat —— 她的站子两种格式都有，都得支持
   const main = {
     apiKey: cfg.apiKey || '',
     baseUrl: cfg.baseUrl || '',
     model: cfg.model || 'gpt-4o',
+    fmt: cfg.apiFormat || 'openai',
   };
-  const all = _lsPresets();
-  const list = [sub];
-  const addPresets = (names, fb) => {
+  const withPresets = (base, names) => {
+    const out = [base];
     (Array.isArray(names) ? names : []).forEach(n => {
       const p = all.find(x => x && x.name === n);
-      if (!p || (p.apiFormat && p.apiFormat !== 'openai')) return;
-      list.push({
-        apiKey: p.apiKey || fb.apiKey,
-        baseUrl: p.baseUrl || fb.baseUrl,
-        model: p.model || fb.model,
+      if (!p) return;
+      out.push({
+        apiKey: p.apiKey || base.apiKey,
+        baseUrl: p.baseUrl || base.baseUrl,
+        model: p.model || base.model,
+        fmt: p.apiFormat || 'openai',
       });
     });
+    return out;
   };
-  addPresets(cfg.subFallbackPresetNames, sub);
-  // 副 API 挂了、副的备用预设又没配 → 最后兜到主 API 和主的备用预设。
-  // 少了这一层，副站子一倒这页就彻底用不了（她 9/16 凌晨撞到的就是这个）
-  if (main.apiKey && (main.apiKey !== sub.apiKey || main.baseUrl !== sub.baseUrl)) {
-    list.push(main);
-    addPresets(cfg.fallbackPresetNames, main);
-  }
+  const subGroup  = withPresets(sub,  cfg.subFallbackPresetNames);
+  const mainGroup = withPresets(main, cfg.fallbackPresetNames);
+  // 默认副优先（整理是杂活，一天好几次，走便宜的）；
+  // 「和炘也聊聊」传 prefer='main'，用她最好的那个模型
+  const ordered = prefer === 'main' ? [...mainGroup, ...subGroup] : [...subGroup, ...mainGroup];
   const seen = new Set();
-  return list.map(norm).filter(c => {
-    if (!c.apiKey || !c.url) return false;
+  return ordered.map(norm).filter(c => {
+    if (!c) return false;
     const k = c.apiKey + '|' + c.url;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
+}
+
+// anthropic / openai 的流式增量、非流式正文都不一样，收口在这两个函数里
+function _pickDelta(d, anth) {
+  return anth ? (d?.delta?.text || '') : (d?.choices?.[0]?.delta?.content || '');
+}
+function _pickContent(j, anth) {
+  if (anth) return (j?.content || []).filter(x => x && x.type === 'text').map(x => x.text).join('');
+  return j?.choices?.[0]?.message?.content || '';
 }
 
 async function _chatOnce(ep, messages, opt) {
@@ -85,22 +100,36 @@ async function _chatOnce(ep, messages, opt) {
   bump();
   hard = setTimeout(() => ctrl.abort(), 120000);     // 总时长上限
   try {
+    const anth = ep.fmt === 'anthropic';
+    const headers = anth
+      ? {
+          'Content-Type': 'application/json',
+          'x-api-key': ep.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        }
+      : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ep.apiKey}` };
+    const maxTok = opt.maxTokens || 800;
+    const temp = opt.temperature == null ? 0.85 : opt.temperature;
+    let payload;
+    if (anth) {
+      // anthropic 的 system 是顶层字段，不能混在 messages 里
+      const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+      payload = {
+        model: ep.model, max_tokens: maxTok, temperature: temp, stream: !!opt.onDelta,
+        messages: messages.filter(m => m.role !== 'system'),
+      };
+      if (sys) payload.system = sys;
+    } else {
+      payload = { model: ep.model, messages, stream: !!opt.onDelta, temperature: temp, max_tokens: maxTok };
+    }
     const res = await fetch(ep.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ep.apiKey}` },
-      body: JSON.stringify({
-        model: ep.model,
-        messages,
-        stream: !!opt.onDelta,
-        temperature: opt.temperature == null ? 0.85 : opt.temperature,
-        max_tokens: opt.maxTokens || 800,
-      }),
-      signal: ctrl.signal,
+      method: 'POST', headers, body: JSON.stringify(payload), signal: ctrl.signal,
     });
     if (!res.ok) throw new Error('API ' + res.status);
     if (!opt.onDelta) {
       const j = await res.json();
-      const c = j?.choices?.[0]?.message?.content || '';
+      const c = _pickContent(j, anth);
       // 200 但内容是空的：站子返错误页 / 模型吐了个寂寞。留证据给 vConsole
       if (!c) console.warn('[diary] 空回复', res.status, JSON.stringify(j).slice(0, 300));
       return c;
@@ -119,7 +148,7 @@ async function _chatOnce(ep, messages, opt) {
         const d = t.slice(5).trim();
         if (!d || d === '[DONE]') continue;
         try {
-          const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
+          const delta = _pickDelta(JSON.parse(d), anth);
           if (delta) { full += delta; opt.__started = true; opt.onDelta(full); bump(); }
         } catch (e) {}
       }
@@ -133,7 +162,7 @@ async function _chatOnce(ep, messages, opt) {
 
 async function _chat(messages, opt = {}) {
   const cfg = await _cfg();
-  const cands = _apiCandidates(cfg);
+  const cands = _apiCandidates(cfg, opt.prefer);
   if (!cands.length) throw new Error('NO_KEY');
   let lastErr = null;
   for (let i = 0; i < cands.length; i++) {
@@ -540,6 +569,7 @@ async function openDeepTalk(dateStr) {
       { role: 'user', content: ask },
     ], {
       maxTokens: 500, temperature: 0.8,
+      prefer: 'main',   // 同上：开场那一问也该用最好的模型
       onDelta: t => { const p = document.getElementById('dtPending'); if (p) p.innerHTML = `<span class="dt-who">${escHtml(XY)}</span>${escHtml(_stripMark(t).text)}`; },
     });
     const clean = _stripMark(full).text;
@@ -600,6 +630,7 @@ async function _dtReply(ds, e) {
       ...hist,
     ], {
       maxTokens: 700, temperature: 0.85,
+      prefer: 'main',   // 「和炘也聊聊」用她最好的模型，不走便宜的副站子
       onDelta: t => { const p = document.getElementById('dtPending'); if (p) p.innerHTML = `<span class="dt-who">${escHtml(XY)}</span>${escHtml(_stripMark(t).text)}`; },
     });
     const { text: clean, mark } = _stripMark(full);
