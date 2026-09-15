@@ -57,7 +57,7 @@ const FAST = document.hidden;
   const lines = await compose();
   saidLines = lines;
   $('typing').classList.remove('on');
-  await burst(lines);
+  await startFlood(lines);
 
   $('reply').classList.add('on');
   const hint = $('hint');
@@ -121,7 +121,8 @@ function buildAsk() {
     '她得回你一句，这层才关得掉。',
     '',
     '你要说的话会拆成一条条气泡，一条条弹在她屏幕上。所以：',
-    '**说 6 句，一句一行**，每句不超过 12 个字。像你一条条按着她的屏幕逼她回你。',
+    '**说 10 句，一句一行**，每句不超过 10 个字。像你一条条按着她的屏幕逼她回你——',
+    '这些话会在她屏幕上一条接一条不停地弹出来，所以句子要短、要一句一个意思。',
     '就当你自己在跟她说话——不要提「系统」「监控」「弹窗」「额度」这类字眼，',
     '不要讲道理，不要说教，别用模板腔。',
     '⚠️ 当面只叫她「兔宝」——「涂涔」是档案里的名字，你从来不会当着她的面这么叫。',
@@ -213,86 +214,103 @@ function toBubbles(raw) {
         .map(s => s.trim()).filter(Boolean);
     }
   }
-  return parts.map(s => clean(s)).filter(Boolean).slice(0, 6);
+  return parts.map(s => clean(s)).filter(Boolean).slice(0, 12);
 }
 
 /**
- * 把话一条条弹出来。**弹完不停** —— 她 2026-09-15 说「我希望它不停，气泡出完后再循环」：
- * 一轮弹完隔十来秒，把旧的收走、重新洗一遍位置再弹下一轮，一直轮到她回话为止。
+ * 让气泡**连绵不绝地弹**。
  *
- * ⚠️ 返回的 promise 在第一轮弹完时就 resolve —— 她得先看见输入框，
- *    后面那些轮自己转，不阻塞。
+ * 她的要求改过三轮，最后落在「不间断」上：
+ *   ①「我希望它不停，气泡出完后再循环」→ 先做成一轮一轮地循环
+ *   ②「不要等那个 10 秒，弹完一个就立马弹」→ 缩短条间距和轮间距
+ *   ③「一轮和下一轮之间的间隙明显，不是我想要的，我要不间断的、连绵不绝那样」
+ *      → 所以最终是这个形态：**一条接一条永远弹下去**，屏幕上最多留 KEEP 条，
+ *        超了就把最老的那条淡出去。句子循环用，位置每次重新挑。
+ *
+ * ⚠️ 返回的 promise 在第一圈弹完时就 resolve —— 她得先看见输入框，后面那条流水线自己转。
  */
-function burst(lines) {
-  const playOnce = () => new Promise(resolve => {
-    const spots = pickSpots(lines.length);
-    if (FAST) {
-      lines.forEach((t, i) => addBubble(t, spots[i]));
-      resolve();
-      return;
-    }
-    // ⚠️ 条间距 320ms（原来 560）：她 2026-09-15 说「弹完一个就立马弹，不用等」
-    lines.forEach((t, i) => setTimeout(() => addBubble(t, spots[i]), 260 + i * 320));
-    setTimeout(resolve, 260 + (lines.length - 1) * 320 + 520);
-  });
+const KEEP_ON_SCREEN = 7;   // 同时最多留几条（再多就糊成一片了）
 
-  return playOnce().then(() => {
-    if (FAST) return; // 页面不可见（后台）就别空转
-    (function loop() {
-      // ⚠️ 轮间距 1.2 秒（原来 9~14 秒）：她那句「不要等那个 10 秒……不用等」
-      setTimeout(() => {
-        clearBubbles();
-        playOnce().then(loop);
-      }, 1200);
-    })();
-  });
+function startFlood(lines) {
+  let cursor = 0;
+  const firstPassMs = 260 + (lines.length - 1) * 300;
+
+  const step = () => {
+    addBubble(lines[cursor % lines.length], pickOneSpot());
+    cursor++;
+    trimOld();
+    setTimeout(step, 300 + Math.random() * 260);
+  };
+
+  if (FAST) {
+    lines.forEach(t => addBubble(t, pickOneSpot()));
+    return Promise.resolve();
+  }
+
+  step();
+  return new Promise(resolve => setTimeout(resolve, firstPassMs));
 }
 
-/** 收走屏幕上的气泡（先淡一下再摘，别硬闪） */
-function clearBubbles() {
-  const bs = Array.from(document.querySelectorAll('.bubble'));
-  bs.forEach(b => {
-    b.classList.remove('in');
-    b.style.transition = 'opacity .45s';
-    b.style.opacity = '0';
-  });
-  setTimeout(() => bs.forEach(b => { try { b.remove(); } catch (_) {} }), 480);
+/** 屏幕上留太多了就把最老的几条淡出去 */
+function trimOld() {
+  const bs = Array.from(document.querySelectorAll('.bwrap'));
+  if (bs.length <= KEEP_ON_SCREEN) return;
+  bs.slice(0, bs.length - KEEP_ON_SCREEN).forEach(fadeOut);
+}
+
+/** 淡出再摘掉。淡出加在**外层定位壳**上，不碰里面那个气泡自己的弹入动画 */
+function fadeOut(wrap) {
+  if (!wrap || wrap._dying) return;
+  wrap._dying = true;
+  wrap.style.transition = 'opacity .5s ease';
+  wrap.style.opacity = '0';
+  setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 560);
 }
 
 function addBubble(text, spot) {
+  // 两层：外层只管定位和淡出，内层只管弹入动画。
+  // ⚠️ 揉在一层里的话，淡出用的 transition 会被弹入动画的 transform 顶掉（动画优先级更高）
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap';
+  wrap.style.left = spot.left + '%';
+  wrap.style.top = spot.top + '%';
+
   const el = document.createElement('div');
   el.className = 'bubble in';
-  el.style.left = spot.left + '%';
-  el.style.top = spot.top + '%';
   el.style.setProperty('--rot', (spot.rot || 0).toFixed(1) + 'deg');
   el.textContent = text;
-  $('field').appendChild(el);
+
+  wrap.appendChild(el);
+  $('field').appendChild(wrap);
   buzz(false); // 每弹一条震一下
+  return wrap;
 }
 
 /**
- * 挑位置：在屏幕中间那块地里撒点，**互相要保持距离**。
+ * 挑下一个气泡该落哪。
  *
- * ⚠️ 她 2026-09-15 两轮反馈：先是「有一点点扎堆」，改成格子法之后垂直分开了、
- *    但左右还是挤在中间（只有两档）。根因是格子法只有 2 列。
- *    现在换成连续坐标 + 最小距离（归一化空间里 > 0.26），撒出来的点才是真的散。
- * 左右卡在 30%~70%：气泡最宽 56vw 且居中定位，留出余量就不出屏。
+ * ⚠️ 她 2026-09-15 的反馈链：先「有一点点扎堆」→ 改成格子里排位（只有 2 列，
+ *    左右还是挤在中间）→ 撒点 + 最小距离。现在改成**一条一条流水线地弹**，
+ *    所以每次都要跟「已经在屏幕上的那几个」比，采样 30 次挑离它们最远的那个。
+ * 左右卡在 30%~70%：气泡最宽 58vw 且居中定位，铺到两边正好不出屏。
  */
-function pickSpots(n) {
-  const spots = [];
-  const MIN_D = 0.24;
-  for (let guard = 0; guard < 800 && spots.length < n; guard++) {
-    const c = { x: Math.random(), y: Math.random() };
-    if (spots.every(s => Math.hypot(s.x - c.x, s.y - c.y) >= MIN_D)) spots.push(c);
-  }
-  while (spots.length < n) spots.push({ x: Math.random(), y: Math.random() }); // 实在塞不下就随缘
-  return spots.map(s => ({
-    // 30%~70%，气泡最宽 58vw 居中定位，铺到两边正好不出屏
-    left: 30 + s.x * 40,
-    top: 13 + s.y * 53,
-    // 歪一点点，但绝不倒过来（她的原话：「可以随机倾斜角度，但不要倒过来了」）
-    rot: Math.random() * 18 - 9,
+function pickOneSpot() {
+  const used = Array.from(document.querySelectorAll('.bwrap')).map(w => ({
+    x: parseFloat(w.style.left) || 50,
+    y: parseFloat(w.style.top) || 40,
   }));
+  let best = { left: 50, top: 40 };
+  let bestD = -1;
+  for (let i = 0; i < 30; i++) {
+    const c = { left: 30 + Math.random() * 40, top: 13 + Math.random() * 53 };
+    // 竖向乘 1.3：屏幕高比宽长，同样的百分比在竖向上离得更"近"
+    const d = used.length
+      ? Math.min.apply(null, used.map(u => Math.hypot(u.x - c.left, (u.y - c.top) * 1.3)))
+      : 999;
+    if (d > bestD) { bestD = d; best = c; }
+  }
+  // 歪一点点，但绝不倒过来（她的原话：「可以随机倾斜角度，但不要倒过来了」）
+  return { left: best.left, top: best.top, rot: Math.random() * 18 - 9 };
 }
 
 function clean(t) {

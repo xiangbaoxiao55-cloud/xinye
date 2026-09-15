@@ -80,7 +80,9 @@ if (performance.memory) {
     '| 上限', Math.round(performance.memory.jsHeapSizeLimit / 1048576) + 'MB');
   setInterval(() => {
     const m = performance.memory;
-    console.log('[内存]', Math.round(m.usedJSHeapSize / 1048576) + 'MB',
+    // ⚠️ 她那边 used 一直显示 10MB 纹丝不动（开了 1 分半预览也不动），八成是这个数字本身
+    //    在 WebView 里不准 —— 把 total 一起打出来对照，两个都不动才是真的不动
+    console.log('[内存]', Math.round(m.usedJSHeapSize / 1048576) + '/' + Math.round(m.totalJSHeapSize / 1048576) + 'MB',
       '| 聊天区 DOM', document.querySelectorAll('#chatArea *').length, '个元素');
   }, 60000);
 }
@@ -489,7 +491,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1733';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1744';
 
   await openDB();
   await migrateFromLocalStorage();
