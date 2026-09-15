@@ -180,7 +180,8 @@ function renderTodayZone() {
 
   const tl = document.getElementById('tzTimeline');
   tl.innerHTML = rows.map((r, i) => {
-    const showRaw = r.last;
+    // 只有整理过的才需要「原话」——没整理的话上面显示的就是原话本身
+    const showRaw = r.last && !r.pending;
     return `<div class="tl-item${r.pending && r.fresh ? ' organizing' : ''}">
       <div class="tl-time">${escHtml(r.timeLabel)}</div>
       <div class="tl-what">${escHtml(r.what)}</div>

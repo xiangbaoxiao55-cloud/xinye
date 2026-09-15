@@ -398,6 +398,8 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
 .tl-raw-btn{font-size:11px;color:var(--text-light);background:none;border:none;cursor:pointer;padding:3px 0 0;font-family:inherit;opacity:.8;text-decoration:underline dotted}
 .tl-raw{display:none;margin-top:7px;padding:9px 11px;background:var(--bg2);border-radius:8px;font-size:13px;line-height:1.7;color:var(--text-mid);white-space:pre-wrap;word-break:break-word}
 .tl-raw.show{display:block}
+/* 详情页里每条流水账的「原话」——跟今天区同一个形态，所以要收回一点间距 */
+.snip-raw-wrap{margin-top:-8px}
 /* 笔里写的那篇正经日记（note）—— 挂在流水账下面 */
 .tz-note{
   display:flex;gap:9px;align-items:flex-start;margin-top:18px;padding:14px 16px;
@@ -1126,9 +1128,21 @@ function renderDetailSnippets(dateStr) {
       ${ri === rows.length - 1 ? `<button class="snippet-del" onclick="deleteSnippet('${escHtml(dateStr)}',${i})" title="删除"><i class="ic ic-x"></i></button>` : ''}
     </div>`;
     });
+    // 整理过的才给「原话」：没整理的话上面显示的就是原话本身。
+    // ⚠️ 这段和今天区的 renderTodayZone 是同一件事，改一边记得改另一边
+    if (items) {
+      html += `<div class="snip-raw-wrap">
+      <button class="tl-raw-btn" onclick="detailToggleRaw(${i})">原话</button>
+      <div class="tl-raw" id="dRaw${i}">${escHtml(s.text || '')}</div>
+    </div>`;
+    }
   });
   html += '</div>';
   el.innerHTML = html;
+}
+function detailToggleRaw(i) {
+  const el = document.getElementById('dRaw' + i);
+  if (el) el.classList.toggle('show');
 }
 async function openDetail(dateStr, tab) {
   currentDetailKey = { dateStr, tab };
