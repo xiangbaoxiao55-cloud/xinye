@@ -167,6 +167,12 @@ function renderTodayZone() {
     </div>`;
   }).join('');
 
+  // 笔里写的那篇正经日记（note）—— 挂在流水账下面
+  const note = (entry && entry.note) || '';
+  document.getElementById('tzNote').innerHTML = note.trim()
+    ? `<div class="tz-note"><i class="ic ic-notebook"></i><div class="tz-note-txt">${escHtml(note)}</div></div>`
+    : '';
+
   // 思考标记
   const mark = entry && entry.deepMark && entry.deepMark.text;
   document.getElementById('tzMark').innerHTML = mark

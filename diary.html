@@ -398,6 +398,16 @@ html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!i
 .tl-raw-btn{font-size:11px;color:var(--text-light);background:none;border:none;cursor:pointer;padding:3px 0 0;font-family:inherit;opacity:.8;text-decoration:underline dotted}
 .tl-raw{display:none;margin-top:7px;padding:9px 11px;background:var(--bg2);border-radius:8px;font-size:13px;line-height:1.7;color:var(--text-mid);white-space:pre-wrap;word-break:break-word}
 .tl-raw.show{display:block}
+/* 笔里写的那篇正经日记（note）—— 挂在流水账下面 */
+.tz-note{
+  display:flex;gap:9px;align-items:flex-start;margin-top:18px;padding:14px 16px;
+  border-radius:var(--radius-sm);background:var(--card);border:1px solid var(--border);
+}
+.tz-note .ic{color:var(--pink-deep);margin-top:3px}
+.tz-note-txt{
+  flex:1;min-width:0;font-size:14.5px;line-height:1.85;color:var(--text);
+  white-space:pre-wrap;word-break:break-word;
+}
 .tz-mark{
   margin-top:4px;padding:12px 15px;border-radius:var(--radius-sm);font-size:14.5px;line-height:1.8;
   color:var(--text);white-space:pre-wrap;word-break:break-word;
@@ -648,6 +658,7 @@ html.dark .img-thumb{border-color:var(--border)}
           <button class="tz-save" id="tzSaveBtn" onclick="todaySave()"><i class="ic ic-pen"></i> 记下</button>
         </div>
         <div id="tzTimeline"></div>
+        <div id="tzNote"></div>
         <div id="tzMark"></div>
         <button class="tz-talk" id="tzTalkBtn" onclick="openDeepTalk()"><i class="ic ic-heart"></i> 和炘也聊聊今天</button>
       </div>
