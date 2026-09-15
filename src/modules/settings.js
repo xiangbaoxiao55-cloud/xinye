@@ -321,7 +321,16 @@ export async function openSettings(ev) {
   renderImagePresets();   _step('画图预设');
   _renderSettingsTab(document.querySelector('.settings-tab.active')?.dataset.tab || 'api');
   _step('当前tab列表');
-  // 🔴 2026-09-15 暂时禁用折叠功能，排查是否是卡顿根因
+  // 🔴🔴 折叠功能**永久禁用**，不要加回来 —— 它就是「设置面板越用越卡、最后闪退」的根因。
+  //    证据链（2026-09-15，换窗口后定位）：
+  //      · 折叠是 2026-09-14（`8ffa2eb`）加的，她的原话正是「**昨晚开始卡**」——时间线吻合
+  //      · 只有设置面板卡，聊天界面不卡（折叠只作用于设置面板）
+  //      · DOM 从 7933 砍到 4002（displayLimit 100）照样卡，排除了聊天区规模
+  //      · 全屏模糊、备份体积、记忆向量、vConsole 全都排除过一遍
+  //      · 禁用这一行之后：**立刻不卡、不再闪退**（她真机确认）
+  //    为什么是它：`<details>` 是浏览器原生控件，鸿蒙 WebView 上展开/收起会触发大面积重排，
+  //    而文件夹里是上千个表单元素。想做分组的话**别再用 `<details>`**，
+  //    改成 JS 切 class + `.sg-body{display:none}`（panels.css 里那套 .sg-* 样式可以复用）。
   // _collapseSettingGroups();
   _step('折叠');
 
