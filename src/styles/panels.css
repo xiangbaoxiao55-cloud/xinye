@@ -1,14 +1,19 @@
 /* ====================== 侧边设置面板 ====================== */
 /* ⚠️ 全屏 backdrop-filter 配 opacity 动画 = 每帧重算一次全屏高斯模糊，
    是手机上"点设置要等好一会儿"的最大一笔开销。模糊挪到滑出动画结束之后
-   再加（.blurred 由 openSettings 延时挂上），动画期间只做一次纯色淡入。 */
+   再加（.blurred 由 openSettings 延时挂上），动画期间只做一次纯色淡入。
+   🔴 2026-09-15 晚：连这 4px 也去掉了 —— 她的日志把 JS 侧摘得干干净净
+   （面板每次执行只要 65ms、两次都正常出来、崩之前一行日志都没有），
+   崩的是渲染侧；而全屏模糊是那段时间里唯一常驻的重 GPU 操作。
+   改成「整屏压暗」：视觉上还是聚焦，但一次光栅化就完事，不需要每帧重算。 */
 .overlay{
-  position:fixed;inset:0;background:rgba(93,64,55,.3);
+  position:fixed;inset:0;background:rgba(60,40,36,.42);
   z-index:100;
   opacity:0;pointer-events:none;transition:opacity .3s;
 }
 .overlay.show{opacity:1;pointer-events:auto}
-.overlay.blurred{backdrop-filter:blur(4px)}
+/* 类名留着（openSettings 还挂着它），但不再做模糊——只多压一层暗 */
+.overlay.blurred{background:rgba(48,30,27,.55)}
 .settings-panel{
   position:fixed;top:0;right:0;width:460px;max-width:94vw;
   height:100vh;height:100svh;background:var(--warm-bg);z-index:101;
