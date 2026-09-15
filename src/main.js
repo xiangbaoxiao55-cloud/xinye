@@ -504,7 +504,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1953';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-2122';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -897,6 +897,14 @@ async function _consumeOverlayReply() {
     const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
+    // 他在覆盖层里说的那几句，**先**落进聊天 —— 她回话之前先看到的就是那些话。
+    // （2026-09-15 她报：「我回话后回到APP，只看到我回的消息，没看见他弹覆盖层时的那条消息」）
+    const _saidLines = String(d.line || '').trim();
+    if (_saidLines) {
+      const spoken = await addMessage('assistant', _saidLines, null, (d.at || Date.now()) - 2000);
+      if (spoken) { if (_hasRendered) await appendMsgDOM(spoken); else renderMessages(); }
+    }
+
     const saved = await addMessage('user', d.text, null, d.at || Date.now());
     if (!saved) return;
     // 空聊天（一条都还没渲染）时追加不进任何行，得整体渲染一次才看得见
@@ -907,7 +915,7 @@ async function _consumeOverlayReply() {
       const { triggerProactiveReply } = await import('./modules/chat.js');
       const when = d.app ? `在「${d.app}」被拦下的时候，` : '刚才，';
       // 我在她屏幕上弹的那几句也带上 —— 不然我接的话接不上自己刚说过什么
-      const said = d.line ? `你在她屏幕上弹的是：「${d.line}」。` : '';
+      const said = _saidLines ? `你在她屏幕上弹的是：「${_saidLines.replace(/\n+/g, ' / ')}」。` : '';
       const reply = await triggerProactiveReply(
         `兔宝${when}被你拦下来了。${said}她回你：「${d.text}」。她现在回到聊天页了。用你的口气接一句，1~2 句，很短，别复述她说了什么。`,
         180

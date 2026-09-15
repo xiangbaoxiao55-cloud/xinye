@@ -26,6 +26,8 @@ const USED  = Math.max(0, Number(q.get('used') || 0));
 const LIMIT = Math.max(0, Number(q.get('limit') || 0));
 const NTH   = Math.max(1, Number(q.get('n') || 1));
 const PREVIEW = q.get('preview') === '1';
+/** 预热模式：只写话、不显示（额度到 80% 时原生悄悄叫起来的就是它） */
+const PREPARE = q.get('prepare') === '1';
 
 const $ = id => document.getElementById(id);
 
@@ -33,9 +35,30 @@ const $ = id => document.getElementById(id);
 const LAST_KEY = 'xinye_overlay_last';
 /** 她在覆盖层里打的字（+ 当时屏幕上那几句话），聊天页看见会取走 */
 const REPLY_KEY = 'xinye_overlay_reply';
+/** 预热写好的那几句，真弹的时候直接读它（零等待） */
+const STASH_KEY = 'xinye_overlay_stash';
+/** 预热超过这么久就算馊了，宁可现写 */
+const STASH_FRESH_MS = 20 * 60 * 1000;
 
 /** 这一屏上我刚弹出去的那几句——她回话时要一起带上，聊天里才接得上 */
 let saidLines = [];
+
+/**
+ * 气泡流水线开着没有。
+ * 🔴 这个 loop 是**永远转下去的**（她要的就是不间断），所以必须有人能叫停它 ——
+ *    否则原生把覆盖层从窗口上摘下来之后，JS 还在跑、还在一条条调 buzz()，
+ *    她手机上就是「已经退出了视频号，还在一下一下地轻震」（2026-09-15 真机报的）。
+ *    原生侧：MonitorOverlay.removeOverlay() 会 evaluateJavascript 调它。
+ *
+ * ⚠️ **必须声明在下面那个 start() 之前**（2026-09-15 被测试抓到的）：
+ *    预热那条路是**没有 await 的**，一路同步跑到 startFlood，
+ *    而模块体还没执行完 —— 声明写在后面就是 TDZ 报错，她那边看到的是
+ *    「覆盖层弹出来，一片空白，一个气泡都没有」。（冷路径 `await compose()` 有几个
+ *    微任务/几秒的间隙，恰好遮住了这个 bug，所以只有预热那条路会炸。）
+ */
+let flooding = true;
+function stopFlood() { flooding = false; }
+window.__xinyeStop = stopFlood;
 
 // 页面不可见时（嵌在 iframe 里预览、或 APP 切到后台）定时器会被节流，
 // 一条条弹的节奏会拖成慢动作 —— 那种情况就一次性全甩出来
@@ -44,6 +67,26 @@ const FAST = document.hidden;
 // ── 开场 ────────────────────────────────────────────────────────────────
 
 (async function start() {
+  // ⚠️ 先让出一次微任务再干活。
+  //    这个 IIFE 是在**模块体中段**执行的，而下面那些 const（KEEP_ON_SCREEN 之类）
+  //    还没求值 —— 任何"同步一路跑到底"的路径都会撞 TDZ。
+  //    2026-09-15 被测试抓到两次：预热那条路（没有 await）先炸 flooding、再炸 KEEP_ON_SCREEN，
+  //    在她手机上就是「覆盖层弹出来，一片空白，一个气泡都没有」。
+  //    让出一次微任务之后模块体已经跑完，后面随便用。（冷路径本来就有 await compose()
+  //    挡着，所以这个坑只在预热那条路上露头。）
+  await Promise.resolve();
+
+  // 预热：只把话写好存起来，**不碰屏幕、不震、不出气泡**。
+  // 额度到 80% 时原生会悄悄把这份页面叫起来（MonitorOverlay.prepare）——
+  // 她 2026-09-15 反馈「一弹的时候还是要等他发消息有点欠佳」，说的就是这几秒的等待。
+  if (PREPARE) {
+    try {
+      const lines = await compose();
+      if (lines && lines.length) stash(lines);
+    } catch (_) {}
+    return;
+  }
+
   // 先给页面里那段「最后保险」打个招呼：模块活着，别急着放兜底句
   // （她 2026-09-15 反馈「还是兜底句先出」——就是因为那段脚本比模块先跑）
   document.documentElement.dataset.xinye = 'boot';
@@ -54,9 +97,12 @@ const FAST = document.hidden;
   buzz(true);
   $('typing').classList.add('on');
 
-  const lines = await compose();
+  // 有预热好的就直接用（零等待）；没有就现写，写完再弹。
+  const pre = takeStash();
+  const lines = pre || await compose();
   saidLines = lines;
   $('typing').classList.remove('on');
+  if (pre) prepareNext();   // 这份用掉了，顺手备下一份，下次也是零等待
   await startFlood(lines);
 
   $('reply').classList.add('on');
@@ -65,6 +111,46 @@ const FAST = document.hidden;
   hint.classList.add('on');
   // 故意不 focus：她得先看见我说了什么，键盘一上来就把话盖住了
 })();
+
+// ── 预热那份话（为的是"零等待"）─────────────────────────────────────────
+//
+// 她 2026-09-15：「一弹的时候还是要等他发消息有点欠佳」——那句话说什么是现调的，
+// 站子慢的时候她就得对着空屏等几秒。而额度到 80% 会先飘一条提示条，
+// 从那会儿到真的弹出来通常还有好几分钟，够先把话写好。
+// 存的是同一个 origin 的 localStorage：预热的页面和真弹的页面读的是同一份。
+
+function stash(lines) {
+  try {
+    localStorage.setItem(STASH_KEY, JSON.stringify({ at: Date.now(), app: APP, lines }));
+  } catch (_) {}
+}
+
+/**
+ * 取出预热好的那几句。
+ * ⚠️ 取过就作废 —— 否则下一次拦她（3 分钟后）会再念一遍同一套话。
+ * ⚠️ APP 对不上也不要：预热的是抖音，这次弹的是小红书，那几句话里写着"抖音"。
+ */
+function takeStash() {
+  if (PREVIEW) return null;   // 预览把它读走了，真弹的时候就没得用了
+  try {
+    const raw = localStorage.getItem(STASH_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.lines) || !d.lines.length) { localStorage.removeItem(STASH_KEY); return null; }
+    // ⚠️ 先判、后删 —— 顺序反了的话，一次对不上的弹窗会把一份好的预热白扔掉
+    if ((d.app || '') !== APP) return null;
+    if (Date.now() - (d.at || 0) > STASH_FRESH_MS) { localStorage.removeItem(STASH_KEY); return null; }
+    localStorage.removeItem(STASH_KEY);   // 用掉就作废
+    return d.lines;
+  } catch (_) { return null; }
+}
+
+/** 这份用掉了，后台再备一份（不 await，失败就算了，下次现写也不过多等几秒） */
+function prepareNext() {
+  compose()
+    .then(lines => { if (lines && lines.length) stash(lines); })
+    .catch(() => {});
+}
 
 // ── 生成那几句话 ────────────────────────────────────────────────────────
 
@@ -237,6 +323,7 @@ function startFlood(lines) {
   const firstPassMs = 260 + (lines.length - 1) * 300;
 
   const step = () => {
+    if (!flooding) return;
     addBubble(lines[cursor % lines.length], pickOneSpot());
     cursor++;
     trimOld();
@@ -352,9 +439,11 @@ function submit() {
   // 预览时不许真往聊天里塞——她只是想看看长什么样
   if (!PREVIEW) {
     try {
-      // 连「我刚才在屏幕上说了什么」一起带上，聊天页拿它当上下文
+      // 连「我刚才在屏幕上说了什么」一起带上：聊天页会把它**落成一条真消息**，
+      // 她一回到 APP 就能看见我说过的话（2026-09-15 她报：只看见自己回的、没看见我说的）。
+      // ⚠️ 逐行存（\n）：落进聊天里就是几句话，不是挤成一行的一长条。
       localStorage.setItem(REPLY_KEY, JSON.stringify({
-        text, line: saidLines.join(' '), app: APP,
+        text, line: saidLines.join('\n'), app: APP,
         usedMs: USED, limitMs: LIMIT, nth: NTH, at: Date.now(),
       }));
     } catch (_) {}
@@ -363,6 +452,7 @@ function submit() {
 }
 
 function close() {
+  stopFlood();   // 先停流水线再退场：不然这层都收了，气泡还在后台一条条地震
   // 原生那边挂的桥（APK 里）；没有就是浏览器/预览，自己想办法退场
   try { if (window.XinyeOverlay && window.XinyeOverlay.close) { window.XinyeOverlay.close(); return; } } catch (_) {}
   if (window.parent && window.parent !== window) {
