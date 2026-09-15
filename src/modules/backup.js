@@ -679,6 +679,17 @@ export async function doImport(jsonText) {
   { const _m = await dbGetAll('messages'); _m.sort((a,b) => a.time - b.time); messages.length = 0; messages.push(..._m); }
   setDecoStickers(await dbGetAll('stickers'));
   await saveToLocal();
+  // 备份里刻意不带记忆向量（那 20MB 每次自动备份都要传，还会把导入时的内存峰值顶高），
+  // 所以恢复后记忆条是没向量的、语义检索会降级成关键词匹配。这里后台补一遍，
+  // 兔宝不用记「恢复完还要手动做什么」。
+  // ⚠️ 设置里那个「重建索引」管的是**档案分层 chunk**，跟这些**记忆条**不是一回事。
+  // 不 await：九百多条要跑几十秒，别把导入卡在这里。
+  const _needsBackfill = settings.memoryBank &&
+    ['pinned', 'recent', 'archived'].some(l => (settings.memoryBank[l] || []).some(m => m && !m.embedding));
+  if (_needsBackfill) {
+    console.log('[导入] 记忆条缺向量，后台补建中…');
+    import('./memory.js').then(m => m.backfillMemoryEmbeddings()).catch(() => {});
+  }
 }
 
 // ======================== 合并导入 ========================

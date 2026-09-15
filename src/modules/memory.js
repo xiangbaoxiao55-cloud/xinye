@@ -654,7 +654,33 @@ export async function rebuildArchiveIndex(silent = false) {
   const _plain = `索引完成：Core ${parsed.core.length}字 · 常驻 ${parsed.always.length}字 · ${extended.length}个chunk（来自${parsed.extended.length}章节）`;
   if (statusEl) setStatus(statusEl, 'check-circle', _plain);
   if (!silent) toast('✅ ' + _plain);
-  else console.log('[ArchiveIndex]', msg);
+  else console.log('[ArchiveIndex]', _plain);
+}
+
+/**
+ * 给「记忆条目」补向量。
+ * ⚠️ 跟上面那个 rebuildArchiveIndex 不是一回事：它建的是**档案分层 chunk** 的向量，
+ *    这里补的是 memoryBank 里每条**记忆**的 embedding。
+ * 什么时候用得上：从备份恢复之后（备份里是否带向量见 backup.js 的说明）。
+ */
+export async function backfillMemoryEmbeddings(silent = true) {
+  const bank = ensureMemoryState();
+  const targets = [];
+  for (const list of [bank.pinned, bank.recent, bank.archived]) {
+    for (const m of (list || [])) if (m && !m.embedding) targets.push(m);
+  }
+  if (!targets.length) return 0;
+  console.log('[向量回填] 待补', targets.length, '条记忆');
+  let done = 0;
+  for (const m of targets) {
+    const vec = await getEmbedding(m.content);   // 成功时内部已 markVectorsDirty
+    if (vec) { m.embedding = vec; done++; }
+    if (done && done % 50 === 0) console.log('[向量回填]', done + '/' + targets.length);
+  }
+  markVectorsDirty();
+  await saveSettings();
+  console.log('[向量回填] 完成', done + '/' + targets.length, silent ? '' : '');
+  return done;
 }
 
 // ── 记忆条目卡片渲染 ──────────────────────────────────────────────────────────
