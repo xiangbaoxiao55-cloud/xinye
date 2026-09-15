@@ -97,12 +97,21 @@ if (performance.memory) {
   const _vcFlush = () => {
     _vcTimer = 0;
     if (!_vcBuf) return;
-    try { sessionStorage.setItem(_VC_KEY, JSON.stringify(_vcBuf)); } catch {}
+    try { localStorage.setItem(_VC_KEY, JSON.stringify(_vcBuf)); } catch {}
   };
+  // 切后台 / 关页面时立刻落盘，别等那一秒的定时器
+  window.addEventListener('pagehide', _vcFlush);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _vcFlush(); });
 
   function _vcSave(level, args) {
     try {
-      if (!_vcBuf) { try { _vcBuf = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]'); } catch { _vcBuf = []; } }
+      if (!_vcBuf) {
+        // ⚠️ 2026-09-15 从 sessionStorage 搬到 localStorage：她那边「点开设置卡死闪退」，
+        //    重开之后 vConsole 里只剩启动日志 —— sessionStorage 在进程被杀时留不住，
+        //    崩溃前那段最要紧的证据每次都没了。localStorage 能留住。
+        try { _vcBuf = JSON.parse(localStorage.getItem(_VC_KEY) || '[]'); } catch { _vcBuf = []; }
+        _vcBuf.push({ l: 'log', t: '—— 启动 ' + new Date().toLocaleString() + ' ——', ts: Date.now() });
+      }
       const text = Array.from(args).map(a => {
         if (typeof a === 'string') return a.length > 300 ? a.slice(0, 300) + '…' : a;
         try { const s = JSON.stringify(a); return s && s.length > 300 ? s.slice(0, 300) + '…' : s; }
@@ -114,6 +123,9 @@ if (performance.memory) {
       //    而 sessionStorage 是**同步**的——每打一条就要 JSON.parse + stringify +
       //    重写整个 200 条数组。TTS 队列 / 心跳轮询一密集打日志，主线程就被吃满，
       //    表现就是「用一会儿就一动一卡」。攒着、每秒最多落盘一次即可。
+      // ⚠️ error 立刻落盘（崩溃现场通常就在它前一条）；log/warn 还是攒着一秒一次，
+      //    否则就成了「每打一条日志同步写一次 localStorage」，那是另一种卡。
+      if (level === 'error') { _vcFlush(); return; }
       if (!_vcTimer) _vcTimer = setTimeout(_vcFlush, 1000);
     } catch {}
   }
@@ -475,7 +487,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1629';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1641';
 
   await openDB();
   await migrateFromLocalStorage();

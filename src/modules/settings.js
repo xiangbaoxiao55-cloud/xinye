@@ -150,6 +150,10 @@ function _renderSettingsTab(tab) {
 
 export async function openSettings(ev) {
   const _t0 = performance.now();
+  // 她那边「点开设置就卡死闪退」（2026-09-15）：要是崩在半路，前面这条就是唯一的现场。
+  // 只量三个便宜的数，不碰 settings 本体。
+  const _heap = () => (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '?');
+  console.log('[设置面板] 开始 · 堆', _heap(), '· 聊天区', document.querySelectorAll('#chatArea *').length, '个元素');
   // 点击到函数真正开始跑之间的排队时间——主线程被别的东西占着时这段会很大，
   // 和函数自身的执行耗时是两回事，分开打才能知道该查哪边。
   const _lag = ev && ev.timeStamp ? Math.round(_t0 - ev.timeStamp) : 0;
@@ -327,6 +331,7 @@ export async function openSettings(ev) {
   overlay.classList.add('show');
   clearTimeout(_settingsAnimT);
   _settingsAnimT = setTimeout(() => overlay.classList.add('blurred'), 380);
+  console.log('[设置面板] 出来了 · 堆', _heap());
   const _dt = Math.round(performance.now() - _t0);
   if (_dt > 300 || _lag > 300) {
     // ⚠️ 绝不对完整 settings 做 JSON.stringify —— 里面挂着 946 条向量（28MB），
