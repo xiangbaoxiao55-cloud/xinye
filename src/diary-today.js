@@ -24,29 +24,52 @@ function _lsPresets() {
   try { return JSON.parse(localStorage.getItem(_PFX + 'xinye_api_presets') || '[]'); } catch (e) { return []; }
 }
 function _apiCandidates(cfg) {
-  const base = {
+  const norm = c => {
+    const raw = String(c.baseUrl || '').replace(/\/+$/, '');
+    return {
+      apiKey: c.apiKey || '',
+      model: c.model || 'gpt-4o',
+      url: raw ? (/\/v\d+$/.test(raw) ? `${raw}/chat/completions` : `${raw}/v1/chat/completions`) : '',
+    };
+  };
+  const sub = {
     apiKey: cfg.subApiKey || cfg.apiKey || '',
-    baseUrl: String(cfg.subBaseUrl || cfg.baseUrl || '').replace(/\/+$/, ''),
+    baseUrl: cfg.subBaseUrl || cfg.baseUrl || '',
     model: cfg.subModel || cfg.model || 'gpt-4o',
   };
-  const list = [base];
-  const names = Array.isArray(cfg.subFallbackPresetNames) ? cfg.subFallbackPresetNames : [];
+  const main = {
+    apiKey: cfg.apiKey || '',
+    baseUrl: cfg.baseUrl || '',
+    model: cfg.model || 'gpt-4o',
+  };
   const all = _lsPresets();
-  names.forEach(n => {
-    const p = all.find(x => x && x.name === n);
-    if (!p || (p.apiFormat && p.apiFormat !== 'openai')) return;
-    list.push({
-      apiKey: p.apiKey || base.apiKey,
-      baseUrl: String(p.baseUrl || base.baseUrl).replace(/\/+$/, ''),
-      model: p.model || base.model,
+  const list = [sub];
+  const addPresets = (names, fb) => {
+    (Array.isArray(names) ? names : []).forEach(n => {
+      const p = all.find(x => x && x.name === n);
+      if (!p || (p.apiFormat && p.apiFormat !== 'openai')) return;
+      list.push({
+        apiKey: p.apiKey || fb.apiKey,
+        baseUrl: p.baseUrl || fb.baseUrl,
+        model: p.model || fb.model,
+      });
     });
+  };
+  addPresets(cfg.subFallbackPresetNames, sub);
+  // 副 API 挂了、副的备用预设又没配 → 最后兜到主 API 和主的备用预设。
+  // 少了这一层，副站子一倒这页就彻底用不了（她 9/16 凌晨撞到的就是这个）
+  if (main.apiKey && (main.apiKey !== sub.apiKey || main.baseUrl !== sub.baseUrl)) {
+    list.push(main);
+    addPresets(cfg.fallbackPresetNames, main);
+  }
+  const seen = new Set();
+  return list.map(norm).filter(c => {
+    if (!c.apiKey || !c.url) return false;
+    const k = c.apiKey + '|' + c.url;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
   });
-  return list
-    .filter(c => c.apiKey && c.baseUrl)
-    .map(c => ({
-      apiKey: c.apiKey, model: c.model,
-      url: /\/v\d+$/.test(c.baseUrl) ? `${c.baseUrl}/chat/completions` : `${c.baseUrl}/v1/chat/completions`,
-    }));
 }
 
 async function _chatOnce(ep, messages, opt) {
@@ -114,9 +137,20 @@ async function _chat(messages, opt = {}) {
   if (!cands.length) throw new Error('NO_KEY');
   let lastErr = null;
   for (let i = 0; i < cands.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, 800));
+    if (i > 0) {
+      opt.__started = false;         // 换站子了，吐字标记重新算
+      await new Promise(r => setTimeout(r, 800));
+    }
     try {
-      return await _chatOnce(cands[i], messages, opt);
+      const out = await _chatOnce(cands[i], messages, opt);
+      // 200 但一个字都没有 —— 八成是站子的锅（返了错误页 / 模型空转），
+      // 换下一个候选再试，别直接认栽
+      if (!out && !opt.__started && i + 1 < cands.length) {
+        console.warn('[diary] 空回复，换下一个候选：', cands[i].url);
+        lastErr = new Error('EMPTY_REPLY');
+        continue;
+      }
+      return out;
     } catch (e) {
       lastErr = e;
       // 已经开始吐字了就不能换站子重来，否则她屏幕上会出现两遍
