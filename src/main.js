@@ -78,18 +78,30 @@ if('serviceWorker' in navigator){
   const _VC_KEY = 'vconsole_logs';
   const _VC_MAX = 200;
   const _origLog = console.log, _origWarn = console.warn, _origError = console.error;
+  let _vcBuf = null;      // 日志先攒在内存里
+  let _vcTimer = 0;
+
+  const _vcFlush = () => {
+    _vcTimer = 0;
+    if (!_vcBuf) return;
+    try { sessionStorage.setItem(_VC_KEY, JSON.stringify(_vcBuf)); } catch {}
+  };
 
   function _vcSave(level, args) {
     try {
-      const logs = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]');
+      if (!_vcBuf) { try { _vcBuf = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]'); } catch { _vcBuf = []; } }
       const text = Array.from(args).map(a => {
         if (typeof a === 'string') return a.length > 300 ? a.slice(0, 300) + '…' : a;
         try { const s = JSON.stringify(a); return s && s.length > 300 ? s.slice(0, 300) + '…' : s; }
         catch { return String(a); }
       }).join(' ');
-      logs.push({ l: level, t: text, ts: Date.now() });
-      if (logs.length > _VC_MAX) logs.splice(0, logs.length - _VC_MAX);
-      sessionStorage.setItem(_VC_KEY, JSON.stringify(logs));
+      _vcBuf.push({ l: level, t: text, ts: Date.now() });
+      if (_vcBuf.length > _VC_MAX) _vcBuf.splice(0, _vcBuf.length - _VC_MAX);
+      // ⚠️ 不能每条日志都写 sessionStorage：这个函数 hook 了 console.log/warn/error，
+      //    而 sessionStorage 是**同步**的——每打一条就要 JSON.parse + stringify +
+      //    重写整个 200 条数组。TTS 队列 / 心跳轮询一密集打日志，主线程就被吃满，
+      //    表现就是「用一会儿就一动一卡」。攒着、每秒最多落盘一次即可。
+      if (!_vcTimer) _vcTimer = setTimeout(_vcFlush, 1000);
     } catch {}
   }
 
