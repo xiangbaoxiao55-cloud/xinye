@@ -1110,10 +1110,14 @@ function renderDetailSnippets(dateStr) {
     // 整理过的：一条口述拆成多行时间轴。没整理的：原文一行
     const items = (Array.isArray(s.items) && s.items.length) ? s.items : null;
     const rows = items
-      ? items.map(it => ({
-          t: (it.end && it.end !== it.start) ? `${it.start}–${it.end}` : (it.start || s.time || ''),
-          x: it.what || '',
-        }))
+      ? items.map(it => {
+          const st = String(it.start || '').trim(), en = String(it.end || '').trim();
+          return {
+            // start 空、只有 end 的时候不能拼成「–23:39」（AI 有时只给结束时间）
+            t: (st && en && en !== st) ? `${st}–${en}` : (st || en || s.time || ''),
+            x: it.what || '',
+          };
+        })
       : [{ t: s.time || '', x: s.text || '' }];
     rows.forEach((r, ri) => {
       html += `<div class="snippet-item">

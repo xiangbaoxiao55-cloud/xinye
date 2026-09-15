@@ -157,9 +157,11 @@ function renderTodayZone() {
       s.items.forEach((it, ii) => {
         const st = String(it.start || '').trim();
         const en = String(it.end || '').trim();
+        const kk = _minuteOf(st || en);
         rows.push({
-          key: _minuteOf(st) == null ? 9999 : _minuteOf(st),
-          timeLabel: en && en !== st ? `${st}–${en}` : (st || '—'),
+          key: kk == null ? 9999 : kk,
+          // start 空、只有 end 的时候不能拼成「–23:39」（AI 有时只给结束时间）
+          timeLabel: (st && en && en !== st) ? `${st}–${en}` : (st || en || '—'),
           what: String(it.what || ''),
           pending: false, si, last: ii === s.items.length - 1,
           raw,
@@ -287,6 +289,7 @@ function _orgPrompt(text, nowHm, dateDisplay) {
 1. 拆成若干条，每条一件事
 2. 时间统一用 24 小时制 HH:MM。她说"刚刚"、"半小时前"就按现在（${nowHm}）倒推
 3. 有明确的结束时间才给 end，否则 end 留空字符串
+   ⚠️ 反过来也一样：没有明确的开始时间，end 也必须留空 —— 不要出现只有 end 没有 start 的条目
 4. 实在推不出时间的，start 写空字符串
 5. 如果是昨天或更早的事，start 写成"昨天 22:00"这种形式
 6. 只保留她真正做过、真正发生的事。语气词、重复、口头禅去掉
@@ -388,7 +391,10 @@ function _dtDayContent(e) {
     const lines = [];
     snips.forEach(s => {
       if (Array.isArray(s.items) && s.items.length) {
-        s.items.forEach(it => lines.push(`${it.start || ''}${it.end ? '–' + it.end : ''} ${it.what}`));
+        s.items.forEach(it => {
+          const st = String(it.start || '').trim(), en = String(it.end || '').trim();
+          lines.push(`${(st && en && en !== st) ? st + '–' + en : (st || en || '')} ${it.what}`);
+        });
       } else lines.push(`${s.time || ''} ${s.text || ''}`);
     });
     parts.push(`【她这天记下的流水】\n${lines.join('\n')}`);
