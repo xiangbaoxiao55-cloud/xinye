@@ -17,9 +17,6 @@
   display:flex;flex-direction:column;
   box-shadow:-4px 0 24px rgba(0,0,0,.12);
 }
-/* 滑出期间提升成合成层，否则面板里近千个元素每帧都要重绘一遍。
-   由 openSettings 在动画开始前挂上、结束后摘掉，不常驻占显存。 */
-.settings-panel.floating{will-change:transform}
 .settings-panel.show{transform:translateX(0)}
 .settings-header{
   display:flex;align-items:center;justify-content:space-between;

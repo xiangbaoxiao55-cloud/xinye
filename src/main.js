@@ -72,6 +72,19 @@ if('serviceWorker' in navigator){
   window._vConsole = new VConsole({ theme: 'dark' });
   window._vConsole.setSwitchPosition(window.innerWidth / 2, 0);
 
+// ======================== 内存监控（诊断用，2026-09-15） ========================
+// 兔宝手机上"用一会儿就卡、最后闪退"，得看到 JS 堆的走势才能分清是「泄漏」（一直涨）
+// 还是「峰值」（某个操作一下顶上去）。60 秒一条，不刷屏。
+if (performance.memory) {
+  console.log('[内存] 监控启动，堆', Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB',
+    '| 上限', Math.round(performance.memory.jsHeapSizeLimit / 1048576) + 'MB');
+  setInterval(() => {
+    const m = performance.memory;
+    console.log('[内存]', Math.round(m.usedJSHeapSize / 1048576) + 'MB',
+      '| 聊天区 DOM', document.querySelectorAll('#chatArea *').length, '个元素');
+  }, 60000);
+}
+
 // ======================== vConsole 日志持久化 ========================
 // 页面被系统回收重载后，自动恢复之前的日志到 vConsole
 {
@@ -462,7 +475,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1127';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1140';
 
   await openDB();
   await migrateFromLocalStorage();

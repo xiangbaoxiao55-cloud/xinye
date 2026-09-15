@@ -309,16 +309,13 @@ export async function openSettings(ev) {
   _collapseSettingGroups();
   _step('折叠');
 
-  // 滑出动画期间给面板提升合成层、把遮罩的全屏模糊延后——这两步是手机上
-  // "点设置卡一下"的主因（面板近千个元素每帧重绘 + 每帧全屏高斯模糊）。
-  settingsPanel.classList.add('floating');
+  // 遮罩的全屏模糊等滑出动画结束再加——动画期间每帧重算全屏高斯模糊是手机上最贵的操作之一。
+  // ⚠️ 曾经在这里给面板挂 .floating{will-change:transform} 想提升合成层，但本地实测
+  //    改前改后都是 37 帧/616ms（桌面无感），收益没验证却多占一层显存 —— 已去掉。
   settingsPanel.classList.add('show');
   overlay.classList.add('show');
   clearTimeout(_settingsAnimT);
-  _settingsAnimT = setTimeout(() => {
-    settingsPanel.classList.remove('floating');
-    overlay.classList.add('blurred');
-  }, 380);
+  _settingsAnimT = setTimeout(() => overlay.classList.add('blurred'), 380);
   const _dt = Math.round(performance.now() - _t0);
   if (_dt > 300 || _lag > 300) {
     // ⚠️ 绝不对完整 settings 做 JSON.stringify —— 里面挂着 946 条向量（28MB），
@@ -341,7 +338,7 @@ export async function openSettings(ev) {
 
 export function closeSettings() {
   clearTimeout(_settingsAnimT);
-  settingsPanel.classList.remove('show', 'floating');
+  settingsPanel.classList.remove('show');
   overlay.classList.remove('show', 'blurred');
 }
 
