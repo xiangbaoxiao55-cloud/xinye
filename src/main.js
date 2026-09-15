@@ -475,7 +475,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1245';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1517';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -562,6 +562,7 @@ async function checkPendingMessage() {
   checkMorningWalk();
   checkGift();
   startReminderPoller();
+  _consumeOverlayReply(); // 覆盖层里她回的话，回到聊天页就把它接进来
 
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   // 主动消息已经在上面（首屏渲染前）拉过一轮了，这里不再重复请求：
@@ -571,7 +572,7 @@ async function checkPendingMessage() {
 
   // 页面从后台恢复时自动拉取心跳消息
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') _consumePushInbox();
+    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); }
   });
 
   // 前台定时轮询心跳消息（30秒），鸿蒙无FCM靠轮询兜底
@@ -846,6 +847,52 @@ async function _consumePushInbox(opts = {}) {
   }
 }
 window._consumePushInbox = _consumePushInbox;
+
+// ── 覆盖层里她回的那句话（2026-09-15） ─────────────────────────────────────
+//
+// 手机上那层覆盖层（overlay.html）是个独立页面，写不到聊天页的内存里，
+// 所以它把话先扔进 localStorage，这儿取走 —— 变成聊天里真的一条「她说的」，
+// 再让我接一句。她要的就是这个效果：「你下午 3:20 在抖音跟我说『就再看一个』」。
+let _drainingOverlay = false;
+async function _consumeOverlayReply() {
+  if (_drainingOverlay) return;
+  let raw = null;
+  try { raw = localStorage.getItem('xinye_overlay_reply'); } catch { return; }
+  if (!raw) return;
+  _drainingOverlay = true;
+  try {
+    localStorage.removeItem('xinye_overlay_reply');
+    const d = JSON.parse(raw);
+    if (!d || !d.text) return;
+
+    const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
+    const _chatEl = document.querySelector('#chatArea');
+    const _hasRendered = !!_chatEl?.querySelector('.msg-row');
+    const saved = await addMessage('user', d.text, null, d.at || Date.now());
+    if (!saved) return;
+    // 空聊天（一条都还没渲染）时追加不进任何行，得整体渲染一次才看得见
+    if (_hasRendered) await appendMsgDOM(saved); else renderMessages();
+
+    // 她在抖音上说的话，当然该接一句。⚠️ 她正在打字发消息时别插队（triggerProactiveReply 自带这层保护）
+    if (!window.isRequesting) {
+      const { triggerProactiveReply } = await import('./modules/chat.js');
+      const when = d.app ? `在「${d.app}」被拦下的时候，` : '刚才，';
+      const reply = await triggerProactiveReply(
+        `兔宝${when}在手机覆盖层上回你：「${d.text}」。她现在回到聊天页了。用你的口气接一句，1~2 句，很短，别复述她说了什么。`,
+        180
+      );
+      if (reply) {
+        const a = await addMessage('assistant', reply, null, Date.now());
+        if (a && _hasRendered) await appendMsgDOM(a);
+      }
+    }
+  } catch (e) {
+    console.log('[Overlay] 接回她说的话失败:', e && e.message);
+  } finally {
+    _drainingOverlay = false;
+  }
+}
+window._consumeOverlayReply = _consumeOverlayReply;
 
 // ======================== 启动 ========================
 

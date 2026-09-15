@@ -21,6 +21,8 @@ const FRESH_MS = 30 * 1000;
 
 let _loading = false;
 let _lastAt = 0;
+/** 上一次渲染的账本条目——预览覆盖层时拿它当参数，演的就是她自己的号 */
+let _lastItems = [];
 
 // ── 小工具 ────────────────────────────────────────────────────────────────
 
@@ -134,6 +136,7 @@ function _render(d) {
 
   const sync = _syncState(d.ageSec, d.receivedAt);
   const items = d.items || [];
+  _lastItems = items;
   const managed = items.filter(it => it.limitMs != null);
   const free = items.filter(it => it.limitMs == null);
 
@@ -241,6 +244,47 @@ export async function loadUsage(force) {
   }
 }
 
+// ── 覆盖层预览 ────────────────────────────────────────────────────────────
+//
+// 手机上真正那一层是 APK 的原生覆盖层（WebView 加载 overlay.html）。
+// 网页版弹不出真覆盖层，所以用 iframe 把**同一份 overlay.html** 演一遍——
+// 同一个 origin、同一份代码，连那句话都是真叫 API 现写的，不是摆样子。
+
+function _previewParams() {
+  const m = _lastItems.find(it => it.status === 'over')
+    || _lastItems.find(it => it.limitMs != null);
+  if (!m) return { app: '抖音', used: 42 * 60000, limit: 40 * 60000, n: 2 };
+  return {
+    app: m.label || m.pkg,
+    used: Math.max(m.ms, (m.limitMs || 0) + 2 * 60000),
+    limit: m.limitMs || 40 * 60000,
+    n: m.status === 'over' ? 2 : 1
+  };
+}
+
+function _openPreview() {
+  if (document.getElementById('monPreviewFrame')) return;
+  const p = _previewParams();
+  const f = document.createElement('iframe');
+  f.id = 'monPreviewFrame';
+  f.src = './overlay.html?preview=1'
+    + '&app=' + encodeURIComponent(p.app)
+    + '&used=' + p.used + '&limit=' + p.limit + '&n=' + p.n;
+  f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:99999;background:#2a0812';
+  document.body.appendChild(f);
+}
+
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'xinye-overlay-close') return;
+  const f = document.getElementById('monPreviewFrame');
+  if (f) f.remove();
+});
+
 export function renderMonitorPanel() {
   loadUsage(false);
+  const btn = document.getElementById('monPreviewBtn');
+  if (btn && !btn._bound) {
+    btn._bound = true;
+    btn.onclick = _openPreview;
+  }
 }

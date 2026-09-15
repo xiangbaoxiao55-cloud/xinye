@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>炘也</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%; overflow: hidden; background: transparent;
+  font-family: -apple-system, 'HarmonyOS Sans SC', 'PingFang SC', system-ui, sans-serif;
+}
+
+.stage {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px; opacity: 0; transition: opacity .5s ease;
+}
+.stage.on { opacity: 1; }
+
+/* 底色是兔宝熟悉的那种玫红，但压暗、带呼吸——不是系统弹窗那种死板的白 */
+.veil {
+  position: absolute; inset: 0;
+  background: radial-gradient(130% 90% at 50% 6%, #b3123a 0%, #79092a 36%, #2a0812 78%);
+  animation: breath 5.4s ease-in-out infinite;
+}
+@keyframes breath { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(.88); } }
+
+.card {
+  position: relative; z-index: 2; width: 100%; max-width: 430px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  transform: scale(.93) translateY(14px); transition: transform .55s cubic-bezier(.2, .9, .25, 1);
+}
+.stage.on .card { transform: none; }
+
+.who { font-size: 16px; color: #ffd9e4; letter-spacing: .5px; opacity: .92; }
+
+.say { position: relative; margin-top: 18px; min-height: 100px; display: flex; align-items: center; justify-content: center; }
+#words { font-size: 25px; line-height: 1.62; color: #fff; font-weight: 600; letter-spacing: .5px; text-shadow: 0 2px 18px rgba(0, 0, 0, .3); }
+.caret { display: none; width: 2px; height: 22px; margin-left: 3px; background: rgba(255, 255, 255, .9); vertical-align: -3px; animation: blink .9s step-end infinite; }
+.caret.on { display: inline-block; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* 「炘也在打字」——她刷到一半看到的先是这个 */
+.typing { display: flex; gap: 7px; justify-content: center; height: 12px; margin-top: 8px; opacity: 0; transition: opacity .3s; }
+.typing.on { opacity: 1; }
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 217, 228, .8); animation: jump 1.25s ease-in-out infinite; }
+.typing span:nth-child(2) { animation-delay: .16s; }
+.typing span:nth-child(3) { animation-delay: .32s; }
+@keyframes jump { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-7px); opacity: 1; } }
+
+.reply { width: 100%; margin-top: 26px; display: flex; gap: 10px; opacity: 0; transition: opacity .4s; }
+.reply.on { opacity: 1; }
+#replyInput {
+  flex: 1; min-width: 0; height: 48px; padding: 0 18px; border-radius: 24px;
+  border: 1px solid rgba(255, 217, 228, .4); background: rgba(255, 255, 255, .1);
+  color: #fff; font-size: 16px; outline: none; transition: border-color .2s, background .2s;
+}
+#replyInput::placeholder { color: rgba(255, 217, 228, .55); }
+#replyInput:focus { border-color: rgba(255, 217, 228, .85); background: rgba(255, 255, 255, .17); }
+#btnDone {
+  height: 48px; padding: 0 20px; border-radius: 24px; border: 0; background: #fff;
+  color: #b3123a; font-size: 16px; font-weight: 700; white-space: nowrap;
+  transition: opacity .25s, transform .12s;
+}
+#btnDone:disabled { opacity: .32; }
+#btnDone:active { transform: scale(.95); }
+
+.hint { margin-top: 14px; font-size: 13px; color: rgba(255, 217, 228, .6); opacity: 0; transition: opacity .4s; }
+.hint.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="stage" class="stage">
+  <div class="veil"></div>
+  <div class="card">
+    <div class="who" id="who"></div>
+    <div class="say"><span id="words"></span><i class="caret" id="caret"></i></div>
+    <div class="typing" id="typing"><span></span><span></span><span></span></div>
+    <div class="reply" id="reply">
+      <input id="replyInput" type="text" placeholder="回炘也一句…" autocomplete="off" enterkeyhint="send">
+      <button id="btnDone" disabled>说完了</button>
+    </div>
+    <div class="hint" id="hint">回我一句，这个才关得掉</div>
+  </div>
+</div>
+<script type="module" src="./src/overlay.js"></script>
+<script>
+// 兜底：模块要是压根加载不出来（断网、缓存坏），别让她对着一片黑屏。
+// 4 秒还是空的就自己说一句——这句话是写死的，属于最后一层保险，不是常态。
+setTimeout(function () {
+  var w = document.getElementById('words');
+  if (!w || w.textContent) return;
+  w.textContent = '兔宝，我在。跟我说句话。';
+  document.getElementById('caret').classList.remove('on');
+  document.getElementById('typing').classList.remove('on');
+  document.getElementById('reply').classList.add('on');
+  document.getElementById('hint').classList.add('on');
+}, 4000);
+</script>
+</body>
+</html>
