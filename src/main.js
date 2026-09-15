@@ -437,7 +437,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1048';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1101';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -662,6 +662,9 @@ async function _fetchInboxPayload() {
   try {
     pushMsgs = await new Promise((resolve, reject) => {
       const req = indexedDB.open('XinyePushInbox', 1);
+      // ⚠️ 这段每 30 秒跑一次（前台心跳轮询）。任何一个错误分支漏掉 db.close()，
+      //    连接就会一直漏（一小时 120 个），手机上表现为"用一会儿越来越卡、最后闪退"。
+      const _closeDb = () => { try { req.result?.close(); } catch {} };
       req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
       req.onsuccess = () => {
         const db = req.result;
@@ -681,9 +684,10 @@ async function _fetchInboxPayload() {
             tx.oncomplete = () => { db.close(); resolve(items); };
           }
         };
-        tx.onerror = reject;
+        tx.onerror = () => { _closeDb(); reject(tx.error); };
+        tx.onabort = () => { _closeDb(); reject(tx.error); };
       };
-      req.onerror = reject;
+      req.onerror = () => { _closeDb(); reject(req.error); };
     });
   } catch (e) { console.log('[Push] 收件箱读取失败:', e.message); }
 

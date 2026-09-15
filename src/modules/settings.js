@@ -140,6 +140,9 @@ export async function openSettings(ev) {
   // 点击到函数真正开始跑之间的排队时间——主线程被别的东西占着时这段会很大，
   // 和函数自身的执行耗时是两回事，分开打才能知道该查哪边。
   const _lag = ev && ev.timeStamp ? Math.round(_t0 - ev.timeStamp) : 0;
+  let _last = _t0;
+  const _ph = [];
+  const _step = n => { const now = performance.now(); _ph.push(`${n}=${Math.round(now - _last)}`); _last = now; };
   $('#setApiKey').value = settings.apiKey;
   if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!settings.useLocalProxy;
   if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = settings.apiFormat || 'openai';
@@ -217,6 +220,7 @@ export async function openSettings(ev) {
     setStatus(_idxStatus, 'check-circle', `已索引：Core ${(settings.memoryArchiveCore||'').length}字 · 常驻 ${(settings.memoryArchiveAlways||'').length}字 · ${settings.memoryArchiveExtended.length} 个Extended章节`);
   }
   renderMemoryBankPreview();
+  _step('记忆预览');
   // 情绪状态展示
   const _ms = settings.moodState;
   if (_ms && _ms.mood) {
@@ -242,6 +246,7 @@ export async function openSettings(ev) {
   $('#bubbleOpacityVal').textContent = settings.bubbleOpacity;
   $('#previewAiAvatar').src = await getAiAvatar();
   $('#previewUserAvatar').src = await getUserAvatar();
+  _step('头像');
   $('#labelAiName').textContent = settings.aiName || '奶牛猫';
   $('#labelUserName').textContent = settings.userName || '小浣熊';
   $('#setShortReply').checked = !!settings.shortReply;
@@ -289,13 +294,16 @@ export async function openSettings(ev) {
   const _hbEl = $('#setHeartbeatEnabled'); if (_hbEl) _hbEl.checked = !!settings.heartbeatEnabled;
   const _qsEl = $('#setQuietHoursStart'); if (_qsEl) _qsEl.value = settings.quietHoursStart ?? 0;
   const _qeEl = $('#setQuietHoursEnd'); if (_qeEl) _qeEl.value = settings.quietHoursEnd ?? 8;
+  _step('填值');
   renderTtsPresets();
   renderApiPresets();
   renderVisionPresets();
   renderImagePresets();
   renderStickerMgr();
   renderContacts();
+  _step('列表渲染');
   _collapseSettingGroups();
+  _step('折叠');
 
   // 滑出动画期间给面板提升合成层、把遮罩的全屏模糊延后——这两步是手机上
   // "点设置卡一下"的主因（面板近千个元素每帧重绘 + 每帧全屏高斯模糊）。
@@ -309,7 +317,14 @@ export async function openSettings(ev) {
   }, 380);
   const _dt = Math.round(performance.now() - _t0);
   if (_dt > 300 || _lag > 300) {
-    console.warn('[设置面板] 打开慢：执行', _dt, 'ms / 点击排队', _lag, 'ms');
+    const _kb = (() => { try { return Math.round(JSON.stringify(settings).length / 1024); } catch { return -1; } })();
+    console.warn('[设置面板] 打开慢：执行', _dt, 'ms / 排队', _lag, 'ms',
+      '| 阶段:', _ph.join(' '),
+      '| 规模: 消息行', document.querySelectorAll('.msg-row').length,
+      '贴纸项', document.querySelectorAll('.sticker-mgr-item').length,
+      '收藏', (settings.bookmarks || []).length,
+      '记忆条目', (settings.memoryBank?.archived || []).length,
+      'settings≈' + _kb + 'KB');
   }
 }
 

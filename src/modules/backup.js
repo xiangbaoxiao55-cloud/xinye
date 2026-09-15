@@ -103,14 +103,10 @@ export async function downloadFile(content, filename, mime) {
 export async function saveToLocal() {
   try {
     const recentMsgs = messages.length > 2000 ? messages.slice(-2000) : messages;
-    const settingsForLocal = JSON.parse(JSON.stringify(settings));
-    const _bigFields = ['memoryArchive','memoryArchiveCore','memoryArchiveAlways','memoryArchiveExtended','memoryArchiveCoreMarkers','_digestRawOutput'];
-    _bigFields.forEach(k => { delete settingsForLocal[k]; });
-    if (settingsForLocal.memoryBank) {
-      for (const list of ['pinned', 'recent', 'archived']) {
-        (settingsForLocal.memoryBank[list] || []).forEach(m => { delete m.embedding; });
-      }
-    }
+    // ⚠️ 先剥掉大字段再做深拷贝。原来反过来了：先 JSON 深拷贝整个 settings
+    // （含每条记忆约 6KB 的 embedding 向量），再回头删——白付一次全量拷贝。
+    // 这个函数每 300ms 就可能跑一次，是手机上"一动一卡"的直接来源。
+    const settingsForLocal = _stripForLocal(settings);
     const localData = {
       version: 3, type: 'auto-save', timestamp: Date.now(),
       settings: settingsForLocal,
@@ -126,7 +122,9 @@ export async function saveToLocal() {
       try {
         const slim = {
           version: 3, type: 'auto-save', timestamp: Date.now(),
-          settings,
+          // 🔴 这里原来写的是 settings —— slim 版反而塞进了完整对象（含全部
+          // embedding 向量和记忆档案），比正常分支还胖，降级等于没降。
+          settings: _stripForLocal(settings),
           messages: [],
           images: {
             aiAvatar: await dbGet('images', 'aiAvatar') || null,
@@ -139,6 +137,24 @@ export async function saveToLocal() {
       console.warn('[AutoSave] 写入失败', e);
     }
   }
+}
+
+/** 存 localStorage 前的瘦身：大字段和 embedding 向量都不进 LS（向量只留在 IDB） */
+function _stripForLocal(src) {
+  const out = { ...src };
+  ['memoryArchive','memoryArchiveCore','memoryArchiveAlways','memoryArchiveExtended','memoryArchiveCoreMarkers','_digestRawOutput']
+    .forEach(k => { delete out[k]; });
+  if (out.memoryBank) {
+    out.memoryBank = { ...out.memoryBank };
+    for (const list of ['pinned', 'recent', 'archived']) {
+      out.memoryBank[list] = (out.memoryBank[list] || []).map(m => {
+        if (!m || !m.embedding) return m;
+        const { embedding, ...rest } = m;
+        return rest;
+      });
+    }
+  }
+  return out;
 }
 
 export function loadFromLocal() {
