@@ -472,7 +472,12 @@ async function openDeepTalk(dateStr) {
   document.getElementById('dtOverlay').classList.add('show');
   _dtRender();
 
-  if (e.deepTalk.length) return;   // 已经有对话，接着聊
+  if (e.deepTalk.length) {
+    // 上一条是她说的 → 说明上一轮掉线了或者返了空，替她补答一次，
+    // 别让那句话就那么悬在那儿没人接
+    if (e.deepTalk[e.deepTalk.length - 1].role === 'me') _dtReply(ds, e);
+    return;   // 已经有对话，接着聊
+  }
 
   const ta = document.getElementById('dtInput');
   if (ta) ta.disabled = true;
@@ -537,22 +542,13 @@ function _dtRender() {
   body.scrollTop = body.scrollHeight;
 }
 
-async function dtSend() {
+// 拿现有对话历史调一次，回复到了就存下来。
+// dtSend（她刚发了话）和 openDeepTalk（上次没答上，补一次）共用。
+async function _dtReply(ds, e) {
   if (_dtStreaming) return;
-  const ta = document.getElementById('dtInput');
-  const text = (ta.value || '').trim();
-  if (!text) return;
-  const ds = _dtCurDs || todayStr();
-  const e = _dtEntry(ds, true);
   const btn = document.getElementById('dtSend');
-
-  e.deepTalk.push({ role: 'me', text, ts: Date.now() });
-  ta.value = ''; ta.style.height = '';
-  _idbPut('userEntries', e).catch(() => {});
-  _dtRender();
-
-  const round = _dtRounds(e);   // 她刚说的这句算第几轮
-  _dtStreaming = true; btn.disabled = true;
+  const round = _dtRounds(e);
+  _dtStreaming = true; if (btn) btn.disabled = true;
   body_appendPending();
   try {
     const cfg = await _cfg();
@@ -575,9 +571,25 @@ async function dtSend() {
   } catch (err) {
     toast('他没接上话，待会儿再试');
   } finally {
-    _dtStreaming = false; btn.disabled = false;
+    _dtStreaming = false; if (btn) btn.disabled = false;
     _dtRender();
   }
+}
+
+async function dtSend() {
+  if (_dtStreaming) return;
+  const ta = document.getElementById('dtInput');
+  const text = (ta.value || '').trim();
+  if (!text) return;
+  const ds = _dtCurDs || todayStr();
+  const e = _dtEntry(ds, true);
+
+  e.deepTalk.push({ role: 'me', text, ts: Date.now() });
+  ta.value = ''; ta.style.height = '';
+  _idbPut('userEntries', e).catch(() => {});
+  _dtRender();
+
+  await _dtReply(ds, e);   // 第几轮由 _dtReply 自己数
 }
 
 function body_appendPending() {
