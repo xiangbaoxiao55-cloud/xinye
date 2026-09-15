@@ -321,7 +321,8 @@ export async function openSettings(ev) {
   renderImagePresets();   _step('画图预设');
   _renderSettingsTab(document.querySelector('.settings-tab.active')?.dataset.tab || 'api');
   _step('当前tab列表');
-  _collapseSettingGroups();
+  // 🔴 2026-09-15 暂时禁用折叠功能，排查是否是卡顿根因
+  // _collapseSettingGroups();
   _step('折叠');
 
   // 遮罩的全屏模糊等滑出动画结束再加——动画期间每帧重算全屏高斯模糊是手机上最贵的操作之一。
