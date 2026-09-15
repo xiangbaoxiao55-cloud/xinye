@@ -164,6 +164,12 @@ async function _chat(messages, opt = {}) {
   const cfg = await _cfg();
   const cands = _apiCandidates(cfg, opt.prefer);
   if (!cands.length) throw new Error('NO_KEY');
+  // 只有一个候选 = 没有兜底可用。她配了备用预设却对不上名字时就是这样，
+  // 光看「没答上来」根本想不到是这儿，所以留一条线索
+  if (cands.length === 1) {
+    console.warn('[diary] 只有 1 个候选站子，失败了没有下一步可换：', cands[0].url,
+      '（查设置里的「副API备用预设」和「备用预设」，确认选中的名字跟预设列表里的一致）');
+  }
   let lastErr = null;
   for (let i = 0; i < cands.length; i++) {
     if (i > 0) {
