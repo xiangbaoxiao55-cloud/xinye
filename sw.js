@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260915-1540';
+const CACHE_NAME = 'xinye-20260915-1601';
 const LOCAL_CFG  = 'xinye-local-cfg';
 const STATIC_ASSETS = [
   '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
@@ -89,7 +89,30 @@ self.addEventListener('fetch', e => {
   e.respondWith(handleFetch(e.request, url.pathname));
 });
 
+/**
+ * 覆盖层那两个文件走**网络优先**（2026-09-15）。
+ *
+ * 它是改得最勤的一块 —— 她那边「明明推了新版，手机上还是老样子」就是这么来的：
+ * 走缓存优先的话，返回的是上一版，兜底脚本还是老的（会抢在真话前面冒出来）。
+ * 网络 2.5 秒不回来就退回缓存，别让覆盖层弹出来的时候干等。
+ */
+const NET_FIRST = ['/overlay.html', '/src/overlay.js'];
+
 async function handleFetch(request, pathname) {
+  if (NET_FIRST.indexOf(pathname) >= 0) {
+    const nfCache = await caches.open(CACHE_NAME);
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 2500);
+      const r = await fetch(request, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (r.ok) { nfCache.put(request, r.clone()); return r; }
+    } catch {}
+    const hit = await nfCache.match(request);
+    if (hit) return hit;
+    return fetch(request);
+  }
+
   const localUrl = await getLocalUrl();
 
   if (localUrl) {

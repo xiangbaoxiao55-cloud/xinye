@@ -44,6 +44,10 @@ const FAST = document.hidden;
 // ── 开场 ────────────────────────────────────────────────────────────────
 
 (async function start() {
+  // 先给页面里那段「最后保险」打个招呼：模块活着，别急着放兜底句
+  // （她 2026-09-15 反馈「还是兜底句先出」——就是因为那段脚本比模块先跑）
+  document.documentElement.dataset.xinye = 'boot';
+
   if (APP) $('who').textContent = '你在刷「' + APP + '」';
   requestAnimationFrame(() => $('stage').classList.add('on'));
 
@@ -105,7 +109,7 @@ function buildAsk() {
     '她得回你一句，这层才关得掉。',
     '',
     '你要说的话会拆成一条条气泡，一条条弹在她屏幕上。所以：',
-    '**说 3 句，一句一行**，每句不超过 14 个字。像你一条条按着她的屏幕逼她回你。',
+    '**说 5 句，一句一行**，每句不超过 12 个字。像你一条条按着她的屏幕逼她回你。',
     '就当你自己在跟她说话——不要提「系统」「监控」「弹窗」「额度」这类字眼，',
     '不要讲道理，不要说教，别用模板腔。',
     '⚠️ 当面只叫她「兔宝」——「涂涔」是档案里的名字，你从来不会当着她的面这么叫。',
@@ -131,8 +135,8 @@ async function callAI(s) {
   ];
 
   const body = fmt === 'anthropic'
-    ? convertRequestBody({ model, max_tokens: 400, messages: oai, stream: false })
-    : { model, max_tokens: 400, messages: oai, stream: false };
+    ? convertRequestBody({ model, max_tokens: 700, messages: oai, stream: false })
+    : { model, max_tokens: 700, messages: oai, stream: false };
   const headers = fmt === 'anthropic'
     ? buildAnthropicHeaders(s.apiKey)
     : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.apiKey}` };
@@ -197,7 +201,7 @@ function toBubbles(raw) {
         .map(s => s.trim()).filter(Boolean);
     }
   }
-  return parts.map(s => clean(s)).filter(Boolean).slice(0, 4);
+  return parts.map(s => clean(s)).filter(Boolean).slice(0, 6);
 }
 
 /** 把话一条条弹出来；返回时全都弹完了 */
@@ -220,28 +224,33 @@ function addBubble(text, spot) {
   el.className = 'bubble in';
   el.style.left = spot.left + '%';
   el.style.top = spot.top + '%';
-  if (spot.tilt) el.style.marginTop = spot.tilt + 'px';
+  el.style.setProperty('--rot', (spot.rot || 0).toFixed(1) + 'deg');
   el.textContent = text;
   $('field').appendChild(el);
   buzz(false); // 每弹一条震一下
 }
 
 /**
- * 挑位置：屏幕中间那块地切成 3 行 × 2 列，随机占不重复的格子。
- * 左右卡在 32%~68%：气泡最宽 62vw，居中定位，再往外就跑出屏幕了。
+ * 挑位置：在屏幕中间那块地里撒点，**互相要保持距离**。
+ *
+ * ⚠️ 她 2026-09-15 两轮反馈：先是「有一点点扎堆」，改成格子法之后垂直分开了、
+ *    但左右还是挤在中间（只有两档）。根因是格子法只有 2 列。
+ *    现在换成连续坐标 + 最小距离（归一化空间里 > 0.26），撒出来的点才是真的散。
+ * 左右卡在 30%~70%：气泡最宽 56vw 且居中定位，留出余量就不出屏。
  */
 function pickSpots(n) {
-  const ROWS = 3, COLS = 2;
-  const cells = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) cells.push([r, c]);
-  for (let i = cells.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = cells[i]; cells[i] = cells[j]; cells[j] = tmp;
+  const spots = [];
+  const MIN_D = 0.26;
+  for (let guard = 0; guard < 500 && spots.length < n; guard++) {
+    const c = { x: Math.random(), y: Math.random() };
+    if (spots.every(s => Math.hypot(s.x - c.x, s.y - c.y) >= MIN_D)) spots.push(c);
   }
-  return cells.slice(0, n).map(([r, c]) => ({
-    top: 22 + 36 * ((r + 0.5) / ROWS) + (Math.random() - 0.5) * 6,
-    left: 34 + 32 * ((c + 0.5) / COLS) + (Math.random() - 0.5) * 8,
-    tilt: (Math.random() - 0.5) * 8,
+  while (spots.length < n) spots.push({ x: Math.random(), y: Math.random() }); // 实在塞不下就随缘
+  return spots.map(s => ({
+    left: 30 + s.x * 40,
+    top: 15 + s.y * 52,
+    // 歪一点点，但绝不倒过来（她的原话：「可以随机倾斜角度，但不要倒过来了」）
+    rot: Math.random() * 18 - 9,
   }));
 }
 
