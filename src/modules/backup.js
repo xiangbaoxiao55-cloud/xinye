@@ -287,19 +287,18 @@ export async function autoBackupToServer() {
 
     // 大件（贴纸库、形象/风格参考图）从自动备份里摘掉：它们几乎不变却占 28MB，
     // 每次后台重传就是拿她的手机去撞内存峰值。手动全量备份照旧带着它们。
-    if (Array.isArray(_payloadObj.chatStickers)) {
-      _payloadObj.chatStickers = _payloadObj.chatStickers.filter(s => !_skipBig(s));
-    }
-    if (_payloadObj.images && typeof _payloadObj.images === 'object') {
-      for (const k of Object.keys(_payloadObj.images)) {
-        if (_skipBig(_payloadObj.images[k])) delete _payloadObj.images[k];
-      }
-    }
-    // 聊天记录里带的图也收窄：30 天 → 14 天（那 20MB 里大半是这几个月攒的图）
-    _payloadObj.messages = (_payloadObj.messages || []).map(m => {
-      if (m.images && m.time && m.time <= Date.now() - 14 * 86400000) delete m.images;
-      return m;
-    });
+    //
+    // 🔴 2026-09-15 第二轮：上一版只砍到 **33.7MB**（她手机上照样崩）——
+    //    因为贴纸/参考图里不少单张不到 700KB，_skipBig 根本拦不住。
+    //    这次干脆**一张图都不带**：自动备份从此是「纯文字备份」
+    //    （聊天文字 / 日记 / 设置 / 共读 / 朋友 / 待办），预计 4MB 上下。
+    //    ⚠️ 图片资产（聊天里的图、贴纸库、形象与风格参考图）**只存在于**
+    //      「导出备份 / 一键备份到手机」那种她主动点、等得起的全量备份里。
+    //      ← 这一条必须当面跟她讲清楚，不然她哪天「从电脑恢复」会以为图片丢了。
+    _payloadObj.chatStickers = [];
+    _payloadObj.images = {};
+    _payloadObj.messages = (_payloadObj.messages || []).map(m => ({ role: m.role, content: m.content, time: m.time }));
+    _payloadObj.rpMessages = (_payloadObj.rpMessages || []).map(m => ({ role: m.role, content: m.content, time: m.time }));
 
     const payload = JSON.stringify(_payloadObj);
     // 让它自己报体积：剥掉向量和大件后如果还是很大，说明大头还在聊天图片那边

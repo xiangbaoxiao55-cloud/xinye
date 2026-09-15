@@ -223,17 +223,19 @@ function burst(lines) {
       resolve();
       return;
     }
-    lines.forEach((t, i) => setTimeout(() => addBubble(t, spots[i]), 420 + i * 560));
-    setTimeout(resolve, 420 + (lines.length - 1) * 560 + 620);
+    // ⚠️ 条间距 320ms（原来 560）：她 2026-09-15 说「弹完一个就立马弹，不用等」
+    lines.forEach((t, i) => setTimeout(() => addBubble(t, spots[i]), 260 + i * 320));
+    setTimeout(resolve, 260 + (lines.length - 1) * 320 + 520);
   });
 
   return playOnce().then(() => {
     if (FAST) return; // 页面不可见（后台）就别空转
     (function loop() {
+      // ⚠️ 轮间距 1.2 秒（原来 9~14 秒）：她那句「不要等那个 10 秒……不用等」
       setTimeout(() => {
         clearBubbles();
         playOnce().then(loop);
-      }, 9000 + Math.random() * 5000);
+      }, 1200);
     })();
   });
 }
@@ -277,8 +279,8 @@ function pickSpots(n) {
   }
   while (spots.length < n) spots.push({ x: Math.random(), y: Math.random() }); // 实在塞不下就随缘
   return spots.map(s => ({
-    // 26%~74%，气泡 52vw 居中定位，正好铺到两边不留空
-    left: 26 + s.x * 48,
+    // 30%~70%，气泡最宽 58vw 居中定位，铺到两边正好不出屏
+    left: 30 + s.x * 40,
     top: 13 + s.y * 53,
     // 歪一点点，但绝不倒过来（她的原话：「可以随机倾斜角度，但不要倒过来了」）
     rot: Math.random() * 18 - 9,

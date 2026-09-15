@@ -272,12 +272,21 @@ function _openPreview() {
     + '&used=' + p.used + '&limit=' + p.limit + '&n=' + p.n;
   f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:99999;background:#2a0812';
   document.body.appendChild(f);
+  // 她那边「点开预览就卡死」（2026-09-15）：崩了的话，这两条就是判断
+  // 「崩在预览里」还是「崩在别处」的分界线
+  console.log('[覆盖层预览] 打开 · 堆', _heapNow());
+}
+
+function _heapNow() {
+  return (typeof performance !== 'undefined' && performance.memory)
+    ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : '?';
 }
 
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'xinye-overlay-close') return;
   const f = document.getElementById('monPreviewFrame');
   if (!f) return;
+  console.log('[覆盖层预览] 关闭 · 堆', _heapNow());
   // ⚠️ 先换成空白页再摘掉：iframe 里那一堆动画要停干净，
   //    不然她手机上就是「点一次预览卡一次」（2026-09-15 预览时卡死闪退过一次）
   try { f.src = 'about:blank'; } catch (_) {}
