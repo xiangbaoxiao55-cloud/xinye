@@ -274,18 +274,26 @@ function _qnToast(msg) {
 //
 // 为什么不用定时器：PWA 在后台会被系统挂起，setInterval 靠不住。改成「到点就补」——
 // main.js 在启动和前台轮询里调它，写过了就记一笔跳过，天然幂等。
-//   · 已经过了 23:30 → 目标日 = 今天
-//   · 还没到 23:30   → 目标日 = 昨天（把昨晚漏掉的那篇补上）
-const AUTO_DIARY_HOUR = 23, AUTO_DIARY_MIN = 30;
+//   · 已经过了 23:00 → 今天也算进来
+//   · 还没到 23:00   → 从昨天开始补
+const AUTO_DIARY_HOUR = 23, AUTO_DIARY_MIN = 0;
+const AUTO_DIARY_LOOKBACK = 3;   // 最多往回补几天（她连着几天没开 APP 时兜底）
 const _AUTO_DONE_KEY = 'xy_autodiary_done';
 
-function _autoTargetDay() {
+// 返回最近几天里还没处理过的日期，**从早到晚**。
+// 只盯「昨天」一个日子会漏：她要是整天没开 APP，隔天打开时目标日变成昨天，
+// 再前一天的就被永远跳过去了。
+function _autoPendingDays() {
   const now = new Date();
-  const d = new Date(now);
-  if (now.getHours() * 60 + now.getMinutes() < AUTO_DIARY_HOUR * 60 + AUTO_DIARY_MIN) {
-    d.setDate(d.getDate() - 1);
+  const passed = now.getHours() * 60 + now.getMinutes() >= AUTO_DIARY_HOUR * 60 + AUTO_DIARY_MIN;
+  const out = [];
+  for (let i = passed ? 0 : 1; i <= AUTO_DIARY_LOOKBACK; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!_autoDone(ds)) out.push(ds);
   }
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return out.reverse();
 }
 // 记「这天处理过了」而不是靠「那天有没有日记」判断：
 // 不然她手动删掉一篇，下次启动又会被补回来
@@ -377,9 +385,14 @@ export async function autoWriteXinyeDiary() {
 
 async function _autoWriteInner() {
   if (!settings.apiKey && !settings.subApiKey) return;
-  const dateStr = _autoTargetDay();
-  if (_autoDone(dateStr)) return;
+  // 从早到晚逐天补；单篇失败不影响后面的
+  for (const dateStr of _autoPendingDays()) {
+    try { await _autoWriteOne(dateStr); }
+    catch (e) { console.warn('[autoDiary] 没写成', dateStr, e && e.message); }
+  }
+}
 
+async function _autoWriteOne(dateStr) {
   // 那天已经有日记了（她自己写/她手动让他写的）→ 不覆盖，记一笔走人
   const cur = await _dtReq(_xinyeStore(), 'readonly', s => s.get(dateStr)).catch(() => null);
   if (cur && String(cur.text || '').trim()) { _markAutoDone(dateStr); return; }
