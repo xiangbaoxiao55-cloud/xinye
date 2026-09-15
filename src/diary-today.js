@@ -50,43 +50,62 @@ function _apiCandidates(cfg) {
 }
 
 async function _chatOnce(ep, messages, opt) {
-  const res = await fetch(ep.url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ep.apiKey}` },
-    body: JSON.stringify({
-      model: ep.model,
-      messages,
-      stream: !!opt.onDelta,
-      temperature: opt.temperature == null ? 0.85 : opt.temperature,
-      max_tokens: opt.maxTokens || 800,
-    }),
-    signal: opt.signal,
-  });
-  if (!res.ok) throw new Error('API ' + res.status);
-  if (!opt.onDelta) {
-    const j = await res.json();
-    return j?.choices?.[0]?.message?.content || '';
-  }
-  const reader = res.body.getReader(), dec = new TextDecoder();
-  let buf = '', full = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith('data:')) continue;
-      const d = t.slice(5).trim();
-      if (!d || d === '[DONE]') continue;
-      try {
-        const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
-        if (delta) { full += delta; opt.onDelta(full); opt.__started = true; }
-      } catch (e) {}
+  // ⚠️ 必须自己兜超时：站子挂着不断开也不发数据时，reader.read() 会永远不返回，
+  //    整个 _chat 就悬在半空，_dtStreaming 一直 true —— 她再发什么都被静默挡掉，
+  //    连个报错都没有（2026-09-15 晚她截图「怎么不说了」就是这么来的）。
+  const ctrl = new AbortController();
+  let idle = null, hard = null;
+  const bump = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => ctrl.abort(), 30000);    // 30 秒没吐新字就当它死了
+  };
+  bump();
+  hard = setTimeout(() => ctrl.abort(), 120000);     // 总时长上限
+  try {
+    const res = await fetch(ep.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ep.apiKey}` },
+      body: JSON.stringify({
+        model: ep.model,
+        messages,
+        stream: !!opt.onDelta,
+        temperature: opt.temperature == null ? 0.85 : opt.temperature,
+        max_tokens: opt.maxTokens || 800,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error('API ' + res.status);
+    if (!opt.onDelta) {
+      const j = await res.json();
+      const c = j?.choices?.[0]?.message?.content || '';
+      // 200 但内容是空的：站子返错误页 / 模型吐了个寂寞。留证据给 vConsole
+      if (!c) console.warn('[diary] 空回复', res.status, JSON.stringify(j).slice(0, 300));
+      return c;
     }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '', full = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data:')) continue;
+        const d = t.slice(5).trim();
+        if (!d || d === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || '';
+          if (delta) { full += delta; opt.__started = true; opt.onDelta(full); bump(); }
+        } catch (e) {}
+      }
+    }
+    if (!full) console.warn('[diary] 流式空回复', res.status, 'buffer尾巴:', buf.slice(-200));
+    return full;
+  } finally {
+    clearTimeout(idle); clearTimeout(hard);
   }
-  return full;
 }
 
 async function _chat(messages, opt = {}) {
@@ -481,6 +500,8 @@ async function openDeepTalk(dateStr) {
     if (clean) {
       e.deepTalk.push({ role: 'xy', text: clean, ts: Date.now() });
       await _idbPut('userEntries', e);
+    } else {
+      toast(`${XY}这次没答上来，再进来一次试试`);
     }
   } catch (err) {
     toast('他没说话，待会儿再试');
@@ -548,6 +569,9 @@ async function dtSend() {
     if (clean) e.deepTalk.push({ role: 'xy', text: clean, ts: Date.now() });
     if (mark) e.deepMark = { text: mark, ts: Date.now() };
     await _idbPut('userEntries', e);
+    // 200 但内容是空的（站子返回错误页 / 模型吐了个寂寞）——也得说一声，
+    // 不然界面上就是「…」没了、什么都没有，她只能干等
+    if (!clean && !mark) toast(`${XY}这次没答上来，再发一条试试`);
   } catch (err) {
     toast('他没接上话，待会儿再试');
   } finally {
