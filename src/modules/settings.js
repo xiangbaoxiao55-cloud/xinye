@@ -45,6 +45,7 @@ window._updateImageRatioOpts = function(res, currentValue) {
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const settingsPanel = document.querySelector('#settingsPanel');
 const overlay       = document.querySelector('#overlay');
+let _settingsAnimT  = 0;   // 面板滑出动画的收尾定时器（撤合成层、补遮罩模糊）
 const exportOverlay = document.querySelector('#exportModalOverlay');
 
 // ── 本地服务器连通状态 ────────────────────────────────────────────────────────
@@ -98,34 +99,47 @@ function _collapseSettingGroups() {
   document.querySelectorAll('.settings-tabpane').forEach(pane => {
     if (pane.dataset.sgCollapsed) return;
     pane.dataset.sgCollapsed = '1';
-    const segs = [];
-    let cur = null;
-    for (const el of [...pane.children]) {
-      if (el.classList.contains('setting-divider')) {
-        cur = { divider: el, items: [] };
-        segs.push(cur);
-      } else if (cur) {
-        cur.items.push(el);
+    // .settings-panel 是 fixed + translateX(100%)，没打开时也在布局树里——
+    // 就地搬走上千个元素会每步触发一次重排。先把 pane 摘出文档，改完再插回原位。
+    const parent = pane.parentNode;
+    const next = pane.nextSibling;
+    if (parent) parent.removeChild(pane);
+    try {
+      const segs = [];
+      let cur = null;
+      for (const el of [...pane.children]) {
+        if (el.classList.contains('setting-divider')) {
+          cur = { divider: el, items: [] };
+          segs.push(cur);
+        } else if (cur) {
+          cur.items.push(el);
+        }
       }
-    }
-    if (!segs.length) return;
-    for (const seg of segs) {
-      const box = document.createElement('details');
-      box.className = 'sg-group';
-      box.open = _SG_EXPANDED.some(re => re.test(seg.divider.textContent));
-      const sum = document.createElement('summary');
-      sum.className = 'sg-summary';
-      sum.innerHTML = seg.divider.innerHTML;
-      const body = document.createElement('div');
-      body.className = 'sg-body';
-      seg.items.forEach(it => body.appendChild(it));
-      box.append(sum, body);
-      seg.divider.replaceWith(box);
+      if (!segs.length) return;
+      for (const seg of segs) {
+        const box = document.createElement('details');
+        box.className = 'sg-group';
+        box.open = _SG_EXPANDED.some(re => re.test(seg.divider.textContent));
+        const sum = document.createElement('summary');
+        sum.className = 'sg-summary';
+        sum.innerHTML = seg.divider.innerHTML;
+        const body = document.createElement('div');
+        body.className = 'sg-body';
+        seg.items.forEach(it => body.appendChild(it));
+        box.append(sum, body);
+        seg.divider.replaceWith(box);
+      }
+    } finally {
+      if (parent) parent.insertBefore(pane, next);
     }
   });
 }
 
-export async function openSettings() {
+export async function openSettings(ev) {
+  const _t0 = performance.now();
+  // 点击到函数真正开始跑之间的排队时间——主线程被别的东西占着时这段会很大，
+  // 和函数自身的执行耗时是两回事，分开打才能知道该查哪边。
+  const _lag = ev && ev.timeStamp ? Math.round(_t0 - ev.timeStamp) : 0;
   $('#setApiKey').value = settings.apiKey;
   if ($('#apiPresetUseProxy')) $('#apiPresetUseProxy').checked = !!settings.useLocalProxy;
   if ($('#apiPresetApiFormat')) $('#apiPresetApiFormat').value = settings.apiFormat || 'openai';
@@ -283,13 +297,26 @@ export async function openSettings() {
   renderContacts();
   _collapseSettingGroups();
 
+  // 滑出动画期间给面板提升合成层、把遮罩的全屏模糊延后——这两步是手机上
+  // "点设置卡一下"的主因（面板近千个元素每帧重绘 + 每帧全屏高斯模糊）。
+  settingsPanel.classList.add('floating');
   settingsPanel.classList.add('show');
   overlay.classList.add('show');
+  clearTimeout(_settingsAnimT);
+  _settingsAnimT = setTimeout(() => {
+    settingsPanel.classList.remove('floating');
+    overlay.classList.add('blurred');
+  }, 380);
+  const _dt = Math.round(performance.now() - _t0);
+  if (_dt > 300 || _lag > 300) {
+    console.warn('[设置面板] 打开慢：执行', _dt, 'ms / 点击排队', _lag, 'ms');
+  }
 }
 
 export function closeSettings() {
-  settingsPanel.classList.remove('show');
-  overlay.classList.remove('show');
+  clearTimeout(_settingsAnimT);
+  settingsPanel.classList.remove('show', 'floating');
+  overlay.classList.remove('show', 'blurred');
 }
 
 // ======================== 通讯录 ========================

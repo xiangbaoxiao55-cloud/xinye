@@ -1,10 +1,14 @@
 /* ====================== 侧边设置面板 ====================== */
+/* ⚠️ 全屏 backdrop-filter 配 opacity 动画 = 每帧重算一次全屏高斯模糊，
+   是手机上"点设置要等好一会儿"的最大一笔开销。模糊挪到滑出动画结束之后
+   再加（.blurred 由 openSettings 延时挂上），动画期间只做一次纯色淡入。 */
 .overlay{
   position:fixed;inset:0;background:rgba(93,64,55,.3);
-  backdrop-filter:blur(4px);z-index:100;
+  z-index:100;
   opacity:0;pointer-events:none;transition:opacity .3s;
 }
 .overlay.show{opacity:1;pointer-events:auto}
+.overlay.blurred{backdrop-filter:blur(4px)}
 .settings-panel{
   position:fixed;top:0;right:0;width:460px;max-width:94vw;
   height:100vh;height:100svh;background:var(--warm-bg);z-index:101;
@@ -13,6 +17,9 @@
   display:flex;flex-direction:column;
   box-shadow:-4px 0 24px rgba(0,0,0,.12);
 }
+/* 滑出期间提升成合成层，否则面板里近千个元素每帧都要重绘一遍。
+   由 openSettings 在动画开始前挂上、结束后摘掉，不常驻占显存。 */
+.settings-panel.floating{will-change:transform}
 .settings-panel.show{transform:translateX(0)}
 .settings-header{
   display:flex;align-items:center;justify-content:space-between;
