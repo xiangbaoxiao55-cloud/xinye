@@ -37,8 +37,13 @@ const LAST_KEY = 'xinye_overlay_last';
 const REPLY_KEY = 'xinye_overlay_reply';
 /** 预热写好的那几句，真弹的时候直接读它（零等待） */
 const STASH_KEY = 'xinye_overlay_stash';
-/** 预热超过这么久就算馊了，宁可现写 */
-const STASH_FRESH_MS = 20 * 60 * 1000;
+/**
+ * 预热超过这么久就当馊了，宁可现写 —— 她 2026-09-15 的顾虑：
+ * 「提前写好的话会不会跟上下文搭不上」。
+ * 现在预热只在**还剩两分钟**的时候触发（见 ForegroundAppService），正常情况秒级就用到；
+ * 真要是过了几分钟才弹（她中途切走了之类），这份就不要了，当场重写。
+ */
+const STASH_FRESH_MS = 4 * 60 * 1000;
 
 /** 这一屏上我刚弹出去的那几句——她回话时要一起带上，聊天里才接得上 */
 let saidLines = [];
