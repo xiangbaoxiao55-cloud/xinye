@@ -74,7 +74,15 @@ async function compose() {
     const s = await readSettings();
     if (s.apiKey) raw = await callAI(s);
   } catch (e) {
-    console.warn('[overlay] 生成失败', e);
+    // 她那边站子偶尔抽风（她截图里那句「兔宝，手机放下。」就是兜底池里的，
+    // 说明那一次 API 压根没答话）。再试一次，第二次超时缩短，别让她干等。
+    console.warn('[overlay] 生成失败，重试一次', e);
+    try {
+      const s2 = await readSettings();
+      if (s2.apiKey) raw = await callAI(s2, 9000);
+    } catch (e2) {
+      console.warn('[overlay] 重试也失败', e2);
+    }
   } finally {
     // ⚠️ 别把 IDB 连接一直攥着 —— 预览的 iframe、正式的 WebView，这份页面都是反复加载的，
     //    多留一个连接就是多一分内存（她手机本来就吃紧，2026-09-15 预览时卡死闪退过）
@@ -124,7 +132,7 @@ function buildAsk() {
   return lines.join('\n');
 }
 
-async function callAI(s) {
+async function callAI(s, timeoutMs) {
   const fmt = s.apiFormat === 'anthropic' ? 'anthropic' : 'openai';
   const raw = String(s.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
   const url = fmt === 'anthropic'
@@ -147,7 +155,7 @@ async function callAI(s) {
 
   const res = await fetch(url, {
     method: 'POST', headers, body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(timeoutMs || 20000),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} ${text.slice(0, 120)}`);
