@@ -270,9 +270,12 @@ document.addEventListener('visibilitychange', async () => {
   if (document.hidden) {
     localStorage.setItem('fox_bg_time', Date.now().toString());
     scheduleBackgroundNotifications();
-    autoBackupToServer();
+    clearTimeout(window._autoBackupTimer);   // 理由同上（见下面 Capacitor 那段）
+    window._autoBackupTimer = 0;
   } else {
     cancelBackgroundNotifications();
+    clearTimeout(window._autoBackupTimer);
+    window._autoBackupTimer = setTimeout(() => { autoBackupToServer(); }, 25000);
     if (settings.solitudeServerUrl) checkLocalServer();
     const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
     if (bgTime) {
@@ -314,9 +317,17 @@ window.addEventListener('load', () => {
       if (!isActive) {
         localStorage.setItem('fox_bg_time', Date.now().toString());
         await scheduleBackgroundNotifications();
-        autoBackupToServer();
+        // ⚠️ 别在「切后台」这一刻备份（2026-09-15 改）：那正是系统开始回收内存的时候，
+        //    而备份要 stringify 十几兆再 POST 上去。她的备份文件列表跟她崩溃的时间点
+        //    几乎是一条线（16:31 传完、16:31 崩，17:21 传完、17:22 崩）—— 就是这一下顶的。
+        //    取消待跑的那次，等回到前台再说。
+        clearTimeout(window._autoBackupTimer);
+        window._autoBackupTimer = 0;
       } else {
         cancelBackgroundNotifications();
+        // 回到前台、等内存稳下来（25 秒）再备份；backup.js 里还有 20 分钟节流兜着
+        clearTimeout(window._autoBackupTimer);
+        window._autoBackupTimer = setTimeout(() => { autoBackupToServer(); }, 25000);
         const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
         if (bgTime) {
           localStorage.removeItem('fox_bg_time');
@@ -491,7 +502,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1744';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1746';
 
   await openDB();
   await migrateFromLocalStorage();

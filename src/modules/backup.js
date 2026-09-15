@@ -191,13 +191,23 @@ export async function restoreFromServer(filename) {
 }
 
 // ======================== 自动备份到本地服务器 ========================
-let _lastAutoBackupTime = 0;
+/**
+ * 上一次自动备份的时刻。
+ *
+ * 🔴 2026-09-15：**必须存 localStorage**。她那边崩一次就重开一次 APP，
+ *    内存里这个数字一重开就归零 → 每次重开都立刻又传一遍。她的备份文件列表里
+ *    16:31 和 16:32 连着两份就是这样：崩一次传一次、传一次崩一次，死循环。
+ */
+let _lastAutoBackupTime = parseInt(localStorage.getItem(_PFX + 'autoBackupTs') || '0', 10) || 0;
 
 export async function autoBackupToServer() {
   const serverUrl = (settings.solitudeServerUrl || '').trim();
   if (!serverUrl || !_isLocalOnline()) return;
-  if (Date.now() - _lastAutoBackupTime < 5 * 60 * 1000) return;
+  // 20 分钟一次（原来 5 分钟：她切后台太频繁，等于一直在传十几兆）
+  const _GAP = 20 * 60 * 1000;
+  if (Date.now() - _lastAutoBackupTime < _GAP) return;
   _lastAutoBackupTime = Date.now();
+  try { localStorage.setItem(_PFX + 'autoBackupTs', String(_lastAutoBackupTime)); } catch (_) {}
 
   try {
     // 🔴 2026-09-15：量了她真实那份自动备份（51.9MB）—— 聊天贴纸 11.3MB + 形象/风格参考图 16.6MB
