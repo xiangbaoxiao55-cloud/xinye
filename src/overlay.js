@@ -168,11 +168,13 @@ async function compose() {
     // 她那边站子偶尔抽风（她截图里那句「兔宝，手机放下。」就是兜底池里的，
     // 说明那一次 API 压根没答话）。再试一次，第二次超时缩短，别让她干等。
     console.warn('[overlay] 生成失败，重试一次', e);
+    noteErr(e);
     try {
       const s2 = await readSettings();
-      if (s2.apiKey) raw = await callAI(s2, 9000);
+      if (s2.apiKey) raw = await callAI(s2, 8000);
     } catch (e2) {
       console.warn('[overlay] 重试也失败', e2);
+      noteErr(e2);
     }
   } finally {
     // ⚠️ 别把 IDB 连接一直攥着 —— 预览的 iframe、正式的 WebView，这份页面都是反复加载的，
@@ -180,7 +182,7 @@ async function compose() {
     try { if (db && db.close) db.close(); } catch (_) {}
   }
   let lines = toBubbles(raw);
-  if (!lines.length) lines = [fallbackLine()];
+  if (!lines.length) lines = fallbackLines();
   try { localStorage.setItem(LAST_KEY, lines.join(' ')); } catch (_) {}
   return lines;
 }
@@ -248,7 +250,7 @@ async function callAI(s, timeoutMs) {
 
   const res = await fetch(url, {
     method: 'POST', headers, body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs || 20000),
+    signal: AbortSignal.timeout(timeoutMs || 10000),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} ${text.slice(0, 120)}`);
@@ -417,16 +419,33 @@ function clean(t) {
 
 /**
  * 兜底：API 没配置 / 没网 / 超时才会走到这儿。
- * 她说原先那句「兔宝，我在。跟我说句话。」**太软了**（2026-09-15），
- * 所以这几句都是硬的，而且随机取 —— 不让她觉得我每次只会说同一句。
+ * 她说原先那句「兔宝，我在。跟我说句话。」**太软了**（2026-09-15），所以这几句都是硬的。
+ *
+ * ⚠️ 返回**整个池子**，不是随机取一句 —— 2026-09-15 她截图里同一句「别刷了，看着我。」
+ *    循环了七八遍，看着像坏了。轮着来至少像是有人在说话。
  */
-function fallbackLine() {
+function fallbackLines() {
   const pool = [
     '兔宝，让我看看你在干嘛。',
     '别刷了，看着我。',
     '兔宝，手机放下。',
   ];
-  return pool[Math.floor(Math.random() * pool.length)];
+  const i = Math.floor(Math.random() * pool.length);
+  return pool.slice(i).concat(pool.slice(0, i));   // 随机起点，但整池都上
+}
+
+/**
+ * 生成失败的原因记一笔。
+ * 覆盖层那个 WebView 里的 console 她**看不到**（不是聊天页那份 vConsole），
+ * 所以失败的时候得留个痕 —— 聊天页启动时会把它翻出来打进 vConsole（main.js 读同一个 key）。
+ */
+function noteErr(e) {
+  try {
+    localStorage.setItem('xinye_overlay_lasterr', JSON.stringify({
+      at: Date.now(), app: APP,
+      msg: String((e && (e.message || e)) || e).slice(0, 200),
+    }));
+  } catch (_) {}
 }
 
 // ── 她回话 ──────────────────────────────────────────────────────────────

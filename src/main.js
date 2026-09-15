@@ -504,7 +504,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-2125';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-2145';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -592,6 +592,7 @@ async function checkPendingMessage() {
   checkGift();
   startReminderPoller();
   _consumeOverlayReply(); // 覆盖层里她回的话，回到聊天页就把它接进来
+  _reportOverlayErr();    // 覆盖层上次生成失败的原因，翻出来打进 vConsole
 
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
   // 主动消息已经在上面（首屏渲染前）拉过一轮了，这里不再重复请求：
@@ -932,6 +933,25 @@ async function _consumeOverlayReply() {
   }
 }
 window._consumeOverlayReply = _consumeOverlayReply;
+
+/**
+ * 覆盖层上一次「生成那句话」失败了没有。
+ *
+ * 为什么要有这个：覆盖层跑在**另一个 WebView** 里，它的 console 她看不到 ——
+ * 那句兜底「别刷了，看着我。」出现的时候，她只知道"又是兜底"，不知道为什么。
+ * overlay.js 失败时会把原因写进 localStorage，这儿启动时翻出来打进 vConsole。
+ * （2026-09-15 加：她真机上弹了一屏兜底句，我这边什么线索都没有。）
+ */
+function _reportOverlayErr() {
+  try {
+    const raw = localStorage.getItem('xinye_overlay_lasterr');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (!d || !d.at) return;
+    console.warn('[覆盖层] 上次那句话没生成出来（用的是兜底句）：'
+      + new Date(d.at).toLocaleString() + ' · ' + (d.app ? d.app + ' · ' : '') + d.msg);
+  } catch (_) { /* 无所谓 */ }
+}
 
 // ======================== 启动 ========================
 
