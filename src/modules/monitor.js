@@ -277,7 +277,11 @@ function _openPreview() {
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'xinye-overlay-close') return;
   const f = document.getElementById('monPreviewFrame');
-  if (f) f.remove();
+  if (!f) return;
+  // ⚠️ 先换成空白页再摘掉：iframe 里那一堆动画要停干净，
+  //    不然她手机上就是「点一次预览卡一次」（2026-09-15 预览时卡死闪退过一次）
+  try { f.src = 'about:blank'; } catch (_) {}
+  setTimeout(() => { try { f.remove(); } catch (_) {} }, 60);
 });
 
 export function renderMonitorPanel() {

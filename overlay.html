@@ -18,20 +18,26 @@ html, body {
 .void {
   position: absolute; inset: 0;
   background: radial-gradient(125% 85% at 50% 2%, #6d0a22 0%, #3a0613 44%, #12040a 100%);
-  animation: pulse 3.8s ease-in-out infinite;
 }
-@keyframes pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(.8); } }
+/* 呼吸改成「压一层暗色、动它的 opacity」——只动 opacity 走合成层，比动 filter 便宜得多 */
+.void::after {
+  content: ''; position: absolute; inset: 0; background: #12040a; opacity: 0;
+  animation: breathe 4.2s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { opacity: 0; } 50% { opacity: .26; } }
 
-/* ── 两团红光，各飘各的（不同步才像活的） ───────────────────────── */
-.glow { position: absolute; border-radius: 50%; filter: blur(52px); mix-blend-mode: screen; pointer-events: none; }
+/* ── 两团红光，各飘各的（不同步才像活的） ─────────────────────────
+   ⚠️ 千万不要用 filter: blur() + mix-blend-mode —— 大面积模糊每帧都要重算，
+      她手机上直接卡死闪退（2026-09-15 实测）。radial-gradient 自己就是柔的，够用。 */
+.glow { position: absolute; border-radius: 50%; pointer-events: none; will-change: transform, opacity; }
 .g1 {
-  width: 72vw; height: 72vw; left: -22vw; top: -12vh;
-  background: radial-gradient(circle, rgba(255, 30, 76, .58), transparent 70%);
+  width: 76vw; height: 76vw; left: -24vw; top: -14vh;
+  background: radial-gradient(circle, rgba(255, 30, 76, .55) 0%, rgba(255, 30, 76, .16) 46%, transparent 72%);
   animation: drift1 7s ease-in-out infinite;
 }
 .g2 {
-  width: 84vw; height: 84vw; right: -28vw; bottom: -14vh;
-  background: radial-gradient(circle, rgba(255, 0, 64, .45), transparent 70%);
+  width: 88vw; height: 88vw; right: -30vw; bottom: -16vh;
+  background: radial-gradient(circle, rgba(255, 0, 64, .45) 0%, rgba(255, 0, 64, .12) 46%, transparent 72%);
   animation: drift2 9.5s ease-in-out infinite;
 }
 @keyframes drift1 {
@@ -51,17 +57,18 @@ html, body {
 }
 @keyframes scanmove { to { transform: translateY(3px); } }
 
-/* ── 警告：暗角红光，隔一阵抽一下 ───────────────────────────────── */
+/* ── 警告：暗角红光，隔一阵抽一下 ─────────────────────────────────
+   ⚠️ 原来用 box-shadow: inset 0 0 20vw —— 超贵的模糊，换成渐变 + opacity 动画。 */
 .alarm {
-  position: absolute; inset: 0; pointer-events: none;
-  box-shadow: inset 0 0 20vw rgba(255, 0, 50, .38);
+  position: absolute; inset: 0; pointer-events: none; opacity: .45;
+  background: radial-gradient(115% 85% at 50% 50%, transparent 42%, rgba(255, 0, 50, .5) 100%);
   animation: alarm 5.6s ease-in-out infinite;
 }
 @keyframes alarm {
-  0%, 80%, 100% { opacity: .5; }
-  85%           { opacity: 1; }
-  89%           { opacity: .45; }
-  94%           { opacity: .95; }
+  0%, 80%, 100% { opacity: .45; }
+  85%           { opacity: .95; }
+  89%           { opacity: .4; }
+  94%           { opacity: .9; }
 }
 
 /* ── 顶上一行小字 ──────────────────────────────────────────────── */
@@ -77,7 +84,7 @@ html, body {
 .field { position: absolute; inset: 0; z-index: 4; }
 
 .bubble {
-  position: absolute; max-width: 56vw;
+  position: absolute; max-width: 52vw;
   padding: 13px 17px; border-radius: 18px;
   background: rgba(28, 6, 14, .9);
   border: 1px solid rgba(255, 72, 104, .45);

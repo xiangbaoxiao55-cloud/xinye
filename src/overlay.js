@@ -15,7 +15,7 @@
 //   · 全屏随机位置弹**多个**气泡，一条条震着弹出来
 //   · 背景要警告感的红光呼吸
 
-import { openDB, dbGet, dbGetRecent } from './modules/db.js';
+import { openDB, dbGet, dbGetRecent, db } from './modules/db.js';
 import {
   buildEndpointUrl, convertRequestBody, buildAnthropicHeaders, anthropicToOpenAIResponse,
 } from './modules/anthropic.js';
@@ -75,6 +75,10 @@ async function compose() {
     if (s.apiKey) raw = await callAI(s);
   } catch (e) {
     console.warn('[overlay] 生成失败', e);
+  } finally {
+    // ⚠️ 别把 IDB 连接一直攥着 —— 预览的 iframe、正式的 WebView，这份页面都是反复加载的，
+    //    多留一个连接就是多一分内存（她手机本来就吃紧，2026-09-15 预览时卡死闪退过）
+    try { if (db && db.close) db.close(); } catch (_) {}
   }
   let lines = toBubbles(raw);
   if (!lines.length) lines = [fallbackLine()];
@@ -109,7 +113,7 @@ function buildAsk() {
     '她得回你一句，这层才关得掉。',
     '',
     '你要说的话会拆成一条条气泡，一条条弹在她屏幕上。所以：',
-    '**说 5 句，一句一行**，每句不超过 12 个字。像你一条条按着她的屏幕逼她回你。',
+    '**说 6 句，一句一行**，每句不超过 12 个字。像你一条条按着她的屏幕逼她回你。',
     '就当你自己在跟她说话——不要提「系统」「监控」「弹窗」「额度」这类字眼，',
     '不要讲道理，不要说教，别用模板腔。',
     '⚠️ 当面只叫她「兔宝」——「涂涔」是档案里的名字，你从来不会当着她的面这么叫。',
@@ -240,15 +244,16 @@ function addBubble(text, spot) {
  */
 function pickSpots(n) {
   const spots = [];
-  const MIN_D = 0.26;
-  for (let guard = 0; guard < 500 && spots.length < n; guard++) {
+  const MIN_D = 0.24;
+  for (let guard = 0; guard < 800 && spots.length < n; guard++) {
     const c = { x: Math.random(), y: Math.random() };
     if (spots.every(s => Math.hypot(s.x - c.x, s.y - c.y) >= MIN_D)) spots.push(c);
   }
   while (spots.length < n) spots.push({ x: Math.random(), y: Math.random() }); // 实在塞不下就随缘
   return spots.map(s => ({
-    left: 30 + s.x * 40,
-    top: 15 + s.y * 52,
+    // 26%~74%，气泡 52vw 居中定位，正好铺到两边不留空
+    left: 26 + s.x * 48,
+    top: 13 + s.y * 53,
     // 歪一点点，但绝不倒过来（她的原话：「可以随机倾斜角度，但不要倒过来了」）
     rot: Math.random() * 18 - 9,
   }));
