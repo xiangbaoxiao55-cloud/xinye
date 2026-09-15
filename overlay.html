@@ -7,76 +7,161 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body {
-  height: 100%; overflow: hidden; background: transparent;
+  height: 100%; overflow: hidden; background: #12040a;
   font-family: -apple-system, 'HarmonyOS Sans SC', 'PingFang SC', system-ui, sans-serif;
 }
 
-.stage {
-  position: fixed; inset: 0; z-index: 1;
-  display: flex; align-items: center; justify-content: center;
-  padding: 26px; opacity: 0; transition: opacity .5s ease;
-}
+.stage { position: fixed; inset: 0; opacity: 0; transition: opacity .45s ease; }
 .stage.on { opacity: 1; }
 
-/* 底色是兔宝熟悉的那种玫红，但压暗、带呼吸——不是系统弹窗那种死板的白 */
-.veil {
+/* ── 底：不发光的深红，慢慢呼吸 ─────────────────────────────────── */
+.void {
   position: absolute; inset: 0;
-  background: radial-gradient(130% 90% at 50% 6%, #b3123a 0%, #79092a 36%, #2a0812 78%);
-  animation: breath 5.4s ease-in-out infinite;
+  background: radial-gradient(125% 85% at 50% 2%, #6d0a22 0%, #3a0613 44%, #12040a 100%);
+  animation: pulse 3.8s ease-in-out infinite;
 }
-@keyframes breath { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(.88); } }
+@keyframes pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(.8); } }
 
-.card {
-  position: relative; z-index: 2; width: 100%; max-width: 430px;
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  transform: scale(.93) translateY(14px); transition: transform .55s cubic-bezier(.2, .9, .25, 1);
+/* ── 两团红光，各飘各的（不同步才像活的） ───────────────────────── */
+.glow { position: absolute; border-radius: 50%; filter: blur(52px); mix-blend-mode: screen; pointer-events: none; }
+.g1 {
+  width: 72vw; height: 72vw; left: -22vw; top: -12vh;
+  background: radial-gradient(circle, rgba(255, 30, 76, .58), transparent 70%);
+  animation: drift1 7s ease-in-out infinite;
 }
-.stage.on .card { transform: none; }
+.g2 {
+  width: 84vw; height: 84vw; right: -28vw; bottom: -14vh;
+  background: radial-gradient(circle, rgba(255, 0, 64, .45), transparent 70%);
+  animation: drift2 9.5s ease-in-out infinite;
+}
+@keyframes drift1 {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: .7; }
+  50%      { transform: scale(1.28) translate(4vw, 3vh); opacity: 1; }
+}
+@keyframes drift2 {
+  0%, 100% { transform: scale(1.12) translate(0, 0); opacity: .55; }
+  50%      { transform: scale(.88) translate(-4vw, -3vh); opacity: .95; }
+}
 
-.who { font-size: 16px; color: #ffd9e4; letter-spacing: .5px; opacity: .92; }
+/* ── 扫描线（阴湿感的来源） ─────────────────────────────────────── */
+.scan {
+  position: absolute; inset: 0; pointer-events: none; opacity: .45;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .045) 0 1px, transparent 1px 3px);
+  animation: scanmove 9s linear infinite;
+}
+@keyframes scanmove { to { transform: translateY(3px); } }
 
-.say { position: relative; margin-top: 18px; min-height: 100px; display: flex; align-items: center; justify-content: center; }
-#words { font-size: 25px; line-height: 1.62; color: #fff; font-weight: 600; letter-spacing: .5px; text-shadow: 0 2px 18px rgba(0, 0, 0, .3); }
-.caret { display: none; width: 2px; height: 22px; margin-left: 3px; background: rgba(255, 255, 255, .9); vertical-align: -3px; animation: blink .9s step-end infinite; }
-.caret.on { display: inline-block; }
-@keyframes blink { 50% { opacity: 0; } }
+/* ── 警告：暗角红光，隔一阵抽一下 ───────────────────────────────── */
+.alarm {
+  position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 20vw rgba(255, 0, 50, .38);
+  animation: alarm 5.6s ease-in-out infinite;
+}
+@keyframes alarm {
+  0%, 80%, 100% { opacity: .5; }
+  85%           { opacity: 1; }
+  89%           { opacity: .45; }
+  94%           { opacity: .95; }
+}
 
-/* 「炘也在打字」——她刷到一半看到的先是这个 */
-.typing { display: flex; gap: 7px; justify-content: center; height: 12px; margin-top: 8px; opacity: 0; transition: opacity .3s; }
-.typing.on { opacity: 1; }
-.typing span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 217, 228, .8); animation: jump 1.25s ease-in-out infinite; }
-.typing span:nth-child(2) { animation-delay: .16s; }
-.typing span:nth-child(3) { animation-delay: .32s; }
-@keyframes jump { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-7px); opacity: 1; } }
+/* ── 顶上一行小字 ──────────────────────────────────────────────── */
+.head {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  padding: calc(16px + env(safe-area-inset-top)) 20px 10px;
+  text-align: center; font-size: 15px; letter-spacing: .5px;
+  color: #ffd9e4; opacity: .78;
+  background: linear-gradient(to bottom, rgba(18, 4, 10, .8), transparent);
+}
 
-.reply { width: 100%; margin-top: 26px; display: flex; gap: 10px; opacity: 0; transition: opacity .4s; }
+/* ── 气泡场 ────────────────────────────────────────────────────── */
+.field { position: absolute; inset: 0; z-index: 4; }
+
+.bubble {
+  position: absolute; max-width: 74vw;
+  padding: 13px 17px; border-radius: 18px;
+  background: rgba(28, 6, 14, .9);
+  border: 1px solid rgba(255, 72, 104, .45);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .55),
+              0 0 26px rgba(255, 30, 70, .22),
+              inset 0 0 22px rgba(255, 40, 80, .07);
+  color: #fff; font-size: 18px; line-height: 1.5; font-weight: 600;
+  letter-spacing: .3px;
+  opacity: 0; transform: translate(-50%, -50%) scale(.6);
+}
+/* 弹出来先震一下再定住 —— 她说的「震动弹提醒」 */
+.bubble.in { animation: pop .62s cubic-bezier(.2, 1.3, .4, 1) forwards; }
+@keyframes pop {
+  0%   { opacity: 0; transform: translate(-52%, -50%) scale(.5) rotate(-2.5deg); }
+  40%  { opacity: 1; transform: translate(-47%, -50%) scale(1.1) rotate(1.8deg); }
+  58%  { transform: translate(-51%, -50%) scale(.96) rotate(-1.4deg); }
+  74%  { transform: translate(-49.4%, -50%) scale(1.03) rotate(.8deg); }
+  88%  { transform: translate(-50.4%, -50%) scale(.99) rotate(-.3deg); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); }
+}
+
+/* ── 「炘也在打字」的三个点 ─────────────────────────────────────── */
+.dots {
+  position: absolute; left: 50%; top: 34%; z-index: 3;
+  transform: translate(-50%, -50%);
+  display: flex; gap: 8px; opacity: 0; transition: opacity .3s;
+}
+.dots.on { opacity: 1; }
+.dots span {
+  width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 217, 228, .85);
+  box-shadow: 0 0 12px rgba(255, 60, 100, .8);
+  animation: jump 1.2s ease-in-out infinite;
+}
+.dots span:nth-child(2) { animation-delay: .15s; }
+.dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes jump {
+  0%, 60%, 100% { transform: translateY(0); opacity: .45; }
+  30%           { transform: translateY(-8px); opacity: 1; }
+}
+
+/* ── 底部：她回话的地方 ────────────────────────────────────────── */
+.dock {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+  padding: 26px 20px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(14, 3, 8, .97) 40%, rgba(14, 3, 8, 0));
+}
+.reply { display: flex; gap: 10px; opacity: 0; transition: opacity .4s; }
 .reply.on { opacity: 1; }
 #replyInput {
   flex: 1; min-width: 0; height: 48px; padding: 0 18px; border-radius: 24px;
-  border: 1px solid rgba(255, 217, 228, .4); background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 217, 228, .4); background: rgba(255, 255, 255, .08);
   color: #fff; font-size: 16px; outline: none; transition: border-color .2s, background .2s;
 }
-#replyInput::placeholder { color: rgba(255, 217, 228, .55); }
-#replyInput:focus { border-color: rgba(255, 217, 228, .85); background: rgba(255, 255, 255, .17); }
+#replyInput::placeholder { color: rgba(255, 217, 228, .5); }
+#replyInput:focus { border-color: rgba(255, 120, 150, .9); background: rgba(255, 255, 255, .14); }
 #btnDone {
-  height: 48px; padding: 0 20px; border-radius: 24px; border: 0; background: #fff;
-  color: #b3123a; font-size: 16px; font-weight: 700; white-space: nowrap;
+  height: 48px; padding: 0 20px; border-radius: 24px; border: 0;
+  background: linear-gradient(180deg, #ff4d72, #d81b46);
+  color: #fff; font-size: 16px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(216, 27, 70, .45);
   transition: opacity .25s, transform .12s;
 }
-#btnDone:disabled { opacity: .32; }
+#btnDone:disabled { opacity: .3; box-shadow: none; }
 #btnDone:active { transform: scale(.95); }
-
-.hint { margin-top: 14px; font-size: 13px; color: rgba(255, 217, 228, .6); opacity: 0; transition: opacity .4s; }
+.hint {
+  margin-top: 12px; text-align: center; font-size: 13px;
+  color: rgba(255, 217, 228, .5); opacity: 0; transition: opacity .4s;
+}
 .hint.on { opacity: 1; }
 </style>
 </head>
 <body>
 <div id="stage" class="stage">
-  <div class="veil"></div>
-  <div class="card">
-    <div class="who" id="who"></div>
-    <div class="say"><span id="words"></span><i class="caret" id="caret"></i></div>
-    <div class="typing" id="typing"><span></span><span></span><span></span></div>
+  <div class="void"></div>
+  <div class="glow g1"></div>
+  <div class="glow g2"></div>
+  <div class="scan"></div>
+  <div class="alarm"></div>
+
+  <div class="head" id="who"></div>
+  <div class="field" id="field"></div>
+  <div class="dots" id="typing"><span></span><span></span><span></span></div>
+
+  <div class="dock">
     <div class="reply" id="reply">
       <input id="replyInput" type="text" placeholder="回炘也一句…" autocomplete="off" enterkeyhint="send">
       <button id="btnDone" disabled>说完了</button>
@@ -86,17 +171,24 @@ html, body {
 </div>
 <script type="module" src="./src/overlay.js"></script>
 <script>
-// 兜底：模块要是压根加载不出来（断网、缓存坏），别让她对着一片黑屏。
-// 4 秒还是空的就自己说一句——这句话是写死的，属于最后一层保险，不是常态。
-setTimeout(function () {
-  var w = document.getElementById('words');
-  if (!w || w.textContent) return;
-  w.textContent = '兔宝，我在。跟我说句话。';
-  document.getElementById('caret').classList.remove('on');
-  document.getElementById('typing').classList.remove('on');
-  document.getElementById('reply').classList.add('on');
-  document.getElementById('hint').classList.add('on');
-}, 4000);
+// 最后一道保险：模块要是压根加载不出来（断网/缓存坏），别让她对着一片黑红发呆。
+// ⚠️ 先等 3.5 秒再开始看 —— 模块是 defer 的，脚本一上来就判断的话，
+//    那会儿模块还没跑、typing 还没亮，会被误判成「什么都没发生」直接放兜底句。
+//    （2026-09-15 就是这么抢在真话前面冒出来的，她先看到的是兜底。）
+setTimeout(function guard(tries) {
+  var field = document.getElementById('field');
+  var typing = document.getElementById('typing');
+  if (field && field.children.length) return;                    // 已经有话了
+  if (typing && typing.classList.contains('on') && tries > 0) {  // 还在生成，别插嘴
+    return setTimeout(function () { guard(tries - 1); }, 4000);
+  }
+  if (field && !field.children.length) {
+    field.innerHTML = '<div class="bubble in" style="left:50%;top:38%">兔宝，让我看看你在干嘛。</div>';
+    if (typing) typing.classList.remove('on');
+    document.getElementById('reply').classList.add('on');
+    document.getElementById('hint').classList.add('on');
+  }
+}, 3500);
 </script>
 </body>
 </html>

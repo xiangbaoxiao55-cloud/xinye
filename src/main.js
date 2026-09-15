@@ -475,7 +475,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1517';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1540';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -877,8 +877,10 @@ async function _consumeOverlayReply() {
     if (!window.isRequesting) {
       const { triggerProactiveReply } = await import('./modules/chat.js');
       const when = d.app ? `在「${d.app}」被拦下的时候，` : '刚才，';
+      // 我在她屏幕上弹的那几句也带上 —— 不然我接的话接不上自己刚说过什么
+      const said = d.line ? `你在她屏幕上弹的是：「${d.line}」。` : '';
       const reply = await triggerProactiveReply(
-        `兔宝${when}在手机覆盖层上回你：「${d.text}」。她现在回到聊天页了。用你的口气接一句，1~2 句，很短，别复述她说了什么。`,
+        `兔宝${when}被你拦下来了。${said}她回你：「${d.text}」。她现在回到聊天页了。用你的口气接一句，1~2 句，很短，别复述她说了什么。`,
         180
       );
       if (reply) {
