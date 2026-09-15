@@ -8,6 +8,15 @@
 
 const XY = (typeof _AINAME === 'string' && _AINAME) ? _AINAME : '炘也';
 
+// 手机上输入法的「换行」键就是 Enter —— 那儿不能拦，不然她想分行都分不了。
+// 触摸设备：Enter 换行、发送靠按钮；PC：Enter 发送、Shift+Enter 换行。
+// 判据只用 pointer:coarse（「主输入设备是手指」），不加 ontouchstart ——
+// 带触屏的笔记本两者都真，但它主输入是鼠标，Enter 该照常发送。
+const _isTouch = (() => {
+  try { return window.matchMedia('(pointer: coarse)').matches; }
+  catch (e) { return false; }
+})();
+
 // ══════════════ API ══════════════
 let _cfgCache = null;
 async function _cfg() {
@@ -735,9 +744,11 @@ function _initToday() {
       ta.style.height = 'auto';
       ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
     });
-    ta.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); todaySave(); }
-    });
+    if (!_isTouch) {
+      ta.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); todaySave(); }
+      });
+    }
   }
   const dta = document.getElementById('dtInput');
   if (dta) {
@@ -745,9 +756,11 @@ function _initToday() {
       dta.style.height = 'auto';
       dta.style.height = Math.min(dta.scrollHeight, 120) + 'px';
     });
-    dta.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); dtSend(); }
-    });
+    if (!_isTouch) {
+      dta.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); dtSend(); }
+      });
+    }
   }
   const talkBtn = document.getElementById('tzTalkBtn');
   if (talkBtn) talkBtn.innerHTML = `<i class="ic ic-heart"></i> 和${escHtml(XY)}聊聊今天`;
