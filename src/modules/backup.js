@@ -200,6 +200,20 @@ export async function autoBackupToServer() {
   _lastAutoBackupTime = Date.now();
 
   try {
+    // 🔴 2026-09-15：量了她真实那份自动备份（51.9MB）—— 聊天贴纸 11.3MB + 形象/风格参考图 16.6MB
+    //    + 聊天里的图片 20.4MB。前两坨几乎永远不变，却每次后台都原封不动重传一遍，
+    //    stringify + fetch 的峰值直接把她手机顶崩（她的原话：「回了个字后回到设置再点其它的就闪退」）。
+    //    → 自动备份只带「小件」；大件交给「导出备份 / 一键备份到手机」——
+    //      那两个是她主动点、等得起的操作，仍然是全量的。
+    const _TOO_BIG = 700 * 1024;
+    const _skipBig = (v) => {
+      if (typeof v === 'string') return v.length > _TOO_BIG;
+      if (v && typeof v === 'object') {
+        return _skipBig(v.data) || _skipBig(v.src) || _skipBig(v.base64) || _skipBig(v.url);
+      }
+      return false;
+    };
+
     const allMsgs = await dbGetAll('messages');
     allMsgs.sort((a, b) => a.time - b.time);
     const allRpMsgs = await dbGetAll('rpMessages');
@@ -239,7 +253,7 @@ export async function autoBackupToServer() {
     //    瞬间多分配一个几十兆的字符串，而切后台正是这个函数的触发点 —— 这就是
     //    "回到桌面后闪退"的元凶。_stripForLocal 会把向量和记忆档案剥掉，
     //    恢复后点一次「重建索引」即可（向量本来就是可重算的派生数据）。
-    const payload = JSON.stringify({
+    const _payloadObj = {
       version: 3, type: 'auto',
       exportTime: new Date().toISOString(),
       settings: _stripForLocal(settings),
@@ -269,8 +283,26 @@ export async function autoBackupToServer() {
       diary: diaryData,
       reading: readingData,
       friendsData: await getFriendsBackupData(),
+    };
+
+    // 大件（贴纸库、形象/风格参考图）从自动备份里摘掉：它们几乎不变却占 28MB，
+    // 每次后台重传就是拿她的手机去撞内存峰值。手动全量备份照旧带着它们。
+    if (Array.isArray(_payloadObj.chatStickers)) {
+      _payloadObj.chatStickers = _payloadObj.chatStickers.filter(s => !_skipBig(s));
+    }
+    if (_payloadObj.images && typeof _payloadObj.images === 'object') {
+      for (const k of Object.keys(_payloadObj.images)) {
+        if (_skipBig(_payloadObj.images[k])) delete _payloadObj.images[k];
+      }
+    }
+    // 聊天记录里带的图也收窄：30 天 → 14 天（那 20MB 里大半是这几个月攒的图）
+    _payloadObj.messages = (_payloadObj.messages || []).map(m => {
+      if (m.images && m.time && m.time <= Date.now() - 14 * 86400000) delete m.images;
+      return m;
     });
-    // 让它自己报体积：剥掉向量后如果还是很大，说明大头在图片那边，下次照着这个数查
+
+    const payload = JSON.stringify(_payloadObj);
+    // 让它自己报体积：剥掉向量和大件后如果还是很大，说明大头还在聊天图片那边
     console.log('[自动备份] payload ≈', (payload.length / 1048576).toFixed(1), 'MB');
 
     const _appId = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';

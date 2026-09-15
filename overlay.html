@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>炘也</title>
+<link rel="stylesheet" href="./src/styles/icons.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body {
@@ -141,15 +142,16 @@ html, body {
 }
 #replyInput::placeholder { color: rgba(255, 217, 228, .5); }
 #replyInput:focus { border-color: rgba(255, 120, 150, .9); background: rgba(255, 255, 255, .14); }
+/* 她 2026-09-15：不要底色、不要文字，就用聊天页那个纸飞机 */
 #btnDone {
-  height: 48px; padding: 0 20px; border-radius: 24px; border: 0;
-  background: linear-gradient(180deg, #ff4d72, #d81b46);
-  color: #fff; font-size: 16px; font-weight: 700; white-space: nowrap;
-  box-shadow: 0 6px 20px rgba(216, 27, 70, .45);
+  flex: none; width: 48px; height: 48px; padding: 0; border: 0; background: none;
+  color: #fff; font-size: 23px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 0 10px rgba(255, 60, 100, .55));
   transition: opacity .25s, transform .12s;
 }
-#btnDone:disabled { opacity: .3; box-shadow: none; }
-#btnDone:active { transform: scale(.95); }
+#btnDone:disabled { opacity: .28; filter: none; }
+#btnDone:active { transform: scale(.9); }
 .hint {
   margin-top: 12px; text-align: center; font-size: 13px;
   color: rgba(255, 217, 228, .5); opacity: 0; transition: opacity .4s;
@@ -172,7 +174,7 @@ html, body {
   <div class="dock">
     <div class="reply" id="reply">
       <input id="replyInput" type="text" placeholder="回炘也一句…" autocomplete="off" enterkeyhint="send">
-      <button id="btnDone" disabled>说完了</button>
+      <button id="btnDone" disabled aria-label="回她"><i class="ic ic-send"></i></button>
     </div>
     <div class="hint" id="hint">回我一句，这个才关得掉</div>
   </div>

@@ -208,19 +208,45 @@ function toBubbles(raw) {
   return parts.map(s => clean(s)).filter(Boolean).slice(0, 6);
 }
 
-/** 把话一条条弹出来；返回时全都弹完了 */
+/**
+ * 把话一条条弹出来。**弹完不停** —— 她 2026-09-15 说「我希望它不停，气泡出完后再循环」：
+ * 一轮弹完隔十来秒，把旧的收走、重新洗一遍位置再弹下一轮，一直轮到她回话为止。
+ *
+ * ⚠️ 返回的 promise 在第一轮弹完时就 resolve —— 她得先看见输入框，
+ *    后面那些轮自己转，不阻塞。
+ */
 function burst(lines) {
-  const spots = pickSpots(lines.length);
-  if (FAST) {
-    lines.forEach((t, i) => addBubble(t, spots[i]));
-    return Promise.resolve();
-  }
-  return new Promise(resolve => {
-    lines.forEach((t, i) => {
-      setTimeout(() => addBubble(t, spots[i]), 420 + i * 560);
-    });
+  const playOnce = () => new Promise(resolve => {
+    const spots = pickSpots(lines.length);
+    if (FAST) {
+      lines.forEach((t, i) => addBubble(t, spots[i]));
+      resolve();
+      return;
+    }
+    lines.forEach((t, i) => setTimeout(() => addBubble(t, spots[i]), 420 + i * 560));
     setTimeout(resolve, 420 + (lines.length - 1) * 560 + 620);
   });
+
+  return playOnce().then(() => {
+    if (FAST) return; // 页面不可见（后台）就别空转
+    (function loop() {
+      setTimeout(() => {
+        clearBubbles();
+        playOnce().then(loop);
+      }, 9000 + Math.random() * 5000);
+    })();
+  });
+}
+
+/** 收走屏幕上的气泡（先淡一下再摘，别硬闪） */
+function clearBubbles() {
+  const bs = Array.from(document.querySelectorAll('.bubble'));
+  bs.forEach(b => {
+    b.classList.remove('in');
+    b.style.transition = 'opacity .45s';
+    b.style.opacity = '0';
+  });
+  setTimeout(() => bs.forEach(b => { try { b.remove(); } catch (_) {} }), 480);
 }
 
 function addBubble(text, spot) {

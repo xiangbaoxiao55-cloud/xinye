@@ -136,7 +136,9 @@ if (performance.memory) {
 
   // 页面加载时恢复之前的日志
   try {
-    const prev = JSON.parse(sessionStorage.getItem(_VC_KEY) || '[]');
+    // ⚠️ 必须跟写入用同一个地方 —— 上一版只把「写」改成了 localStorage，这儿还读
+    //    sessionStorage（空的），等于上一轮崩溃前的日志一条都没恢复出来，白存了。
+    const prev = JSON.parse(localStorage.getItem(_VC_KEY) || '[]');
     if (prev.length > 0) {
       const tag = `📦 恢复 ${prev.length} 条日志 (${new Date(prev[0].ts).toLocaleTimeString()}~${new Date(prev[prev.length-1].ts).toLocaleTimeString()})`;
       _origLog.call(console, tag);
@@ -487,7 +489,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1641';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1726';
 
   await openDB();
   await migrateFromLocalStorage();
