@@ -321,14 +321,21 @@ export async function openSettings(ev) {
   }, 380);
   const _dt = Math.round(performance.now() - _t0);
   if (_dt > 300 || _lag > 300) {
-    const _kb = (() => { try { return Math.round(JSON.stringify(settings).length / 1024); } catch { return -1; } })();
+    // ⚠️ 绝不对完整 settings 做 JSON.stringify —— 里面挂着 946 条向量（28MB），
+    //    这个"诊断"本身就会制造一次几十兆的序列化和内存峰值。只量不带记忆库的部分。
+    const _kb = (() => {
+      try {
+        const { memoryBank, memoryArchive, memoryArchiveCore, memoryArchiveAlways, memoryArchiveExtended, ...rest } = settings;
+        return Math.round(JSON.stringify(rest).length / 1024);
+      } catch { return -1; }
+    })();
     console.warn('[设置面板] 打开慢：执行', _dt, 'ms / 排队', _lag, 'ms',
       '| 阶段:', _ph.join(' '),
       '| 规模: 消息行', document.querySelectorAll('.msg-row').length,
       '贴纸项', document.querySelectorAll('.sticker-mgr-item').length,
       '收藏', (settings.bookmarks || []).length,
       '记忆条目', (settings.memoryBank?.archived || []).length,
-      'settings≈' + _kb + 'KB');
+      '设置本体≈' + _kb + 'KB（不含记忆库）');
   }
 }
 

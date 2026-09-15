@@ -235,10 +235,14 @@ export async function autoBackupToServer() {
       });
     } catch {}
 
+    // 🔴 settings 里挂着 946 条记忆的 embedding（实测 28MB）。直接 stringify 会在手机上
+    //    瞬间多分配一个几十兆的字符串，而切后台正是这个函数的触发点 —— 这就是
+    //    "回到桌面后闪退"的元凶。_stripForLocal 会把向量和记忆档案剥掉，
+    //    恢复后点一次「重建索引」即可（向量本来就是可重算的派生数据）。
     const payload = JSON.stringify({
       version: 3, type: 'auto',
       exportTime: new Date().toISOString(),
-      settings,
+      settings: _stripForLocal(settings),
       apiPresets: getApiPresets(),
       visionPresets: getVisionPresets(),
       imagePresets: getImagePresets(),
@@ -266,6 +270,8 @@ export async function autoBackupToServer() {
       reading: readingData,
       friendsData: await getFriendsBackupData(),
     });
+    // 让它自己报体积：剥掉向量后如果还是很大，说明大头在图片那边，下次照着这个数查
+    console.log('[自动备份] payload ≈', (payload.length / 1048576).toFixed(1), 'MB');
 
     const _appId = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
     const _device = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'pc';
@@ -316,10 +322,14 @@ export async function backupToPhone() {
         };
       });
     } catch {}
+    // 🔴 settings 里挂着 946 条记忆的 embedding（实测 28MB）。直接 stringify 会在手机上
+    //    瞬间多分配一个几十兆的字符串，而切后台正是这个函数的触发点 —— 这就是
+    //    "回到桌面后闪退"的元凶。_stripForLocal 会把向量和记忆档案剥掉，
+    //    恢复后点一次「重建索引」即可（向量本来就是可重算的派生数据）。
     const payload = JSON.stringify({
       version: 3, type: 'auto',
       exportTime: new Date().toISOString(),
-      settings, apiPresets: getApiPresets(), visionPresets: getVisionPresets(), imagePresets: getImagePresets(),
+      settings: _stripForLocal(settings), apiPresets: getApiPresets(), visionPresets: getVisionPresets(), imagePresets: getImagePresets(),
       images: {
         aiAvatar:   await dbGet('images', 'aiAvatar')   || null,
         userAvatar: await dbGet('images', 'userAvatar') || null,
@@ -381,7 +391,9 @@ export async function exportData(mode) {
     version: 3,
     type: isLite ? 'lite' : 'full',
     exportTime: new Date().toISOString(),
-    settings,
+    // 同 autoBackupToServer：settings 内存里挂着 28MB 的向量，导出时 stringify 会把它
+    // 变成同样大的字符串再翻一倍内存。剥掉（恢复后点一次「重建索引」）
+    settings: _stripForLocal(settings),
     apiPresets: getApiPresets(),
     visionPresets: getVisionPresets(),
     imagePresets: getImagePresets(),
