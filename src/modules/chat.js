@@ -945,9 +945,9 @@ export async function sendMessage() {
         if (idx >= 0) messages[idx].imageDescs = descs;
         await dbPut(activeStore(), null, userMsg);
       } else {
-        toast('⚠️ 识图模型空回，直接发原图给炘也');
+        console.warn('[识图] 模型空回，直接发原图');
       }
-    } catch (e) { toast('⚠️ 识图失败，直接发原图给炘也'); }
+    } catch (e) { console.warn('[识图] 失败，直接发原图', e); }
   }
 
   if (imgs.length) {
