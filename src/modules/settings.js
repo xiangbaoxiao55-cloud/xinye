@@ -244,9 +244,13 @@ export async function openSettings(ev) {
   $('#bgBlurVal').textContent = settings.bgBlur;
   $('#setBubbleOpacity').value = settings.bubbleOpacity;
   $('#bubbleOpacityVal').textContent = settings.bubbleOpacity;
-  $('#previewAiAvatar').src = await getAiAvatar();
-  $('#previewUserAvatar').src = await getUserAvatar();
-  _step('头像');
+  // ⚠️ 这两个 dbGet 绝不能 await：settings 实测 28MB（946 条记忆各挂一个 1536 维向量），
+  //    saveSettings 写它时 IDB 事务要跑很久，这两个读排在队尾——实测等过 8430ms，
+  //    整个"打开设置"就卡死在这一步（其余阶段加起来不到 400ms）。
+  //    头像不影响面板可用性，改成后台填，面板立刻出来。
+  getAiAvatar().then(src => { $('#previewAiAvatar').src = src; }).catch(() => {});
+  getUserAvatar().then(src => { $('#previewUserAvatar').src = src; }).catch(() => {});
+  _step('头像(不等待)');
   $('#labelAiName').textContent = settings.aiName || '奶牛猫';
   $('#labelUserName').textContent = settings.userName || '小浣熊';
   $('#setShortReply').checked = !!settings.shortReply;

@@ -2,7 +2,7 @@
 import { toggleDeco, applyTheme, initTheme, applyBgImage, applyBgVideo, applyBg, initBgHandlers } from './modules/ui.js';
 import { resetIdleTimer, setupReminders, isQuietHours, scheduleBackgroundNotifications, cancelBackgroundNotifications, generateDream, proactiveMsg } from './modules/notifications.js';
 import { db, openDB, dbPut, dbGet, lsBackup, lsRemoveBackup, dbGetAll, dbGetRecent, dbGetRecentFiltered, dbDelete, dbClear, dbGetAllKeys } from './modules/db.js';
-import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, initSaveHook, messages } from './modules/state.js';
+import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, initSaveHook, messages, mergeVectors, markVectorsDirty } from './modules/state.js';
 import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS, exportTTSCache } from './modules/tts.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getSubApiCfg, mainApiFetch, subApiFetch } from './modules/api.js';
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity, dedupMemoryBank, detectMemoryConflicts } from './modules/memory.js';
@@ -191,7 +191,20 @@ async function migrateFromLocalStorage() {
 // ======================== 数据读写 ========================
 async function loadAll() {
   const s = await dbGet('settings', 'main');
-  if (s) Object.assign(settings, s);
+  if (s) {
+    // 记忆向量是拆开单独存的（settings 实测 28MB 几乎全是它），读回来先贴回 memoryBank
+    const _vec = await dbGet('settings', 'vectors').catch(() => null);
+    if (_vec) mergeVectors(s.memoryBank, _vec);
+    Object.assign(settings, s);
+    ensureMemoryState();
+    // 旧格式：向量还在 settings 本体里、vectors key 是空的 → 标记一次，
+    // 让下一次保存把它们迁到新位置（不迁的话以后就只有 settings 里那份，白占 28MB）
+    if (!_vec && ['pinned', 'recent', 'archived'].some(l =>
+      (settings.memoryBank?.[l] || []).some(m => m && m.embedding))) {
+      markVectorsDirty();
+      console.log('[loadAll] 检测到向量还在 settings 本体里，下次保存会迁到 settings/vectors');
+    }
+  }
   console.log('[loadAll] ttsAutoPlay =', settings.ttsAutoPlay, '(from IDB:', s?.ttsAutoPlay, ')');
   ensureMemoryState();
   // 从 IDB 恢复被华为"清缓存"清掉的 localStorage 数据
@@ -449,7 +462,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.15-1101';
+  if (_verEl) _verEl.textContent = 'v2026.09.15-1114';
 
   await openDB();
   await migrateFromLocalStorage();

@@ -1,4 +1,4 @@
-import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, messages } from './state.js';
+import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeMemoryEntry, createMemoryId, messages, markVectorsDirty } from './state.js';
 import { mainApiFetch, subApiFetch, getSubApiCfg, getApiPresets } from './api.js';
 import { convertRequestBody, buildEndpointUrl, buildAnthropicHeaders, parseAnthropicEvent } from './anthropic.js';
 import { toast, isDarkMode, escHtml, fmtTime, $, nowStr, setStatus } from './utils.js';
@@ -129,6 +129,9 @@ export async function getEmbedding(text) {
     const data = await res.json();
     const vec = data?.data?.[0]?.embedding;
     if (!vec) { console.warn('[Embedding] 响应里没有向量数据，降级bigram'); return null; }
+    // 新向量只可能从这个函数产生 —— 标一下，saveSettings 才会把它写进 settings/vectors。
+    // （向量不跟着 settings 本体走了，见 state.js 的 _splitVectors）
+    markVectorsDirty();
     return vec;
   } catch(e) {
     console.warn('[Embedding] 网络异常，降级bigram：', e.message);

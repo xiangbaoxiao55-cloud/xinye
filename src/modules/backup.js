@@ -1,7 +1,7 @@
 import { toast } from './utils.js';
 import { db, dbPut, dbGet, dbGetAll, dbClear, dbDelete, lsBackup } from './db.js';
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
-import { settings, messages, ensureMemoryBank } from './state.js';
+import { settings, messages, ensureMemoryBank, markVectorsDirty, mergeVectors } from './state.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets } from './api.js';
 import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers } from './stickers.js';
 import { getFriendsBackupData } from './friends.js';
@@ -497,6 +497,9 @@ export async function doImport(jsonText) {
 
   if (data.settings) {
     await dbPut('settings', 'main', { ...data.settings, memoryBank: ensureMemoryBank(data.settings.memoryBank) });
+    // 备份里是带着向量的（旧格式），标一下让下次保存把它们拆到 settings/vectors，
+    // 否则这份 IDB 记录会一直是 28MB 的胖子
+    markVectorsDirty();
   } else if (data.cfg) {
     const c = data.cfg;
     const patch = {
@@ -542,6 +545,7 @@ export async function doImport(jsonText) {
       importedSettings.memoryBank.lastProcessedTime = lastMsg?.time > 1e12 ? lastMsg.time : Date.now();
       importedSettings.memoryBank.lastProcessedIndex = -999;
       await dbPut('settings', 'main', importedSettings);
+      markVectorsDirty();
     }
   }
 
@@ -655,7 +659,11 @@ export async function doImport(jsonText) {
   }
 
   const s = await dbGet('settings', 'main');
-  if (s) Object.assign(settings, s);
+  if (s) {
+    // 向量是拆开单独存的，读回来贴回 memoryBank（否则导入完记忆检索会缺向量）
+    mergeVectors(s.memoryBank, await dbGet('settings', 'vectors').catch(() => null));
+    Object.assign(settings, s);
+  }
   { const _m = await dbGetAll('messages'); _m.sort((a,b) => a.time - b.time); messages.length = 0; messages.push(..._m); }
   setDecoStickers(await dbGetAll('stickers'));
   await saveToLocal();
