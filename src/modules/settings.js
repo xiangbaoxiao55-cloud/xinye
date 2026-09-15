@@ -135,6 +135,19 @@ function _collapseSettingGroups() {
   });
 }
 
+/**
+ * 只渲染「当前激活 tab」的那些列表。
+ * 原来每次打开设置都把 5 个 tab 全渲染一遍，其中 4 个是 display:none 根本不显示——
+ * 贴纸管理器那 19 张 base64 图每次都要重建 + 解码，「列表渲染」实测要约 300ms；
+ * 反复开关设置还会把这些元素反复重建、内存一路顶上去（兔宝「开关三次就卡死闪退」）。
+ * 切到哪个 tab 再渲染哪个（monitor 本来就是这个模式）。
+ */
+function _renderSettingsTab(tab) {
+  if (tab === 'appearance')      renderTtsPresets();
+  else if (tab === 'other')    { renderStickerMgr(); renderContacts(); }
+  else if (tab === 'monitor')    import('./monitor.js').then(m => m.renderMonitorPanel()).catch(() => {});
+}
+
 export async function openSettings(ev) {
   const _t0 = performance.now();
   // 点击到函数真正开始跑之间的排队时间——主线程被别的东西占着时这段会很大，
@@ -299,13 +312,11 @@ export async function openSettings(ev) {
   const _qsEl = $('#setQuietHoursStart'); if (_qsEl) _qsEl.value = settings.quietHoursStart ?? 0;
   const _qeEl = $('#setQuietHoursEnd'); if (_qeEl) _qeEl.value = settings.quietHoursEnd ?? 8;
   _step('填值');
-  renderTtsPresets();
-  renderApiPresets();
-  renderVisionPresets();
-  renderImagePresets();
-  renderStickerMgr();
-  renderContacts();
-  _step('列表渲染');
+  renderApiPresets();     _step('API预设');
+  renderVisionPresets();  _step('视觉预设');
+  renderImagePresets();   _step('画图预设');
+  _renderSettingsTab(document.querySelector('.settings-tab.active')?.dataset.tab || 'api');
+  _step('当前tab列表');
   _collapseSettingGroups();
   _step('折叠');
 
@@ -1047,10 +1058,9 @@ export function initSettings() {
       tab.classList.add('active');
       const pane = document.getElementById('tabpane-' + tab.dataset.tab);
       if (pane) pane.classList.add('active');
-      // 手机监控面板：切到才拉数据（动态 import 避免和 monitor.js 绕成循环依赖）
-      if (tab.dataset.tab === 'monitor') {
-        import('./monitor.js').then(m => m.renderMonitorPanel()).catch(() => {});
-      }
+      // 切到哪个 tab 才渲染哪个（贴纸/联系人在「其他」、TTS 在「外观」；
+      // 监控面板走动态 import，避免和 monitor.js 绕成循环依赖）
+      _renderSettingsTab(tab.dataset.tab);
     };
   });
 
