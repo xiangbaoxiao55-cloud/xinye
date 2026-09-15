@@ -40,16 +40,17 @@ async function _addSnippet(dateStr, snippet) {
   const snippets = Array.isArray(old.snippets) ? old.snippets.slice() : [];
   snippets.push(snippet);
   snippets.sort(_snipCmp);   // 跟着日记页保持一致的时间升序
-  await _dtReq('userEntries', 'readwrite', s => s.put({
+  // 必须展开 old：deepTalk / deepMark / xinyeReview 这些字段不能被顺手抹掉
+  await _dtReq('userEntries', 'readwrite', s => s.put(Object.assign({}, old, {
     dateStr, note: old.note || '', mood: old.mood || '', snippets, imgCount: old.imgCount || 0,
-  }));
+  })));
 }
 async function _saveNote(dateStr, note) {
   const old = (await _dtReq('userEntries', 'readonly', s => s.get(dateStr))) || {};
-  await _dtReq('userEntries', 'readwrite', s => s.put({
+  await _dtReq('userEntries', 'readwrite', s => s.put(Object.assign({}, old, {
     dateStr, note, mood: old.mood || '',
     snippets: Array.isArray(old.snippets) ? old.snippets : [], imgCount: old.imgCount || 0,
-  }));
+  })));
 }
 function _saveXinyeText(dateStr, text) {
   return _dtReq(_xinyeStore(), 'readwrite', s => s.put({ dateStr, text }));

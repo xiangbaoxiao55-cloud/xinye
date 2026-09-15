@@ -55,7 +55,10 @@ async function restoreDiaryData(diaryObj) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
         try {
           const p = typeof v === 'string' ? JSON.parse(v) : v;
-          await put('userEntries', { dateStr, note: p.note||'', mood: p.mood||'', snippets: Array.isArray(p.snippets)?p.snippets:[], imgCount: p.imgCount||0 });
+          await put('userEntries', Object.assign({}, p, {
+            dateStr, note: p.note || '', mood: p.mood || '',
+            snippets: Array.isArray(p.snippets) ? p.snippets : [], imgCount: p.imgCount || 0,
+          }));
         } catch {}
       } else if (k.startsWith('xinye_diary_')) {
         const dateStr = k.slice('xinye_diary_'.length);

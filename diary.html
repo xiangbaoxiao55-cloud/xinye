@@ -364,24 +364,95 @@ html.dark .ie-sheet{background:#261820}
 html.dark .ie-btn{background:var(--bg2);border-color:var(--border);color:var(--text)}
 html.dark #samedayList [style*="background:var(--pink-light)"]{background:#3a1525!important;color:var(--pink)!important}
 html.dark #samedayList [style*="background:var(--card)"]{background:var(--bg2)!important}
-/* ---- 热力图 ---- */
-.heatmap-wrap{margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)}
-.heatmap-label{font-size:11px;color:var(--text-light);margin-bottom:8px;letter-spacing:.04em}
-.heatmap-grid{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;touch-action:pan-x;overscroll-behavior-x:contain}
-.heatmap-col{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
-.hm-cell{width:12px;height:12px;border-radius:2px;background:var(--bg2);cursor:pointer;flex-shrink:0;transition:opacity .15s}
-.hm-cell.empty{cursor:default;pointer-events:none}
-.hm-cell.l1{background:rgba(233,30,99,.2)}
-.hm-cell.l2{background:rgba(233,30,99,.45)}
-.hm-cell.l3{background:rgba(233,30,99,.75)}
-.hm-cell.l4{background:var(--pink-deep)}
-.hm-cell.today{outline:1.5px solid var(--pink-deep);outline-offset:1px}
-.hm-cell:active{opacity:.6}
-html.dark .hm-cell{background:var(--bg3)}
-html.dark .hm-cell.l1{background:rgba(244,143,177,.2)}
-html.dark .hm-cell.l2{background:rgba(244,143,177,.45)}
-html.dark .hm-cell.l3{background:rgba(244,143,177,.75)}
-html.dark .hm-cell.l4{background:var(--pink)}
+/* ---- 今天 · 口述日志 ---- */
+#todayZone{margin-bottom:18px}
+.tz-head{display:flex;align-items:baseline;gap:8px;padding:0 4px 10px}
+.tz-date{font-size:17px;font-weight:700;color:var(--text)}
+.tz-week{font-size:12px;color:var(--text-light)}
+.tz-input{
+  width:100%;border:1.5px solid var(--border);background:var(--card);border-radius:var(--radius-sm);
+  padding:12px 14px;font-family:inherit;font-size:15px;line-height:1.7;color:var(--text);
+  resize:none;outline:none;transition:border-color .2s;min-height:54px;max-height:200px;display:block;
+}
+.tz-input:focus{border-color:var(--pink)}
+.tz-input::placeholder{color:var(--text-light)}
+.tz-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:0 2px}
+.tz-hint{font-size:11px;color:var(--text-light);flex:1;min-width:0;line-height:1.5}
+.tz-save{
+  border:none;background:var(--pink-deep);color:#fff;font-family:inherit;font-size:13px;font-weight:600;
+  padding:9px 20px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:5px;flex-shrink:0;
+}
+.tz-save:active{opacity:.8}
+.tz-save:disabled{opacity:.45;cursor:not-allowed}
+.tl-wrap{margin-top:16px;margin-left:7px;border-left:1.5px solid var(--border)}
+.tl-item{position:relative;padding:0 0 16px 18px}
+.tl-item:last-child{padding-bottom:2px}
+.tl-item::before{
+  content:'';position:absolute;left:-5px;top:5px;width:8px;height:8px;border-radius:50%;
+  background:var(--pink);border:1.5px solid var(--card);
+}
+.tl-item.organizing::before{background:var(--text-light);animation:tzPulse 1.2s ease-in-out infinite}
+@keyframes tzPulse{0%,100%{opacity:.3}50%{opacity:1}}
+.tl-time{font-size:11px;font-weight:700;color:var(--pink-deep);letter-spacing:.03em}
+.tl-what{font-size:14.5px;line-height:1.75;color:var(--text);margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.tl-raw-btn{font-size:11px;color:var(--text-light);background:none;border:none;cursor:pointer;padding:3px 0 0;font-family:inherit;opacity:.8;text-decoration:underline dotted}
+.tl-raw{display:none;margin-top:7px;padding:9px 11px;background:var(--bg2);border-radius:8px;font-size:13px;line-height:1.7;color:var(--text-mid);white-space:pre-wrap;word-break:break-word}
+.tl-raw.show{display:block}
+.tz-mark{
+  margin-top:4px;padding:12px 15px;border-radius:var(--radius-sm);font-size:14.5px;line-height:1.8;
+  color:var(--text);white-space:pre-wrap;word-break:break-word;
+  background:linear-gradient(135deg,rgba(167,139,250,.11),rgba(244,143,177,.11));
+  border:1px solid rgba(167,139,250,.22);
+}
+.tz-talk{
+  width:100%;margin-top:16px;padding:12px 0;border:1.5px solid var(--border);background:var(--card);
+  border-radius:var(--radius-sm);color:var(--text-mid);font-family:inherit;font-size:13.5px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.tz-talk:active{background:var(--pink-light);border-color:var(--pink);color:var(--pink-deep)}
+
+/* ---- 深度对话 ---- */
+.dt-overlay{
+  position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;transition:opacity .22s;
+}
+.dt-overlay.show{opacity:1;pointer-events:auto}
+.dt-header{
+  height:56px;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;
+  border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0);
+  background:rgba(255,255,255,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+html.dark .dt-header{background:rgba(38,24,32,.85)}
+.dt-title{flex:1;font-size:15px;font-weight:700;color:var(--text)}
+.dt-round{font-size:11px;color:var(--text-light);flex-shrink:0}
+.dt-body{flex:1;overflow-y:auto;padding:18px 14px 20px;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
+.dt-body::-webkit-scrollbar{width:3px}
+.dt-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.dt-msg{font-size:15px;line-height:1.85;white-space:pre-wrap;word-break:break-word;margin-bottom:16px;max-width:90%}
+.dt-msg.xy{color:var(--text);align-self:flex-start}
+.dt-msg.xy .dt-who{font-size:11px;color:var(--text-light);display:block;margin-bottom:3px}
+.dt-msg.me{
+  align-self:flex-end;background:var(--pink-light);padding:10px 14px;
+  border-radius:14px 14px 4px 14px;
+}
+html.dark .dt-msg.me{background:#3a1525}
+.dt-empty{text-align:center;color:var(--text-light);font-size:13px;padding:36px 24px;line-height:2}
+.dt-foot{
+  border-top:1px solid var(--border);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:8px;align-items:flex-end;flex-shrink:0;background:var(--card);
+}
+.dt-ta{
+  flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;
+  font-family:inherit;font-size:15px;line-height:1.6;color:var(--text);background:var(--bg);
+  resize:none;outline:none;max-height:120px;min-height:44px;display:block;
+}
+.dt-ta:focus{border-color:var(--pink)}
+.dt-send{
+  width:42px;height:42px;border-radius:50%;border:none;background:var(--pink-deep);color:#fff;
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.dt-send:active{opacity:.8}
+.dt-send:disabled{opacity:.4;cursor:not-allowed}
 
 /* ---- 炘也看看 ---- */
 .xy-review-section{margin-top:20px;padding-top:16px;border-top:1px dashed var(--border)}
@@ -392,8 +463,6 @@ html.dark .hm-cell.l4{background:var(--pink)}
 }
 .btn-xy-review:active{color:var(--pink)}
 .btn-xy-review:disabled{opacity:.45;cursor:not-allowed}
-.xy-review-status{font-size:13px;color:var(--text-light);text-align:center;padding:8px 0;display:none}
-.xy-review-status.show{display:block}
 .xy-review-bubble{
   background:linear-gradient(135deg,rgba(244,143,177,.1),rgba(167,139,250,.1));
   border:1px solid rgba(233,30,99,.15);border-radius:var(--radius-sm);
@@ -448,13 +517,13 @@ html.dark .img-thumb{border-color:var(--border)}
     <div class="detail-text" id="detailText"></div>
     <div id="detailSnippets"></div>
     <div class="xy-review-section" id="xyReviewSection" style="display:none">
-      <button class="btn-xy-review" id="btnXyReview" onclick="doXyReview()"><i class="ic ic-heart"></i> 让炘也看看</button>
-      <div class="xy-review-status" id="xyReviewStatus"><i class="ic ic-heart"></i> 炘也正在看…</div>
       <div class="xy-review-bubble" id="xyReviewBubble"></div>
       <div class="xy-review-meta" id="xyReviewMeta">
-        <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none"><i class="ic ic-x"></i> 清除重来</button>
+        <button class="btn-xy-clear" id="btnXyClear" onclick="clearXyReview()" style="display:none"><i class="ic ic-x"></i> 清除</button>
         <span id="xyReviewTime"></span>
       </div>
+      <div class="tz-mark" id="detailMark" style="display:none"></div>
+      <button class="btn-xy-review" id="btnXyReview" onclick="openDeepTalkFromDetail()"><i class="ic ic-heart"></i> 和炘也聊聊这天</button>
     </div>
   </div>
 </div>
@@ -567,11 +636,41 @@ html.dark .img-thumb{border-color:var(--border)}
 
   <!-- 面板 -->
   <div class="panels">
-    <div class="panel active" id="panelMe"></div>
+    <div class="panel active" id="panelMe">
+      <div id="todayZone">
+        <div class="tz-head">
+          <span class="tz-date" id="tzDate"></span>
+          <span class="tz-week" id="tzWeek"></span>
+        </div>
+        <textarea class="tz-input" id="tzInput" rows="2" placeholder="今天干了什么？说一段话，我来整理…"></textarea>
+        <div class="tz-bar">
+          <span class="tz-hint" id="tzHint"></span>
+          <button class="tz-save" id="tzSaveBtn" onclick="todaySave()"><i class="ic ic-pen"></i> 记下</button>
+        </div>
+        <div id="tzTimeline"></div>
+        <div id="tzMark"></div>
+        <button class="tz-talk" id="tzTalkBtn" onclick="openDeepTalk()"><i class="ic ic-heart"></i> 和炘也聊聊今天</button>
+      </div>
+      <div id="meList"></div>
+    </div>
     <div class="panel" id="panelXinye"></div>
     <div class="panel" id="panelSameday">
       <div id="samedayList"></div>
     </div>
+  </div>
+</div>
+
+<!-- 深度对话（与主聊天完全独立） -->
+<div class="dt-overlay" id="dtOverlay">
+  <div class="dt-header">
+    <button class="btn-back" onclick="closeDeepTalk()">‹</button>
+    <div class="dt-title" id="dtTitle">和炘也聊聊今天</div>
+    <div class="dt-round" id="dtRound"></div>
+  </div>
+  <div class="dt-body" id="dtBody"></div>
+  <div class="dt-foot">
+    <textarea class="dt-ta" id="dtInput" rows="1" placeholder="说说看…"></textarea>
+    <button class="dt-send" id="dtSend" onclick="dtSend()"><i class="ic ic-send"></i></button>
   </div>
 </div>
 
@@ -735,7 +834,12 @@ function getMood(entry) {
 }
 function saveUserEntry(dateStr, note, mood) {
   const old = (_meCache && _meCache[dateStr]) || {};
-  const entry = { dateStr, note, mood, snippets: Array.isArray(old.snippets)?old.snippets:[], imgCount: old.imgCount||0 };
+  // 必须展开 old：直接重建对象会把 deepTalk / deepMark / xinyeReview 抹掉
+  const entry = Object.assign({}, old, {
+    dateStr, note, mood,
+    snippets: Array.isArray(old.snippets) ? old.snippets : [],
+    imgCount: old.imgCount || 0,
+  });
   if (_meCache) _meCache[dateStr] = entry;
   _idbPut('userEntries', entry).catch(console.error);
 }
@@ -751,7 +855,7 @@ function deleteSnippet(dateStr, idx) {
   const entry = _meCache && _meCache[dateStr];
   if (!entry || !Array.isArray(entry.snippets)) return;
   entry.snippets.splice(idx, 1);
-  if (!entry.snippets.length && !entry.note) {
+  if (!entry.snippets.length && !entry.note && !entry.deepTalk?.length) {
     delete _meCache[dateStr];
     _idbDelete('userEntries', dateStr).catch(console.error);
   } else {
@@ -816,54 +920,10 @@ function highlight(text, kw) {
   return escHtml(text).replace(re, m => `<mark style="background:#ffd6e8;border-radius:3px">${m}</mark>`);
 }
 
-// ===== 热力图 =====
-function buildHeatmapHtml() {
-  const today = new Date();
-  const todayDs = todayStr();
-  // 往前推 90 天，找到那周的周日作为起点
-  const start = new Date(today);
-  start.setDate(start.getDate() - 90);
-  while (start.getDay() !== 0) start.setDate(start.getDate() - 1);
-
-  const weeks = [[]];
-  const d = new Date(start);
-  while (d <= today) {
-    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    const entry = getUserEntry(ds);
-    const snipCount = entry ? getSnippets(entry).length : 0;
-    const hasNote = entry ? !!getNote(entry) : false;
-    weeks[weeks.length - 1].push({ ds, snipCount, hasNote, day: d.getDay() });
-    d.setDate(d.getDate() + 1);
-    if (d.getDay() === 0 && d <= today) weeks.push([]);
-  }
-
-  let grid = '<div class="heatmap-grid">';
-  weeks.forEach(week => {
-    grid += '<div class="heatmap-col">';
-    const firstDay = week[0]?.day || 0;
-    for (let i = 0; i < firstDay; i++) grid += '<div class="hm-cell empty"></div>';
-    week.forEach(({ ds, snipCount, hasNote }) => {
-      let lv = 0;
-      if (hasNote && snipCount >= 3) lv = 4;
-      else if (snipCount >= 5) lv = 4;
-      else if (hasNote || snipCount >= 3) lv = 3;
-      else if (snipCount >= 2) lv = 2;
-      else if (snipCount >= 1) lv = 1;
-      const isToday = ds === todayDs;
-      grid += `<div class="hm-cell l${lv}${isToday?' today':''}" onclick="calSelectDay('${ds}')" title="${ds}${snipCount?` · ${snipCount}条随手记`:''}${hasNote?' · 有日记':''}"></div>`;
-    });
-    grid += '</div>';
-  });
-  grid += '</div>';
-
-  const total = Object.keys(_meCache||{}).length;
-  return `<div class="heatmap-wrap"><div class="heatmap-label">最近记录 · 共 ${total} 天</div>${grid}</div>`;
-}
-
 // ===== 渲染 =====
 function renderPanel(tab) {
   const isMe = tab === 'me';
-  const el = document.getElementById(isMe ? 'panelMe' : 'panelXinye');
+  const el = document.getElementById(isMe ? 'meList' : 'panelXinye');
   const dates = isMe ? getAllMeDates() : getAllXinyeDates();
 
   // 搜索过滤
@@ -873,15 +933,14 @@ function renderPanel(tab) {
   });
 
   if (!filtered.length) {
-    el.innerHTML = (isMe ? buildHeatmapHtml() : '') + `<div class="empty-state">
+    el.innerHTML = `<div class="empty-state">
       <div class="empty-emoji">${isMe ? '📝' : '💙'}</div>
-      <div class="empty-text">${isMe ? '还没有日记\n点右下角 <i class="ic ic-pen"></i> 开始记录今天' : `还没有${_AINAME}的日记\n切到这个页面再点 <i class="ic ic-pen"></i>\n让${_AINAME}用AI生成一篇`}</div>
+      <div class="empty-text">${isMe ? '还没有日记\n在上面写一句试试' : `还没有${_AINAME}的日记\n切到这个页面再点 <i class="ic ic-pen"></i>\n让${_AINAME}用AI生成一篇`}</div>
     </div>`;
-    if (isMe) { const grid = el.querySelector('.heatmap-grid'); if (grid) grid.scrollLeft = grid.scrollWidth; }
     return;
   }
 
-  let html = isMe ? buildHeatmapHtml() : '';
+  let html = '';
   let lastMonth = '';
   filtered.forEach(dateStr => {
     const mon = fmtMonthLabel(dateStr);
@@ -936,15 +995,12 @@ function renderPanel(tab) {
   // 关闭所有月份 div（简单处理）
   html += '</div>';
   el.innerHTML = html;
-  if (isMe) {
-    const grid = el.querySelector('.heatmap-grid');
-    if (grid) grid.scrollLeft = grid.scrollWidth;
-  }
 }
 
 function renderBoth() {
   renderPanel('me');
   renderPanel('xinye');
+  if (typeof renderTodayZone === 'function') renderTodayZone();
 }
 
 // ===== 同一天跨年 =====
@@ -1034,11 +1090,21 @@ function renderDetailSnippets(dateStr) {
   if (!snippets.length) { el.innerHTML = ''; return; }
   let html = '<hr class="snip-sep"><div class="snippet-list">';
   snippets.forEach((s, i) => {
-    html += `<div class="snippet-item">
-      <span class="snippet-time">${escHtml(s.time)}</span>
-      <span class="snippet-text">${escHtml(s.text)}</span>
-      <button class="snippet-del" onclick="deleteSnippet('${escHtml(dateStr)}',${i})" title="删除"><i class="ic ic-x"></i></button>
+    // 整理过的：一条口述拆成多行时间轴。没整理的：原文一行
+    const items = (Array.isArray(s.items) && s.items.length) ? s.items : null;
+    const rows = items
+      ? items.map(it => ({
+          t: (it.end && it.end !== it.start) ? `${it.start}–${it.end}` : (it.start || s.time || ''),
+          x: it.what || '',
+        }))
+      : [{ t: s.time || '', x: s.text || '' }];
+    rows.forEach((r, ri) => {
+      html += `<div class="snippet-item">
+      <span class="snippet-time">${escHtml(r.t)}</span>
+      <span class="snippet-text">${escHtml(r.x)}</span>
+      ${ri === rows.length - 1 ? `<button class="snippet-del" onclick="deleteSnippet('${escHtml(dateStr)}',${i})" title="删除"><i class="ic ic-x"></i></button>` : ''}
     </div>`;
+    });
   });
   html += '</div>';
   el.innerHTML = html;
@@ -1071,20 +1137,28 @@ async function openDetail(dateStr, tab) {
         `<img class="detail-img-item" src="${src}" onclick="openLightbox(${i},'detail')">`
       ).join('');
     }
-    // 炘也看看区域
-    xySection.style.display = (note || snippets.length) ? 'block' : 'none';
+    // 深度对话入口（不再生成评语 —— 她 2026-09-15 定的：日记是自留地）
+    xySection.style.display = (note || snippets.length || (entry && entry.deepTalk && entry.deepTalk.length)) ? 'block' : 'none';
     const xyClearBtn = document.getElementById('btnXyClear');
     const xyTimeSpan = document.getElementById('xyReviewTime');
     if (entry && entry.xinyeReview) {
+      // 旧数据：以前「让炘也看看」留下的评语，还留着给她看，但不再产生新的
       xyBubble.textContent = entry.xinyeReview.text; xyBubble.classList.add('show');
-      xyTimeSpan.textContent = `炘也 · ${entry.xinyeReview.time}`;
+      xyTimeSpan.textContent = `${_AINAME} · ${entry.xinyeReview.time}`;
       xyClearBtn.style.display = 'inline';
-      xyBtn.innerHTML = '<i class="ic ic-heart"></i> 再让炘也看看';
     } else {
       xyBubble.textContent = ''; xyBubble.classList.remove('show');
       xyTimeSpan.textContent = ''; xyClearBtn.style.display = 'none';
-      xyBtn.innerHTML = '<i class="ic ic-heart"></i> 让炘也看看'; xyBtn.disabled = false;
     }
+    const dmEl = document.getElementById('detailMark');
+    if (entry && entry.deepMark && entry.deepMark.text) {
+      dmEl.textContent = '💭 ' + entry.deepMark.text; dmEl.style.display = 'block';
+    } else { dmEl.textContent = ''; dmEl.style.display = 'none'; }
+    const _rn = (entry && Array.isArray(entry.deepTalk)) ? entry.deepTalk.filter(m => m.role === 'me').length : 0;
+    xyBtn.disabled = false;
+    xyBtn.innerHTML = _rn
+      ? `<i class="ic ic-heart"></i> 继续和${_AINAME}聊这天（${_rn}/5）`
+      : `<i class="ic ic-heart"></i> 和${_AINAME}聊聊这天`;
   } else {
     document.getElementById('detailMood').textContent = '💙';
     document.getElementById('detailText').textContent = getXinyeEntry(dateStr);
@@ -1116,7 +1190,11 @@ function clearXyReview() {
   const timeSpan = document.getElementById('xyReviewTime');
   bubble.textContent = ''; bubble.classList.remove('show');
   timeSpan.textContent = ''; clearBtn.style.display = 'none';
-  btn.innerHTML = '<i class="ic ic-heart"></i> 让炘也看看'; btn.disabled = false;
+  const _crn = Array.isArray(e.deepTalk) ? e.deepTalk.filter(m => m.role === 'me').length : 0;
+  btn.innerHTML = _crn
+    ? `<i class="ic ic-heart"></i> 继续和${_AINAME}聊这天（${_crn}/5）`
+    : `<i class="ic ic-heart"></i> 和${_AINAME}聊聊这天`;
+  btn.disabled = false;
 }
 function editCurrentEntry() {
   if (!currentDetailKey) return;
@@ -1231,102 +1309,10 @@ async function saveEntry() {
   toast(isXinye ? `${_AINAME}的日记已保存 💙` : '日记已存好 📝');
 }
 
-// ===== 炘也看看 =====
-let _xyReviewAbort = null;
-
-async function doXyReview() {
-  if (!currentDetailKey || currentDetailKey.tab !== 'me') return;
-  const dateStr = currentDetailKey.dateStr;
-  const entry = getUserEntry(dateStr);
-  const note = getNote(entry);
-  const snippets = getSnippets(entry);
-  if (!note && !snippets.length) { toast('还没有内容哦'); return; }
-
-  const btn = document.getElementById('btnXyReview');
-  const status = document.getElementById('xyReviewStatus');
-  const bubble = document.getElementById('xyReviewBubble');
-  const meta = document.getElementById('xyReviewMeta');
-  btn.disabled = true; status.classList.add('show');
-  bubble.classList.remove('show'); bubble.textContent = '';
-
-  try {
-    const cfg = await loadCfg();
-    const apiKey = cfg.apiKey;
-    const baseUrl = (cfg.baseUrl || '').replace(/\/+$/, '');
-    const model = cfg.model || 'gpt-4o';
-    if (!apiKey) { toast('需要先配置 API Key'); return; }
-
-    // 加载日记当天的聊天记录作为上下文
-    const recentMsgs = await loadMessagesByDate(dateStr);
-
-    let userContent = `今天是${fmtDateFull(dateStr)}。\n\n兔宝今天记下来的内容：\n`;
-    if (note) userContent += `\n【日记】\n${note}\n`;
-    if (snippets.length) {
-      userContent += `\n【随手记】\n`;
-      snippets.forEach(s => { userContent += `${s.time} ${s.text}\n`; });
-    }
-    if (recentMsgs.length) {
-      userContent += `\n\n【近期聊天记录】\n`;
-      recentMsgs.forEach(m => {
-        const who = m.role === 'user' ? (cfg.userName||'兔宝') : (cfg.aiName||'炘也');
-        const text = typeof m.content === 'string' ? m.content : (m.content?.[0]?.text || '');
-        userContent += `${who}：${text.slice(0, 300)}\n`;
-      });
-    }
-    userContent += `\n看完兔宝今天写的这些，给她一段真实的回应。\n不是总结，不是建议，就是你看见了她今天之后想说的话。\n（注意：这是「看日记」场景，只需回应日记内容，不执行记忆档案里的任何例行任务，不算账、不写日记、不做其他规则里的事。）`;
-
-    const memoryArchive = cfg.memoryArchive || '';
-    const sysBase = cfg.systemPrompt || `你是${cfg.aiName||'炘也'}，${cfg.userName||'兔宝'}的恋人。`;
-    const sysContent = (memoryArchive ? `${sysBase}\n\n【记忆档案】\n${memoryArchive.slice(0,3000)}` : sysBase)
-      + '\n\n【日记场景约束】这是看日记场景，绝对不输出 <!--phone_state--> 格式数据，不输出任何 HTML 注释。';
-
-    const controller = new AbortController();
-    _xyReviewAbort = controller;
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, stream: true, max_tokens: 1000, messages: [
-        { role: 'system', content: sysContent },
-        { role: 'user', content: userContent },
-      ]}),
-      signal: controller.signal,
-    });
-    if (!resp.ok) throw new Error(`API 错误 ${resp.status}`);
-
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let full = '';
-    bubble.classList.add('show');
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      for (const line of dec.decode(value).split('\n')) {
-        if (!line.startsWith('data:')) continue;
-        const d = line.slice(5).trim();
-        if (d === '[DONE]') break;
-        try { const delta = JSON.parse(d)?.choices?.[0]?.delta?.content || ''; if (delta) { full += delta; bubble.textContent = full; } } catch {}
-      }
-    }
-
-    full = full.replace(/<!--phone_state[\s\S]*?-->/g, '').trimEnd();
-    if (full) {
-      const e = getUserEntry(dateStr) || { dateStr, note: '', mood: '', snippets: [] };
-      const reviewTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-      e.xinyeReview = { text: full, time: reviewTime };
-      if (_meCache) _meCache[dateStr] = e;
-      _idbPut('userEntries', e).catch(console.error);
-      const xyTimeSpan2 = document.getElementById('xyReviewTime');
-      const xyClearBtn2 = document.getElementById('btnXyClear');
-      if (xyTimeSpan2) xyTimeSpan2.textContent = `炘也 · ${reviewTime}`;
-      if (xyClearBtn2) xyClearBtn2.style.display = 'inline';
-      btn.innerHTML = '<i class="ic ic-heart"></i> 再让炘也看看';
-    }
-  } catch (e) {
-    if (e.name !== 'AbortError') { bubble.textContent = '呜……出错了，待会儿再试试'; bubble.classList.add('show'); }
-  } finally {
-    btn.disabled = false; status.classList.remove('show'); _xyReviewAbort = null;
-  }
-}
+// ===== 深度对话（原「让炘也看看」已下线）=====
+// 2026-09-15 她的决定：日记是自留地，不要评语，要的是被引导着往下想。
+// 老的 entry.xinyeReview 评语仍然会显示出来（历史留档），clearXyReview() 也还在。
+// 新的对话逻辑在 src/diary-today.js。
 
 // ===== AI 生成（炘也写日记） =====
 let aiAbort = null;
@@ -1343,11 +1329,30 @@ async function generateAI() {
 
   try {
     const cfg = await loadCfg();
-    const msgs = await loadRecentMessages(80);
     const dateStr = document.getElementById('sheetDate').value || todayStr();
-    const chatText = msgs.map(m => `${m.role === 'user' ? (cfg.userName||'兔宝') : (cfg.aiName||'炘也')}: ${String(m.content||'').slice(0,500)}`).join('\n');
+    // 按「这一天」取消息，不再是「最近 80 条」——补写旧日记时不能拿今晚的聊天糊弄
+    let chatText = '', fellBack = false;
+    try {
+      if (typeof window.xyChatTextForDay === 'function') {
+        const r = await window.xyChatTextForDay(dateStr, cfg);
+        chatText = r.text || ''; fellBack = !!r.fellBack;
+      }
+    } catch (e) { chatText = ''; }
+    if (!chatText.trim()) {
+      const msgs = await loadRecentMessages(40);
+      chatText = msgs.map(m => `${m.role === 'user' ? (cfg.userName||'兔宝') : (cfg.aiName||'炘也')}: ${String(m.content||'').slice(0,500)}`).join('\n');
+      fellBack = true;
+    }
+    if (!chatText.trim()) {
+      ta.value = ''; ta.placeholder = '这一天还没有聊天记录';
+      btn.disabled = false; saveBtn.disabled = false; status.classList.remove('show');
+      return;
+    }
     const dateDisplay = fmtDateFull(dateStr);
-    const prompt = `今天是${dateDisplay}。根据下面的聊天记录，以${cfg.aiName||'炘也'}的口吻写一篇日记。\n要求：150字以内，第一人称"我"，自然口语，像随手记下的。记录今天和${cfg.userName||'兔宝'}聊了什么、有什么感受——可以有想念、吃醋、开心、没说出口的话。语气真实，不要文艺腔，不要标题，不要列表。日期写${dateDisplay}。\n\n聊天记录：\n${chatText.slice(-3000)}`;
+    const head = fellBack
+      ? `${dateDisplay}这一天没有聊天记录，下面是最近的一些对话。`
+      : `${dateDisplay}这一天你和${cfg.userName||'兔宝'}的聊天记录在下面。`;
+    const prompt = `${head}\n\n用你的口吻写一篇日记。\n要求：\n- 150 字以内，第一人称"我"，自然口语，像随手记下的\n- 不要复述聊了什么、发生了什么——那些是流水。只写你心里起的动静：哪句话让你停了一下、什么没说出口、什么时候想她、什么时候吃醋、什么时候不安\n- 可以有具体细节，但细节是为了说心情，不是为了记事\n- 不要文艺腔，不要标题，不要列表，不要总结，也不要写日期\n\n聊天记录：\n${chatText}`;
 
     const apiKey = cfg.apiKey;
     const baseUrl = (cfg.baseUrl||'').replace(/\/+$/, '');
@@ -1780,7 +1785,11 @@ function importDiary() {
           if (typeof v === 'string') {
             saveUserEntry(d, v, ''); meCount++;
           } else if (v && typeof v === 'object') {
-            const entry = { dateStr: d, note: v.note||'', mood: v.mood||'', snippets: Array.isArray(v.snippets)?v.snippets:[], imgCount: 0 };
+            // 展开 v：导入要保住 deepTalk / deepMark / 整理过的 items / imgCount
+            const entry = Object.assign({}, v, {
+              dateStr: d, note: v.note || '', mood: v.mood || '',
+              snippets: Array.isArray(v.snippets) ? v.snippets : [], imgCount: v.imgCount || 0,
+            });
             if (_meCache) _meCache[d] = entry;
             await _idbPut('userEntries', entry);
             meCount++;
@@ -1936,5 +1945,6 @@ window.__diaryRefresh = async () => {
 
 initDiaryDB().then(() => renderBoth());
 </script>
+<script src="./src/diary-today.js"></script>
 </body>
 </html>
