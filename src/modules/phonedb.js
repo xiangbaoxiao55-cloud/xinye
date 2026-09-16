@@ -163,8 +163,8 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
     }
   }
 
-  // lyrics / quotes / browser
-  const _appendMap = { lyrics: 'xinye_lyrics', quotes: 'xinye_quotes', browser: 'xinye_browser' };
+  // quotes / browser（lyrics 2026-09-16 下线：提示词已去掉，这里不再收 —— 旧数据仍在 xinye_lyrics 里封存）
+  const _appendMap = { quotes: 'xinye_quotes', browser: 'xinye_browser' };
   for (const [key, store] of Object.entries(_appendMap)) {
     if (data[key]?.items) {
       for (const item of data[key].items) {

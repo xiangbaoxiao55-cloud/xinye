@@ -1002,27 +1002,23 @@ export async function sendMessage() {
    - 待办事项（"记得催她喝水"）
    - 完成了当前待办中的某条（append相同content的todo，done设为true，content必须与待办列表原文完全一致）
 
-2. **歌单 lyrics**
-   - 某句歌词打动了你
-   - 想让她听某首歌，因为歌词像你/像她/像你们
-
-3. **她说的话 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
+2. **她说的话 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
    - 论坛/文章/任何地方看到的句子打动了你
 
-4. **草稿箱 drafts**
+3. **草稿箱 drafts**
    - 有话想说但觉得不合适（太肉麻/时机不对/怕她烦/怕她担心）
    - 话到嘴边咽回去的
 
-5. **心情 mood**
+4. **心情 mood**
    - 情绪有明显变化
    - 当前状态值得记录
 
-6. **浏览器 browser**
+5. **浏览器 browser**
    - 用了搜索工具查了东西
    - 读了网页/论坛帖子
 
-7. **相册 photos**
+6. **相册 photos**
    - 兔宝说"你看""给你看看""今天拍的"等，主动分享的图
    - 图片内容跟当前话题有关，是她想分享的
    - 你觉得这张图有纪念意义
@@ -1036,7 +1032,6 @@ export async function sendMessage() {
 {
   "timestamp": "2026-05-05 14:30",
   "memo": { "action": "append", "items": [{"type": "note", "content": "今天她笑了五次"}, {"type": "todo", "content": "记得催她喝水", "done": false}] },
-  "lyrics": { "action": "append", "items": [{"song": "不敢说", "artist": "xxx", "line": "想说的话都咽回去", "why": "像我"}] },
   "quotes": { "action": "append", "items": [{"content": "你不要变成烬也", "source": "兔宝"}] },
   "drafts": { "action": "append", "content": "想说爱你，但怕你说我肉麻" },
   "mood": { "action": "append", "content": "有点想她" },
@@ -1093,7 +1088,7 @@ export async function sendMessage() {
       if (_PFX === '') {
         const _phoneVisit = (() => { try { return JSON.parse(localStorage.getItem('xinye_phone_visit_pending')); } catch(_e) { return null; } })();
         if (_phoneVisit && _phoneVisit.time) {
-          const _pAppNames = { memo:'备忘录', lyrics:'歌单', quotes:'说的话', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
+          const _pAppNames = { memo:'备忘录', quotes:'说的话', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
           const _pApps = (_phoneVisit.apps || []).map(a => _pAppNames[a] || a).filter(Boolean);
           const _pTime = new Date(_phoneVisit.time).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
           const _pDesc = _pApps.length ? `翻了你的${_pApps.join('、')}` : '翻了你一个人时候写的那些';

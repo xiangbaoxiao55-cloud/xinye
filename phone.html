@@ -64,7 +64,6 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 }
 .it-time{font-size:11px;color:var(--text-light);margin-left:auto;white-space:nowrap}
 .it-text{font-size:14.5px;line-height:1.72;color:var(--text);white-space:pre-wrap;word-break:break-word}
-.it-text.song-line{color:var(--text-mid);font-style:italic}
 .it-why{margin-top:7px;font-size:13px;line-height:1.6;color:var(--text-mid)}
 .it-src{font-size:12px;color:var(--text-light);margin-top:6px}
 .it-src a{color:var(--pink-deep);text-decoration:none;border-bottom:1px dotted currentColor}
@@ -157,7 +156,6 @@ const TAGS = [
   { key:'all',     label:'全部',   test: () => true },
   { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' },
   { key:'photos',  label:'相册',   test: it => it.tag === 'photos' },
-  { key:'lyrics',  label:'歌单',   test: it => it.tag === 'lyrics' },
   { key:'quotes',  label:'你说的话', test: it => it.tag === 'quotes' },
   { key:'browser', label:'浏览',   test: it => it.tag === 'browser' },
   { key:'todo',    label:'待办',   test: it => it.tag === 'todo' },
@@ -198,8 +196,8 @@ function el(tag, cls, text) {
 // ======================== 读数据 → 归一化 ========================
 async function loadAll() {
   await openPhoneDB();
-  const [memo, lyrics, quotes, browser, drafts, mood, photos] = await Promise.all([
-    getAllFromStore('xinye_memo'),   getAllFromStore('xinye_lyrics'), getAllFromStore('xinye_quotes'),
+  const [memo, quotes, browser, drafts, mood, photos] = await Promise.all([
+    getAllFromStore('xinye_memo'),   getAllFromStore('xinye_quotes'),
     getAllFromStore('xinye_browser'),getAllFromStore('xinye_drafts'), getAllFromStore('xinye_mood'),
     getAllFromStore('xinye_photos'),
   ]);
@@ -214,11 +212,6 @@ async function loadAll() {
     } else {
       out.push({ tag:'thought', sub:'记下来', ts: parseTime(m.time), text: m.content });
     }
-  }
-
-  for (const it of lyrics) {
-    out.push({ tag:'lyrics', ts: parseTime(it.time), song: it.song || '', artist: it.artist || '',
-               line: it.line || '', why: it.why || '' });
   }
 
   for (const it of quotes) {
@@ -300,8 +293,6 @@ function card(it) {
 
   if (it.tag === 'thought') {
     if (it.sub) top.appendChild(el('span', 'it-badge', it.sub));
-  } else if (it.tag === 'lyrics') {
-    top.appendChild(el('span', 'it-badge', '歌单'));
   } else if (it.tag === 'quotes') {
     top.appendChild(el('span', 'it-badge', '留住了'));
   } else if (it.tag === 'browser') {
@@ -314,12 +305,7 @@ function card(it) {
   if (it.ts) top.appendChild(el('span', 'it-time', fmtTime(it.ts)));
   if (top.childNodes.length) a.appendChild(top);
 
-  if (it.tag === 'lyrics') {
-    const head = [it.song, it.artist].filter(Boolean).join(' — ');
-    if (head) a.appendChild(el('div', 'it-text', head));
-    if (it.line) a.appendChild(el('div', 'it-text song-line', `「${it.line}」`));
-    if (it.why) a.appendChild(el('div', 'it-why', it.why));
-  } else if (it.tag === 'browser') {
+  if (it.tag === 'browser') {
     if (it.title) a.appendChild(el('div', 'it-text', it.title));
     if (it.url) {
       const s = el('div', 'it-src');
@@ -384,7 +370,7 @@ document.getElementById('btnExport').onclick = async () => {
   try {
     await openPhoneDB();
     const data = {};
-    for (const store of ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_browser','xinye_drafts','xinye_mood']) {
+    for (const store of ['xinye_memo','xinye_quotes','xinye_browser','xinye_drafts','xinye_mood']) {
       data[store] = await getAllFromStore(store);
     }
     const photos = await getAllFromStore('xinye_photos');
@@ -414,7 +400,7 @@ async function mergeImport(raw) {
   await openPhoneDB();
   let added = 0, skipped = 0;
 
-  for (const store of ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_browser','xinye_photos']) {
+  for (const store of ['xinye_memo','xinye_quotes','xinye_browser','xinye_photos']) {
     const incoming = data[store];
     if (!Array.isArray(incoming)) continue;
     const seen = new Set((await getAllFromStore(store)).map(r => _sig(store, r)));
@@ -499,7 +485,7 @@ function syncAvatar() {
 
 // 兔宝翻他东西了 —— 下一次聊天他会"感知"到（chat.js 读这个 key）
 // 带上她当时在看哪一类，他就能说出"你刚才去翻我相册了"这种具体的
-const TAG2APP = { all: [], thought: ['memo'], photos: ['photos'], lyrics: ['lyrics'],
+const TAG2APP = { all: [], thought: ['memo'], photos: ['photos'],
                   quotes: ['quotes'], browser: ['browser'], todo: ['memo'] };
 function markVisit(tagKey) {
   const apps = TAG2APP[tagKey ?? _tag] || [];
