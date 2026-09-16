@@ -46,9 +46,20 @@ export function isDarkMode() {
   return document.documentElement.dataset.theme === 'dark';
 }
 
+/**
+ * 相对化时间戳：今天 / 昨天 / 几月几日 / 跨年才带年份。
+ * 聊天气泡底部那行、收藏列表、记忆列表都用它 —— 原来的 `26-9-16 14:30` 得先认年份再认月份，
+ * 而九成情况下你只想知道"这是刚说的还是昨天说的"。格式与「碎碎念」页一致。
+ */
 export function fmtTime(ts) {
-  const d = new Date(ts), p = n => String(n).padStart(2,'0');
-  return `${String(d.getFullYear()).slice(2)}-${d.getMonth()+1}-${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (!ts) return '';
+  const d = new Date(ts), n = new Date(), p = x => String(x).padStart(2, '0');
+  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, n)) return `今天 ${hm}`;
+  if (sameDay(d, new Date(n.getTime() - 86400000))) return `昨天 ${hm}`;
+  if (d.getFullYear() === n.getFullYear()) return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${hm}`;
 }
 
 export function fmtFull(ts) {
