@@ -224,7 +224,12 @@ async function loadAll() {
       // 只靠 type 区分 —— 这样**不用动 DB_VER**（动它风险大），导出/导入也自动跟着走。
       out.push({ tag:'post', ts: parseTime(m.time), text: m.content, postId: m.postId || '', media: null });
     } else {
-      out.push({ tag:'thought', sub:'记下来', ts: parseTime(m.time), text: m.content });
+      // ⚠️ 2026-09-16 合并：「记下来 / 没说出口 / 那天的心情」**不再贴角标**。
+      //    她那边有 996 条，往下一翻根本不会去分辨是哪一类 —— 为一套只有最上面几条用得上的
+      //    区分，让他每天做三次判断不划算。现在整页只有两种东西：
+      //    **没角标 = 他聊天时写的**、**「说说」= 你没在场时他自己写的**。
+      //    老数据的 drafts/mood 记录照样显示，只是不再贴标签（数据一条没删）。
+      out.push({ tag:'thought', ts: parseTime(m.time), text: m.content });
     }
   }
 
@@ -237,14 +242,16 @@ async function loadAll() {
   }
 
   // 草稿箱 / 心情：current + history
-  for (const [store, tag, sub] of [['xinye_drafts','thought','没说出口'], ['xinye_mood','thought','那天的心情']]) {
+  // ⚠️ 2026-09-16 起这两类**不再产生新数据**（提示词里已并进「备忘录」，他写东西的出口从三个变一个）。
+  //    这里留着只有一个目的：**让老记录照样显示出来** —— 不再贴角标，跟别的条目长一样。
+  for (const store of ['xinye_drafts', 'xinye_mood']) {
     for (const rec of await (async () => {
       const a = []; const c = await getRecord(store, 'current'); if (c?.content) a.push(c);
       const h = await getRecord(store, 'history'); if (h?.items) a.push(...h.items);
       return a;
     })()) {
       if (!rec?.content) continue;
-      out.push({ tag, sub, ts: parseTime(rec.time), text: rec.content });
+      out.push({ tag:'thought', ts: parseTime(rec.time), text: rec.content });
     }
   }
 
@@ -263,7 +270,7 @@ async function loadAll() {
       continue;
     }
     if (p.type === 'memo') {
-      out.push({ tag:'thought', sub:'想留住', ts: parseTime(p.time), text: p.caption || '' });
+      out.push({ tag:'thought', ts: parseTime(p.time), text: p.caption || '' });
     } else if (p.blob) {
       out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '' });
     }
@@ -318,9 +325,7 @@ function card(it) {
   const a = el('article', 'item');
   const top = el('div', 'it-top');
 
-  if (it.tag === 'thought') {
-    if (it.sub) top.appendChild(el('span', 'it-badge', it.sub));
-  } else if (it.tag === 'post') {
+  if (it.tag === 'post') {
     // 角标叫「说说」—— 她 2026-09-16 自己提的词，也正是她描述这个功能时用的那个
     // （"就像发 QQ 说说 微信朋友圈那样"），等于物归原主。
     // ⚠️ 别用带人称的：原来的「写给你」就不行 —— 正文里第三人称说的是"她"，

@@ -174,6 +174,9 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
   }
 
   // drafts / mood（current → history → new current）
+  // ⚠️ 2026-09-16 起提示词里已把这两类并进「备忘录」，所以他不会再往这儿写新东西。
+  //    这段留着当**兼容**：万一模型还按老习惯吐 drafts/mood（或者导进来的旧备份里有），
+  //    照样能落库、照样在碎碎念里显示。store 和 DB_VER 一律不动。
   for (const [key, store] of [['drafts','xinye_drafts'],['mood','xinye_mood']]) {
     if (data[key]?.content) {
       const cur  = await getRecord(store, 'current');
