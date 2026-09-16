@@ -14,7 +14,6 @@ debug.log
 xinye_inpaint_workflow.json
 archive/
 
-# ⚠️ 下面这行的 `!` 取反在 Vercel 上**并不生效**（2026-09-16 实测：线上 /data/style_library.json 是 404）。
-#    draw.js 的 fetch('./data/style_library.json') 一直静默失败，只因为种进 IDB 后用版本号短路了才没暴露。
-#    运行时需要的静态数据**别再往 data/ 里加**，放 assets/（不在忽略列表里）。
-!data/style_library.json
+# ⚠️ 取反白名单 `!data/xxx.json` 在 Vercel 上**并不生效**（2026-09-16 实测：加过 `!data/style_library.json`，
+#    线上仍是 404，同目录另一个文件也一样）。draw.js 的 fetch 因此静默失败了很久，只因为种进 IDB 后
+#    用版本号短路了才没暴露。运行时需要的静态数据**别再往 data/ 里加**，放 assets/（不在忽略列表里）。

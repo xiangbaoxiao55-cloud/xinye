@@ -2484,7 +2484,7 @@ async function seedStyles(){
   const ver=await db.getSetting('styles_lib_version',0);
   if(ver>=STYLE_LIB_VER){_styleSeeded=true;return}
   try{
-    const resp=await fetch('./data/style_library.json');
+    const resp=await fetch('./assets/style_library.json');
     if(!resp.ok) throw new Error('fetch failed');
     const lib=await resp.json();
     const styles=lib.styles||lib;
