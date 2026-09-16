@@ -73,6 +73,72 @@ async function restoreDiaryData(diaryObj) {
   } catch (e) { console.warn('[backup] restoreDiaryData:', e); }
 }
 
+// ===== HealthDB helpers（饮食记录 / 体重 / 健康档案）=====
+// 🔴 这个库不接进备份的话，换机 / 重装 APK 时饮食记录会全丢
+function _openHealthDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('HealthDB', 1);
+    req.onupgradeneeded = e => {
+      // ⚠️ 这里必须把 store 建全：万一备份代码先跑、抢先建了个空库，
+      //    之后 health.html 的 onupgradeneeded 就永远不会触发（ReadingDB 白屏事故的教训）
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('profiles')) d.createObjectStore('profiles', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('entries')) {
+        const s = d.createObjectStore('entries', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('byProfileDate', ['profileId', 'dateStr'], { unique: false });
+        s.createIndex('byDate', 'dateStr', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('weights')) {
+        const s = d.createObjectStore('weights', { keyPath: 'id', autoIncrement: true });
+        s.createIndex('byProfileDate', ['profileId', 'dateStr'], { unique: false });
+      }
+      if (!d.objectStoreNames.contains('customFoods')) {
+        const s = d.createObjectStore('customFoods', { keyPath: 'id' });
+        s.createIndex('profileId', 'profileId', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('usage')) {
+        const s = d.createObjectStore('usage', { keyPath: 'key' });
+        s.createIndex('byProfile', 'profileId', { unique: false });
+      }
+      if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = e => res(e.target.result); req.onerror = e => rej(e.target.error);
+  });
+}
+
+// 只带文字（档案/记录/体重/自建食物/常吃）—— 照片不进备份，跟「自动备份不带图」的原则一致
+async function getHealthBackupData() {
+  const out = {};
+  try {
+    const hdb = await _openHealthDB();
+    const getAll = store => new Promise((res, rej) => {
+      const req = hdb.transaction(store, 'readonly').objectStore(store).getAll();
+      req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+    });
+    const [profiles, entries, weights, customFoods, usage] = await Promise.all([
+      getAll('profiles'), getAll('entries'), getAll('weights'), getAll('customFoods'), getAll('usage'),
+    ]);
+    Object.assign(out, { profiles, entries, weights, customFoods, usage });
+  } catch (e) { console.warn('[backup] getHealthBackupData:', e); }
+  return out;
+}
+
+async function restoreHealthData(h) {
+  if (!h || typeof h !== 'object') return;
+  try {
+    const hdb = await _openHealthDB();
+    const put = (store, val) => new Promise((res, rej) => {
+      const req = hdb.transaction(store, 'readwrite').objectStore(store).put(val);
+      req.onsuccess = () => res(); req.onerror = () => rej(req.error);
+    });
+    for (const p of h.profiles || [])    await put('profiles', p);
+    for (const w of h.weights || [])     await put('weights', w);
+    for (const f of h.customFoods || []) await put('customFoods', f);
+    for (const u of h.usage || [])       await put('usage', u);
+    for (const e of h.entries || [])     await put('entries', e);   // 带 id 用 put，重复导入不会产生副本
+  } catch (e) { console.warn('[backup] restoreHealthData:', e); }
+}
+
 export function initBackupDeps({ isLocalOnline, closeSettings }) {
   _isLocalOnline = isLocalOnline;
   _closeSettings = closeSettings;
@@ -295,6 +361,7 @@ export async function autoBackupToServer() {
       styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
       diary: diaryData,
       reading: readingData,
+      health: await getHealthBackupData(),
       friendsData: await getFriendsBackupData(),
     };
 
@@ -395,6 +462,7 @@ export async function backupToPhone() {
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
       styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
       diary: diaryData, reading: readingData,
+      health: await getHealthBackupData(),
       friendsData: await getFriendsBackupData(),
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
@@ -479,6 +547,7 @@ export async function exportData(mode) {
     stickers: isLite ? [] : getDecoStickers(),
     chatStickers: getChatStickers(),
     styleRefs: isLite ? [] : (await dbGet('settings', 'styleRefs').catch(() => null) || []),
+    health: await getHealthBackupData(),
     friendsData: await getFriendsBackupData(),
   };
 
@@ -666,6 +735,10 @@ export async function doImport(jsonText) {
 
   if (data.diary && typeof data.diary === 'object') {
     await restoreDiaryData(data.diary);
+  }
+
+  if (data.health && typeof data.health === 'object') {
+    await restoreHealthData(data.health);
   }
 
   if (data.reading && (data.reading.books?.length || data.reading.chapters?.length || data.reading.annotations?.length)) {
