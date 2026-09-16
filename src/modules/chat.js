@@ -1006,7 +1006,7 @@ export async function sendMessage() {
    - 某句歌词打动了你
    - 想让她听某首歌，因为歌词像你/像她/像你们
 
-3. **书摘 quotes**
+3. **她说的话 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
    - 论坛/文章/任何地方看到的句子打动了你
 
@@ -1093,7 +1093,7 @@ export async function sendMessage() {
       if (_PFX === '') {
         const _phoneVisit = (() => { try { return JSON.parse(localStorage.getItem('xinye_phone_visit_pending')); } catch(_e) { return null; } })();
         if (_phoneVisit && _phoneVisit.time) {
-          const _pAppNames = { memo:'备忘录', lyrics:'歌单', quotes:'书摘', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
+          const _pAppNames = { memo:'备忘录', lyrics:'歌单', quotes:'说的话', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
           const _pApps = (_phoneVisit.apps || []).map(a => _pAppNames[a] || a).filter(Boolean);
           const _pTime = new Date(_phoneVisit.time).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
           const _pDesc = _pApps.length ? `翻了你的${_pApps.join('、')}` : '翻了你一个人时候写的那些';
@@ -2931,6 +2931,7 @@ export async function sendMessage() {
         }
         if (_m2FinalContent) {
           let _ft = _m2FinalContent;
+          if (_PFX === '') _ft = await parseAndSavePhoneState(_ft, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => _ft);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', _ft);
           if (_loopFinalPreset2) { _nm.presetName = _loopFinalPreset2; await dbPut(activeStore(), null, _nm); }
@@ -2960,6 +2961,7 @@ export async function sendMessage() {
       const msg0 = data.choices?.[0]?.message;
       const thinking = msg0?.reasoning_content || msg0?.thinking || '';
       let reply = msg0?.content || (thinking ? '' : '（没有收到回复）');
+      if (_PFX === '') reply = await parseAndSavePhoneState(reply, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => reply);
       if (thinking) reply = `<thinking>${thinking}</thinking>\n${reply}`;
       typing.classList.remove('show');
       let _simpleId;
@@ -3028,6 +3030,7 @@ export async function sendMessage() {
         throw new Error(fullText.replace(/^\s*\[Backend Error\]\s*/i, '').slice(0, 200));
       }
       if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
+      if (_PFX === '') fullText = await parseAndSavePhoneState(fullText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => fullText);
       const idx = messages.findIndex(m => m.id === aiMsg.id);
       if (idx >= 0) { messages[idx].content = fullText; messages[idx].presetName = _uPre || ''; }
       aiMsg.presetName = _uPre || '';

@@ -155,7 +155,7 @@ const TAGS = [
   { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' },
   { key:'photos',  label:'相册',   test: it => it.tag === 'photos' },
   { key:'lyrics',  label:'歌单',   test: it => it.tag === 'lyrics' },
-  { key:'quotes',  label:'书摘',   test: it => it.tag === 'quotes' },
+  { key:'quotes',  label:'你说的话', test: it => it.tag === 'quotes' },
   { key:'browser', label:'浏览',   test: it => it.tag === 'browser' },
   { key:'todo',    label:'待办',   test: it => it.tag === 'todo' },
 ];
@@ -309,7 +309,7 @@ function card(it) {
   } else if (it.tag === 'lyrics') {
     top.appendChild(el('span', 'it-badge', '歌单'));
   } else if (it.tag === 'quotes') {
-    top.appendChild(el('span', 'it-badge', '书摘'));
+    top.appendChild(el('span', 'it-badge', '留住了'));
   } else if (it.tag === 'browser') {
     top.appendChild(el('span', 'it-badge', '他去看了'));
   } else if (it.tag === 'todo') {
