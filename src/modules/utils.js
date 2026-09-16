@@ -56,7 +56,10 @@ export function fmtTime(ts) {
   const d = new Date(ts), n = new Date(), p = x => String(x).padStart(2, '0');
   const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
   const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(d, n)) return `今天 ${hm}`;
+  // ⚠️ 当天**不写"今天"**（她 2026-09-16 定的）：她整天都开着这个 APP，
+  //    眼前的东西写"今天"两个字是废话，只剩「几点几分」反而清楚。
+  //    ⚠️ 全局共用（聊天气泡 / 碎碎念那页 / 记忆条都一样），改这里等于一起改。
+  if (sameDay(d, n)) return hm;
   if (sameDay(d, new Date(n.getTime() - 86400000))) return `昨天 ${hm}`;
   if (d.getFullYear() === n.getFullYear()) return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`;
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${hm}`;
