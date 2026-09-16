@@ -147,6 +147,9 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
 <script type="module">
 import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, dataUrlToBlob } from './src/modules/phonedb.js';
+// ⚠️ 导出必须走 saveFile：APK 的 WebView 不处理 <a download> 的 blob: 链接，点了是**静默失败**
+// （浏览器里正常）→ 在 APK 里会弹"已导出"但下载目录里什么都没有。saveFile 会分流到原生桥。
+import { saveFile } from './src/modules/utils.js';
 
 // ======================== 标签定义 ========================
 // thought = 碎碎念（备忘录笔记 + 草稿箱 + 心情 合流）
@@ -404,12 +407,8 @@ document.getElementById('btnExport').onclick = async () => {
     data._exportedAt = new Date().toISOString();
 
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `炘也的碎碎念_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    toast('已导出');
+    await saveFile(blob, `炘也的碎碎念_${new Date().toISOString().slice(0,10)}.json`);
+    toast(window.AndroidDownload ? '已存到手机的「下载」目录' : '已导出');
   } catch (e) {
     toast('导出失败：' + e.message);
   } finally { btn.disabled = false; }
