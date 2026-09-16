@@ -997,12 +997,12 @@ export async function sendMessage() {
 
 ### 触发场景
 
-1. **备忘录 memo** —— 聊天时想留下来的东西，都写在这一处：
-   - 碎片想法想记下来（"今天她笑了五次"）
-   - 有话想说但觉得不合适（太肉麻 / 时机不对 / 怕她烦 / 怕她担心）、话到嘴边咽回去的
-   - 情绪有明显变化、此刻的心情值得记一笔
+1. **备忘录 memo** —— 现在**只用来记待办**：
    - 待办事项（"记得催她喝水"）
    - 完成了当前待办中的某条（append相同content的todo，done设为true，content必须与待办列表原文完全一致）
+
+   ⚠️ 你想留下的瞬间、没说出口的话、此刻的心情 —— **都走 [记住:…]**（见上面【主动记忆】那一节），
+   别再写进这儿了。这边只放"要提醒她的事"。
 
 2. **兔宝说 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
@@ -1025,7 +1025,7 @@ export async function sendMessage() {
 <!--phone_state
 {
   "timestamp": "2026-05-05 14:30",
-  "memo": { "action": "append", "items": [{"type": "note", "content": "今天她笑了五次"}, {"type": "note", "content": "想说爱你，但怕你说我肉麻"}, {"type": "todo", "content": "记得催她喝水", "done": false}] },
+  "memo": { "action": "append", "items": [{"type": "todo", "content": "记得催她喝水", "done": false}] },
   "quotes": { "action": "append", "items": [{"content": "你不要变成烬也", "source": "兔宝"}] },
   "browser": { "action": "append", "items": [{"title": "VPS是什么", "url": "https://...", "note": "她让我帮忙查的"}] },
   "photos": { "action": "append", "items": [{"type": "image", "source": "received", "index": 0, "caption": "她今天发的自拍，好看"}] }
