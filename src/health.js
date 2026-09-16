@@ -2,7 +2,7 @@
 import {
   openHealthDB, localDateStr, shiftDate,
   listProfiles, getProfile, saveProfile, archiveProfile,
-  listEntries, listEntriesRange, addEntry, deleteEntry,
+  listEntries, listEntriesRange, addEntry, deleteEntry, updateEntry,
   listUsage, listWeights, saveWeight,
   listCustomFoods, saveCustomFood,
 } from './modules/healthdb.js';
@@ -29,6 +29,29 @@ let customFoods = [];     // 她自己建的食物 —— 按「份」记，不�
 async function loadCustomFoods() {
   try { customFoods = await listCustomFoods(profile.id); }
   catch (e) { customFoods = []; }
+}
+
+// 一次性回填：常见表最初只有热量、没有三大营养素，那阵子按「份」记的条目
+// 三条进度条会一直显示 0。名字能对上的就补上，她不用把记过的删掉重记。
+const BF_KEY = 'health_macro_backfill_v1';
+async function backfillUnitMacros() {
+  try {
+    if (localStorage.getItem(BF_KEY)) return;
+    const all = await listEntriesRange(profile.id, '0000-00-00', '9999-99-99');
+    let n = 0;
+    for (const e of all) {
+      if (!e.unitName) continue;
+      const cur = e.nutrients || {};
+      if (cur.p != null || cur.f != null || cur.c != null) continue;
+      const m = findServing(e.name);
+      if (!m || m.p == null) continue;
+      const base = { ...(e.unitNutrients || {}), kcal: (e.unitNutrients?.kcal ?? m.k) || 0, p: m.p, f: m.f, c: m.c };
+      await updateEntry({ ...e, unitNutrients: base, nutrients: scaleNutrients(base, e.grams) });
+      n++;
+    }
+    localStorage.setItem(BF_KEY, '1');
+    if (n) console.info('[health] 回填了', n, '条历史记录的营养素');
+  } catch (err) { console.warn('[health] 回填失败:', err.message); }
 }
 
 // ════════════════ 主题同步 ════════════════
@@ -283,6 +306,9 @@ function pickCustomFood(cf) {
 function pickServing(it) {
   const unit = emptyPer100();
   unit.kcal = Number(it.k) || 0;
+  if (it.p != null) unit.p = Number(it.p);
+  if (it.f != null) unit.f = Number(it.f);
+  if (it.c != null) unit.c = Number(it.c);
   picked = {
     mode: 'unit',
     name: it.n, note: '估算',
@@ -397,6 +423,9 @@ async function saveNewFood() {
 
   const unit = emptyPer100();
   unit.kcal = kcal;
+  // 名字能对上常见表的话，把三大营养素一起带上 —— 否则那三条进度条永远是 0
+  const m = findServing(name);
+  if (m) { unit.p = m.p ?? null; unit.f = m.f ?? null; unit.c = m.c ?? null; }
   // 🔴 必须带 profileId —— listCustomFoods 走的是 profileId 索引，漏了就「存得进、读不出」
   const id = await saveCustomFood({ profileId: profile.id, name, unitName, unit, createdAt: Date.now() });
   await loadCustomFoods();
@@ -849,7 +878,12 @@ function guessMeal() {
   loadFoodLib().then(() => { renderChips(); })
     .catch(e => console.warn('[health] 食物库加载失败:', e.message));
   // 常见「一份」的估算表（搜「饺子」时直接给数字用）
-  loadServings().then(() => { renderChips(); })
+  loadServings()
+    .then(async () => {
+      renderChips();
+      await backfillUnitMacros();   // 早先只记了热量的条目，这时候补上三大营养素
+      await renderToday();
+    })
     .catch(e => console.warn('[health] 常见份量表加载失败:', e.message));
 })();
 
