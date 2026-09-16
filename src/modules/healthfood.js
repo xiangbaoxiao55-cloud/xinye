@@ -188,6 +188,46 @@ export function listCommon() {
     .filter(Boolean);
 }
 
+// ── 常见「一份」的估算值 ─────────────────────────────────────────────────
+// 成分表只给「每 100 克」，但没人知道自己吃了几克。这份表按中式常见份量估，
+// 让她搜「饺子」就直接有 50 千卡/个 可用，不用自己先知道数字。
+const SERV_URL = './assets/common_servings.json';
+let _servings = null;
+
+export function loadServings() {
+  if (_servings) return Promise.resolve(_servings);
+  return fetch(SERV_URL)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(j => { _servings = j.items || []; return _servings; })
+    .catch(() => { _servings = []; return []; });
+}
+
+export function servingsReady() { return !!_servings; }
+
+export function searchServings(rawQuery, { limit = 8 } = {}) {
+  if (!_servings) return [];
+  const s = norm(rawQuery);
+  if (!s) return [];
+  const out = [];
+  for (const it of _servings) {
+    const n = norm(it.n);
+    const aka = String(it.aka || '').split(',').map(norm).filter(Boolean);
+    let sc = -1;
+    if (n === s) sc = 100;
+    else if (n.startsWith(s)) sc = 80 - n.length;
+    else if (n.includes(s)) sc = 60 - n.length;
+    else if (aka.includes(s)) sc = 70;
+    else if (aka.some(a => a.includes(s))) sc = 50;
+    if (sc < 0) continue;
+    out.push({ it, sc });
+  }
+  return out.sort((a, b) => b.sc - a.sc).slice(0, limit).map(x => x.it);
+}
+
+export function findServing(name) {
+  return (_servings || []).find(it => it.n === name) || null;
+}
+
 export const NUTRIENT_LABEL = {
   kcal: ['热量', 'kcal'], p: ['蛋白质', 'g'], f: ['脂肪', 'g'], c: ['碳水', 'g'],
   fib: ['膳食纤维', 'g'], chol: ['胆固醇', 'mg'], na: ['钠', 'mg'], ca: ['钙', 'mg'],

@@ -11,6 +11,7 @@ import {
   calcTargets, calcNutrients, sumNutrients, rowToPer100, emptyPer100, scaleNutrients,
   foodName, foodNote, foodAka, foodCat, foodEdible, foodKey, foodNutrient,
   findFoodByKey, cookedTip, listCommon, NUTRIENT_LABEL,
+  loadServings, searchServings, findServing, servingsReady,
 } from './modules/healthfood.js';
 
 const $ = id => document.getElementById(id);
@@ -215,16 +216,24 @@ function doSearch() {
 
   const ql = q.toLowerCase();
   const mine = customFoods.filter(c => String(c.name).toLowerCase().includes(ql));
+  const srv = searchServings(q);
   const rows = searchFoods(q);
 
-  if (!mine.length && !rows.length) {
+  if (!mine.length && !srv.length && !rows.length) {
     $('results').innerHTML =
-      `<div class="h-loading">成分表里没有「${esc(q)}」<br>点上面的「自己加一个」，填一次以后就能直接用</div>`;
-    $('results')._rows = []; $('results')._mine = [];
+      `<div class="h-loading">没有「${esc(q)}」<br>点上面的「自己加一个」，填一次以后就能直接用</div>`;
+    $('results')._rows = []; $('results')._mine = []; $('results')._srv = [];
     return;
   }
 
   let html = '';
+  if (srv.length) {
+    html += '<div class="h-r-head">常见一份 · 估算</div>' + srv.map((it, i) =>
+      `<button class="h-r" data-sidx="${i}">
+        <span class="nm">${esc(it.n)}<span class="sub">1${esc(it.u || '份')}${it.g ? ' · ' + esc(it.g) : ''}</span></span>
+        <span class="kc">${Math.round(it.k)} kcal</span>
+      </button>`).join('');
+  }
   if (mine.length) {
     html += '<div class="h-r-head">我自己加的</div>' + mine.map((c, i) =>
       `<button class="h-r" data-cidx="${i}">
@@ -232,7 +241,7 @@ function doSearch() {
       </button>`).join('');
   }
   if (rows.length) {
-    if (mine.length) html += '<div class="h-r-head">食物成分表</div>';
+    if (mine.length || srv.length) html += '<div class="h-r-head">食物成分表 · 每100克</div>';
     html += rows.map((r, i) => {
       const kc = foodNutrient(r, 'kcal');
       const sub = foodNote(r) || foodAka(r);
@@ -245,6 +254,7 @@ function doSearch() {
   $('results').innerHTML = html;
   $('results')._rows = rows;
   $('results')._mine = mine;
+  $('results')._srv = srv;
 }
 
 function pickRow(row) {
@@ -265,6 +275,21 @@ function pickCustomFood(cf) {
     unitName: cf.unitName || '份',
     unit: cf.unit || emptyPer100(),
     foodKey: 'c:' + cf.id,
+  };
+  afterPick();
+}
+
+// 常见一份（估算值）—— 她不知道数字的那种，直接给现成的
+function pickServing(it) {
+  const unit = emptyPer100();
+  unit.kcal = Number(it.k) || 0;
+  picked = {
+    mode: 'unit',
+    name: it.n, note: '估算',
+    unitName: it.u || '份',
+    unit,
+    foodKey: 's:' + it.n,
+    estimate: it.g || '',
   };
   afterPick();
 }
@@ -320,10 +345,11 @@ function updatePreview() {
     $('gramsPreview').textContent = `${Math.round(n.kcal || 0)} kcal`;
     const per = Math.round(picked.unit?.kcal || 0);
     const onlyKcal = picked.unit?.p == null && picked.unit?.f == null && picked.unit?.c == null;
-    $('warnBox').innerHTML = qty
-      ? `<div>· ${qty}${esc(picked.unitName)} × ${per} 千卡/份</div>` +
-        (onlyKcal ? '<div>· 这条只填了热量，三大营养素没算进去</div>' : '')
-      : '';
+    if (!qty) { $('warnBox').innerHTML = ''; return; }
+    const lines = [`· ${qty}${esc(picked.unitName)} × ${per} 千卡/份`];
+    if (picked.estimate) lines.push(`· ${esc(picked.estimate)}（估算值）`);
+    if (onlyKcal && !picked.estimate) lines.push('· 这条只填了热量，三大营养素没算进去');
+    $('warnBox').innerHTML = lines.map(l => `<div>${l}</div>`).join('');
     return;
   }
 
@@ -393,7 +419,7 @@ async function confirmAdd() {
       ediblePct: 100, per100: null,
       unitNutrients: picked.unit,
       nutrients: scaleNutrients(picked.unit, qty),
-      note: '',
+      note: picked.note || '',
     });
   } else {
     if (!qty || qty <= 0) { toast('先填个克数'); return; }
@@ -650,6 +676,13 @@ function bind() {
   });
 
   $('results').addEventListener('click', e => {
+    const s = e.target.closest('[data-sidx]');
+    if (s) {
+      const srv = $('results')._srv || [];
+      const it = srv[Number(s.dataset.sidx)];
+      if (it) pickServing(it);
+      return;
+    }
     const c = e.target.closest('[data-cidx]');
     if (c) {
       const mine = $('results')._mine || [];
@@ -667,11 +700,15 @@ function bind() {
   $('chips').addEventListener('click', async e => {
     const b = e.target.closest('[data-recent]');
     if (b) {
-      const key = b.dataset.recent;
-      if (String(key).startsWith('c:')) {
+      const key = String(b.dataset.recent);
+      if (key.startsWith('c:')) {
         const cf = customFoods.find(c => 'c:' + c.id === key);
         if (cf) pickCustomFood(cf);
         else toast('这条自建食物被删了');
+      } else if (key.startsWith('s:')) {
+        const it = findServing(key.slice(2));
+        if (it) pickServing(it);
+        else toast('这条不在常见表里了');
       } else {
         const row = findFoodByKey(key);
         if (row) pickRow(row);
@@ -701,6 +738,20 @@ function bind() {
   $('newFoodBtn').onclick = openNewFoodForm;
   $('btnSaveNewFood').onclick = saveNewFood;
   $('btnCancelNewFood').onclick = closeNewFoodForm;
+
+  // 在「自己加」表单里打字时，能对上的话直接把参考值填好 —— 她不用先知道数字
+  const NF_HINT = '不用称重。你平时怎么数就怎么填——一个饺子、一只鸡腿、一碗饭。';
+  $('nfName').addEventListener('input', () => {
+    const it = searchServings($('nfName').value.trim(), { limit: 1 })[0];
+    const hint = $('nfHint');
+    if (it) {
+      $('nfKcal').value = it.k;
+      $('nfUnit').value = it.u || '份';
+      hint.textContent = `参考：${it.n} 约 ${it.k} 千卡/${it.u || '份'}${it.g ? '（' + it.g + '）' : ''}——已填上，可以改`;
+    } else {
+      hint.textContent = NF_HINT;
+    }
+  });
 
   // 趋势：记体重
   $('wInput').addEventListener('change', async () => {
@@ -797,6 +848,9 @@ function guessMeal() {
   // 食物库晚点加载，不挡首屏
   loadFoodLib().then(() => { renderChips(); })
     .catch(e => console.warn('[health] 食物库加载失败:', e.message));
+  // 常见「一份」的估算表（搜「饺子」时直接给数字用）
+  loadServings().then(() => { renderChips(); })
+    .catch(e => console.warn('[health] 常见份量表加载失败:', e.message));
 })();
 
 // 切回这个 Tab 时刷新（主 APP 的 switchTab 会调）
