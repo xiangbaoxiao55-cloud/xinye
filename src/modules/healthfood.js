@@ -1,7 +1,9 @@
 // 食物库加载 / 搜索 / 营养计算 / 减脂目标
 // 数据来自《中国食物成分表 标准版 第6版》→ data/food_library.json（构建脚本在 d:/tmp，不进仓库）
 
-const LIB_URL = './data/food_library.json';
+// ⚠️ 不放 data/ —— Vercel 的 .vercelignore 把 data/ 整个屏蔽，而里面的 `!` 取反白名单
+//    在 Vercel 上并不生效（实测线上 404）。assets/ 不在忽略列表里
+const LIB_URL = './assets/food_library.json';
 const NUTRIENTS = ['kcal', 'p', 'f', 'c', 'fib', 'chol', 'na', 'ca', 'fe', 'zn', 'va', 'vc', 've', 'k', 'mg'];
 
 export const MEALS = [
