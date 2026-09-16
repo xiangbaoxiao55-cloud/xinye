@@ -149,7 +149,7 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, dataUrlToBlob } from './src/modules/phonedb.js';
 // ⚠️ 导出必须走 saveFile：APK 的 WebView 不处理 <a download> 的 blob: 链接，点了是**静默失败**
 // （浏览器里正常）→ 在 APK 里会弹"已导出"但下载目录里什么都没有。saveFile 会分流到原生桥。
-import { saveFile } from './src/modules/utils.js';
+import { saveFile, fmtTime } from './src/modules/utils.js';
 
 // ======================== 标签定义 ========================
 // thought = 碎碎念（备忘录笔记 + 草稿箱 + 心情 合流）
@@ -185,17 +185,8 @@ function parseTime(s) {
   return isNaN(t) ? 0 : t;
 }
 
-function fmtTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts), n = new Date();
-  const hm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (same(d, n)) return `今天 ${hm}`;
-  const y = new Date(n.getTime() - 86400000);
-  if (same(d, y)) return `昨天 ${hm}`;
-  if (d.getFullYear() === n.getFullYear()) return `${d.getMonth()+1}月${d.getDate()}日 ${hm}`;
-  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${hm}`;
-}
+// 时间显示统一用 utils.js 的 fmtTime（今天/昨天/几月几日），别在这儿再写一份 ——
+// 两份迟早漂移（第一版这里就复制过一份，跨年那支没补零，跟聊天里显示的格式对不上）
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
