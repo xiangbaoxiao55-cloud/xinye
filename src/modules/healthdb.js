@@ -119,8 +119,10 @@ export async function addEntry(profileId, entry) {
     foodKey: entry.foodKey || null,     // 'g:<code>' 国标 / 'c:<id>' 自建 / null 手输
     name: entry.name,
     grams: entry.grams,
+    unitName: entry.unitName || '',     // 自建食物按「份」记时，这里是 个/只/碗
     ediblePct: entry.ediblePct ?? 100,
     per100: entry.per100 || null,       // 🔴 快照：改克数时靠它重算
+    unitNutrients: entry.unitNutrients || null,   // 自建食物：一份的营养素快照
     nutrients: entry.nutrients,
     note: entry.note || '',
     createdAt: Date.now(),
@@ -137,6 +139,7 @@ export async function addEntry(profileId, entry) {
       key: entry.foodKey,
       profileId,
       name: entry.name,
+      unitName: entry.unitName || '',   // 自建食物按份记，常吃区要显示「15个」不是「15g」
       count: (prev?.count || 0) + 1,
       lastUsed: Date.now(),
       lastGrams: entry.grams,

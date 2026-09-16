@@ -4,10 +4,11 @@ import {
   listProfiles, getProfile, saveProfile, archiveProfile,
   listEntries, listEntriesRange, addEntry, deleteEntry,
   listUsage, listWeights, saveWeight,
+  listCustomFoods, saveCustomFood,
 } from './modules/healthdb.js';
 import {
   loadFoodLib, libMeta, searchFoods, MEALS, ACTIVITY,
-  calcTargets, calcNutrients, sumNutrients, rowToPer100, emptyPer100,
+  calcTargets, calcNutrients, sumNutrients, rowToPer100, emptyPer100, scaleNutrients,
   foodName, foodNote, foodAka, foodCat, foodEdible, foodKey, foodNutrient,
   findFoodByKey, cookedTip, listCommon, NUTRIENT_LABEL,
 } from './modules/healthfood.js';
@@ -20,8 +21,14 @@ let curDate = localDateStr();
 let curMeal = 'breakfast';
 let targets = null;
 let curWeight = null;
-let picked = null;        // { per100, name, note, edible, foodKey }
+let picked = null;        // { mode:'lib'|'unit', per100|unit, name, note, edible, foodKey }
 let recentUsage = [];
+let customFoods = [];     // 她自己建的食物 —— 按「份」记，不用称重
+
+async function loadCustomFoods() {
+  try { customFoods = await listCustomFoods(profile.id); }
+  catch (e) { customFoods = []; }
+}
 
 // ════════════════ 主题同步 ════════════════
 function syncTheme() {
@@ -65,7 +72,7 @@ function dateLabel(d) {
 
 function fmtGrams(e) {
   const g = e.grams % 1 ? e.grams.toFixed(1) : e.grams;
-  return `${g}g`;
+  return e.unitName ? `${g}${e.unitName}` : `${g}g`;
 }
 
 async function renderToday() {
@@ -173,6 +180,8 @@ function resetSheet() {
   picked = null;
   $('searchInput').value = '';
   $('gramsBox').style.display = 'none';
+  $('newFoodBox').style.display = 'none';
+  $('newFoodBtn').style.display = 'none';
   $('chips').style.display = '';
   $('results').style.display = '';
   $('results').innerHTML = '';
@@ -188,7 +197,7 @@ async function renderChips() {
 
   if (recentUsage.length) {
     box.innerHTML = head('常吃') + recentUsage.slice(0, 8).map(u =>
-      `<button class="h-chip" data-recent="${esc(u.key)}"><b>${esc(u.name)}</b>${u.lastGrams ? ' ' + u.lastGrams + 'g' : ''}</button>`).join('');
+      `<button class="h-chip" data-recent="${esc(u.key)}"><b>${esc(u.name)}</b>${u.lastGrams ? ' ' + u.lastGrams + (u.unitName || 'g') : ''}</button>`).join('');
   } else {
     box.innerHTML = head('常见') + listCommon().slice(0, 10).map(r =>
       `<button class="h-chip" data-common="${esc(foodKey(r))}"><b>${esc(foodName(r))}</b></button>`).join('');
@@ -199,31 +208,63 @@ function doSearch() {
   const q = $('searchInput').value.trim();
   if (picked) return;
   $('chips').style.display = q ? 'none' : '';
+  $('newFoodBtn').style.display = q ? '' : 'none';
   $('results').style.display = q ? '' : 'none';
   if (!q) { $('results').innerHTML = ''; return; }
   if (!libMeta()) { $('results').innerHTML = '<div class="h-loading">食物库还没加载好…</div>'; return; }
 
+  const ql = q.toLowerCase();
+  const mine = customFoods.filter(c => String(c.name).toLowerCase().includes(ql));
   const rows = searchFoods(q);
-  if (!rows.length) {
-    $('results').innerHTML = '<div class="h-loading">没找到，换个词试试（也可以只打拼音首字母）</div>';
+
+  if (!mine.length && !rows.length) {
+    $('results').innerHTML =
+      `<div class="h-loading">成分表里没有「${esc(q)}」<br>点上面的「自己加一个」，填一次以后就能直接用</div>`;
+    $('results')._rows = []; $('results')._mine = [];
     return;
   }
-  $('results').innerHTML = rows.map((r, i) => {
-    const kc = foodNutrient(r, 'kcal');
-    const sub = foodNote(r) || foodAka(r);
-    return `<button class="h-r" data-idx="${i}">
-      <span class="nm">${esc(foodName(r))}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>
-      <span class="kc">${kc == null ? '—' : Math.round(kc) + ' kcal/100g'}</span>
-    </button>`;
-  }).join('');
+
+  let html = '';
+  if (mine.length) {
+    html += '<div class="h-r-head">我自己加的</div>' + mine.map((c, i) =>
+      `<button class="h-r" data-cidx="${i}">
+        <span class="nm">${esc(c.name)}<span class="sub">1${esc(c.unitName || '份')} = ${Math.round(c.unit?.kcal || 0)} kcal</span></span>
+      </button>`).join('');
+  }
+  if (rows.length) {
+    if (mine.length) html += '<div class="h-r-head">食物成分表</div>';
+    html += rows.map((r, i) => {
+      const kc = foodNutrient(r, 'kcal');
+      const sub = foodNote(r) || foodAka(r);
+      return `<button class="h-r" data-idx="${i}">
+        <span class="nm">${esc(foodName(r))}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>
+        <span class="kc">${kc == null ? '—' : Math.round(kc) + ' kcal/100g'}</span>
+      </button>`;
+    }).join('');
+  }
+  $('results').innerHTML = html;
   $('results')._rows = rows;
+  $('results')._mine = mine;
 }
 
 function pickRow(row) {
   const e = foodEdible(row);
   picked = {
+    mode: 'lib',
     name: foodName(row), note: foodNote(row), edible: e,
     foodKey: foodKey(row), per100: rowToPer100(row),
+  };
+  afterPick();
+}
+
+// 自建食物：按「份」记，不称重
+function pickCustomFood(cf) {
+  picked = {
+    mode: 'unit',
+    name: cf.name, note: '',
+    unitName: cf.unitName || '份',
+    unit: cf.unit || emptyPer100(),
+    foodKey: 'c:' + cf.id,
   };
   afterPick();
 }
@@ -231,19 +272,29 @@ function pickRow(row) {
 function afterPick() {
   $('chips').style.display = 'none';
   $('results').style.display = 'none';
+  $('newFoodBtn').style.display = 'none';
+  $('newFoodBox').style.display = 'none';
   $('gramsBox').style.display = '';
   $('pickedName').textContent = picked.name + (picked.note ? `（${picked.note}）` : '');
 
-  // 可食部换算：只在有不可食部分时才出现
+  const u = recentUsage.find(x => x.key === picked.foodKey);
+
+  if (picked.mode === 'unit') {
+    $('edibleLine').style.display = 'none';
+    $('gramsUnit').textContent = picked.unitName;
+    $('gramsInput').value = u?.lastGrams || 1;
+    $('quickGrams').innerHTML = [1, 2, 3, 5, 10].map(n =>
+      `<button class="h-chip" data-g="${n}">${n}${esc(picked.unitName)}</button>`).join('');
+    updatePreview();
+    return;
+  }
+
+  $('gramsUnit').textContent = '克';
   const needEdible = picked.edible != null && picked.edible < 100;
   $('edibleLine').style.display = needEdible ? '' : 'none';
   if (needEdible) $('edibleSel').value = 'whole';
 
-  // 克数预填：优先用上次的
-  const u = recentUsage.find(x => x.key === picked.foodKey);
   $('gramsInput').value = u?.lastGrams || 100;
-
-  // 快捷克数
   const quick = [50, 100, 150, 200];
   $('quickGrams').innerHTML =
     (u?.lastGrams ? `<button class="h-chip" data-g="${u.lastGrams}">上次 ${u.lastGrams}g</button>` : '') +
@@ -253,7 +304,7 @@ function afterPick() {
 }
 
 function effectiveEdiblePct() {
-  if (!picked) return 100;
+  if (!picked || picked.mode === 'unit') return 100;
   const needEdible = picked.edible != null && picked.edible < 100;
   if (!needEdible) return 100;
   return $('edibleSel').value === 'whole' ? picked.edible : 100;
@@ -261,16 +312,28 @@ function effectiveEdiblePct() {
 
 function updatePreview() {
   if (!picked) return;
-  const grams = parseFloat($('gramsInput').value) || 0;
-  const pct = effectiveEdiblePct();
-  const n = calcNutrients(picked.per100, grams, pct);
-  const edibleG = Math.round(grams * pct / 100);
-  const parts = [`${Math.round(n.kcal || 0)} kcal`, `蛋白 ${Math.round(n.p || 0)}g`];
-  $('gramsPreview').textContent = parts.join(' · ');
+  const qty = parseFloat($('gramsInput').value) || 0;
 
-  // 提示
+  // 自建食物：按份算
+  if (picked.mode === 'unit') {
+    const n = scaleNutrients(picked.unit, qty);
+    $('gramsPreview').textContent = `${Math.round(n.kcal || 0)} kcal`;
+    const per = Math.round(picked.unit?.kcal || 0);
+    const onlyKcal = picked.unit?.p == null && picked.unit?.f == null && picked.unit?.c == null;
+    $('warnBox').innerHTML = qty
+      ? `<div>· ${qty}${esc(picked.unitName)} × ${per} 千卡/份</div>` +
+        (onlyKcal ? '<div>· 这条只填了热量，三大营养素没算进去</div>' : '')
+      : '';
+    return;
+  }
+
+  const pct = effectiveEdiblePct();
+  const n = calcNutrients(picked.per100, qty, pct);
+  const edibleG = Math.round(qty * pct / 100);
+  $('gramsPreview').textContent = `${Math.round(n.kcal || 0)} kcal · 蛋白 ${Math.round(n.p || 0)}g`;
+
   const warns = [];
-  if (pct < 100) warns.push(`整只 ${grams}g → 可食部约 ${edibleG}g，再按可食部算营养`);
+  if (pct < 100) warns.push(`整只 ${qty}g → 可食部约 ${edibleG}g，再按可食部算营养`);
   if (picked.edible == null || picked.edible < 100) {
     warns.push('成分表按「可食部」计，带骨/带壳的记得在上面选对');
   }
@@ -280,18 +343,69 @@ function updatePreview() {
   $('warnBox').innerHTML = warns.map(w => `<div>· ${esc(w)}</div>`).join('');
 }
 
+// ── 自己加食物（不用称重）──────────────────────────────────
+function openNewFoodForm() {
+  const prefill = $('searchInput').value.trim();
+  $('chips').style.display = 'none';
+  $('results').style.display = 'none';
+  $('newFoodBtn').style.display = 'none';
+  $('gramsBox').style.display = 'none';
+  $('newFoodBox').style.display = '';
+  $('nfName').value = prefill;
+  $('nfUnit').value = '份';
+  $('nfKcal').value = '';
+  $('nfName').focus();
+}
+
+function closeNewFoodForm() {
+  $('newFoodBox').style.display = 'none';
+  doSearch();
+}
+
+async function saveNewFood() {
+  const name = $('nfName').value.trim();
+  const unitName = ($('nfUnit').value.trim() || '份').slice(0, 3);
+  const kcal = parseFloat($('nfKcal').value);
+  if (!name) { toast('给它起个名字'); $('nfName').focus(); return; }
+  if (!kcal || kcal <= 0) { toast('填一下一份多少千卡'); $('nfKcal').focus(); return; }
+
+  const unit = emptyPer100();
+  unit.kcal = kcal;
+  // 🔴 必须带 profileId —— listCustomFoods 走的是 profileId 索引，漏了就「存得进、读不出」
+  const id = await saveCustomFood({ profileId: profile.id, name, unitName, unit, createdAt: Date.now() });
+  await loadCustomFoods();
+  toast('存好了，下次搜它就能直接记');
+  const cf = customFoods.find(c => c.id === id) || { id, name, unitName, unit };
+  pickCustomFood(cf);
+}
+
 async function confirmAdd() {
   if (!picked) return;
-  const grams = parseFloat($('gramsInput').value);
-  if (!grams || grams <= 0) { toast('先填个克数'); return; }
-  const pct = effectiveEdiblePct();
+  const qty = parseFloat($('gramsInput').value);
   const meal = $('mealSel').value;
-  const nutrients = calcNutrients(picked.per100, grams, pct);
-  await addEntry(profile.id, {
-    dateStr: curDate, meal,
-    foodKey: picked.foodKey, name: picked.name, grams, ediblePct: pct,
-    per100: picked.per100, nutrients, note: picked.note,
-  });
+
+  if (picked.mode === 'unit') {
+    if (!qty || qty <= 0) { toast('先填个数'); return; }
+    await addEntry(profile.id, {
+      dateStr: curDate, meal,
+      foodKey: picked.foodKey, name: picked.name,
+      grams: qty, unitName: picked.unitName,
+      ediblePct: 100, per100: null,
+      unitNutrients: picked.unit,
+      nutrients: scaleNutrients(picked.unit, qty),
+      note: '',
+    });
+  } else {
+    if (!qty || qty <= 0) { toast('先填个克数'); return; }
+    const pct = effectiveEdiblePct();
+    await addEntry(profile.id, {
+      dateStr: curDate, meal,
+      foodKey: picked.foodKey, name: picked.name, grams: qty, ediblePct: pct,
+      per100: picked.per100,
+      nutrients: calcNutrients(picked.per100, qty, pct),
+      note: picked.note,
+    });
+  }
   closeSheet();
   toast('记下了');
   await renderToday();
@@ -536,6 +650,13 @@ function bind() {
   });
 
   $('results').addEventListener('click', e => {
+    const c = e.target.closest('[data-cidx]');
+    if (c) {
+      const mine = $('results')._mine || [];
+      const cf = mine[Number(c.dataset.cidx)];
+      if (cf) pickCustomFood(cf);
+      return;
+    }
     const b = e.target.closest('[data-idx]');
     if (!b) return;
     const rows = $('results')._rows || [];
@@ -546,9 +667,16 @@ function bind() {
   $('chips').addEventListener('click', async e => {
     const b = e.target.closest('[data-recent]');
     if (b) {
-      const row = findFoodByKey(b.dataset.recent);
-      if (row) pickRow(row);
-      else toast('这条在新版成分表里找不到了，重新搜一下吧');
+      const key = b.dataset.recent;
+      if (String(key).startsWith('c:')) {
+        const cf = customFoods.find(c => 'c:' + c.id === key);
+        if (cf) pickCustomFood(cf);
+        else toast('这条自建食物被删了');
+      } else {
+        const row = findFoodByKey(key);
+        if (row) pickRow(row);
+        else toast('这条在新版成分表里找不到了，重新搜一下吧');
+      }
       return;
     }
     const c = e.target.closest('[data-common]');
@@ -570,6 +698,9 @@ function bind() {
     $('edibleSel').addEventListener(ev, updatePreview);
   });
   $('btnConfirm').onclick = confirmAdd;
+  $('newFoodBtn').onclick = openNewFoodForm;
+  $('btnSaveNewFood').onclick = saveNewFood;
+  $('btnCancelNewFood').onclick = closeNewFoodForm;
 
   // 趋势：记体重
   $('wInput').addEventListener('change', async () => {
@@ -658,6 +789,7 @@ function guessMeal() {
   await openHealthDB();
   profile = await ensureProfile();
   $('profName').textContent = profile.name;
+  await loadCustomFoods();
 
   bind();
   await renderAll();

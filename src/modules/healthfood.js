@@ -129,6 +129,16 @@ export function emptyPer100() {
   return o;
 }
 
+// 按「份」缩放（自建食物：一份的营养素 × 吃了几份）
+export function scaleNutrients(unit, count) {
+  const out = {};
+  for (const n of NUTRIENTS) {
+    const v = unit?.[n];
+    out[n] = v == null ? null : Math.round(v * count * 100) / 100;
+  }
+  return out;
+}
+
 // ── 营养计算 ─────────────────────────────────────────────────────────────
 // ediblePct < 100 表示用户称的是「整只/带骨」重量，先换算成可食部
 export function calcNutrients(per100, grams, ediblePct = 100) {
