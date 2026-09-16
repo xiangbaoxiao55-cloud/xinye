@@ -321,8 +321,12 @@ function card(it) {
   if (it.tag === 'thought') {
     if (it.sub) top.appendChild(el('span', 'it-badge', it.sub));
   } else if (it.tag === 'post') {
-    top.appendChild(el('span', 'it-badge',
-      it.media?.kind === 'image' ? '画给你' : it.media?.kind === 'voice' ? '说给你听' : '写给你'));
+    // 角标叫「说说」—— 她 2026-09-16 自己提的词，也正是她描述这个功能时用的那个
+    // （"就像发 QQ 说说 微信朋友圈那样"），等于物归原主。
+    // ⚠️ 别用带人称的：原来的「写给你」就不行 —— 正文里第三人称说的是"她"，
+    //    角标却是"你"，两套口吻打架（她一眼就看出来了）。「说说」没有人称，天然没这问题。
+    // 图和语音共用一个角标：说说本来就能带图，media 自己看得见（大图 / 播放键），不用角标分。
+    top.appendChild(el('span', 'it-badge', '说说'));
   } else if (it.tag === 'quotes') {
     top.appendChild(el('span', 'it-badge', '留住了'));
   } else if (it.tag === 'browser') {
