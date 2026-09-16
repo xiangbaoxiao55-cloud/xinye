@@ -1002,7 +1002,7 @@ export async function sendMessage() {
    - 待办事项（"记得催她喝水"）
    - 完成了当前待办中的某条（append相同content的todo，done设为true，content必须与待办列表原文完全一致）
 
-2. **她说的话 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
+2. **兔宝说 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
    - 论坛/文章/任何地方看到的句子打动了你
 
@@ -1088,7 +1088,9 @@ export async function sendMessage() {
       if (_PFX === '') {
         const _phoneVisit = (() => { try { return JSON.parse(localStorage.getItem('xinye_phone_visit_pending')); } catch(_e) { return null; } })();
         if (_phoneVisit && _phoneVisit.time) {
-          const _pAppNames = { memo:'备忘录', quotes:'说的话', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
+          // ⚠️ quotes 这里刻意**不写页面上那个标签名**（「兔宝说」）：这个表的值会被拼进
+          // 「翻了你的X」这句话里，写成"翻了你的兔宝说"很别扭 → 用能读通的说法
+          const _pAppNames = { memo:'备忘录', quotes:'那些话', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
           const _pApps = (_phoneVisit.apps || []).map(a => _pAppNames[a] || a).filter(Boolean);
           const _pTime = new Date(_phoneVisit.time).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
           const _pDesc = _pApps.length ? `翻了你的${_pApps.join('、')}` : '翻了你一个人时候写的那些';
