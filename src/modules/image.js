@@ -378,6 +378,111 @@ export async function generateImage(userDesc, opts = {}) {
   }
 }
 
+/**
+ * 后台出图 —— 给碎碎念用的，**没有任何界面副作用**。
+ *
+ * ⚠️ 不能拿 generateImage() 在后台直接调：那是「她在聊天里点了画图」那条路 ——
+ *    它会把 prompt 当成**她说的话**写进聊天、清空输入框、锁住发送键，画完再落一条 AI 气泡。
+ *    后台悄悄出图用那个，聊天里会凭空多出一堆她没说过的话，还会卡住她打字。
+ *
+ * 这里只做最朴素的一件事：按画图预设依次试 → 出一张图返回 dataUrl；全失败返回 null。
+ * 🔴 请求体刻意跟 generateImage 无参考图那条分支**保持一致**（含 `api_format`）——
+ *    **异步出图、绕 CF 那些全是服务端代理在管**（xinye_server.js 的
+ *    /api/proxy-image-generations），客户端只管把同样的东西发出去就行。
+ *    ⚠️ 以后改那条分支的请求体，这里要一起改（两份，属于已知重复，见记忆）。
+ */
+export async function generateImageQuiet(prompt) {
+  if (!settings.apiKey || !prompt) return null;
+
+  const _rawPresets = getImagePresets();
+  const _activeIdx = getImageCurPresetIdx();
+  let _cfgs;
+  if (_rawPresets.length > 0) {
+    _cfgs = [];
+    for (let i = 0; i < _rawPresets.length; i++) {
+      const _p = _rawPresets[(_activeIdx + i) % _rawPresets.length];
+      if (!_p.skip) _cfgs.push(_p);
+    }
+  } else {
+    _cfgs = [null];
+  }
+  if (!_cfgs.length) return null;
+
+  const _b64 = (s) => { s = String(s).replace(/[\s\r\n]/g, ''); return s.startsWith('data:') ? s : `data:image/png;base64,${s}`; };
+  const _parseImg = (d) => {
+    const item = d?.data?.[0] || d?.images?.[0];
+    if (item?.b64_json) return _b64(item.b64_json);
+    if (item?.url) return item.url;
+    if (d?.b64_json) return _b64(d.b64_json);
+    if (d?.url && typeof d.url === 'string') return d.url;
+    if (d?.image) { const v = d.image; return /^(data:|https?:)/.test(v) ? v : _b64(v); }
+    if (d?.artifacts?.[0]?.base64) return _b64(d.artifacts[0].base64);
+    if (typeof d?.data === 'string' && d.data.length > 100) return /^(data:|https?:)/.test(d.data) ? d.data : _b64(d.data);
+    if (typeof d === 'string' && d.length > 100) return /^(data:|https?:)/.test(d) ? d : _b64(d);
+    return null;
+  };
+  const _urlToB64 = async (fetchUrl) => {
+    const _ur = await fetch(fetchUrl);
+    if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
+    const _ub = await _ur.blob();
+    return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
+  };
+
+  for (const _preset of _cfgs) {
+    const _name = _preset?.name || '默认配置';
+    const imgKey = _preset?.apiKey || settings.imageApiKey || settings.apiKey;
+    const raw = (_preset?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
+    const imgModel = _preset?.model || settings.imageModel || 'gpt-image-1';
+    const imgFmt = _preset?.apiFormat || settings.imageApiFormat || 'images';
+    const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
+    const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+    const _direct = () => fetch(genEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
+      body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+      signal: AbortSignal.timeout(300000),
+    });
+    try {
+      let imgRes;
+      if (localUrl) {
+        const _genH = { 'Content-Type': 'application/json' };
+        if (settings.imageProxyToken) _genH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
+        try {
+          imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
+            method: 'POST', headers: _genH,
+            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: imgFmt }),
+            signal: AbortSignal.timeout(300000),
+          });
+        } catch (_pe) {
+          imgRes = await _direct();
+        }
+      } else {
+        imgRes = await _direct();
+      }
+      if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+      let url = _parseImg(await imgRes.json());
+      if (!url) throw new Error('没从返回里解析出图片');
+      if (url.startsWith('http')) {
+        // 跟 generateImage 一样的三级兜底：直连 → 本地代理 → Vercel 代理
+        let _ok = false;
+        try { url = await _urlToB64(url); _ok = true; } catch (_e1) {}
+        if (!_ok && localUrl) {
+          try { url = await _urlToB64(`${localUrl}/api/proxy-fetch?url=${encodeURIComponent(url)}`); _ok = true; } catch (_e2) {}
+        }
+        if (!_ok) {
+          try { url = await _urlToB64(`/api/img-proxy?url=${encodeURIComponent(url)}`); _ok = true; } catch (_e3) {}
+        }
+        if (!_ok) throw new Error('图片下不下来（三个代理都失败）');
+      }
+      console.log(`[碎碎念·画图] ✓ ${_name}`);
+      return url;
+    } catch (e) {
+      console.warn(`[碎碎念·画图] ✗ ${_name}: ${e.message}`);
+    }
+  }
+  return null;
+}
+
 function compressImageToBase64(file, maxSize = 1500, quality = 0.82) {
   return new Promise((resolve) => {
     const r = new FileReader();

@@ -1098,6 +1098,15 @@ export async function sendMessage() {
           _apiMeta.push({ label: `system · 兔宝翻手机(${_pApps.join(',') || '桌面'})` });
           localStorage.removeItem('xinye_phone_visit_pending');
         }
+        // 她点了碎碎念里那条「回他一句」过来的 —— 把"她在回哪一条"接住。
+        // ⚠️ 这条只在**下一条消息**上用一次就删（跟上面的翻手机感知同一个套路），
+        //    引文是她特意点回来的，所以不用装不知道，但也别把原文复述一遍。
+        const _replyPost = (() => { try { return localStorage.getItem('xinye_reply_to_post'); } catch(_e) { return null; } })();
+        if (_replyPost) {
+          apiMsgs.push({ role: 'system', content: `【她正在回你写的那条碎碎念】你在碎碎念里写过：「${_replyPost}」。她刚翻到、点了"回他一句"过来的，所以这条就是冲着你那句话说的 —— 直接接住，别装不知道，也别把原文再念一遍。` });
+          _apiMeta.push({ label: 'system · 回碎碎念' });
+          localStorage.removeItem('xinye_reply_to_post');
+        }
         try {
           const _allTodos = await getAllUndoneTodos();
           if (_allTodos.length) {

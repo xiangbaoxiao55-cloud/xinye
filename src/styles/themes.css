@@ -124,10 +124,18 @@ html[data-theme="dark"]{
   left:50%;transform:translateX(-50%);width:100%;
 }
 .tab-btn{
+  position:relative;
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1px;padding:4px 0 5px;border:none;background:none;cursor:pointer;
   font-size:11px;font-weight:600;color:var(--text-light);font-family:inherit;
   transition:color .15s;
+}
+/* 「碎碎念」有新贴时的小圆点（元素是 main.js 动态加的，臭宝没有这个 Tab 就不用管） */
+.tab-dot{
+  position:absolute;top:3px;left:50%;margin-left:7px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--pink-deep,#e8739b);
+  box-shadow:0 0 0 2px var(--bg,#fff8f0);
 }
 /* 图标是内联 SVG（HTML 里写死 24px），只能从 CSS 缩放 */
 .tab-btn .tab-icon{font-size:22px;line-height:1;display:flex;align-items:center}

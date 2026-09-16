@@ -14,6 +14,7 @@ import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, ren
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
 import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
+import { pullPosts, hasUnreadPosts, markPostsSeen } from './modules/posts.js';
 import { initRp } from './modules/rp.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
@@ -500,11 +501,48 @@ async function checkPendingMessage() {
   // xinye-push worker 已删除，跳过
 }
 
+// ======================== 碎碎念（他自己写的动态，2026-09-16） ========================
+// 拉的是云端新开的 /api/posts。**不弹通知、不进聊天** —— 只落在碎碎念那一页。
+// ⚠️ 只有炘也拉：臭宝没有「碎碎念」这个 Tab（她 9/16 定的），拉回来也没地方放。
+function _updatePhoneDot() {
+  const btn = document.getElementById('tab-phone');
+  if (!btn) return;                       // 臭宝那边没这个 Tab
+  let dot = btn.querySelector('.tab-dot');
+  if (!hasUnreadPosts()) { if (dot) dot.remove(); return; }
+  if (!dot) { dot = document.createElement('span'); dot.className = 'tab-dot'; btn.appendChild(dot); }
+}
+
+async function _pullPosts() {
+  if ((window.__APP_ID__ || 'xinye') !== 'xinye') return;
+  let n = 0;
+  try { n = await pullPosts(); } catch (e) { console.log('[碎碎念] 拉取异常:', e.message); }
+  // 她正开着碎碎念这一页 → 直接让它重画，不用等她切走再切回来
+  const onPhoneTab = document.getElementById('tab-phone')?.classList.contains('active');
+  if (n && onPhoneTab) {
+    try { document.getElementById('phoneFrame')?.contentWindow?.__fcReload?.(); } catch (e) {}
+    markPostsSeen();
+  }
+  _updatePhoneDot();
+}
+
+// 碎碎念那页每次露面时（含切标签）会调它 —— 走 diary.js 的 window.__fcOnShow
+window.__fcPostsSeen = () => { markPostsSeen(); _updatePhoneDot(); };
+
+// 「回他一句」：从碎碎念那页跳回聊天，并给**下一条**消息带上"你在回他哪一条"。
+// ⚠️ 不把引文塞进输入框 —— 那样她还得手动删。走 localStorage 传一句上下文，
+//    chat.js 在发送时注入成一条 system（跟「翻手机感知」同一个套路），用完即删。
+window.__fcReplyToPost = (text) => {
+  try { localStorage.setItem('xinye_reply_to_post', String(text || '').slice(0, 200)); } catch (e) {}
+  switchTab('chat');
+  const ui = document.getElementById('userInput');
+  if (ui) setTimeout(() => ui.focus(), 150);
+};
+
 // ======================== 启动 ========================
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.16-1749';
+  if (_verEl) _verEl.textContent = 'v2026.09.16-1821';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -602,13 +640,16 @@ async function checkPendingMessage() {
 
   // 页面从后台恢复时自动拉取心跳消息
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); autoWriteXinyeDiary(); }
+    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); autoWriteXinyeDiary(); _pullPosts(); }
   });
 
   // 前台定时轮询心跳消息（30秒），鸿蒙无FCM靠轮询兜底
   setInterval(() => {
-    if (document.visibilityState === 'visible') { _consumePushInbox(); autoWriteXinyeDiary(); }
+    if (document.visibilityState === 'visible') { _consumePushInbox(); autoWriteXinyeDiary(); _pullPosts(); }
   }, 30_000);
+
+  // 碎碎念：启动时拉一轮（不跟上面那条挤在一起 —— 补配图可能要好几分钟）
+  setTimeout(() => _pullPosts(), 2500);
 
   // 每晚那篇「炘也的日记」：过点了就补，写过了就跳过（判据在模块里，很便宜）
   setTimeout(() => autoWriteXinyeDiary(), 5000);

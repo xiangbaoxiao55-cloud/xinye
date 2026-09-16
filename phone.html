@@ -76,6 +76,16 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 .it-when{font-size:11.5px;color:var(--accent);margin-top:6px}
 .it-when.past{color:var(--text-light)}
 
+/* ===== 他自己写的（碎碎念，2026-09-16）===== */
+.post-reply{margin-top:12px;border:1px solid var(--border);background:none;color:var(--pink-deep);
+  font-family:inherit;font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:14px;cursor:pointer}
+.post-reply:active{opacity:.6}
+.post-voice{display:inline-flex;align-items:center;gap:7px;margin-top:10px;
+  border:1px solid var(--border);background:var(--bg2);color:var(--text);
+  font-family:inherit;font-size:13px;padding:7px 16px;border-radius:16px;cursor:pointer}
+.post-voice.on{border-color:var(--pink);color:var(--pink-deep)}
+.post-voice-ic{font-size:11px;line-height:1}
+
 /* ===== 空状态 ===== */
 .empty{padding:70px 30px;text-align:center;color:var(--text-light);font-size:13.5px;line-height:2}
 
@@ -154,7 +164,7 @@ import { saveFile, fmtTime } from './src/modules/utils.js';
 // thought = 碎碎念（备忘录笔记 + 草稿箱 + 心情 合流）
 const TAGS = [
   { key:'all',     label:'全部',   test: () => true },
-  { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' },
+  { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' || it.tag === 'post' },
   { key:'photos',  label:'相册',   test: it => it.tag === 'photos' },
   { key:'quotes',  label:'兔宝说', test: it => it.tag === 'quotes' },
   { key:'browser', label:'浏览',   test: it => it.tag === 'browser' },
@@ -209,6 +219,10 @@ async function loadAll() {
     if (m.type === 'todo') {
       out.push({ tag:'todo', ts: parseTime(m.time), text: m.content,
                  when: m.trigger_at ? parseTime(m.trigger_at) : 0, done: !!m.done });
+    } else if (m.type === 'post') {
+      // 他自己写的（没聊天的时候），见 posts.js。跟聊天里记的那些共用 xinye_memo，
+      // 只靠 type 区分 —— 这样**不用动 DB_VER**（动它风险大），导出/导入也自动跟着走。
+      out.push({ tag:'post', ts: parseTime(m.time), text: m.content, postId: m.postId || '', media: null });
     } else {
       out.push({ tag:'thought', sub:'记下来', ts: parseTime(m.time), text: m.content });
     }
@@ -234,7 +248,20 @@ async function loadAll() {
     }
   }
 
+  // 他自己写的那些的配图/配音：**挂到那条文字上**，不单独成卡 ——
+  // 否则同一件事在流里出现两遍（一张文字卡 + 一张图卡）。
+  const _postById = new Map();
+  for (const it of out) if (it.tag === 'post' && it.postId) _postById.set(it.postId, it);
+
   for (const p of photos) {
+    if (p.post) {
+      const kind = p.type === 'voice' ? 'voice' : 'image';
+      const host = p.postId ? _postById.get(p.postId) : null;
+      if (host) host.media = { kind, blob: p.blob };
+      // 极端情况：配图到了、那条文字没到（APP 中途被杀过）→ 自己成一张卡，别丢
+      else if (p.blob) out.push({ tag:'post', ts: parseTime(p.time), text:'', postId: p.postId || '', media: { kind, blob: p.blob } });
+      continue;
+    }
     if (p.type === 'memo') {
       out.push({ tag:'thought', sub:'想留住', ts: parseTime(p.time), text: p.caption || '' });
     } else if (p.blob) {
@@ -293,6 +320,9 @@ function card(it) {
 
   if (it.tag === 'thought') {
     if (it.sub) top.appendChild(el('span', 'it-badge', it.sub));
+  } else if (it.tag === 'post') {
+    top.appendChild(el('span', 'it-badge',
+      it.media?.kind === 'image' ? '画给你' : it.media?.kind === 'voice' ? '说给你听' : '写给你'));
   } else if (it.tag === 'quotes') {
     top.appendChild(el('span', 'it-badge', '留住了'));
   } else if (it.tag === 'browser') {
@@ -305,7 +335,27 @@ function card(it) {
   if (it.ts) top.appendChild(el('span', 'it-time', fmtTime(it.ts)));
   if (top.childNodes.length) a.appendChild(top);
 
-  if (it.tag === 'browser') {
+  if (it.tag === 'post') {
+    if (it.text) a.appendChild(el('div', 'it-text', it.text));
+    if (it.media?.kind === 'image' && it.media.blob) {
+      const url = URL.createObjectURL(it.media.blob);
+      _objUrls.push(url);
+      const wrap = el('div', 'it-img');
+      const img = document.createElement('img');
+      img.src = url; img.loading = 'lazy'; img.alt = '他画的';
+      img.onclick = () => openViewer(url);
+      wrap.appendChild(img);
+      a.appendChild(wrap);
+    } else if (it.media?.kind === 'voice' && it.media.blob) {
+      a.appendChild(voiceBar(it.media.blob));
+    }
+    // 「回他一句」：跳到聊天，并把"你在回他哪一条"带过去（不把引文塞进输入框，免得她还要删）
+    const rb = el('button', 'post-reply', '回他一句');
+    rb.onclick = () => {
+      try { window.parent.__fcReplyToPost(it.text || ''); } catch (e) { toast('从主 APP 里打开这页才能回他'); }
+    };
+    a.appendChild(rb);
+  } else if (it.tag === 'browser') {
     if (it.title) a.appendChild(el('div', 'it-text', it.title));
     if (it.url) {
       const s = el('div', 'it-src');
@@ -344,6 +394,30 @@ function card(it) {
   }
 
   return a;
+}
+
+// 语音条（他自己说的一段话）。复用 tts 生成的那个 blob，直接播。
+function voiceBar(blob) {
+  const b = el('button', 'post-voice');
+  const ic = el('span', 'post-voice-ic', '▶');
+  b.appendChild(ic);
+  b.appendChild(el('span', null, '他的声音'));
+  let audio = null;
+  b.onclick = () => {
+    if (audio && !audio.paused) {
+      audio.pause(); audio.currentTime = 0;
+      ic.textContent = '▶'; b.classList.remove('on'); return;
+    }
+    if (!audio) {
+      const url = URL.createObjectURL(blob);
+      _objUrls.push(url);
+      audio = new Audio(url);
+      audio.onended = () => { ic.textContent = '▶'; b.classList.remove('on'); };
+    }
+    audio.play().then(() => { ic.textContent = '■'; b.classList.add('on'); })
+      .catch(e => { toast('播不了：' + e.message); });
+  };
+  return b;
 }
 
 // ======================== 大图 ========================
@@ -493,7 +567,22 @@ function markVisit(tagKey) {
 }
 
 // 主 APP 每次切到这个 Tab 会调它（见 diary.js switchTab）
-window.__fcOnShow = () => { syncTheme(); syncAvatar(); markVisit(); };
+// ⚠️ 首次加载走的是 src 赋值那条路，**不会**调这个（见 diary.js 的 phone 分支），
+//    所以 init() 末尾也要调一次 postsSeen()，否则第一次进来小圆点不消。
+window.__fcOnShow = () => {
+  syncTheme(); syncAvatar(); markVisit();
+  postsSeen();
+};
+
+// 主 APP 拉到新贴、而她正开着这页时会调它（main.js 的 _pullPosts）
+window.__fcReload = async () => {
+  try { await loadAll(); _shown = PAGE; renderTags(); renderFeed(true); } catch (e) {}
+};
+
+function postsSeen() {
+  // 她翻过了 → 摘掉底栏那个小圆点（那个元素在父页面里）
+  try { window.parent.__fcPostsSeen?.(); } catch (e) {}
+}
 
 // ======================== 启动 ========================
 document.getElementById('btnMore').onclick = () => { _shown += PAGE; renderFeed(false); };
@@ -522,6 +611,7 @@ document.getElementById('btnMore').onclick = () => { _shown += PAGE; renderFeed(
   renderTags();
   renderFeed(true);
   markVisit();
+  postsSeen();     // 首次进来也要消掉小圆点（见 __fcOnShow 上面的注释）
 })();
 </script>
 </body>
