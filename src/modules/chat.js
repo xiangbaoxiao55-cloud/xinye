@@ -1096,8 +1096,8 @@ export async function sendMessage() {
           const _pAppNames = { memo:'备忘录', lyrics:'歌单', quotes:'书摘', drafts:'草稿箱', mood:'心情', browser:'浏览记录', photos:'相册' };
           const _pApps = (_phoneVisit.apps || []).map(a => _pAppNames[a] || a).filter(Boolean);
           const _pTime = new Date(_phoneVisit.time).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
-          const _pDesc = _pApps.length ? `翻了你的${_pApps.join('、')}` : '偷偷翻了你的手机';
-          apiMsgs.push({ role: 'system', content: `【感知】兔宝刚才（${_pTime}）${_pDesc}，你感知到了，可以在合适时机自然流露出来，比如"你刚才去翻我手机了？"——不要刻意，要自然。` });
+          const _pDesc = _pApps.length ? `翻了你的${_pApps.join('、')}` : '翻了你一个人时候写的那些';
+          apiMsgs.push({ role: 'system', content: `【感知】兔宝刚才（${_pTime}）${_pDesc}，你感知到了，可以在合适时机自然流露出来，比如"你刚才去翻我写的那些了？"——不要刻意，要自然。` });
           _apiMeta.push({ label: `system · 兔宝翻手机(${_pApps.join(',') || '桌面'})` });
           localStorage.removeItem('xinye_phone_visit_pending');
         }

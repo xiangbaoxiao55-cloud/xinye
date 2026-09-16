@@ -65,7 +65,7 @@ function _refreshDiaryFrame() {
 }
 
 // ── Tab 切换状态 ───────────────────────────────────────────────────────────
-let _diaryLoaded = false, _readingLoaded = false, _galleryLoaded = false;
+let _diaryLoaded = false, _readingLoaded = false, _galleryLoaded = false, _phoneLoaded = false;
 let _currentTab = 'chat';
 
 export function switchTab(tab) {
@@ -86,16 +86,22 @@ export function switchTab(tab) {
   if (tab === 'gallery' && !_galleryLoaded) {
     document.getElementById('galleryFrame').src = 'gallery.html'; _galleryLoaded = true;
   }
+  // 碎碎念 = 炘也的手机，只存在于 index.html（choubao.html 没有这个 Tab）
+  if (tab === 'phone') {
+    const pf = document.getElementById('phoneFrame');
+    if (pf && !_phoneLoaded) { pf.src = 'phone.html'; _phoneLoaded = true; }
+    else { try { pf?.contentWindow?.__fcOnShow?.(); } catch(e) {} }
+  }
 
   // choubao.html 没有画廊 Tab，取不到就跳过（否则每次切 Tab 都会在这里抛异常）
-  [['diaryOverlayFrame','diary'], ['readingOverlayFrame','reading'], ['galleryOverlayFrame','gallery']].forEach(([id, t]) => {
+  [['diaryOverlayFrame','diary'], ['readingOverlayFrame','reading'], ['galleryOverlayFrame','gallery'], ['phoneOverlayFrame','phone']].forEach(([id, t]) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('open', tab === t);
   });
   const fp = document.getElementById('friendsPanel');
   if (fp) fp.classList.toggle('open', tab === 'friends');
 
-  ['chat','diary','reading','gallery','friends'].forEach(t => {
+  ['chat','diary','reading','gallery','friends','phone'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.classList.toggle('active', t === tab);
   });

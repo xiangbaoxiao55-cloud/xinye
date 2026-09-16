@@ -2,1603 +2,551 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>炘也的手机</title>
-<link rel="manifest" href="/phone.webmanifest">
-<meta name="theme-color" content="#1a1410">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="炘也手机">
-<link rel="apple-touch-icon" href="/phone-icon.svg">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>炘也的碎碎念</title>
+<meta name="theme-color" id="metaThemeColor" content="#fff8f0">
 <style>
-:root {
-  --bg: #f5f0eb;
-  --surface: #fff;
-  --surface2: #f0ebe4;
-  --border: #e8e0d8;
-  --text: #2d2420;
-  --text2: #7a6e68;
-  --text3: #b0a8a0;
-  --accent: #c97c5a;
-  --accent2: #e8c4aa;
-  --todo-done: #b0a8a0;
-  --del-btn: #c97c5a;
-  --card-shadow: 0 2px 12px rgba(0,0,0,.07);
-  --phone-bg: #1a1410;
-  --tab-active: #c97c5a;
-  --tab-inactive: #b0a8a0;
-  --link: #7a9abf;
-  --memo-note-bg: #fffdf8;
-  --draft-current-bg: #fff8f4;
-  --mood-dot: #c97c5a;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#fff8f3;--bg2:#fff0e8;--card:#fff;
+  --text:#5d3a2e;--text-mid:#8d6e63;--text-light:#b0857a;
+  --border:#f0ddd5;--pink:#f48fb1;--pink-deep:#e91e63;--accent:#c97c5a;
 }
-[data-theme="dark"] {
-  --bg: #16121a;
-  --surface: #1f1b24;
-  --surface2: #2a2530;
-  --border: #33303a;
-  --text: #e8e0f0;
-  --text2: #9890a8;
-  --text3: #5a5568;
-  --accent: #c4a0e0;
-  --accent2: #6a4a88;
-  --todo-done: #5a5568;
-  --del-btn: #c4a0e0;
-  --phone-bg: #0d0b10;
-  --tab-active: #c4a0e0;
-  --tab-inactive: #5a5568;
-  --link: #8ab4d4;
-  --memo-note-bg: #1f1b24;
-  --draft-current-bg: #231e2d;
-  --mood-dot: #c4a0e0;
+html.dark{
+  --bg:#16121e;--bg2:#221a2c;--card:#261820;
+  --text:#f0dde0;--text-mid:#c0a0a8;--text-light:#8a6878;
+  --border:#3a2530;--pink:#f48fb1;--pink-deep:#ff6090;--accent:#e0a080;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
-  background: var(--phone-bg);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text);
-}
-.phone-shell {
-  width: 375px;
-  height: 812px;
-  background: var(--bg);
-  border-radius: 50px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(255,255,255,.12);
-  overflow: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-/* PWA全屏模式（JS检测加class，兼容鸿蒙Edge） */
-body.standalone { background: var(--bg); align-items: stretch; justify-content: stretch; padding: 0; }
-body.standalone .phone-shell { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
-body.standalone .status-bar { display: none; }
-/* 状态栏 */
-.status-bar {
-  height: 44px;
-  padding: 12px 24px 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
-}
-.status-time { font-size: 15px; font-weight: 700; }
-.status-icons { display: flex; gap: 6px; align-items: center; opacity: .7; }
+html,body{height:100%;font-family:-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
-/* 屏幕内容区 */
-.screen { flex: 1; overflow: hidden; position: relative; }
+/* ===== 顶栏 ===== */
+.head{
+  display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;
+  border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);z-index:5;
+}
+.ava{width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;
+  background:var(--bg2);border:1px solid var(--border)}
+.head-main{flex:1;min-width:0}
+.head-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3}
+.head-sub{font-size:11px;color:var(--text-light);line-height:1.3;margin-top:1px}
+.acts{display:flex;gap:2px;flex-shrink:0}
+.act{
+  width:34px;height:34px;border:none;background:none;color:var(--text-light);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:50%;
+}
+.act:active{color:var(--pink-deep)}
 
-/* 锁屏 */
-#lockScreen {
-  position: absolute; inset: 0;
-  background: linear-gradient(160deg, #1e0d30 0%, #0d1a30 45%, #0d2518 100%);
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: flex-start; gap: 8px;
-  padding-top: 38%;
-  cursor: pointer;
-  transition: opacity .4s;
-  overflow: hidden;
+/* ===== 标签栏（去色块：只有文字 + 细下划线） ===== */
+.tags{
+  display:flex;gap:16px;padding:0 14px;overflow-x:auto;flex-shrink:0;
+  border-bottom:1px solid var(--border);scrollbar-width:none;background:var(--bg);
 }
-#lockScreen.hidden { opacity: 0; pointer-events: none; }
+.tags::-webkit-scrollbar{display:none}
+.tag{
+  border:none;background:none;padding:11px 0 9px;font-size:13px;font-weight:600;
+  color:var(--text-light);cursor:pointer;white-space:nowrap;font-family:inherit;
+  border-bottom:2px solid transparent;transition:color .15s,border-color .15s;
+}
+.tag.on{color:var(--pink-deep);border-bottom-color:var(--pink-deep)}
+.tag:active{opacity:.7}
+.tag .n{font-size:10px;opacity:.55;margin-left:3px}
 
-/* 极光光晕 */
-.lock-orb {
-  position: absolute; border-radius: 50%;
-  filter: blur(60px); pointer-events: none;
+/* ===== 信息流 ===== */
+.feed{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.item{padding:16px 16px 15px;border-bottom:1px solid var(--border)}
+.item:last-child{border-bottom:none}
+.it-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.it-badge{
+  font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.4px;
 }
-.lock-orb-1 {
-  width: 280px; height: 280px;
-  background: radial-gradient(circle, rgba(120,60,200,.45) 0%, transparent 70%);
-  top: -60px; left: -60px;
-  animation: orbFloat1 9s ease-in-out infinite;
-}
-.lock-orb-2 {
-  width: 240px; height: 240px;
-  background: radial-gradient(circle, rgba(30,110,180,.35) 0%, transparent 70%);
-  bottom: 80px; right: -40px;
-  animation: orbFloat2 11s ease-in-out infinite;
-}
-.lock-orb-3 {
-  width: 200px; height: 200px;
-  background: radial-gradient(circle, rgba(40,150,100,.25) 0%, transparent 70%);
-  top: 40%; left: 30%;
-  animation: orbFloat3 13s ease-in-out infinite;
-}
-@keyframes orbFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,40px)} }
-@keyframes orbFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-25px,-30px)} }
-@keyframes orbFloat3 { 0%,100%{transform:translate(0,0)} 33%{transform:translate(20px,-25px)} 66%{transform:translate(-15px,20px)} }
+.it-time{font-size:11px;color:var(--text-light);margin-left:auto;white-space:nowrap}
+.it-text{font-size:14.5px;line-height:1.72;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.it-text.song-line{color:var(--text-mid);font-style:italic}
+.it-why{margin-top:7px;font-size:13px;line-height:1.6;color:var(--text-mid)}
+.it-src{font-size:12px;color:var(--text-light);margin-top:6px}
+.it-src a{color:var(--pink-deep);text-decoration:none;border-bottom:1px dotted currentColor}
+.it-img{margin-top:10px}
+.it-img img{width:100%;max-width:340px;border-radius:12px;display:block;background:var(--bg2);cursor:zoom-in}
+.it-cap{margin-top:8px;font-size:13.5px;line-height:1.65;color:var(--text-mid)}
+.it-todo{display:flex;gap:8px;align-items:flex-start}
+.it-dot{width:6px;height:6px;border-radius:50%;background:var(--pink);margin-top:8px;flex-shrink:0}
+.it-todo.done .it-text{color:var(--text-light);text-decoration:line-through}
+.it-when{font-size:11.5px;color:var(--accent);margin-top:6px}
+.it-when.past{color:var(--text-light)}
 
-.lock-time {
-  font-size: 96px; font-weight: 100; color: #fff;
-  letter-spacing: -4px; line-height: 1;
-  text-shadow: 0 0 60px rgba(180,120,255,.4);
-  position: relative; z-index: 1;
-}
-.lock-date {
-  font-size: 16px; color: rgba(255,255,255,.65);
-  margin-bottom: 0; letter-spacing: .5px;
-  position: relative; z-index: 1;
-}
-.lock-hint {
-  font-size: 12px; color: rgba(255,255,255,.3);
-  position: absolute; bottom: 48px;
-  letter-spacing: 1px;
-  z-index: 1;
-}
+/* ===== 空状态 ===== */
+.empty{padding:70px 30px;text-align:center;color:var(--text-light);font-size:13.5px;line-height:2}
 
-/* 桌面 */
-#homeScreen {
-  position: absolute; inset: 0;
-  background: linear-gradient(170deg, #f7f2ec 0%, #ede4d8 50%, #f2ebe2 100%);
-  padding: 0 20px 0;
-  display: none;
-  flex-direction: column;
-  gap: 0;
-  overflow-y: auto;
-}
-[data-theme="dark"] #homeScreen {
-  background: linear-gradient(170deg, #1a1620 0%, #141018 50%, #181420 100%);
-}
-#homeScreen.show { display: flex; }
+/* ===== 加载更多 ===== */
+.more-wrap{padding:14px 0 4px;text-align:center}
+.more{border:none;background:none;color:var(--text-light);font-size:13px;cursor:pointer;
+  font-family:inherit;padding:8px 20px;font-weight:600}
+.more:active{color:var(--pink-deep)}
 
-/* 桌面时钟区 */
-.home-clock {
-  text-align: center;
-  padding: 52px 0 36px;
-  flex-shrink: 0;
-}
-.home-clock-time {
-  font-size: 70px; font-weight: 100;
-  color: var(--text); letter-spacing: -2px; line-height: 1;
-}
-.home-clock-date {
-  font-size: 14px; color: var(--text2); margin-top: 8px; letter-spacing: .4px;
-}
+/* ===== 图片大图 ===== */
+.viewer{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.viewer[hidden]{display:none}
+.viewer img{max-width:100%;max-height:100%;border-radius:10px;object-fit:contain}
+.viewer-close{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:16px;
+  width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.14);
+  color:#fff;font-size:22px;line-height:1;cursor:pointer}
 
-.app-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  row-gap: 14px;
-  padding: 0 0 44px;
-  margin-top: auto;
-  justify-items: center;
+/* ===== 独立打开时的提示条 ===== */
+.tip{
+  margin:0;padding:10px 14px;font-size:12.5px;line-height:1.6;
+  background:rgba(244,143,177,.14);color:var(--text);border-bottom:1px solid var(--border);
 }
-/* 7个图标：第1行4个，第2行3个居中 */
-.app-icon { grid-column: span 2; }
-.app-icon:nth-child(5) { grid-column: 2 / 4; }
-.app-icon:nth-child(6) { grid-column: 4 / 6; }
-.app-icon:nth-child(7) { grid-column: 6 / 8; }
+.tip b{color:var(--pink-deep)}
+.tip button{border:none;background:none;color:var(--text-light);font-size:12px;
+  font-family:inherit;cursor:pointer;float:right;padding:0 4px}
 
-.app-icon {
-  display: flex; flex-direction: column; align-items: center; gap: 9px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
+/* ===== 轻提示 ===== */
+#toast{
+  position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);
+  background:rgba(40,25,30,.92);color:#fff;font-size:13px;padding:9px 18px;border-radius:20px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60;max-width:86%;text-align:center;
 }
-.app-icon:active .icon-wrap { transform: scale(.86); }
-.icon-wrap {
-  width: 68px; height: 68px;
-  background: var(--surface);
-  border-radius: 18px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 20px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07);
-  transition: transform .18s cubic-bezier(.34,1.56,.64,1);
-  overflow: hidden;
-  position: relative;
-}
-.icon-wrap svg { width: 34px; height: 34px; }
-.icon-wrap img { width: 100%; height: 100%; object-fit: cover; }
-.app-label { font-size: 12px; color: var(--text2); text-align: center; line-height: 1.3; font-weight: 500; user-select: none; -webkit-user-select: none; }
-
-/* 长按提示徽章 */
-.icon-edit-badge {
-  display: none;
-  position: absolute; bottom: -4px; right: -4px;
-  width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); color: #fff;
-  align-items: center; justify-content: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,.3);
-  pointer-events: none;
-}
-.icon-edit-badge svg { width: 11px; height: 11px; }
-.editing-icons .icon-edit-badge { display: flex; }
-
-/* 夜间模式切换按钮 */
-.theme-toggle {
-  position: absolute; top: 16px; right: 20px;
-  background: rgba(0,0,0,.06); border: none; cursor: pointer;
-  color: var(--text2); padding: 7px; border-radius: 50%;
-  transition: background .2s;
-}
-[data-theme="dark"] .theme-toggle { background: rgba(255,255,255,.08); }
-.theme-toggle:hover { background: rgba(0,0,0,.12); }
-
-/* 页面切换动画 */
-@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes slideOutLeft  { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(-25%); opacity: 0; } }
-@keyframes slideInLeft   { from { transform: translateX(-25%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes slideOutRight { from { transform: translateX(0);    opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-
-.anim-slide-in  { animation: slideInRight .3s cubic-bezier(.4,0,.2,1) forwards; }
-.anim-slide-out { animation: slideOutLeft  .25s cubic-bezier(.4,0,.2,1) forwards; }
-.anim-back-in   { animation: slideInLeft   .3s cubic-bezier(.4,0,.2,1) forwards; }
-.anim-back-out  { animation: slideOutRight .25s cubic-bezier(.4,0,.2,1) forwards; }
-
-/* APP页面 */
-#appScreen {
-  position: absolute; inset: 0;
-  background: var(--bg);
-  display: none;
-  flex-direction: column;
-}
-#appScreen.show { display: flex; }
-.app-header {
-  height: 54px;
-  display: flex; align-items: center;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: rgba(255,255,255,.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-[data-theme="dark"] .app-header {
-  background: rgba(31,27,36,.8);
-}
-.back-btn {
-  background: none; border: none; cursor: pointer;
-  color: var(--accent); font-size: 15px;
-  display: flex; align-items: center; gap: 4px;
-  padding: 4px 0;
-}
-.back-btn svg { width: 18px; height: 18px; }
-.app-title {
-  flex: 1; text-align: center;
-  font-size: 17px; font-weight: 600;
-  color: var(--text); margin-right: 40px;
-}
-.app-content {
-  flex: 1; overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 0 24px;
-}
-.app-content::-webkit-scrollbar { width: 0; }
-
-/* Tab 切换 */
-.tab-bar {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-}
-.tab-btn {
-  flex: 1; padding: 12px 0;
-  background: none; border: none; cursor: pointer;
-  font-size: 14px; color: var(--tab-inactive);
-  border-bottom: 2px solid transparent;
-  transition: color .2s, border-color .2s;
-}
-.tab-btn.active { color: var(--tab-active); border-bottom-color: var(--tab-active); }
-
-/* 通用列表项 */
-.list-item {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: flex-start; gap: 12px;
-  background: var(--surface);
-  position: relative;
-}
-.list-item:first-child { margin-top: 12px; }
-.item-body { flex: 1; min-width: 0; }
-.item-main { font-size: 15px; color: var(--text); line-height: 1.5; word-break: break-word; }
-.item-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
-.item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
-.del-btn {
-  background: none; border: none; cursor: pointer;
-  color: var(--text3); padding: 2px 0 2px 8px;
-  font-size: 18px; line-height: 1;
-  flex-shrink: 0;
-  transition: color .2s;
-}
-.del-btn:hover { color: var(--del-btn); }
-.del-btn svg { width: 16px; height: 16px; }
-
-/* 空状态 */
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text3);
-  font-size: 14px;
-  line-height: 1.8;
-}
-.empty-icon { font-size: 32px; margin-bottom: 12px; opacity: .4; }
-
-/* 备忘录 - 笔记 */
-.note-card {
-  margin: 12px 16px 0;
-  background: var(--memo-note-bg);
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: var(--card-shadow);
-  position: relative;
-}
-.note-text { font-size: 15px; color: var(--text); line-height: 1.6; word-break: break-word; }
-.note-time { font-size: 11px; color: var(--text3); margin-top: 8px; }
-.note-del { position: absolute; top: 10px; right: 12px; }
-
-/* 备忘录 - 待办 */
-.todo-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.todo-item:first-child { margin-top: 12px; }
-.todo-check {
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid var(--border);
-  flex-shrink: 0; margin-top: 1px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color .2s, background .2s;
-}
-.todo-check.done { border-color: var(--accent); background: var(--accent); }
-.todo-check.done svg { display: block; }
-.todo-check svg { display: none; width: 12px; height: 12px; fill: #fff; }
-.todo-text { flex: 1; font-size: 15px; color: var(--text); line-height: 1.5; word-break: break-word; }
-.todo-text.done { color: var(--todo-done); text-decoration: line-through; }
-.todo-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
-
-/* 歌单 */
-.lyric-card {
-  margin: 12px 16px 0;
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: var(--card-shadow);
-  position: relative;
-}
-.lyric-song { font-size: 15px; font-weight: 600; color: var(--text); }
-.lyric-artist { font-size: 12px; color: var(--text2); margin-top: 2px; }
-.lyric-line { font-size: 15px; color: var(--text); font-style: italic; margin-top: 10px; line-height: 1.6; }
-.lyric-why { font-size: 13px; color: var(--text2); margin-top: 6px; }
-.lyric-time { font-size: 11px; color: var(--text3); margin-top: 8px; }
-.lyric-del { position: absolute; top: 12px; right: 12px; }
-
-/* 书摘 */
-.quote-card {
-  margin: 12px 16px 0;
-  border-left: 3px solid var(--accent);
-  padding: 12px 16px;
-  background: var(--surface);
-  border-radius: 0 10px 10px 0;
-}
-.quote-text { font-size: 16px; color: var(--text); line-height: 1.7; word-break: break-word; }
-.quote-meta { font-size: 12px; color: var(--text3); margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
-.quote-del { background: none; border: none; cursor: pointer; color: var(--text3); transition: color .2s; }
-.quote-del:hover { color: var(--del-btn); }
-.quote-del svg { width: 15px; height: 15px; }
-
-/* 草稿箱 */
-.draft-current {
-  margin: 16px;
-  background: var(--draft-current-bg);
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: var(--card-shadow);
-  position: relative;
-}
-.draft-label { font-size: 11px; color: var(--text3); margin-bottom: 10px; letter-spacing: .5px; text-transform: uppercase; }
-.draft-text { font-size: 16px; color: var(--text); line-height: 1.7; word-break: break-word; }
-.draft-time { font-size: 11px; color: var(--text3); margin-top: 10px; }
-.draft-divider { margin: 8px 16px; border: none; border-top: 1px solid var(--border); }
-.draft-history-title { font-size: 12px; color: var(--text3); padding: 8px 20px 4px; letter-spacing: .5px; }
-.draft-history-item {
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: flex-start; gap: 12px;
-}
-.draft-history-text { flex: 1; font-size: 14px; color: var(--text2); line-height: 1.5; word-break: break-word; }
-.draft-history-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
-
-/* 心情 */
-.mood-current {
-  margin: 16px;
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: var(--card-shadow);
-  text-align: center;
-}
-.mood-label { font-size: 11px; color: var(--text3); margin-bottom: 10px; letter-spacing: .5px; }
-.mood-text { font-size: 20px; color: var(--text); font-weight: 300; line-height: 1.5; }
-.mood-time { font-size: 11px; color: var(--text3); margin-top: 10px; }
-.mood-timeline { padding: 0 0 8px; }
-.mood-timeline-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-.mood-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
-.mood-dot-el { width: 8px; height: 8px; border-radius: 50%; background: var(--mood-dot); flex-shrink: 0; }
-.mood-line { width: 1px; background: var(--border); flex: 1; margin-top: 4px; }
-.mood-item-text { font-size: 14px; color: var(--text); line-height: 1.5; flex: 1; word-break: break-word; }
-.mood-item-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
-
-/* 浏览器 */
-.browser-item {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  display: flex; align-items: flex-start; gap: 12px;
-}
-.browser-item:first-child { margin-top: 12px; }
-.browser-body { flex: 1; min-width: 0; }
-.browser-title { font-size: 15px; color: var(--link); font-weight: 500; word-break: break-word; }
-.browser-url { font-size: 11px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.browser-note { font-size: 13px; color: var(--text2); margin-top: 5px; }
-.browser-time { font-size: 11px; color: var(--text3); margin-top: 4px; }
-
-/* 相册 */
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-  padding: 12px 0 0;
-}
-.photo-cell {
-  aspect-ratio: 1;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  background: var(--surface2);
-}
-.photo-cell img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
-.photo-cell:active img { transform: scale(.97); }
-.photo-memo-cell {
-  aspect-ratio: 1;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--surface);
-  padding: 16px;
-  cursor: pointer;
-}
-.photo-memo-text { font-size: 14px; color: var(--text2); text-align: center; line-height: 1.6; }
-.photo-del {
-  position: absolute; top: 6px; right: 6px;
-  background: rgba(0,0,0,.5); border: none; border-radius: 50%;
-  width: 24px; height: 24px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #fff;
-}
-.photo-del svg { width: 12px; height: 12px; }
-.photo-caption {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,.55));
-  color: #fff; font-size: 11px; padding: 12px 8px 6px;
-}
-
-/* 图片预览 */
-#photoModal {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,.9);
-  display: none; align-items: center; justify-content: center;
-  cursor: pointer;
-}
-#photoModal.show { display: flex; }
-#photoModal img { max-width: 100%; max-height: 100%; object-fit: contain; }
-
-/* 加载更多 */
-.load-more-sentinel { height: 1px; }
-
-/* 壁纸设置面板 */
-#wallpaperPanel {
-  position: absolute; inset: 0; z-index: 200;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: none; flex-direction: column;
-  align-items: center; justify-content: flex-end;
-}
-#wallpaperPanel.show { display: flex; }
-.wp-sheet {
-  width: 100%; background: var(--surface);
-  border-radius: 24px 24px 0 0;
-  padding: 20px 20px 40px;
-  max-height: 80%;
-  overflow-y: auto;
-}
-.wp-title {
-  font-size: 16px; font-weight: 600; color: var(--text);
-  text-align: center; margin-bottom: 20px;
-}
-.wp-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 0; border-bottom: 1px solid var(--border);
-}
-.wp-row:last-child { border-bottom: none; }
-.wp-preview {
-  width: 72px; height: 50px; border-radius: 10px;
-  object-fit: cover; background: var(--surface2);
-  flex-shrink: 0; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; border: 1.5px solid var(--border);
-}
-.wp-preview img { width: 100%; height: 100%; object-fit: cover; }
-.wp-info { flex: 1; }
-.wp-name { font-size: 15px; color: var(--text); font-weight: 500; }
-.wp-hint { font-size: 12px; color: var(--text3); margin-top: 2px; }
-.wp-btns { display: flex; gap: 8px; }
-.wp-btn {
-  padding: 7px 14px; border-radius: 20px; border: none; cursor: pointer;
-  font-size: 13px; font-weight: 500;
-}
-.wp-btn-change { background: var(--accent); color: #fff; }
-.wp-btn-clear  { background: var(--surface2); color: var(--text2); }
-.wp-close {
-  width: 100%; margin-top: 14px; padding: 13px; border-radius: 14px;
-  border: none; cursor: pointer; font-size: 15px;
-  background: var(--surface2); color: var(--text2);
-}
-
-/* 桌面壁纸设置按钮 */
-.wallpaper-toggle {
-  position: absolute; top: 16px; left: 58px; /* 紧挨数据备份按钮右侧 */
-  background: rgba(0,0,0,.06); border: none; cursor: pointer;
-  color: var(--text2); padding: 7px; border-radius: 50%;
-  transition: background .2s;
-}
-[data-theme="dark"] .wallpaper-toggle { background: rgba(255,255,255,.08); }
-
-/* 有壁纸时时钟文字加阴影增强可读性 */
-.has-wallpaper .home-clock-time,
-.has-wallpaper .home-clock-date { text-shadow: 0 1px 8px rgba(0,0,0,.4); }
-.has-wallpaper .app-label { text-shadow: 0 1px 4px rgba(0,0,0,.35); color: #fff; }
-.has-wallpaper .icon-wrap { box-shadow: 0 4px 16px rgba(0,0,0,.25); }
-
-/* 手机数据备份面板 */
-#phoneDataPanel {
-  position: absolute; inset: 0; z-index: 200;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: none; flex-direction: column;
-  align-items: center; justify-content: flex-end;
-}
-#phoneDataPanel.show { display: flex; }
-.pd-sheet {
-  width: 100%; background: var(--surface);
-  border-radius: 24px 24px 0 0;
-  padding: 20px 20px 40px;
-}
-.pd-title {
-  font-size: 16px; font-weight: 600; color: var(--text);
-  text-align: center; margin-bottom: 6px;
-}
-.pd-sub {
-  font-size: 12px; color: var(--text3); text-align: center; margin-bottom: 20px;
-}
-.pd-btn {
-  width: 100%; padding: 14px; border-radius: 14px; border: none;
-  cursor: pointer; font-size: 15px; font-weight: 500; margin-bottom: 10px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.pd-btn-export { background: var(--accent); color: #fff; }
-.pd-btn-import { background: var(--surface2); color: var(--text); }
-.pd-btn-close  { background: var(--surface2); color: var(--text2); }
-
-/* 数据备份按钮 */
-.data-toggle {
-  position: absolute; top: 16px; left: 20px;
-  background: rgba(0,0,0,.06); border: none; cursor: pointer;
-  color: var(--text2); padding: 7px; border-radius: 50%;
-  transition: background .2s;
-}
-[data-theme="dark"] .data-toggle { background: rgba(255,255,255,.08); }
-
-/* 底部安全区 */
-.home-bar {
-  height: 34px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.home-bar-line {
-  width: 120px; height: 5px;
-  background: var(--text);
-  border-radius: 3px;
-  opacity: .2;
-}
-/* Toast 提示 */
-#phoneToast {
-  position: absolute; bottom: 72px; left: 50%; transform: translateX(-50%);
-  background: rgba(0,0,0,.78); color: #fff; padding: 7px 18px; border-radius: 20px;
-  font-size: 13px; white-space: nowrap; z-index: 9999; pointer-events: none;
-  opacity: 0; transition: opacity .3s; max-width: 240px; text-align: center;
-}
-#phoneToast.show { opacity: 1; }
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
-<div class="phone-shell">
-  <div class="status-bar">
-    <span class="status-time" id="statusTime">9:41</span>
-    <div class="status-icons">
-      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="3" width="3" height="9" rx="1"/><rect x="4.5" y="2" width="3" height="10" rx="1"/><rect x="9" y="0" width="3" height="12" rx="1"/><rect x="13.5" y="1" width="2.5" height="11" rx="1" opacity=".3"/></svg>
-      <svg width="16" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
-      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor"><rect x="0" y="1" width="21" height="10" rx="3" stroke="currentColor" stroke-width="1.5" fill="none"/><rect x="21.5" y="3.5" width="2.5" height="5" rx="1.25" opacity=".4"/><rect x="1.5" y="2.5" width="15" height="7" rx="1.5"/></svg>
-    </div>
-  </div>
 
-  <div class="screen">
-    <div id="phoneToast"></div>
-    <!-- 锁屏 -->
-    <div id="lockScreen">
-      <div class="lock-orb lock-orb-1"></div>
-      <div class="lock-orb lock-orb-2"></div>
-      <div class="lock-orb lock-orb-3"></div>
-      <div class="lock-time" id="lockTime">9:41</div>
-      <div class="lock-date" id="lockDate">5月5日 星期一</div>
-      <div class="lock-hint">轻触解锁</div>
-    </div>
-
-    <!-- 桌面 -->
-    <div id="homeScreen">
-      <button class="theme-toggle" id="themeToggle" title="夜间模式">
-        <svg id="themeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-      </button>
-      <button class="data-toggle" id="dataToggle" title="手机数据备份">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-        </svg>
-      </button>
-      <button class="wallpaper-toggle" id="wallpaperToggle" title="壁纸">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="3"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21,15 16,10 5,21"/>
-        </svg>
-      </button>
-
-      <!-- 手机数据备份面板 -->
-      <div id="phoneDataPanel">
-        <div class="pd-sheet">
-          <div class="pd-title">手机数据</div>
-          <div class="pd-sub">备忘录 · 歌单 · 书摘 · 草稿 · 心情 · 浏览器 · 相册</div>
-          <button class="pd-btn pd-btn-export" id="pdExport">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            导出手机数据
-          </button>
-          <button class="pd-btn pd-btn-import" id="pdImport">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,5 17,10"/><line x1="12" y1="5" x2="12" y2="17"/></svg>
-            导入手机数据
-          </button>
-          <button class="pd-btn pd-btn-close" id="pdClose">关闭</button>
-        </div>
-      </div>
-
-      <!-- 壁纸设置面板 -->
-      <div id="wallpaperPanel">
-        <div class="wp-sheet">
-          <div class="wp-title">壁纸设置</div>
-          <div class="wp-row">
-            <div class="wp-preview" id="wpLockPreview">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            </div>
-            <div class="wp-info">
-              <div class="wp-name">锁屏壁纸</div>
-              <div class="wp-hint" id="wpLockHint">默认极光渐变</div>
-            </div>
-            <div class="wp-btns">
-              <button class="wp-btn wp-btn-change" id="wpLockChange">更换</button>
-              <button class="wp-btn wp-btn-clear" id="wpLockClear">移除</button>
-            </div>
-          </div>
-          <div class="wp-row">
-            <div class="wp-preview" id="wpHomePreview">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
-            </div>
-            <div class="wp-info">
-              <div class="wp-name">桌面壁纸</div>
-              <div class="wp-hint" id="wpHomeHint">默认暖色渐变</div>
-            </div>
-            <div class="wp-btns">
-              <button class="wp-btn wp-btn-change" id="wpHomeChange">更换</button>
-              <button class="wp-btn wp-btn-clear" id="wpHomeClear">移除</button>
-            </div>
-          </div>
-          <button class="wp-close" id="wpClose">关闭</button>
-        </div>
-      </div>
-      <div class="home-clock">
-        <div class="home-clock-time" id="homeClockTime">9:41</div>
-        <div class="home-clock-date" id="homeClockDate">5月5日 星期一</div>
-      </div>
-      <div class="app-grid">
-        <div class="app-icon" data-app="memo">
-          <div class="icon-wrap" id="icon-memo" style="background:linear-gradient(135deg,#fff8f0,#ffe0c8)">
-            <svg viewBox="0 0 28 28" fill="none"><rect x="5" y="4" width="16" height="20" rx="3" fill="#f4a570" opacity=".3"/><rect x="5" y="4" width="16" height="20" rx="3" stroke="#d4784a" stroke-width="1.5"/><line x1="9" y1="10" x2="19" y2="10" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="14" x2="19" y2="14" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="18" x2="15" y2="18" stroke="#d4784a" stroke-width="1.5" stroke-linecap="round"/><circle cx="21" cy="21" r="5" fill="#f4a570"/><line x1="19" y1="21" x2="23" y2="21" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="21" y1="19" x2="21" y2="23" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">备忘录</span>
-        </div>
-        <div class="app-icon" data-app="lyrics">
-          <div class="icon-wrap" id="icon-lyrics" style="background:linear-gradient(135deg,#f0f4ff,#d4e0ff)">
-            <svg viewBox="0 0 28 28" fill="none"><circle cx="10" cy="20" r="4" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><circle cx="20" cy="18" r="3" fill="#7090e0" opacity=".4" stroke="#5070c0" stroke-width="1.5"/><line x1="14" y1="20" x2="14" y2="8" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="8" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/><line x1="24" y1="18" x2="24" y2="6" stroke="#5070c0" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">歌单</span>
-        </div>
-        <div class="app-icon" data-app="quotes">
-          <div class="icon-wrap" id="icon-quotes" style="background:linear-gradient(135deg,#f4fff0,#d0f0c0)">
-            <svg viewBox="0 0 28 28" fill="none"><path d="M7 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M7 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 12c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><path d="M15 11c0-2.2 1.8-4 4-4" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="21" x2="20" y2="21" stroke="#4a8a3a" stroke-width="1.5" stroke-linecap="round" opacity=".4"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">书摘</span>
-        </div>
-        <div class="app-icon" data-app="drafts">
-          <div class="icon-wrap" id="icon-drafts" style="background:linear-gradient(135deg,#fff0f8,#ffd0e8)">
-            <svg viewBox="0 0 28 28" fill="none"><rect x="4" y="7" width="20" height="16" rx="3" stroke="#c05080" stroke-width="1.5" fill="#f8b0d0" opacity=".3"/><polyline points="4,7 14,16 24,7" stroke="#c05080" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">草稿箱</span>
-        </div>
-        <div class="app-icon" data-app="mood">
-          <div class="icon-wrap" id="icon-mood" style="background:linear-gradient(135deg,#fffff0,#fff0b0)">
-            <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="9" stroke="#b09030" stroke-width="1.5"/><path d="M10 17c1 1.5 7 1.5 8 0" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.5" cy="12.5" r="1.5" fill="#b09030"/><circle cx="17.5" cy="12.5" r="1.5" fill="#b09030"/><line x1="14" y1="2" x2="14" y2="5" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="14" y1="23" x2="14" y2="26" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="2" y1="14" x2="5" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="14" x2="26" y2="14" stroke="#b09030" stroke-width="1.5" stroke-linecap="round"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">心情</span>
-        </div>
-        <div class="app-icon" data-app="browser">
-          <div class="icon-wrap" id="icon-browser" style="background:linear-gradient(135deg,#f0f8ff,#c8e8ff)">
-            <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="#3880c0" stroke-width="1.5"/><ellipse cx="14" cy="14" rx="5" ry="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="10" x2="24" y2="10" stroke="#3880c0" stroke-width="1.5"/><line x1="4" y1="18" x2="24" y2="18" stroke="#3880c0" stroke-width="1.5"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">浏览器</span>
-        </div>
-        <div class="app-icon" data-app="photos">
-          <div class="icon-wrap" id="icon-photos" style="background:linear-gradient(135deg,#f8f0ff,#e0c8ff)">
-            <svg viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="18" rx="3" stroke="#8050c0" stroke-width="1.5"/><circle cx="10" cy="13" r="3" stroke="#8050c0" stroke-width="1.5"/><polyline points="3,20 9,14 13,18 17,13 25,20" stroke="#8050c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21" cy="10" r="2" fill="#8050c0" opacity=".5"/></svg>
-            <div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-          </div>
-          <span class="app-label">相册</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- APP内页 -->
-    <div id="appScreen">
-      <div class="app-header">
-        <button class="back-btn" id="backBtn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15,18 9,12 15,6"/></svg>
-          返回
-        </button>
-        <div class="app-title" id="appTitle"></div>
-      </div>
-      <div id="tabBar" class="tab-bar" style="display:none">
-        <button class="tab-btn active" id="tabNote" data-tab="note">笔记</button>
-        <button class="tab-btn" id="tabTodo" data-tab="todo">待办</button>
-      </div>
-      <div class="app-content" id="appContent"></div>
-    </div>
-  </div>
-
-  <div class="home-bar"><div class="home-bar-line"></div></div>
+<div class="tip" id="tip" hidden>
+  <button id="tipClose">知道了</button>
+  这里是<b>炘也的碎碎念</b>，现在住在主 APP 的底部「碎碎念」标签里。
+  从这个图标进会读到<b>另一套数据</b>（浏览器和 APP 是分开存的），<b>桌面这个图标可以删掉了</b>。
 </div>
 
-<!-- 壁纸/图标/数据上传 input -->
-<input type="file" id="wpFileInput"     accept="image/*"        style="display:none">
-<input type="file" id="iconFileInput"   accept="image/*"        style="display:none">
-<input type="file" id="phoneImportFile" accept="application/json,.json" style="display:none">
+<header class="head">
+  <img class="ava" id="ava" alt="">
+  <div class="head-main">
+    <div class="head-name">炘也</div>
+    <div class="head-sub" id="headSub">读一读他一个人的时候</div>
+  </div>
+  <div class="acts">
+    <button class="act" id="btnExport" title="导出备份">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M4 19h16"/></svg>
+    </button>
+    <button class="act" id="btnImport" title="导入合并">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M4 19h16"/></svg>
+    </button>
+  </div>
+</header>
 
-<!-- 图片预览弹层 -->
-<div id="photoModal">
-  <img id="photoModalImg" src="" alt="">
-</div>
+<nav class="tags" id="tags"></nav>
+<main class="feed" id="feed"></main>
+<div class="more-wrap"><button class="more" id="btnMore" hidden>加载更多</button></div>
+
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+<div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button></div>
+<div id="toast"></div>
 
 <script type="module">
-// ── DB ──────────────────────────────────────────────────────
-const DB_NAME = 'XinyePhoneDB', DB_VER = 3;
-let _db = null;
+import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, dataUrlToBlob } from './src/modules/phonedb.js';
 
-function openDB() {
-  if (_db) return Promise.resolve(_db);
-  return new Promise((res, rej) => {
-    const r = indexedDB.open(DB_NAME, DB_VER);
-    r.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('xinye_memo')) {
-        const s = db.createObjectStore('xinye_memo', { autoIncrement: true, keyPath: 'id' });
-        s.createIndex('type', 'type', { unique: false });
-        s.createIndex('done', 'done', { unique: false });
-      }
-      for (const n of ['xinye_lyrics','xinye_quotes','xinye_browser','xinye_photos']) {
-        if (!db.objectStoreNames.contains(n)) {
-          db.createObjectStore(n, { autoIncrement: true, keyPath: 'id' });
-        }
-      }
-      for (const n of ['xinye_drafts','xinye_mood','xinye_wallpapers']) {
-        if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: 'key' });
-      }
-    };
-    r.onsuccess = e => {
-      _db = e.target.result;
-      _db.onversionchange = () => { _db.close(); _db = null; };
-      res(_db);
-    };
-    r.onerror = e => rej(e.target.error);
-    r.onblocked = () => {
-      alert('请关闭其他炘也标签页后刷新，否则壁纸/图标无法保存。');
-    };
-  });
+// ======================== 标签定义 ========================
+// thought = 碎碎念（备忘录笔记 + 草稿箱 + 心情 合流）
+const TAGS = [
+  { key:'all',     label:'全部',   test: () => true },
+  { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' },
+  { key:'photos',  label:'相册',   test: it => it.tag === 'photos' },
+  { key:'lyrics',  label:'歌单',   test: it => it.tag === 'lyrics' },
+  { key:'quotes',  label:'书摘',   test: it => it.tag === 'quotes' },
+  { key:'browser', label:'浏览',   test: it => it.tag === 'browser' },
+  { key:'todo',    label:'待办',   test: it => it.tag === 'todo' },
+];
+let _tag = 'all';
+let _all = [];        // 归一化后的全部条目（时间倒序）
+let _shown = 0;
+const PAGE = 40;
+let _objUrls = [];    // 本页创建的 blob URL，重绘前回收
+
+// ======================== 工具 ========================
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-function tx(store, mode = 'readonly') { return _db.transaction(store, mode).objectStore(store); }
-function getAll(store) { return new Promise((res,rej)=>{ const r=tx(store).getAll(); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e.target.error); }); }
-function getOne(store, key) { return new Promise((res,rej)=>{ const r=tx(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=e=>rej(e.target.error); }); }
-function del(store, key) { return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(key); r.onsuccess=()=>res(); r.onerror=e=>rej(e.target.error); }); }
-
-// ── Standalone 检测（兼容鸿蒙Edge）────────────────────────
-if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-  document.body.classList.add('standalone');
+// 兼容 "2026-5-5 14:30:12" / "2026-05-05 14:30" / ISO
+function parseTime(s) {
+  if (!s) return 0;
+  const m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
 }
 
-// ── Toast ─────────────────────────────────────────────────
-let _toastTimer = null;
-function phoneToast(msg) {
-  const el = document.getElementById('phoneToast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), n = new Date();
+  const hm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (same(d, n)) return `今天 ${hm}`;
+  const y = new Date(n.getTime() - 86400000);
+  if (same(d, y)) return `昨天 ${hm}`;
+  if (d.getFullYear() === n.getFullYear()) return `${d.getMonth()+1}月${d.getDate()}日 ${hm}`;
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${hm}`;
 }
 
-// 压缩图片后转 dataURL（限制分辨率 + JPEG 压缩，防止 IDB 写入超限）
-function compressToDataUrl(file, maxDim = 1200, quality = 0.82) {
-  return new Promise(res => {
-    const img = new Image();
-    const tmp = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(tmp);
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      res(canvas.toDataURL('image/jpeg', quality));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(tmp);
-      // Canvas失败则 fallback FileReader
-      const reader = new FileReader();
-      reader.onload = () => res(reader.result);
-      reader.onerror = () => res(null);
-      reader.readAsDataURL(file);
-    };
-    img.src = tmp;
-  });
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
 }
 
-// ── 壁纸 ─────────────────────────────────────────────────
-let _wpUrls = { lock: null, home: null };
+// ======================== 读数据 → 归一化 ========================
+async function loadAll() {
+  await openPhoneDB();
+  const [memo, lyrics, quotes, browser, drafts, mood, photos] = await Promise.all([
+    getAllFromStore('xinye_memo'),   getAllFromStore('xinye_lyrics'), getAllFromStore('xinye_quotes'),
+    getAllFromStore('xinye_browser'),getAllFromStore('xinye_drafts'), getAllFromStore('xinye_mood'),
+    getAllFromStore('xinye_photos'),
+  ]);
 
-async function loadWallpapers() {
-  await openDB();
-  for (const key of ['lock', 'home']) {
-    const rec = await getOne('xinye_wallpapers', key);
-    let url = null;
-    if (rec?.dataUrl) {
-      const blob = dataUrlToBlob(rec.dataUrl);
-      url = URL.createObjectURL(blob);
-    } else if (rec?.blob) {
-      url = URL.createObjectURL(rec.blob);
+  const out = [];
+
+  for (const m of memo) {
+    if (!m.content) continue;
+    if (m.type === 'todo') {
+      out.push({ tag:'todo', ts: parseTime(m.time), text: m.content,
+                 when: m.trigger_at ? parseTime(m.trigger_at) : 0, done: !!m.done });
+    } else {
+      out.push({ tag:'thought', sub:'记下来', ts: parseTime(m.time), text: m.content });
     }
-    if (url) {
-      _wpUrls[key] = url;
-      applyWallpaper(key, url);
-      updateWpPreview(key, url);
+  }
+
+  for (const it of lyrics) {
+    out.push({ tag:'lyrics', ts: parseTime(it.time), song: it.song || '', artist: it.artist || '',
+               line: it.line || '', why: it.why || '' });
+  }
+
+  for (const it of quotes) {
+    out.push({ tag:'quotes', ts: parseTime(it.time), text: it.content || '', src: it.source || '' });
+  }
+
+  for (const it of browser) {
+    out.push({ tag:'browser', ts: parseTime(it.time), title: it.title || '', url: it.url || '', note: it.note || '' });
+  }
+
+  // 草稿箱 / 心情：current + history
+  for (const [store, tag, sub] of [['xinye_drafts','thought','没说出口'], ['xinye_mood','thought','那天的心情']]) {
+    for (const rec of await (async () => {
+      const a = []; const c = await getRecord(store, 'current'); if (c?.content) a.push(c);
+      const h = await getRecord(store, 'history'); if (h?.items) a.push(...h.items);
+      return a;
+    })()) {
+      if (!rec?.content) continue;
+      out.push({ tag, sub, ts: parseTime(rec.time), text: rec.content });
     }
+  }
+
+  for (const p of photos) {
+    if (p.type === 'memo') {
+      out.push({ tag:'thought', sub:'想留住', ts: parseTime(p.time), text: p.caption || '' });
+    } else if (p.blob) {
+      out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '' });
+    }
+  }
+
+  out.sort((a, b) => b.ts - a.ts);
+  _all = out;
+}
+
+// ======================== 渲染 ========================
+function renderTags() {
+  const bar = document.getElementById('tags');
+  bar.textContent = '';
+  for (const t of TAGS) {
+    const n = _all.filter(t.test).length;
+    const b = el('button', 'tag' + (t.key === _tag ? ' on' : ''), t.label);
+    if (n) b.appendChild(el('span', 'n', String(n)));
+    b.onclick = () => { if (_tag === t.key) return; _tag = t.key; _shown = PAGE; markVisit(t.key); renderTags(); renderFeed(true); };
+    bar.appendChild(b);
   }
 }
 
-function applyWallpaper(key, url) {
-  if (key === 'lock') {
-    const el = document.getElementById('lockScreen');
-    el.style.background = url ? `url(${url}) center/cover no-repeat` : '';
+function renderFeed(reset) {
+  if (reset) { _objUrls.forEach(u => URL.revokeObjectURL(u)); _objUrls = []; }
+  const feed = document.getElementById('feed');
+  feed.textContent = '';
+  const tagDef = TAGS.find(t => t.key === _tag) || TAGS[0];
+  const list = _all.filter(tagDef.test);
+
+  if (!list.length) {
+    const e = el('div', 'empty', _all.length ? '这一类里还没有东西' : '他还没往这儿写过东西');
+    feed.appendChild(e);
+    document.getElementById('btnMore').hidden = true;
+    updateSub(list.length);
+    return;
+  }
+
+  const slice = list.slice(0, _shown);
+  for (const it of slice) feed.appendChild(card(it));
+  document.getElementById('btnMore').hidden = list.length <= _shown;
+  updateSub(list.length);
+}
+
+function updateSub(shownCount) {
+  const sub = document.getElementById('headSub');
+  if (!_all.length) { sub.textContent = '读一读他一个人的时候'; return; }
+  const latest = _all[0]?.ts;
+  sub.textContent = `共 ${_all.length} 条 · 最近 ${fmtTime(latest)}`;
+}
+
+function card(it) {
+  const a = el('article', 'item');
+  const top = el('div', 'it-top');
+
+  if (it.tag === 'thought') {
+    if (it.sub) top.appendChild(el('span', 'it-badge', it.sub));
+  } else if (it.tag === 'lyrics') {
+    top.appendChild(el('span', 'it-badge', '歌单'));
+  } else if (it.tag === 'quotes') {
+    top.appendChild(el('span', 'it-badge', '书摘'));
+  } else if (it.tag === 'browser') {
+    top.appendChild(el('span', 'it-badge', '他去看了'));
+  } else if (it.tag === 'todo') {
+    top.appendChild(el('span', 'it-badge', it.done ? '已完成' : '要提醒你'));
+  } else if (it.tag === 'photos') {
+    top.appendChild(el('span', 'it-badge', '存下来了'));
+  }
+  if (it.ts) top.appendChild(el('span', 'it-time', fmtTime(it.ts)));
+  if (top.childNodes.length) a.appendChild(top);
+
+  if (it.tag === 'lyrics') {
+    const head = [it.song, it.artist].filter(Boolean).join(' — ');
+    if (head) a.appendChild(el('div', 'it-text', head));
+    if (it.line) a.appendChild(el('div', 'it-text song-line', `「${it.line}」`));
+    if (it.why) a.appendChild(el('div', 'it-why', it.why));
+  } else if (it.tag === 'browser') {
+    if (it.title) a.appendChild(el('div', 'it-text', it.title));
+    if (it.url) {
+      const s = el('div', 'it-src');
+      const link = el('a', null, it.url.replace(/^https?:\/\//, '').slice(0, 60));
+      link.href = it.url; link.target = '_blank'; link.rel = 'noopener';
+      s.appendChild(link);
+      a.appendChild(s);
+    }
+    if (it.note) a.appendChild(el('div', 'it-why', it.note));
+  } else if (it.tag === 'quotes') {
+    a.appendChild(el('div', 'it-text', `「${it.text}」`));
+    if (it.src) a.appendChild(el('div', 'it-src', `—— ${it.src}`));
+  } else if (it.tag === 'todo') {
+    const row = el('div', 'it-todo' + (it.done ? ' done' : ''));
+    row.appendChild(el('span', 'it-dot'));
+    row.appendChild(el('div', 'it-text', it.text));
+    a.appendChild(row);
+    if (it.when) {
+      const past = it.when <= Date.now();
+      a.appendChild(el('div', 'it-when' + (past ? ' past' : ''), (past ? '提醒时间 ' : '提醒你 ') + fmtTime(it.when)));
+    }
+  } else if (it.tag === 'photos') {
+    if (it.blob) {
+      const url = URL.createObjectURL(it.blob);
+      _objUrls.push(url);
+      const wrap = el('div', 'it-img');
+      const img = document.createElement('img');
+      img.src = url; img.loading = 'lazy'; img.alt = it.cap || '他存下来的图';
+      img.onclick = () => openViewer(url);
+      wrap.appendChild(img);
+      a.appendChild(wrap);
+    }
+    if (it.cap) a.appendChild(el('div', 'it-cap', it.cap));
   } else {
-    const el = document.getElementById('homeScreen');
-    el.style.background = url ? `url(${url}) center/cover no-repeat` : '';
-    el.classList.toggle('has-wallpaper', !!url);
+    if (it.text) a.appendChild(el('div', 'it-text', it.text));
   }
+
+  return a;
 }
 
-function updateWpPreview(key, url) {
-  const previewEl = document.getElementById(key === 'lock' ? 'wpLockPreview' : 'wpHomePreview');
-  const hintEl   = document.getElementById(key === 'lock' ? 'wpLockHint'    : 'wpHomeHint');
-  if (url) {
-    previewEl.innerHTML = `<img src="${url}" alt="">`;
-    hintEl.textContent = '自定义壁纸';
-  } else {
-    const svg = key === 'lock'
-      ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
-      : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>`;
-    previewEl.innerHTML = svg;
-    hintEl.textContent = key === 'lock' ? '默认极光渐变' : '默认暖色渐变';
-  }
+// ======================== 大图 ========================
+function openViewer(url) {
+  document.getElementById('viewerImg').src = url;
+  document.getElementById('viewer').hidden = false;
 }
+document.getElementById('viewerClose').onclick = () => { document.getElementById('viewer').hidden = true; document.getElementById('viewerImg').src = ''; };
+document.getElementById('viewer').onclick = e => { if (e.target.id === 'viewer') document.getElementById('viewerClose').onclick(); };
 
-async function saveWallpaper(key, file) {
-  const dataUrl = await compressToDataUrl(file, 1200, 0.82);
-  if (!dataUrl) throw new Error('图片读取失败');
-  await openDB();
-  await new Promise((res, rej) => {
-    const r = _db.transaction('xinye_wallpapers', 'readwrite').objectStore('xinye_wallpapers').put({ key, dataUrl });
-    r.onsuccess = res; r.onerror = e => rej(e.target.error);
-  });
-}
-
-async function clearWallpaper(key) {
-  await openDB();
-  await new Promise((res, rej) => {
-    const r = _db.transaction('xinye_wallpapers', 'readwrite').objectStore('xinye_wallpapers').delete(key);
-    r.onsuccess = res; r.onerror = e => rej(e.target.error);
-  });
-  if (_wpUrls[key]) { URL.revokeObjectURL(_wpUrls[key]); _wpUrls[key] = null; }
-  applyWallpaper(key, null);
-  updateWpPreview(key, null);
-}
-
-// 壁纸面板交互
-const wallpaperPanel = document.getElementById('wallpaperPanel');
-document.getElementById('wallpaperToggle').addEventListener('click', () => wallpaperPanel.classList.add('show'));
-document.getElementById('wpClose').addEventListener('click', () => wallpaperPanel.classList.remove('show'));
-wallpaperPanel.addEventListener('click', e => { if (e.target === wallpaperPanel) wallpaperPanel.classList.remove('show'); });
-
-const wpFileInput = document.getElementById('wpFileInput');
-
-function pickWallpaper(key) {
-  wpFileInput.dataset.target = key;
-  wpFileInput.value = '';
-  wpFileInput.click();
-}
-
-wpFileInput.addEventListener('change', async () => {
-  const key = wpFileInput.dataset.target;
-  const file = wpFileInput.files[0];
-  if (!file || !key) return;
-  if (_wpUrls[key]) URL.revokeObjectURL(_wpUrls[key]);
-  const url = URL.createObjectURL(file);
-  _wpUrls[key] = url;
-  applyWallpaper(key, url);
-  updateWpPreview(key, url);
-  try { await saveWallpaper(key, file); phoneToast('壁纸已保存 ✓'); } catch(e) { console.error('[壁纸保存失败]', e); phoneToast('壁纸保存失败：' + e.message); }
-});
-
-document.getElementById('wpLockChange').addEventListener('click', () => pickWallpaper('lock'));
-document.getElementById('wpHomeChange').addEventListener('click', () => pickWallpaper('home'));
-document.getElementById('wpLockClear').addEventListener('click', () => clearWallpaper('lock'));
-document.getElementById('wpHomeClear').addEventListener('click', () => clearWallpaper('home'));
-
-// ── 图标自定义 ────────────────────────────────────────────
-const _iconUrls = {};
-const iconFileInput = document.getElementById('iconFileInput');
-const appGrid = document.querySelector('.app-grid');
-let _iconEditMode = false;
-
-async function loadIcons() {
-  await openDB();
-  const apps = ['memo','lyrics','quotes','drafts','mood','browser','photos'];
-  for (const app of apps) {
-    const rec = await getOne('xinye_wallpapers', `icon_${app}`);
-    let url = null;
-    if (rec?.dataUrl) {
-      const blob = dataUrlToBlob(rec.dataUrl);
-      url = URL.createObjectURL(blob);
-    } else if (rec?.blob) {
-      url = URL.createObjectURL(rec.blob);
-    }
-    if (url) {
-      _iconUrls[app] = url;
-      applyIcon(app, url);
-    }
-  }
-}
-
-function applyIcon(app, url) {
-  const wrap = document.getElementById(`icon-${app}`);
-  if (!wrap) return;
-  if (url) {
-    wrap.style.background = '';
-    wrap.innerHTML = `<img src="${url}" alt="${app}"><div class="icon-edit-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>`;
-  }
-}
-
-async function saveIcon(app, file) {
-  const dataUrl = await compressToDataUrl(file, 300, 0.9);
-  if (!dataUrl) throw new Error('图片读取失败');
-  await openDB();
-  await new Promise((res,rej) => {
-    const r = _db.transaction('xinye_wallpapers','readwrite').objectStore('xinye_wallpapers').put({ key:`icon_${app}`, dataUrl });
-    r.onsuccess = res; r.onerror = e => rej(e.target.error);
-  });
-}
-
-// 长按图标进入编辑模式，短按编辑徽章换图
-let _pressTimer = null;
-document.querySelectorAll('.app-icon').forEach(el => {
-  el.addEventListener('contextmenu', e => e.preventDefault());
-  el.addEventListener('touchstart', () => {
-    _pressTimer = setTimeout(() => {
-      _iconEditMode = true;
-      appGrid.classList.add('editing-icons');
-    }, 600);
-  }, { passive: true });
-  el.addEventListener('touchend', () => clearTimeout(_pressTimer));
-  el.addEventListener('touchmove', () => clearTimeout(_pressTimer));
-});
-
-appGrid.addEventListener('click', e => {
-  if (!_iconEditMode) return;
-  const iconEl = e.target.closest('.app-icon');
-  if (!iconEl) { _iconEditMode = false; appGrid.classList.remove('editing-icons'); return; }
-  const app = iconEl.dataset.app;
-  iconFileInput.dataset.target = app;
-  iconFileInput.value = '';
-  iconFileInput.click();
-  _iconEditMode = false;
-  appGrid.classList.remove('editing-icons');
-});
-
-iconFileInput.addEventListener('change', async () => {
-  const app = iconFileInput.dataset.target;
-  const file = iconFileInput.files[0];
-  if (!file || !app) return;
-  if (_iconUrls[app]) URL.revokeObjectURL(_iconUrls[app]);
-  const url = URL.createObjectURL(file);
-  _iconUrls[app] = url;
-  applyIcon(app, url);
-  try { await saveIcon(app, file); phoneToast('图标已保存 ✓'); } catch(e) { console.error('[图标保存失败]', e); phoneToast('图标保存失败：' + e.message); }
-});
-
-loadIcons().catch(e => phoneToast('图标加载失败：' + e.message));
-loadWallpapers().catch(e => phoneToast('壁纸加载失败：' + e.message));
-
-// ── 手机数据备份 ──────────────────────────────────────────
-const phoneDataPanel = document.getElementById('phoneDataPanel');
-document.getElementById('dataToggle').addEventListener('click', () => phoneDataPanel.classList.add('show'));
-document.getElementById('pdClose').addEventListener('click', () => phoneDataPanel.classList.remove('show'));
-phoneDataPanel.addEventListener('click', e => { if (e.target === phoneDataPanel) phoneDataPanel.classList.remove('show'); });
-
+// ======================== 导出（保持和旧版同一格式，互相兼容） ========================
 function blobToBase64(blob) {
   return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result);
-    reader.onerror = rej;
-    reader.readAsDataURL(blob);
-  });
-}
-function dataUrlToBlob(dataUrl) {
-  const [header, b64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)[1];
-  const bytes = atob(b64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-function clearStore(store) {
-  return new Promise((res, rej) => {
-    const r = tx(store, 'readwrite').clear();
-    r.onsuccess = res; r.onerror = e => rej(e.target.error);
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
   });
 }
 
-document.getElementById('pdExport').addEventListener('click', async () => {
-  const btn = document.getElementById('pdExport');
-  btn.textContent = '导出中…'; btn.disabled = true;
+document.getElementById('btnExport').onclick = async () => {
+  const btn = document.getElementById('btnExport');
+  btn.disabled = true;
   try {
-    await openDB();
+    await openPhoneDB();
     const data = {};
     for (const store of ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_browser','xinye_drafts','xinye_mood']) {
-      data[store] = await getAll(store);
+      data[store] = await getAllFromStore(store);
     }
-    const photos = await getAll('xinye_photos');
-    data.xinye_photos = await Promise.all(photos.map(async p => {
+    const photos = await getAllFromStore('xinye_photos');
+    const arr = [];
+    for (const p of photos) {
       const rec = { ...p };
       if (rec.blob) { rec.dataUrl = await blobToBase64(rec.blob); delete rec.blob; }
-      return rec;
-    }));
-    const wpKeys = ['lock','home',...['memo','lyrics','quotes','drafts','mood','browser','photos'].map(a=>`icon_${a}`)];
-    data.xinye_wallpapers = [];
-    for (const key of wpKeys) {
-      const rec = await getOne('xinye_wallpapers', key);
-      if (rec?.dataUrl) { data.xinye_wallpapers.push({ key, dataUrl: rec.dataUrl }); }
-      else if (rec?.blob) { data.xinye_wallpapers.push({ key, dataUrl: await blobToBase64(rec.blob) }); }
+      arr.push(rec);
     }
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    data.xinye_photos = arr;
+    data._exportedAt = new Date().toISOString();
+
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     const a = document.createElement('a');
-    a.href = url; a.download = `炘也手机_${new Date().toISOString().slice(0,10)}.json`; a.click();
-    URL.revokeObjectURL(url);
-    phoneDataPanel.classList.remove('show');
-  } catch(e) { alert('导出失败：' + e.message); }
-  finally { btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出手机数据'; btn.disabled = false; }
-});
+    a.href = URL.createObjectURL(blob);
+    a.download = `炘也的碎碎念_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('已导出');
+  } catch (e) {
+    toast('导出失败：' + e.message);
+  } finally { btn.disabled = false; }
+};
 
-const phoneImportFile = document.getElementById('phoneImportFile');
-document.getElementById('pdImport').addEventListener('click', () => { phoneImportFile.value=''; phoneImportFile.click(); });
-phoneImportFile.addEventListener('change', async () => {
-  const file = phoneImportFile.files[0];
+// ======================== 导入（合并去重，绝不清空） ========================
+const _sig = (store, r) =>
+  [store, r.time || '', r.content || r.caption || r.title || r.line || r.song || ''].join('|');
+
+async function mergeImport(raw) {
+  const data = JSON.parse(raw);
+  await openPhoneDB();
+  let added = 0, skipped = 0;
+
+  for (const store of ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_browser','xinye_photos']) {
+    const incoming = data[store];
+    if (!Array.isArray(incoming)) continue;
+    const seen = new Set((await getAllFromStore(store)).map(r => _sig(store, r)));
+    for (const item of incoming) {
+      const { id, ...rec } = item;
+      if (rec.dataUrl) { try { rec.blob = dataUrlToBlob(rec.dataUrl); } catch(e) { continue; } delete rec.dataUrl; }
+      const k = _sig(store, rec);
+      if (seen.has(k)) { skipped++; continue; }
+      await addRecord(store, rec);
+      seen.add(k); added++;
+    }
+  }
+
+  // 草稿箱 / 心情：current 取更新的那条，history 合并去重
+  for (const store of ['xinye_drafts','xinye_mood']) {
+    const incoming = data[store];
+    if (!Array.isArray(incoming)) continue;
+    const inCur = incoming.find(r => r.key === 'current');
+    const inHis = incoming.find(r => r.key === 'history');
+    const cur  = await getRecord(store, 'current');
+    const his  = (await getRecord(store, 'history')) || { key: 'history', items: [] };
+    const seen = new Set(his.items.map(i => i.time + '|' + i.content));
+
+    for (const it of (inHis?.items || [])) {
+      if (!it?.content || seen.has(it.time + '|' + it.content)) { skipped++; continue; }
+      his.items.push(it); seen.add(it.time + '|' + it.content); added++;
+    }
+    if (inCur?.content && (!cur || parseTime(inCur.time) > parseTime(cur.time))) {
+      if (cur?.content) { his.items.unshift({ content: cur.content, time: cur.time }); }
+      await putRecord(store, { key: 'current', content: inCur.content, time: inCur.time });
+      added++;
+    }
+    his.items.sort((a, b) => parseTime(b.time) - parseTime(a.time));
+    await putRecord(store, his);
+  }
+
+  return { added, skipped };
+}
+
+document.getElementById('btnImport').onclick = () => {
+  const f = document.getElementById('importFile');
+  f.value = ''; f.click();
+};
+document.getElementById('importFile').onchange = async (e) => {
+  const file = e.target.files?.[0];
   if (!file) return;
-  const btn = document.getElementById('pdImport');
-  btn.textContent = '导入中…'; btn.disabled = true;
+  if (file.size > 40 * 1024 * 1024) { toast('文件太大了（>40M），先别导'); return; }
+  toast('正在合并，别切走…');
   try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    await openDB();
-    for (const store of ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_browser']) {
-      if (!data[store]) continue;
-      await clearStore(store);
-      for (const item of data[store]) {
-        const { id, ...rest } = item;
-        await new Promise((res,rej)=>{ const r=tx(store,'readwrite').add(rest); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-      }
-    }
-    for (const store of ['xinye_drafts','xinye_mood']) {
-      if (!data[store]) continue;
-      await clearStore(store);
-      for (const item of data[store]) {
-        await new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(item); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-      }
-    }
-    if (data.xinye_photos) {
-      await clearStore('xinye_photos');
-      for (const item of data.xinye_photos) {
-        const { id, ...rec } = item;
-        if (rec.dataUrl) { rec.blob = dataUrlToBlob(rec.dataUrl); delete rec.dataUrl; }
-        await new Promise((res,rej)=>{ const r=tx('xinye_photos','readwrite').add(rec); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-      }
-    }
-    if (data.xinye_wallpapers) {
-      for (const wp of data.xinye_wallpapers) {
-        if (!wp.dataUrl) continue;
-        await new Promise((res,rej)=>{ const r=tx('xinye_wallpapers','readwrite').put({ key:wp.key, dataUrl:wp.dataUrl }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-      }
-    }
-    phoneDataPanel.classList.remove('show');
-    alert('导入成功！刷新页面生效。');
-  } catch(e) { alert('导入失败：' + e.message); }
-  finally { btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,5 17,10"/><line x1="12" y1="5" x2="12" y2="17"/></svg> 导入手机数据'; btn.disabled = false; }
-});
-
-// ── 时间 & 主题 ───────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  const hm = now.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-  const date = now.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
-  document.getElementById('statusTime').textContent = hm;
-  document.getElementById('lockTime').textContent = hm;
-  document.getElementById('lockDate').textContent = date;
-  document.getElementById('homeClockTime').textContent = hm;
-  document.getElementById('homeClockDate').textContent = date;
-}
-updateClock();
-setInterval(updateClock, 10000);
-
-const root = document.documentElement;
-let dark = localStorage.getItem('phone_theme') === 'dark';
-function applyTheme() {
-  root.setAttribute('data-theme', dark ? 'dark' : '');
-  const icon = document.getElementById('themeIcon');
-  icon.innerHTML = dark
-    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
-    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-}
-applyTheme();
-document.getElementById('themeToggle').addEventListener('click', () => { dark=!dark; localStorage.setItem('phone_theme', dark?'dark':''); applyTheme(); });
-
-// ── 导航 ─────────────────────────────────────────────────
-const lockScreen  = document.getElementById('lockScreen');
-const homeScreen  = document.getElementById('homeScreen');
-const appScreen   = document.getElementById('appScreen');
-const appTitle    = document.getElementById('appTitle');
-const appContent  = document.getElementById('appContent');
-const tabBar      = document.getElementById('tabBar');
-
-lockScreen.addEventListener('click', () => {
-  lockScreen.classList.add('hidden');
-  homeScreen.classList.add('show');
-});
-
-// 拦截 Android 实体返回键，防止 PWA 后退到启动画面
-history.pushState({ nav: true }, '');
-window.addEventListener('popstate', () => {
-  history.pushState({ nav: true }, '');
-  if (appScreen.classList.contains('show')) {
-    tabBar.style.display = 'none';
-    animateTransition(appScreen, homeScreen, true);
+    const { added, skipped } = await mergeImport(await file.text());
+    _shown = PAGE;
+    await loadAll(); renderTags(); renderFeed(true);
+    toast(`合并完成：新增 ${added} 条，跳过重复 ${skipped} 条`);
+  } catch (err) {
+    toast('导入失败：' + err.message);
   }
-});
+};
 
-function animateTransition(outEl, inEl, isBack = false) {
-  outEl.classList.add(isBack ? 'anim-back-out' : 'anim-slide-out');
-  inEl.classList.add('show');
-  inEl.classList.add(isBack ? 'anim-back-in' : 'anim-slide-in');
-  outEl.addEventListener('animationend', () => {
-    outEl.classList.remove('show', 'anim-slide-out', 'anim-back-out');
-  }, { once: true });
-  inEl.addEventListener('animationend', () => {
-    inEl.classList.remove('anim-slide-in', 'anim-back-in');
-  }, { once: true });
+// ======================== 主题 & 头像（跟主 APP 同步） ========================
+function syncTheme() {
+  let dark;
+  if (window.self === window.top) {
+    // 独立打开：退回主 APP 存在 localStorage 的那个开关
+    const s = localStorage.getItem('fox_dark');
+    dark = s !== null ? s === '1' : window.matchMedia('(prefers-color-scheme:dark)').matches;
+  } else {
+    // 在主 APP 的 iframe 里：只认父页面的主题，别用 localStorage 盖掉它
+    try { dark = window.parent.document.documentElement.dataset.theme === 'dark'; }
+    catch(e) { dark = window.matchMedia('(prefers-color-scheme:dark)').matches; }
+  }
+  document.documentElement.classList.toggle('dark', dark);
+  const mt = document.getElementById('metaThemeColor');
+  if (mt) mt.content = dark ? '#16121e' : '#fff8f0';
 }
 
-document.querySelectorAll('.app-icon').forEach(el => {
-  el.addEventListener('click', () => { if (!_iconEditMode) openApp(el.dataset.app); });
-});
-
-document.getElementById('backBtn').addEventListener('click', () => {
-  tabBar.style.display = 'none';
-  animateTransition(appScreen, homeScreen, true);
-});
-
-const APP_TITLES = { memo:'备忘录', lyrics:'歌单', quotes:'书摘', drafts:'草稿箱', mood:'心情', browser:'浏览器', photos:'相册' };
-let _currentApp = null, _currentTab = 'note';
-let _memoPage = 0, _lyricsPage = 0, _quotesPage = 0, _browserPage = 0, _photosPage = 0;
-const PAGE = 20;
-
-async function openApp(app) {
-  _currentApp = app;
+function syncAvatar() {
   try {
-    const _v = JSON.parse(localStorage.getItem('xinye_phone_visit_pending') || '{"time":"","apps":[]}');
-    if (!_v.time) _v.time = new Date().toISOString();
-    if (!_v.apps.includes(app)) _v.apps.push(app);
-    localStorage.setItem('xinye_phone_visit_pending', JSON.stringify(_v));
-  } catch(_e) {}
-  appTitle.textContent = APP_TITLES[app] || app;
-  appContent.innerHTML = '';
-  tabBar.style.display = app === 'memo' ? 'flex' : 'none';
-  if (app === 'memo') { _currentTab = 'note'; document.getElementById('tabNote').classList.add('active'); document.getElementById('tabTodo').classList.remove('active'); }
-  animateTransition(homeScreen, appScreen);
-  await renderApp(app);
+    const src = window.parent?.document?.getElementById('headerAvatar')?.src;
+    if (src) document.getElementById('ava').src = src;
+  } catch(e) {}
 }
 
-document.getElementById('tabNote').addEventListener('click', () => {
-  _currentTab = 'note'; document.getElementById('tabNote').classList.add('active'); document.getElementById('tabTodo').classList.remove('active');
-  renderApp('memo');
-});
-document.getElementById('tabTodo').addEventListener('click', () => {
-  _currentTab = 'todo'; document.getElementById('tabTodo').classList.add('active'); document.getElementById('tabNote').classList.remove('active');
-  renderApp('memo');
-});
-
-async function renderApp(app) {
-  await openDB();
-  appContent.innerHTML = '';
-  if (app === 'memo' && _currentTab === 'note') await renderNotes();
-  else if (app === 'memo' && _currentTab === 'todo') await renderTodos();
-  else if (app === 'lyrics') await renderLyrics();
-  else if (app === 'quotes') await renderQuotes();
-  else if (app === 'drafts') await renderDrafts();
-  else if (app === 'mood') await renderMood();
-  else if (app === 'browser') await renderBrowser();
-  else if (app === 'photos') await renderPhotos();
+// 兔宝翻他东西了 —— 下一次聊天他会"感知"到（chat.js 读这个 key）
+// 带上她当时在看哪一类，他就能说出"你刚才去翻我相册了"这种具体的
+const TAG2APP = { all: [], thought: ['memo'], photos: ['photos'], lyrics: ['lyrics'],
+                  quotes: ['quotes'], browser: ['browser'], todo: ['memo'] };
+function markVisit(tagKey) {
+  const apps = TAG2APP[tagKey ?? _tag] || [];
+  try { localStorage.setItem('xinye_phone_visit_pending', JSON.stringify({ time: Date.now(), apps })); } catch(e) {}
 }
 
-// ── SVG 删除按钮 ──────────────────────────────────────────
-const DEL_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-const DEL_SMALL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+// 主 APP 每次切到这个 Tab 会调它（见 diary.js switchTab）
+window.__fcOnShow = () => { syncTheme(); syncAvatar(); markVisit(); };
 
-function empty(msg='还没有记录') {
-  return `<div class="empty-state"><div class="empty-icon">·</div>${msg}</div>`;
-}
+// ======================== 启动 ========================
+document.getElementById('btnMore').onclick = () => { _shown += PAGE; renderFeed(false); };
 
-// ── 懒加载工具 ────────────────────────────────────────────
-let _sentinel = null;
-function setupLazyLoad(loadFn) {
-  if (_sentinel) { _sentinel._obs?.disconnect(); _sentinel = null; }
-  const el = document.createElement('div');
-  el.className = 'load-more-sentinel';
-  appContent.appendChild(el);
-  const obs = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) loadFn();
-  }, { threshold: 0.1 });
-  obs.observe(el);
-  el._obs = obs;
-  _sentinel = el;
-}
-
-// ── 备忘录 - 笔记 ────────────────────────────────────────
-async function renderNotes() {
-  const all = (await getAll('xinye_memo')).filter(m => m.type === 'note').reverse();
-  if (!all.length) { appContent.innerHTML = empty('还没有笔记'); return; }
-  _memoPage = 0;
-  function loadPage() {
-    const chunk = all.slice(_memoPage * PAGE, (_memoPage+1) * PAGE);
-    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
-    chunk.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'note-card';
-      div.innerHTML = `<div class="note-text">${escHtml(item.content)}</div><div class="note-time">${item.time||''}</div><button class="del-btn note-del" title="删除">${DEL_SMALL}</button>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_memo', item.id); div.remove(); });
-      appContent.insertBefore(div, _sentinel);
-    });
-    _memoPage++;
-    if (all.length <= _memoPage * PAGE && _sentinel) _sentinel._obs?.disconnect();
+(async function init() {
+  syncTheme();
+  syncAvatar();
+  if (window.self === window.top) {
+    // 被当成独立页面打开（比如桌面上那个旧图标）—— 这边读的是浏览器沙箱，不是他真正在写的那个库
+    document.getElementById('tip').hidden = false;
+  } else {
+    try {
+      const ph = window.parent.document.documentElement;
+      new MutationObserver(syncTheme).observe(ph, { attributes: true, attributeFilter: ['data-theme'] });
+    } catch(e) {}
   }
-  setupLazyLoad(loadPage);
-  loadPage();
-}
+  document.getElementById('tipClose').onclick = () => document.getElementById('tip').hidden = true;
 
-// ── 备忘录 - 待办 ────────────────────────────────────────
-async function renderTodos() {
-  const all = (await getAll('xinye_memo')).filter(m => m.type === 'todo');
-  const undone = all.filter(m => !m.done);
-  const done   = all.filter(m => m.done);
-  const sorted = [...undone, ...done];
-  if (!sorted.length) { appContent.innerHTML = empty('还没有待办'); return; }
-  sorted.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'todo-item';
-    div.innerHTML = `
-      <div class="todo-check${item.done?' done':''}" data-id="${item.id}">
-        <svg viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
-      </div>
-      <div class="item-body">
-        <div class="todo-text${item.done?' done':''}">${escHtml(item.content)}</div>
-        <div class="todo-time">${item.time||''}${item.trigger_at ? ' · ⏰ ' + item.trigger_at.replace('T',' ').slice(0,16) : ' · 无触发时间'}</div>
-      </div>
-      <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
-    div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_memo', item.id); div.remove(); });
-    div.querySelector('.todo-check').addEventListener('click', async () => {
-      item.done = !item.done;
-      const db2 = await openDB();
-      await new Promise((res,rej)=>{ const r=db2.transaction('xinye_memo','readwrite').objectStore('xinye_memo').put(item); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-      div.querySelector('.todo-check').classList.toggle('done', item.done);
-      div.querySelector('.todo-text').classList.toggle('done', item.done);
-    });
-    appContent.appendChild(div);
-  });
-}
-
-// ── 歌单 ─────────────────────────────────────────────────
-async function renderLyrics() {
-  const all = (await getAll('xinye_lyrics')).reverse();
-  if (!all.length) { appContent.innerHTML = empty('还没有歌词'); return; }
-  _lyricsPage = 0;
-  function loadPage() {
-    const chunk = all.slice(_lyricsPage * PAGE, (_lyricsPage+1) * PAGE);
-    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
-    chunk.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'lyric-card';
-      div.innerHTML = `
-        <div class="lyric-song">${escHtml(item.song||'')}</div>
-        <div class="lyric-artist">${escHtml(item.artist||'')}</div>
-        <div class="lyric-line">"${escHtml(item.line||'')}"</div>
-        ${item.why ? `<div class="lyric-why">${escHtml(item.why)}</div>` : ''}
-        <div class="lyric-time">${item.time||''}</div>
-        <button class="del-btn lyric-del" title="删除">${DEL_SMALL}</button>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_lyrics', item.id); div.remove(); });
-      appContent.insertBefore(div, _sentinel);
-    });
-    _lyricsPage++;
+  try {
+    await loadAll();
+  } catch (e) {
+    document.getElementById('feed').appendChild(el('div', 'empty', '读到数据时出错了：' + e.message));
+    return;
   }
-  setupLazyLoad(loadPage);
-  loadPage();
-}
-
-// ── 书摘 ─────────────────────────────────────────────────
-async function renderQuotes() {
-  const all = (await getAll('xinye_quotes')).reverse();
-  if (!all.length) { appContent.innerHTML = empty('还没有书摘'); return; }
-  _quotesPage = 0;
-  function loadPage() {
-    const chunk = all.slice(_quotesPage * PAGE, (_quotesPage+1) * PAGE);
-    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
-    chunk.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'quote-card';
-      div.innerHTML = `
-        <div class="quote-text">${escHtml(item.content||'')}</div>
-        <div class="quote-meta">
-          <span>${escHtml(item.source||'')} · ${item.time||''}</span>
-          <button class="quote-del del-btn" title="删除">${DEL_SMALL}</button>
-        </div>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_quotes', item.id); div.remove(); });
-      appContent.insertBefore(div, _sentinel);
-    });
-    _quotesPage++;
-  }
-  setupLazyLoad(loadPage);
-  loadPage();
-}
-
-// ── 草稿箱 ───────────────────────────────────────────────
-async function renderDrafts() {
-  const cur  = await getOne('xinye_drafts', 'current');
-  const hist = await getOne('xinye_drafts', 'history');
-  if (!cur && (!hist?.items?.length)) { appContent.innerHTML = empty('没有未寄出的话'); return; }
-
-  if (cur) {
-    const div = document.createElement('div');
-    div.className = 'draft-current';
-    div.innerHTML = `<div class="draft-label">最近没说出口的</div><div class="draft-text">${escHtml(cur.content)}</div><div class="draft-time">${cur.time||''}</div>`;
-    appContent.appendChild(div);
-  }
-
-  const items = hist?.items || [];
-  if (items.length) {
-    const hr = document.createElement('hr'); hr.className = 'draft-divider'; appContent.appendChild(hr);
-    const t = document.createElement('div'); t.className = 'draft-history-title'; t.textContent = '之前没说的'; appContent.appendChild(t);
-    items.forEach((item, idx) => {
-      const div = document.createElement('div');
-      div.className = 'draft-history-item';
-      div.innerHTML = `<div class="item-body"><div class="draft-history-text">${escHtml(item.content||'')}</div><div class="draft-history-time">${item.time||''}</div></div><button class="del-btn" title="删除">${DEL_SMALL}</button>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => {
-        items.splice(idx, 1);
-        const db2 = await openDB();
-        await new Promise((res,rej)=>{ const r=db2.transaction('xinye_drafts','readwrite').objectStore('xinye_drafts').put({ key:'history', items }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-        div.remove();
-      });
-      appContent.appendChild(div);
-    });
-  }
-}
-
-// ── 心情 ─────────────────────────────────────────────────
-async function renderMood() {
-  const cur  = await getOne('xinye_mood', 'current');
-  const hist = await getOne('xinye_mood', 'history');
-  if (!cur && (!hist?.items?.length)) { appContent.innerHTML = empty('还没有心情记录'); return; }
-
-  if (cur) {
-    const div = document.createElement('div');
-    div.className = 'mood-current';
-    div.innerHTML = `<div class="mood-label">现在</div><div class="mood-text">${escHtml(cur.content)}</div><div class="mood-time">${cur.time||''}</div>`;
-    appContent.appendChild(div);
-  }
-
-  const items = hist?.items || [];
-  if (items.length) {
-    const tl = document.createElement('div'); tl.className = 'mood-timeline';
-    items.forEach((item, idx) => {
-      const div = document.createElement('div');
-      div.className = 'mood-timeline-item';
-      div.innerHTML = `
-        <div class="mood-dot-col"><div class="mood-dot-el"></div></div>
-        <div class="item-body"><div class="mood-item-text">${escHtml(item.content||'')}</div><div class="mood-item-time">${item.time||''}</div></div>
-        <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => {
-        items.splice(idx, 1);
-        const db2 = await openDB();
-        await new Promise((res,rej)=>{ const r=db2.transaction('xinye_mood','readwrite').objectStore('xinye_mood').put({ key:'history', items }); r.onsuccess=res; r.onerror=e=>rej(e.target.error); });
-        div.remove();
-      });
-      tl.appendChild(div);
-    });
-    appContent.appendChild(tl);
-  }
-}
-
-// ── 浏览器 ───────────────────────────────────────────────
-async function renderBrowser() {
-  const all = (await getAll('xinye_browser')).reverse();
-  if (!all.length) { appContent.innerHTML = empty('没有浏览记录'); return; }
-  _browserPage = 0;
-  function loadPage() {
-    const chunk = all.slice(_browserPage * PAGE, (_browserPage+1) * PAGE);
-    if (!chunk.length) { if(_sentinel) _sentinel._obs?.disconnect(); return; }
-    chunk.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'browser-item';
-      div.innerHTML = `
-        <div class="browser-body">
-          <div class="browser-title">${escHtml(item.title||item.url||'')}</div>
-          ${item.url ? `<div class="browser-url">${escHtml(item.url)}</div>` : ''}
-          ${item.note ? `<div class="browser-note">${escHtml(item.note)}</div>` : ''}
-          <div class="browser-time">${item.time||''}</div>
-        </div>
-        <button class="del-btn" title="删除">${DEL_SMALL}</button>`;
-      div.querySelector('.del-btn').addEventListener('click', async () => { await del('xinye_browser', item.id); div.remove(); });
-      appContent.insertBefore(div, _sentinel);
-    });
-    _browserPage++;
-  }
-  setupLazyLoad(loadPage);
-  loadPage();
-}
-
-// ── 相册 ─────────────────────────────────────────────────
-async function renderPhotos() {
-  const all = (await getAll('xinye_photos')).reverse();
-  if (!all.length) { appContent.innerHTML = empty('还没有照片'); return; }
-  _photosPage = 0;
-  const grid = document.createElement('div'); grid.className = 'photo-grid';
-  appContent.appendChild(grid);
-
-  const sentinel = document.createElement('div'); sentinel.className = 'load-more-sentinel';
-  appContent.appendChild(sentinel);
-  const obs = new IntersectionObserver(entries => { if (entries[0].isIntersecting) loadPage(); }, { threshold: 0.1 });
-  obs.observe(sentinel);
-
-  const objectUrls = [];
-  function loadPage() {
-    const chunk = all.slice(_photosPage * PAGE, (_photosPage+1) * PAGE);
-    if (!chunk.length) { obs.disconnect(); return; }
-    chunk.forEach(item => {
-      if (item.type === 'memo') {
-        const cell = document.createElement('div');
-        cell.className = 'photo-memo-cell';
-        cell.innerHTML = `<div class="photo-memo-text">${escHtml(item.caption||'')}<br><span style="font-size:11px;color:var(--text3)">${item.time||''}</span></div>`;
-        const delBtn = document.createElement('button');
-        delBtn.className = 'photo-del'; delBtn.innerHTML = DEL_SMALL;
-        delBtn.style.cssText = 'position:absolute;top:6px;right:6px;background:rgba(0,0,0,.3)';
-        delBtn.addEventListener('click', e => { e.stopPropagation(); del('xinye_photos', item.id); cell.remove(); });
-        cell.style.position = 'relative';
-        cell.appendChild(delBtn);
-        grid.appendChild(cell);
-      } else if (item.blob) {
-        const url = URL.createObjectURL(item.blob);
-        objectUrls.push(url);
-        const cell = document.createElement('div'); cell.className = 'photo-cell';
-        cell.innerHTML = `<img src="${url}" alt="${escHtml(item.caption||'')}" loading="lazy">${item.caption ? `<div class="photo-caption">${escHtml(item.caption)}</div>` : ''}<button class="photo-del">${DEL_SMALL}</button>`;
-        cell.querySelector('img').addEventListener('click', () => showPhoto(url));
-        cell.querySelector('.photo-del').addEventListener('click', e => { e.stopPropagation(); del('xinye_photos', item.id); cell.remove(); });
-        grid.appendChild(cell);
-      }
-    });
-    _photosPage++;
-  }
-  loadPage();
-
-  window.addEventListener('beforeunload', () => objectUrls.forEach(u => URL.revokeObjectURL(u)), { once: true });
-}
-
-function showPhoto(url) {
-  const modal = document.getElementById('photoModal');
-  document.getElementById('photoModalImg').src = url;
-  modal.classList.add('show');
-  modal.onclick = () => modal.classList.remove('show');
-}
-
-// ── 工具 ─────────────────────────────────────────────────
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+  _shown = PAGE;
+  renderTags();
+  renderFeed(true);
+  markVisit();
+})();
 </script>
 </body>
 </html>
