@@ -221,6 +221,13 @@ export async function openSettings(ev) {
   $('#setVisionApiKey').value = settings.visionApiKey || '';
   $('#setVisionBaseUrl').value = settings.visionBaseUrl || '';
   $('#setVisionModel').value = settings.visionModel || '';
+  // 语音转写（视频笔记）。⚠️ 加了 id 判断：这个块只在 index/choubao 两页里有，
+  // 少一处就会让下面整段初始化 TypeError 挂掉（feedback_html_sync 记过一模一样的坑）
+  if ($('#setAsrApiKey')) {
+    $('#setAsrApiKey').value = settings.asrApiKey || '';
+    $('#setAsrBaseUrl').value = settings.asrBaseUrl || '';
+    $('#setAsrModel').value = settings.asrModel || '';
+  }
   const _imgSize = settings.imageSize || '1024x1024';
   let _imgRes = '1K';
   for (const [res, opts] of Object.entries(_IMAGE_SIZE_MAP)) {
@@ -1453,6 +1460,11 @@ export function initSettings() {
     settings.visionApiKey = $('#setVisionApiKey').value.trim();
     settings.visionBaseUrl = $('#setVisionBaseUrl').value.trim();
     settings.visionModel = $('#setVisionModel').value.trim();
+    if ($('#setAsrApiKey')) {
+      settings.asrApiKey = $('#setAsrApiKey').value.trim();
+      settings.asrBaseUrl = $('#setAsrBaseUrl').value.trim();
+      settings.asrModel = $('#setAsrModel').value.trim();
+    }
     settings.imageProxyUrl = ($('#setImageProxyUrl')?.value || '').trim().replace(/\/$/, '');
     settings.imageProxyToken = ($('#setImageProxyToken')?.value || '').trim();
     settings.imageSize = $('#setImageRatio').value || '1024x1024';

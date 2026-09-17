@@ -65,10 +65,22 @@ function _serverCandidate(kind) {
 async function _askServer(srv, linkUrl) {
   const fetchUrl = buildServerFetchUrl(srv, '/api/read-link');
   const headers = buildServerHeaders(srv, { 'Content-Type': 'application/json' });
+  const body = { url: linkUrl };
+  // 视频笔记要转文字（视频笔记的正文常常是空的）。key 由 APP 带上去，服务端不存口令。
+  // ⚠️ 必须放 **body** 里：走 Vercel 中转（cloud-proxy）时只转发 Content-Type 和 Authorization，
+  //    自定义 header 会被悄悄丢掉 —— 放 header 里的话出门那条路就永远不转写。
+  const _asrKey = (settings.asrApiKey || '').trim();
+  if (_asrKey) {
+    body.transcribe = true;
+    body.asrKey = _asrKey;
+    body.asrBase = (settings.asrBaseUrl || '').trim();
+    body.asrModel = (settings.asrModel || '').trim();
+  }
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 30000);
+  // 转写要抽音频再上传，比读网页慢得多，给它更长的窗口
+  const timer = setTimeout(() => ac.abort(), _asrKey ? 180000 : 30000);
   try {
-    const r = await fetch(fetchUrl, { method: 'POST', headers, body: JSON.stringify({ url: linkUrl }), signal: ac.signal });
+    const r = await fetch(fetchUrl, { method: 'POST', headers, body: JSON.stringify(body), signal: ac.signal });
     if (!r.ok) return { ok: false, reason: 'http_' + r.status };
     return await r.json();
   } finally { clearTimeout(timer); }

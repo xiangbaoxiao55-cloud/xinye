@@ -351,6 +351,20 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
       <button id="btnTestVision" onclick="testVisionApi()" style="background:var(--pink-deep);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer">测试识图连接</button>
       <div id="visionTestResult" style="margin-top:8px;font-size:12px;line-height:1.6;display:none"></div>
     </div>
+    <div class="setting-divider"><i class="ic ic-mic"></i> 语音转写 API（视频笔记转文字）</div>
+    <div class="setting-group">
+      <label>转写 API Key</label>
+      <input type="password" id="setAsrApiKey" placeholder="留空则视频笔记只给标题和封面">
+      <div class="hint">发来小红书**视频**链接时，把视频里的声音转成文字再发给主模型（视频笔记的正文常常是空的）。硅基流动的 <code>FunAudioLLM/SenseVoiceSmall</code> 是免费的。</div>
+    </div>
+    <div class="setting-group">
+      <label>转写 API URL</label>
+      <input type="url" id="setAsrBaseUrl" placeholder="https://api.siliconflow.cn/v1">
+    </div>
+    <div class="setting-group">
+      <label>转写模型名</label>
+      <input type="text" id="setAsrModel" placeholder="FunAudioLLM/SenseVoiceSmall">
+    </div>
     <div class="setting-divider"><i class="ic ic-palette"></i> 画图 API</div>
     <div class="setting-group">
       <label>画图预设（失败自动切换）</label>
