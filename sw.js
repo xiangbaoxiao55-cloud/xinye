@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260917-2129';
+const CACHE_NAME = 'xinye-20260917-2220';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -17,6 +17,7 @@ const STATIC_ASSETS = [
   '/src/modules/memory.js',
   '/src/modules/friends.js',
   '/src/modules/chat.js',
+  '/src/modules/readlink.js',
   '/src/modules/ui.js',
   '/src/modules/notifications.js',
   '/src/modules/stickers.js',

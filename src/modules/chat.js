@@ -8,6 +8,7 @@ import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchang
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
+import { extractKnownUrls, readLinkAsContext, fetchPageAsText } from './readlink.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -932,6 +933,26 @@ export async function sendMessage() {
     } catch (e) { console.warn('[识图] 失败，直接发原图', e); }
   }
 
+  // 兔宝发来的自媒体链接：自动读回来挂在这条消息上，炘也就看得见内容了。
+  // 读不到也不拦着发消息，只是挂一段"没读到"的说明（宁可他知道，也别让他假装没看见）。
+  const _linkUrls = extractKnownUrls(text);
+  if (_linkUrls.length) {
+    try {
+      toast('🔗 正在读链接…');
+      const _ctxs = [];
+      for (const _u of _linkUrls) _ctxs.push(await readLinkAsContext(_u));
+      const _ctx = _ctxs.filter(Boolean).join('\n\n');
+      if (_ctx) {
+        userMsg.linkContext = _ctx;
+        const _li = messages.findIndex(m => m.id === userMsg.id);
+        if (_li >= 0) messages[_li].linkContext = _ctx;
+        await dbPut(activeStore(), null, userMsg);
+        const _t = _ctx.match(/^标题：(.+)$/m);
+        toast('🔗 已读' + (_t ? '：' + _t[1].slice(0, 18) : '那条链接'));
+      }
+    } catch (e) { console.warn('[读链接] 失败，照常发消息', e); }
+  }
+
   if (imgs.length) {
     window.chatLastUserImage = imgs[0];
     dbPut('images', 'chatLastUserImage', imgs[0]).catch(() => {});
@@ -1210,13 +1231,25 @@ export async function sendMessage() {
         }
       }
       const msgDescs = m.imageDescs && m.imageDescs.some(d => d);
-      if (role === 'user' && msgDescs) {
+      // 兔宝发来的链接内容（readlink.js 读回来挂在消息上的），跟图片描述一样塞进 user 内容里
+      const _linkCtx = role === 'user' ? (m.linkContext || '') : '';
+      if (role === 'user' && (msgDescs || _linkCtx)) {
         const nums = ['', '①', '②', '③', '④', '⑤'];
-        const multi = m.imageDescs.length > 1;
+        const multi = msgDescs && (m.imageDescs.length > 1);
         const _uname = settings.userName || '兔宝';
-        const descText = m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n');
-        const fullText = [descText, m.content].filter(Boolean).join('\n');
-        apiMsgs.push({ role: 'user', content: fullText });
+        const descText = msgDescs
+          ? m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n')
+          : '';
+        const fullText = [_linkCtx, descText, m.content].filter(Boolean).join('\n');
+        if (msgImgs.length && !msgDescs) {
+          // 有链接又有原图、但没有识图结果时，别把图丢了
+          const parts = [];
+          if (fullText) parts.push({ type: 'text', text: fullText });
+          msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
+          apiMsgs.push({ role: 'user', content: parts });
+        } else {
+          apiMsgs.push({ role: 'user', content: fullText });
+        }
         _apiMeta.push({ label: settings.userName || '兔宝', time: m.time });
       } else if (role === 'user' && msgImgs.length) {
         const parts = [];
@@ -2114,13 +2147,10 @@ export async function sendMessage() {
       }
       if (name === 'fetch_page') {
         toast('🌐 读取网页…');
-        try {
-          const r = await fetchWithTimeout(`https://r.jina.ai/${args.url}`, {
-            headers: { 'Accept': 'text/plain', 'X-Return-Format': 'text' }
-          }, 30000);
-          if (!r.ok) return `Fetch failed: HTTP ${r.status}`;
-          return (await r.text()).slice(0, 3000);
-        } catch(e) { return `Fetch error: ${e.message}`; }
+        // 2026-09-17：原来走 r.jina.ai，那服务已经全局不可达（国内/梯子/海外全不通）。
+        // 改成走自家的 readlink.js（云端 + 本地 8787 两个出口）。
+        try { return (await fetchPageAsText(args.url)).slice(0, 3000); }
+        catch (e) { return `Fetch error: ${e.message}`; }
       }
       return 'Unknown tool: ' + name;
     }
