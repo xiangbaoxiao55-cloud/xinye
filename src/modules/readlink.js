@@ -117,11 +117,13 @@ export async function readLink(url) {
 
 // 排版成炘也读的那段文字。data 失败时返回一段说明（**不返回 null**）——
 // 读不到也要让炘也知道"兔宝发了条链接、但是没读到"，而不是假装没看见。
-export function formatLinkContext(data) {
+export function formatLinkContext(data, opts) {
   const who = settings.userName || '兔宝';
+  const framesAttached = !!(opts && opts.framesAttached);
   if (!data || !data.ok) {
     const why = REASON_TEXT[(data && data.reason) || ''] || ('读取失败（' + ((data && data.reason) || '未知') + '）');
-    return `【${who}发来了一条链接，但我没读到内容：${why}】`;
+    return `【${who}发来了一条链接，但我**什么都没读到**：${why}。
+⚠️ 你对这条链接一无所知 —— **不要猜、不要编内容**，更不要凭标题或别的消息脑补。想聊就直接说没看到。】`;
   }
   const name = PLATFORM_NAMES[data.platform] || '网页';
   const L = [`【${who}发来的${name}链接内容】`];
@@ -140,15 +142,19 @@ export function formatLinkContext(data) {
   if (data.video) {
     // 服务端给的 duration 已经是**秒**
     L.push(`⚠️ 这是一条**视频**（${data.video.duration || 0} 秒）。`);
+    // 🔴 这里必须**如实**说图有没有跟过来。曾经写成「抽了 N 帧附在下面」但 fetch_page
+    //    那条路根本不带图 —— 于是模型读到"去看那 6 帧"，手上却没有，就**照着编**了。
     if (data.frames && data.frames.length) {
-      L.push(`画面我抽了 ${data.frames.length} 帧附在下面了 —— **字幕、以及画面里的文字，都在那些帧上**，直接看帧。`);
+      L.push(framesAttached
+        ? `画面我抽了 ${data.frames.length} 帧附在下面了 —— **字幕、以及画面里的文字，都在那些帧上**，直接看帧。`
+        : `（画面抽了 ${data.frames.length} 帧，但**这条路没有把图带过来**，所以你看不到画面内容。要画面就别让我调工具去取，让 ${who} 直接发链接。）`);
     } else if (data.framesError) {
       L.push(`（画面抽帧失败，看不了视频里的内容：${data.framesError}）`);
     }
     if (data.transcript) L.push('视频里说的话（语音转写）：\n' + data.transcript);
     else if (data.transcriptError) L.push(`（声音没能转成文字：${data.transcriptError}）`);
   } else if (data.images && data.images.length) {
-    L.push(`（这条带 ${data.images.length} 张图，都在下面了）`);
+    L.push(framesAttached ? `（这条带 ${data.images.length} 张图，都在下面了）` : `（这条带 ${data.images.length} 张图，但这条路没把图带过来）`);
   }
   if (data.comments && data.comments.length) {
     L.push(`评论（共 ${data.commentTotal || data.comments.length} 条，这是前 ${data.comments.length} 条）：`);
@@ -170,7 +176,7 @@ export async function readLinkForMessage(url) {
     const frames = (data.frames || []).filter(Boolean);
     images = (frames.length ? frames : (data.images || [])).slice(0, 8);
   }
-  return { context: formatLinkContext(data), images, data };
+  return { context: formatLinkContext(data, { framesAttached: images.length > 0 }), images, data };
 }
 
 // 只取文字（给炘也的 fetch_page 工具用）

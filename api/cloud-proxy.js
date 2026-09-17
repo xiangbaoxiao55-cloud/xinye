@@ -58,7 +58,12 @@ module.exports = async (req, res) => {
       path: targetUrl.pathname + targetUrl.search,
       method,
       headers: fwdHeaders,
-      timeout: 30000
+      // ⚠️ 这个 timeout 是**中转函数自己**给上游的时间，跟 Vercel 的函数上限是两码事。
+      // 原来是 30000 —— 2026-09-17 踩到：云端读一条小红书视频笔记（要下 29MB 再抽帧）
+      // 跑了 59.9 秒，中转 30 秒就放弃了，APP 那边**什么都没收到**，
+      // 表现成"读了但只有标题"甚至"没读到"，跟服务端日志对不上。
+      // 收到 55 秒，贴着 Vercel 免费版 60 秒的函数上限。真要跑更久得让云端直连（配 HTTPS）。
+      timeout: 55000
     }, proxyRes => {
       const ct = proxyRes.headers['content-type'] || 'application/json';
       res.status(proxyRes.statusCode).setHeader('Content-Type', ct);
