@@ -411,10 +411,6 @@ export async function renderMessages() {
     let _bubbleInner;
     if (_stickerName) {
       _bubbleInner = window.renderStickerHTML?.(_stickerName) || escHtml(msg.content);
-    } else if (!isUser && msg.isGenImageError) {
-      const _errTxt = msg.content.replace(/^\[画图失败\]\s*/, '');
-      const _errPr = msg.genImageErrorPrompt || '';
-      _bubbleInner = `<div class="gen-img-error"><span class="gen-img-error-text">${escHtml(_errTxt)}</span>${_errPr ? `<button class="btn-gen-img-retry-err" data-id="${msg.id}">重试</button>` : ''}</div>`;
     } else if (!isUser && msg.isGenImage && (msg.genImageData || msg._hasGenImage)) {
       const _gp = _extractGenPrompt(msg.content);
       const _gpBm = `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
@@ -426,7 +422,7 @@ export async function renderMessages() {
       } else {
         _imgHtmlPart = _lazyImgPlaceholder(msg.id, 'genImageData');
       }
-      _bubbleInner = `${_imgHtmlPart}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
+      _bubbleInner = `${_imgHtmlPart}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm}</div><div class="gen-prompt-body">${escHtml(_gp)}</div></div>`;
     } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
       const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
       _bubbleInner = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
@@ -498,17 +494,13 @@ export async function appendMsgDOM(msg) {
   let _bi;
   if (_sn) {
     _bi = window.renderStickerHTML?.(_sn) || escHtml(msg.content);
-  } else if (!isUser && msg.isGenImageError) {
-    const _errTxt2 = msg.content.replace(/^\[画图失败\]\s*/, '');
-    const _errPr2 = msg.genImageErrorPrompt || '';
-    _bi = `<div class="gen-img-error"><span class="gen-img-error-text">${escHtml(_errTxt2)}</span>${_errPr2 ? `<button class="btn-gen-img-retry-err" data-id="${msg.id}">重试</button>` : ''}</div>`;
   } else if (!isUser && msg.isGenImage && msg.genImageData) {
     const _gp2 = _extractGenPrompt(msg.content);
     const _gpBm2 = `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z" fill="currentColor" opacity="${_isBookmarked2?'1':'0.55'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`;
     const _origUrl2 = msg.genImageData.startsWith('__HTTP_URL__:') ? msg.genImageData.slice(13) : null;
     const _imgSrc2 = _origUrl2 ? null : (msg.genImageData.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(msg.genImageData) : msg.genImageData);
     const _imgHtmlPart2 = _origUrl2 ? `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(_origUrl2)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>` : `<img class="gen-img" src="${escHtml(_imgSrc2)}" alt="炘也画的图" data-src="${escHtml(_imgSrc2)}">`;
-    _bi = `${_imgHtmlPart2}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button><button class="btn-gen-img-redo" data-id="${msg.id}">改画</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
+    _bi = `${_imgHtmlPart2}<div class="gen-prompt-wrap"><div class="gen-prompt-header"><div class="gen-img-actions"><button class="btn-gen-img-save" data-id="${msg.id}">保存</button><button class="btn-gen-img-retry" data-id="${msg.id}">重试</button></div><button class="btn-gen-prompt-toggle" onclick="const w=this.closest('.gen-prompt-wrap');w.classList.toggle('open');this.textContent=w.classList.contains('open')?'prompt ▴':'prompt ▾'">prompt ▾</button>${_gpBm2}</div><div class="gen-prompt-body">${escHtml(_gp2)}</div></div>`;
   } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
     const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
     _bi = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
@@ -643,27 +635,6 @@ chatArea.addEventListener('click', async e => {
         });
       }
     }
-    return;
-  }
-  const genImgRedoBtn = e.target.closest('.btn-gen-img-redo');
-  if (genImgRedoBtn) {
-    const id = Number(genImgRedoBtn.dataset.id);
-    const msg = messages.find(m => m.id === id);
-    if (msg) {
-      const prompt = _extractGenPrompt(msg.content);
-      if (prompt) {
-        userInput.value = prompt;
-        userInput.focus();
-        window.autoResize?.(); window.updateSendBtn?.();
-      }
-    }
-    return;
-  }
-  const genImgRetryErrBtn = e.target.closest('.btn-gen-img-retry-err');
-  if (genImgRetryErrBtn) {
-    const id = Number(genImgRetryErrBtn.dataset.id);
-    const msg = messages.find(m => m.id === id);
-    if (msg && msg.genImageErrorPrompt && window.generateImage) window.generateImage(msg.genImageErrorPrompt);
     return;
   }
   const bookmarkBtn = e.target.closest('.btn-bookmark');
