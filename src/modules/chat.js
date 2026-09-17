@@ -630,7 +630,18 @@ chatArea.addEventListener('click', async e => {
     const msg = messages.find(m => m.id === id);
     if (msg) {
       const prompt = _extractGenPrompt(msg.content);
-      if (prompt && window.generateImage) window.generateImage(prompt, { refChars: msg.genRefChars, styleRef: msg.genStyleRef });
+      // 带上这张图原本的尺寸和垫图，后台重画：不锁输入框、不伪造她说过的话（和「炘也自己画」一样是异步的）
+      if (prompt && window.generateImage) {
+        const _btn = genImgRetryBtn;
+        _btn.disabled = true; _btn.textContent = '重画中…';
+        toast('重新画一张…');
+        Promise.resolve(window.generateImage(prompt, {
+          refChars: msg.genRefChars, styleRef: msg.genStyleRef,
+          size: msg.genSize, background: true,
+        })).finally(() => {
+          if (_btn.isConnected) { _btn.disabled = false; _btn.textContent = '重试'; }
+        });
+      }
     }
     return;
   }
@@ -1866,6 +1877,7 @@ export async function sendMessage() {
           const _ctxDesc = `[🎨 ${settings.aiName||'炘也'}画了一张图${_refTag}]\n提示词：${args.prompt}`;
           const _genMsg = await addMessage('assistant', _ctxDesc);
           _genMsg.isGenImage = true; _genMsg.genImageData = _dataUrl;
+          _genMsg.genSize = args.size || settings.imageSize || '1024x1024';   // 气泡上的「重试」要按原尺寸重画
           _genMsg.genRefChars = args.ref_characters || 'none';
           if (args.style_ref) _genMsg.genStyleRef = args.style_ref;
           if (_PFX === '') window._currentTurnGeneratedDataUrl = _dataUrl;

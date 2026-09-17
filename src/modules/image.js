@@ -90,14 +90,18 @@ export async function compositeRefImages(dataUrls) {
 
 export async function generateImage(userDesc, opts = {}) {
   if (!settings.apiKey) { toast('请先设置 API Key'); return; }
-  if (window.isRequesting) return;
+  // opts.background：气泡上的「重试」走这条 —— 图在后台跑，不锁输入框、不动她正在打的东西
+  const _bg = !!opts.background;
+  if (!_bg && window.isRequesting) return;
 
   const userInput = document.getElementById('userInput');
   const btnSend = document.getElementById('btnSend');
   const typing = document.getElementById('typingIndicator');
   const imgPreview = document.getElementById('imgPreview');
 
-  const refImgs = [...window.pendingImages];
+  const _size = opts.size || settings.imageSize || '1024x1024';
+  // 后台重试不能用她此刻挂在输入框里的待发图，只用 opts 指定的参考图
+  const refImgs = _bg ? [] : [...window.pendingImages];
   if (opts.refChars && opts.refChars !== 'none') {
     const _aiRef = await dbGet('images', 'aiRef').catch(() => null);
     const _userRef = await dbGet('images', 'userRef').catch(() => null);
@@ -112,19 +116,22 @@ export async function generateImage(userDesc, opts = {}) {
       if (_srImg) refImgs.push(_srImg);
     }
   }
-  if (userInput) userInput.value = '';
-  if (typeof window.autoResize === 'function') window.autoResize();
-  window.pendingImages = [];
-  if (imgPreview) imgPreview.classList.remove('show');
-  resetIdleTimer();
+  if (!_bg) {
+    // 只有「她主动要画」才动输入框、才把她的话落进聊天；后台重试不碰她在打的东西、也不伪造她说的话
+    if (userInput) userInput.value = '';
+    if (typeof window.autoResize === 'function') window.autoResize();
+    window.pendingImages = [];
+    if (imgPreview) imgPreview.classList.remove('show');
+    resetIdleTimer();
 
-  const userMsg = await addMessage('user', userDesc, refImgs.length ? refImgs : null);
-  await appendMsgDOM(userMsg);
+    const userMsg = await addMessage('user', userDesc, refImgs.length ? refImgs : null);
+    await appendMsgDOM(userMsg);
 
-  window.isRequesting = true;
-  if (btnSend) btnSend.disabled = true;
-  if (typing) typing.classList.add('show');
-  scrollBottom();
+    window.isRequesting = true;
+    if (btnSend) btnSend.disabled = true;
+    if (typing) typing.classList.add('show');
+    scrollBottom();
+  }
 
   const hasRef = refImgs.length > 0;
   const ctrl = new AbortController();
@@ -169,7 +176,7 @@ export async function generateImage(userDesc, opts = {}) {
         let imgRes;
         const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
         const _mode = hasRef ? 'edits' : (imgFmt === 'chat' ? 'chat' : 'generations');
-        console.log(`[${_ts()}] → ${_mode} | ${_presetName} | ${settings.imageSize||'1024x1024'} | ${raw}\n         prompt: ${prompt.slice(0,80)}`);
+        console.log(`[${_ts()}] → ${_mode} | ${_presetName} | ${_size} | ${raw}\n         prompt: ${prompt.slice(0,80)}`);
         const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
         if (hasRef) {
           const baseRaw = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
@@ -177,7 +184,7 @@ export async function generateImage(userDesc, opts = {}) {
           const _makeEditsForm = async () => {
             const f = new FormData();
             f.append('model', imgModel); f.append('prompt', prompt);
-            f.append('n', '1'); f.append('size', settings.imageSize || '1024x1024');
+            f.append('n', '1'); f.append('size', _size);
             if (_preset?.singleImage && refImgs.length > 1) {
               const _imgs = await Promise.all(refImgs.map(b => new Promise((res, rej) => {
                 const _i = new Image(); _i.onload = () => res(_i); _i.onerror = rej; _i.src = b;
@@ -236,13 +243,13 @@ export async function generateImage(userDesc, opts = {}) {
             try {
               imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
                 method: 'POST', headers: _genH,
-                body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: imgFmt }),
+                body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: _size, response_format: 'url', api_format: imgFmt }),
                 signal: ctrl.signal
               });
             } catch(proxyErr) {
               imgRes = await fetch(genEndpoint, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-                body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+                body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url' }),
                 signal: ctrl.signal
               });
             }
@@ -250,7 +257,7 @@ export async function generateImage(userDesc, opts = {}) {
             imgRes = await fetch(genEndpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-              body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+              body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url' }),
               signal: ctrl.signal
             });
           }
@@ -354,6 +361,7 @@ export async function generateImage(userDesc, opts = {}) {
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
+    aiMsg.genSize = _size;   // 记下来，气泡上的「重试」要按原尺寸重画
     if (opts.refChars) aiMsg.genRefChars = opts.refChars;
     if (opts.styleRef) aiMsg.genStyleRef = opts.styleRef;
     await dbPut(activeStore(), null, aiMsg);
@@ -372,9 +380,11 @@ export async function generateImage(userDesc, opts = {}) {
     }
   } finally {
     clearTimeout(tid);
-    if (typing) typing.classList.remove('show');
-    window.isRequesting = false;
-    if (btnSend && userInput) btnSend.disabled = userInput.value.trim() === '';
+    if (!_bg) {
+      if (typing) typing.classList.remove('show');
+      window.isRequesting = false;
+      if (btnSend && userInput) btnSend.disabled = userInput.value.trim() === '';
+    }
   }
 }
 
@@ -384,6 +394,8 @@ export async function generateImage(userDesc, opts = {}) {
  * ⚠️ 不能拿 generateImage() 在后台直接调：那是「她在聊天里点了画图」那条路 ——
  *    它会把 prompt 当成**她说的话**写进聊天、清空输入框、锁住发送键，画完再落一条 AI 气泡。
  *    后台悄悄出图用那个，聊天里会凭空多出一堆她没说过的话，还会卡住她打字。
+ *    （2026-09-17 起 generateImage 支持 `opts.background`，气泡上的「重试」走的就是那条 ——
+ *     它同样不落用户气泡、不锁输入框；但这里仍然只用这个函数，因为它不落**任何**气泡。）
  *
  * 这里只做最朴素的一件事：按画图预设依次试 → 出一张图返回 dataUrl；全失败返回 null。
  * 🔴 请求体刻意跟 generateImage 无参考图那条分支**保持一致**（含 `api_format`）——
