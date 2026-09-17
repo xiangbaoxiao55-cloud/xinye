@@ -65,20 +65,20 @@ function _serverCandidate(kind) {
 async function _askServer(srv, linkUrl) {
   const fetchUrl = buildServerFetchUrl(srv, '/api/read-link');
   const headers = buildServerHeaders(srv, { 'Content-Type': 'application/json' });
-  const body = { url: linkUrl };
+  const body = { url: linkUrl, enrich: true };
   // 视频笔记要转文字（视频笔记的正文常常是空的）。key 由 APP 带上去，服务端不存口令。
   // ⚠️ 必须放 **body** 里：走 Vercel 中转（cloud-proxy）时只转发 Content-Type 和 Authorization，
   //    自定义 header 会被悄悄丢掉 —— 放 header 里的话出门那条路就永远不转写。
+  // （抽帧不需要 key，所以 enrich 恒开；没有 key 时视频至少也能看到画面里的字。）
   const _asrKey = (settings.asrApiKey || '').trim();
   if (_asrKey) {
-    body.transcribe = true;
     body.asrKey = _asrKey;
     body.asrBase = (settings.asrBaseUrl || '').trim();
     body.asrModel = (settings.asrModel || '').trim();
   }
   const ac = new AbortController();
-  // 转写要抽音频再上传，比读网页慢得多，给它更长的窗口
-  const timer = setTimeout(() => ac.abort(), _asrKey ? 180000 : 30000);
+  // 视频要抽帧（约 2-3 秒）、转写还要再抽音频上传，给它更长的窗口
+  const timer = setTimeout(() => ac.abort(), _asrKey ? 180000 : 60000);
   try {
     const r = await fetch(fetchUrl, { method: 'POST', headers, body: JSON.stringify(body), signal: ac.signal });
     if (!r.ok) return { ok: false, reason: 'http_' + r.status };
@@ -132,11 +132,17 @@ export function formatLinkContext(data) {
   if (data.tags && data.tags.length) L.push('标签：' + data.tags.join(' '));
   if (data.video) {
     // 服务端给的 duration 已经是**秒**
-    L.push(`⚠️ 这是一条**视频**（${data.video.duration || 0} 秒）` +
-      (data.transcript ? '，下面的文字是视频里说的话：\n' + data.transcript
-        : '，我听不到视频里的声音' + (data.transcriptError ? `（转写失败：${data.transcriptError}）` : '（还没接转写）')));
+    L.push(`⚠️ 这是一条**视频**（${data.video.duration || 0} 秒）。`);
+    if (data.frames && data.frames.length) {
+      L.push(`画面我抽了 ${data.frames.length} 帧附在下面了 —— **字幕、以及画面里的文字，都在那些帧上**，直接看帧。`);
+    } else if (data.framesError) {
+      L.push(`（画面抽帧失败，看不了视频里的内容：${data.framesError}）`);
+    }
+    if (data.transcript) L.push('视频里说的话（语音转写）：\n' + data.transcript);
+    else if (data.transcriptError) L.push(`（声音没能转成文字：${data.transcriptError}）`);
+  } else if (data.images && data.images.length) {
+    L.push(`（这条带 ${data.images.length} 张图，都在下面了）`);
   }
-  if (data.images && data.images.length) L.push(`（这条带 ${data.images.length} 张图）`);
   if (data.comments && data.comments.length) {
     L.push(`评论（共 ${data.commentTotal || data.comments.length} 条，这是前 ${data.comments.length} 条）：`);
     data.comments.slice(0, 8).forEach(c => L.push(`  · ${c.user ? c.user + '：' : ''}${c.text}${c.ip ? '（' + c.ip + '）' : ''}`));
@@ -150,9 +156,14 @@ export function formatLinkContext(data) {
 // 主模型自己看。没有识图模型也照样能用。
 export async function readLinkForMessage(url) {
   const data = await readLink(url);
-  // 图最多带 4 张：一是省 token，二是小红书一条能贴 18 张
-  const images = (data && data.ok && data.images) ? data.images.slice(0, 4) : [];
-  return { context: formatLinkContext(data, null), images, data };
+  let images = [];
+  if (data && data.ok) {
+    // 视频优先用**抽出来的帧**（字幕/画面文字就在帧上，比封面有信息量得多）；
+    // 没有帧就退回封面。图文笔记本来就是图。
+    const frames = (data.frames || []).filter(Boolean);
+    images = (frames.length ? frames : (data.images || [])).slice(0, 8);
+  }
+  return { context: formatLinkContext(data), images, data };
 }
 
 // 只取文字（给炘也的 fetch_page 工具用）
