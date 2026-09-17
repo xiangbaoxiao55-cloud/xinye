@@ -269,6 +269,16 @@ async function _consumePushInbox(opts = {}) {
       allMessages.push({ content: m.content, time: m.time });
     }
 
+    if (!allMessages.length) return _savedRows;
+
+    // ⚠️ 顺序要紧：**先**把这个模块拿到手（失败就抛出去，下面的游标一步都不动），
+    //    再推进游标。2026-09-17 抓到的坑：这行原本写成 `'./modules/chat.js'` ——
+    //    main.js 时代的相对路径，搬进 src/modules/ 之后解析成 src/modules/modules/chat.js，
+    //    那个文件不存在 → import 必失败。而游标写在它**前面**，于是每一步都"成功"：
+    //    消息被标成已消费、lastSyncTime 推过去、聊天里一条都没有，而且再也补不回来。
+    //    （症状：通知照弹、聊天里空 —— 通知走原生 ProactiveService，不经过这里。）
+    const { addMessage, appendMsgDOM, renderMessages } = await import('./chat.js');
+
     // 去重状态立刻落盘（不能等消息写完再存，否则并发调用会重复消费同一条）
     if (consumedSet.size !== consumed.length)
       localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
@@ -277,10 +287,7 @@ async function _consumePushInbox(opts = {}) {
       if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
     }
 
-    if (!allMessages.length) return _savedRows;
-
     // 逐条追加，不用 renderMessages：整屏重绘会清空重建，页面会从顶部弹回底部
-    const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
     for (const msg of allMessages) {
@@ -332,11 +339,13 @@ async function _consumeOverlayReply() {
   if (!raw) return;
   _drainingOverlay = true;
   try {
+    // ⚠️ 先拿到 chat 模块，**再**删她说的话（同 _consumePushInbox 那个 import 坑，2026-09-17）：
+    //    不然模块加载失败时她的话已经被抹掉，那条回复就永远回不来了
+    const { addMessage, appendMsgDOM, renderMessages } = await import('./chat.js');
     localStorage.removeItem('xinye_overlay_reply');
     const d = JSON.parse(raw);
     if (!d || !d.text) return;
 
-    const { addMessage, appendMsgDOM, renderMessages } = await import('./modules/chat.js');
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
     // 他在覆盖层里说的那几句，**先**落进聊天 —— 她回话之前先看到的就是那些话。
@@ -354,7 +363,7 @@ async function _consumeOverlayReply() {
 
     // 她在抖音上说的话，当然该接一句。⚠️ 她正在打字发消息时别插队（triggerProactiveReply 自带这层保护）
     if (!window.isRequesting) {
-      const { triggerProactiveReply } = await import('./modules/chat.js');
+      const { triggerProactiveReply } = await import('./chat.js');
       const when = d.app ? `在「${d.app}」被拦下的时候，` : '刚才，';
       // 我在她屏幕上弹的那几句也带上 —— 不然我接的话接不上自己刚说过什么
       const said = _saidLines ? `你在她屏幕上弹的是：「${_saidLines.replace(/\n+/g, ' / ')}」。` : '';
