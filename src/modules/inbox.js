@@ -167,6 +167,29 @@ function _retrySubscribeInBackground(reg, publicKey, srv) {
 //    以臭宝的身份写进臭宝的聊天里（2026-09-14 兔宝报的「臭宝里能看见炘也的主动消息」）
 async function _fetchInboxPayload() {
   const _appId = window.__APP_ID__ || 'xinye';
+
+  // ── 一次性回补（2026-09-17 加，捞回消息后这段就可以删）────────────────
+  // 9/16 18:55 ~ 9/17 13:50 之间的主动消息被那个 import 路径 bug 吞了：游标被推过去了、
+  // "已消费"标记也写了，聊天里却一条没有 —— 所以光修代码不够，游标已经越过它们了，
+  // 不拨回去就永远拉不到。这里把游标拨回那之前、清掉已消费标记，让它们重新走一遍正常流程。
+  // ⚠️ 只在炘也侧做：臭宝没有这段历史，而且两个 APP 共用一份云端消息（见 _fetchInboxPayload 注释）
+  // ⚠️ 拨回的界要**比 bug 引入时间早一点点但别早太多** —— 早过头会把已经上过屏的旧消息重拉一遍
+  //    （重复的那层只靠 `_seen` 最近 30 条兜着，不保险）
+  const _BF = 'inbox_backfill_20260917';
+  if (_appId === 'xinye' && !localStorage.getItem(_BF)) {
+    const _from = new Date('2026-09-16T18:55:00+08:00').getTime();
+    const _cur = parseInt(localStorage.getItem('heartbeat_lastSyncTime') || '0');
+    if (_cur > _from) {
+      // ⚠️ 标记只在**真的做了回补**时才写。写早了会把这次机会白白消耗掉
+      //    （比如她先开了个新库、游标是 0 → 那本来就拉得到，不该算用过）
+      localStorage.setItem(_BF, '1');
+      localStorage.setItem('heartbeat_lastSyncTime', String(_from));
+      localStorage.removeItem('heartbeat_consumedIds');
+      console.log('[Push] 一次性回补：游标拨回 2026-09-16 18:55，重捞被吞掉的主动消息');
+    }
+    // 游标比界还早 = 那些消息本来就拉得到，什么都不用做
+  }
+
   // ① 后台收到 push 时 SW 写进 IndexedDB 的收件箱
   let pushMsgs = [];
   try {
