@@ -74,14 +74,7 @@ async function _askServer(srv, linkUrl) {
   } finally { clearTimeout(timer); }
 }
 
-// 小红书正文常常很短、内容全在图里，所以顺带让识图看一眼（最多 3 张，尽力而为）
-async function _describeImages(urls) {
-  if (!settings.visionApiKey || !window.describeImagesWithVision || !urls || !urls.length) return null;
-  try {
-    const descs = await window.describeImagesWithVision(urls.slice(0, 3));
-    return descs && descs.some(Boolean) ? descs : null;
-  } catch (e) { console.warn('[读链接] 识图失败（不影响正文）', e); return null; }
-}
+// 小红书正文常常很短、内容全在图里，所以把图附在消息上一起交给主模型（见 readLinkForMessage）
 
 // 拿到链接的原始数据（不排版）。微信优先走本地，其余优先走云端。
 export async function readLink(url) {
@@ -105,7 +98,7 @@ export async function readLink(url) {
 
 // 排版成炘也读的那段文字。data 失败时返回一段说明（**不返回 null**）——
 // 读不到也要让炘也知道"兔宝发了条链接、但是没读到"，而不是假装没看见。
-export function formatLinkContext(data, imagesDesc) {
+export function formatLinkContext(data) {
   const who = settings.userName || '兔宝';
   if (!data || !data.ok) {
     const why = REASON_TEXT[(data && data.reason) || ''] || ('读取失败（' + ((data && data.reason) || '未知') + '）');
@@ -125,12 +118,13 @@ export function formatLinkContext(data, imagesDesc) {
     if (bits.length) L.push('数据：' + bits.join(' '));
   }
   if (data.tags && data.tags.length) L.push('标签：' + data.tags.join(' '));
-  if (imagesDesc) {
-    L.push('图上的内容（AI 识图，共 ' + (data.images || []).length + ' 张，看了前 ' + imagesDesc.length + ' 张）：');
-    imagesDesc.forEach((d, i) => { if (d) L.push(`  图${i + 1}：${d}`); });
-  } else if (data.images && data.images.length) {
-    L.push(`（这条带 ${data.images.length} 张图，但没有识图结果，我不知道图里画了什么）`);
+  if (data.video) {
+    // 服务端给的 duration 已经是**秒**
+    L.push(`⚠️ 这是一条**视频**（${data.video.duration || 0} 秒）` +
+      (data.transcript ? '，下面的文字是视频里说的话：\n' + data.transcript
+        : '，我听不到视频里的声音' + (data.transcriptError ? `（转写失败：${data.transcriptError}）` : '（还没接转写）')));
   }
+  if (data.images && data.images.length) L.push(`（这条带 ${data.images.length} 张图）`);
   if (data.comments && data.comments.length) {
     L.push(`评论（共 ${data.commentTotal || data.comments.length} 条，这是前 ${data.comments.length} 条）：`);
     data.comments.slice(0, 8).forEach(c => L.push(`  · ${c.user ? c.user + '：' : ''}${c.text}${c.ip ? '（' + c.ip + '）' : ''}`));
@@ -138,17 +132,18 @@ export function formatLinkContext(data, imagesDesc) {
   return L.join('\n');
 }
 
-// 一步到位：读 + 识图 + 排版。失败也返回一段说明文字。
-export async function readLinkAsContext(url) {
+// 一步到位：读 + 排版，并把**图片原样带回去**。
+// 为什么不在这里调识图模型：兔宝从来没配识图模型（她一直是把图直接甩给主模型看的）。
+// 所以链接里的图也走同一条路 —— 由 chat.js 跟她的图片一样当 image_url 发出去，
+// 主模型自己看。没有识图模型也照样能用。
+export async function readLinkForMessage(url) {
   const data = await readLink(url);
-  let desc = null;
-  if (data && data.ok && data.platform === 'xiaohongshu' && data.images && data.images.length) {
-    desc = await _describeImages(data.images);
-  }
-  return formatLinkContext(data, desc);
+  // 图最多带 4 张：一是省 token，二是小红书一条能贴 18 张
+  const images = (data && data.ok && data.images) ? data.images.slice(0, 4) : [];
+  return { context: formatLinkContext(data, null), images, data };
 }
 
-// 给炘也的 fetch_page 工具用：拿到一段尽量完整的网页文字
+// 只取文字（给炘也的 fetch_page 工具用）
 export async function fetchPageAsText(url) {
   const data = await readLink(url);
   if (!data || !data.ok) {

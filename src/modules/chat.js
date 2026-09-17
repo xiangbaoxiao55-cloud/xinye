@@ -8,7 +8,7 @@ import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchang
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
-import { extractKnownUrls, readLinkAsContext, fetchPageAsText } from './readlink.js';
+import { extractKnownUrls, readLinkForMessage, fetchPageAsText } from './readlink.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -934,21 +934,30 @@ export async function sendMessage() {
   }
 
   // 兔宝发来的自媒体链接：自动读回来挂在这条消息上，炘也就看得见内容了。
+  // 链接里的**图片原样带回来**，跟她的图片走同一条路发给主模型（她没配识图模型，主模型自己看）。
   // 读不到也不拦着发消息，只是挂一段"没读到"的说明（宁可他知道，也别让他假装没看见）。
   const _linkUrls = extractKnownUrls(text);
   if (_linkUrls.length) {
     try {
       toast('🔗 正在读链接…');
-      const _ctxs = [];
-      for (const _u of _linkUrls) _ctxs.push(await readLinkAsContext(_u));
+      const _ctxs = [], _imgs = [];
+      for (const _u of _linkUrls) {
+        const _r = await readLinkForMessage(_u);
+        if (_r.context) _ctxs.push(_r.context);
+        _imgs.push(..._r.images);
+      }
       const _ctx = _ctxs.filter(Boolean).join('\n\n');
       if (_ctx) {
         userMsg.linkContext = _ctx;
+        if (_imgs.length) userMsg.linkImages = _imgs;
         const _li = messages.findIndex(m => m.id === userMsg.id);
-        if (_li >= 0) messages[_li].linkContext = _ctx;
+        if (_li >= 0) {
+          messages[_li].linkContext = _ctx;
+          if (_imgs.length) messages[_li].linkImages = _imgs;
+        }
         await dbPut(activeStore(), null, userMsg);
         const _t = _ctx.match(/^标题：(.+)$/m);
-        toast('🔗 已读' + (_t ? '：' + _t[1].slice(0, 18) : '那条链接'));
+        toast('🔗 已读' + (_t ? '：' + _t[1].slice(0, 18) : '那条链接') + (_imgs.length ? `（带 ${_imgs.length} 张图）` : ''));
       }
     } catch (e) { console.warn('[读链接] 失败，照常发消息', e); }
   }
@@ -1241,11 +1250,16 @@ export async function sendMessage() {
           ? m.imageDescs.map((d, i) => d ? `[${_uname}发来的图片${multi ? nums[i+1] : ''}：${d}]` : null).filter(Boolean).join('\n')
           : '';
         const fullText = [_linkCtx, descText, m.content].filter(Boolean).join('\n');
-        if (msgImgs.length && !msgDescs) {
-          // 有链接又有原图、但没有识图结果时，别把图丢了
+        // 链接里的图只在这条是**最新那条**时才当图片发 —— 跟她的图片一个规矩：
+        // 留在窗口里就一直重发，那是白花钱。（她没配识图模型，所以也不会有转述文字）
+        const _sendImgs = [
+          ...((msgImgs.length && !msgDescs) ? msgImgs : []),
+          ...((isLatest && m.linkImages) ? m.linkImages : []),
+        ];
+        if (_sendImgs.length) {
           const parts = [];
           if (fullText) parts.push({ type: 'text', text: fullText });
-          msgImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
+          _sendImgs.forEach(url => parts.push({ type: 'image_url', image_url: { url } }));
           apiMsgs.push({ role: 'user', content: parts });
         } else {
           apiMsgs.push({ role: 'user', content: fullText });
