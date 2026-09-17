@@ -289,7 +289,8 @@ async function _consumePushInbox(opts = {}) {
       if (m.id) consumedSet.add(m.id);
       if (_seen.has(_sig(m.content, m.time))) continue;
       _seen.add(_sig(m.content, m.time));
-      allMessages.push({ content: m.content, time: m.time });
+      // image 是**画图提示词**（云端不画，画在她手机这边，见 _drawProactiveImage）
+      allMessages.push({ content: m.content, time: m.time, image: m.image || '' });
     }
 
     if (!allMessages.length) return _savedRows;
@@ -313,10 +314,13 @@ async function _consumePushInbox(opts = {}) {
     // 逐条追加，不用 renderMessages：整屏重绘会清空重建，页面会从顶部弹回底部
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
+    let _imgBudget = 1;      // 一次消费最多画一张 —— 跟碎碎念的 MAX_MEDIA_PER_PULL 一个道理
     for (const msg of allMessages) {
       const _saved = await addMessage('assistant', msg.content, null, msg.time);
       if (_saved) _savedRows.push(_saved);
       if (!opts.silent && _hasRendered && _saved) await appendMsgDOM(_saved);
+      // 带图的：文字已经落地了，图在后台画（fire-and-forget，见 _drawProactiveImage）
+      if (msg.image && _saved && _imgBudget > 0) { _imgBudget--; _drawProactiveImage(msg.image); }
     }
     if (!opts.silent && !_hasRendered) renderMessages();
 
@@ -348,6 +352,44 @@ async function _consumePushInbox(opts = {}) {
   }
 }
 window._consumePushInbox = _consumePushInbox;
+
+/**
+ * 主动消息带图：拿云端给的那句提示词**真的去画**，画完当成一条出图消息落进聊天。
+ * （2026-09-17 她点名要的：「主动消息我也要真画图，不是给我发 prompt」）
+ *
+ * 为什么另起一条，而不是把图挂在那句文字上：那句话此刻已经在她聊天里了，
+ * 回头把它改造成出图气泡要重建 DOM、重排，而她正在看的可能正是那一屏；
+ * 单开一条反而更像聊天里真实发生的事（他说完，隔一会儿画了张图递过来）——
+ * 而且出图气泡自带保存/重试，跟她平时见我画图完全一样。
+ *
+ * ⚠️ 必须 fire-and-forget：画一张要十几秒到一分钟，await 会把这一轮消费
+ *    （启动 / 30 秒轮询 / 切回前台）整个堵住 —— 她要的是话，图是附赠的。
+ * ⚠️ 画失败就静默算了：文字已经在她手里了。别弹任何东西。
+ */
+async function _drawProactiveImage(prompt) {
+  try {
+    const { generateImageQuiet } = await import('./image.js');
+    const dataUrl = await generateImageQuiet(prompt);
+    if (!dataUrl) { console.log('[Push] 主动消息配图没画出来（只留文字）'); return; }
+
+    const { addMessage, appendMsgDOM, activeStore } = await import('./chat.js');
+    const { dbPut } = await import('./db.js');
+    const name = settings.aiName || '炘也';
+    const row = await addMessage('assistant', `[🎨 ${name}画了一张图]\n提示词：${prompt}`);
+    if (!row) return;
+    // 跟 chat.js 画图工具生成的那条保持同一套字段 —— 气泡上的保存/重试都认它们
+    row.isGenImage = true;
+    row.genImageData = dataUrl;
+    row.genSize = settings.imageSize || '1024x1024';
+    row.genRefChars = 'none';
+    await dbPut(activeStore(), null, row);
+    await appendMsgDOM(row);
+    try { window.autoSaveGenImage?.(dataUrl, row.id); } catch {}
+    console.log('[Push] 主动消息配图已画好');
+  } catch (e) {
+    console.log('[Push] 主动消息配图失败（只留文字）:', e && e.message);
+  }
+}
 
 // ── 覆盖层里她回的那句话（2026-09-15） ─────────────────────────────────────
 //
