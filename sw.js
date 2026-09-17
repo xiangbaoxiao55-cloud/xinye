@@ -1,7 +1,11 @@
-const CACHE_NAME = 'xinye-20260917-1151';
+const CACHE_NAME = 'xinye-20260917-1154';
 const LOCAL_CFG  = 'xinye-local-cfg';
+// ⚠️ 加了新模块 / 新页面，**记得同步这里**。
+//    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
+//    真正坏的是「冷启动 + 没网」那一下（比如她在电梯里打开 APP）。
+//    2026-09-17 补齐过一次：inbox.js、posts.js、storyboard 三件套、gallery.html 全漏了。
 const STATIC_ASSETS = [
-  '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/reading.html', '/lib/jszip.min.js',
+  '/', '/index.html', '/choubao.html', '/choubao.webmanifest', '/diary.html', '/src/diary-today.js', '/reading.html', '/gallery.html', '/lib/jszip.min.js',
   '/xinye-icon.png', '/choubao-icon.png',
   '/src/main.js',
   '/src/modules/utils.js',
@@ -25,6 +29,8 @@ const STATIC_ASSETS = [
   '/src/modules/rp.js',
   '/src/modules/phonedb.js',
   '/src/modules/monitor.js',
+  '/src/modules/inbox.js',
+  '/src/modules/posts.js',
   '/overlay.html', '/src/overlay.js',
   '/phone.html',
   '/src/styles/variables.css', '/src/styles/layout.css', '/src/styles/stickers.css',
@@ -34,6 +40,7 @@ const STATIC_ASSETS = [
   '/src/styles/monitor.css', '/src/styles/icons.css',
   '/draw.html', '/src/draw.js', '/src/styles/draw.css',
   '/flipbook.html', '/src/flipbook.js', '/src/styles/flipbook.css',
+  '/storyboard.html', '/src/storyboard.js', '/src/styles/storyboard.css',
   '/health.html', '/src/health.js', '/src/modules/healthdb.js', '/src/modules/healthfood.js', '/src/styles/health.css',
   '/assets/style_library.json', '/assets/food_library.json', '/assets/common_servings.json'
 ];
