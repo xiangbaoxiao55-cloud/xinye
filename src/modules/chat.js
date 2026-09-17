@@ -29,7 +29,7 @@ const _openPanels = new Set();
 
 // ======================== 按需加载图片（防OOM） ========================
 // 回填时必须把占位节点整块换掉：只写 el.innerHTML 的话，占位 span 的固定 160×120
-// 盒子会留在文档流里，图片被压到 160 宽、还溢出盖住下面的「保存/重试/改画」和气泡上边缘
+// 盒子会留在文档流里，图片被压到 160 宽、还溢出盖住下面的「保存/重试」和气泡上边缘
 function _replaceLazyImg(el, html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;

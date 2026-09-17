@@ -204,7 +204,7 @@
 
 /* ---- 画图 prompt 折叠 ---- */
 .gen-prompt-wrap{margin-top:8px}
-/* nowrap：这一行（保存/重试/改画 + prompt + 收藏）必须始终同一行。
+/* nowrap：这一行（保存/重试 + prompt + 收藏）必须始终同一行。
    图片最大高 260px，竖图（3:4）只有约 195px 宽 —— 光靠 wrap 会把收藏图标挤到第二行。
    不换行时气泡会自动撑到这一行的宽度（shrink-to-fit），比图片宽一点总好过掉行。 */
 .gen-prompt-header{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-width:fit-content}
