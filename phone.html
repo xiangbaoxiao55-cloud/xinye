@@ -103,6 +103,13 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 .viewer-close{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:16px;
   width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.14);
   color:#fff;font-size:22px;line-height:1;cursor:pointer}
+/* 保存（2026-09-17 加）：她问「说说带的图我喜欢怎么保存」—— 那之前查看器只能看 */
+.viewer-save{position:absolute;bottom:calc(26px + env(safe-area-inset-bottom,0px));left:50%;
+  transform:translateX(-50%);padding:11px 26px;border-radius:999px;border:none;
+  background:rgba(255,255,255,.18);color:#fff;font-size:14.5px;font-family:inherit;
+  letter-spacing:.5px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.viewer-save:disabled{opacity:.5}
+.viewer-save:active{background:rgba(255,255,255,.3)}
 
 /* ===== 独立打开时的提示条 ===== */
 .tip{
@@ -151,7 +158,7 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 <div class="more-wrap"><button class="more" id="btnMore" hidden>加载更多</button></div>
 
 <input type="file" id="importFile" accept="application/json,.json" hidden>
-<div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button></div>
+<div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button><button class="viewer-save" id="viewerSave">保存到手机</button></div>
 <div id="toast"></div>
 
 <script type="module">
@@ -352,7 +359,7 @@ function card(it) {
       const wrap = el('div', 'it-img');
       const img = document.createElement('img');
       img.src = url; img.loading = 'lazy'; img.alt = '他画的';
-      img.onclick = () => openViewer(url);
+      img.onclick = () => openViewer(url, it.media.blob, _imgName('炘也的碎碎念图', it.ts));
       wrap.appendChild(img);
       a.appendChild(wrap);
     } else if (it.media?.kind === 'voice' && it.media.blob) {
@@ -393,7 +400,7 @@ function card(it) {
       const wrap = el('div', 'it-img');
       const img = document.createElement('img');
       img.src = url; img.loading = 'lazy'; img.alt = it.cap || '他存下来的图';
-      img.onclick = () => openViewer(url);
+      img.onclick = () => openViewer(url, it.blob, _imgName('炘也存下来的图', it.ts));
       wrap.appendChild(img);
       a.appendChild(wrap);
     }
@@ -430,10 +437,41 @@ function voiceBar(blob) {
 }
 
 // ======================== 大图 ========================
-function openViewer(url) {
+// 查看器（2026-09-17 起带保存）：她问「说说带的图我喜欢怎么保存」—— 之前只能看，存不下来
+let _viewBlob = null, _viewName = '';
+function _imgName(prefix, ts) {
+  const d = new Date(ts || Date.now());
+  const p = n => String(n).padStart(2, '0');
+  return `${prefix}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.png`;
+}
+function openViewer(url, blob, name) {
   document.getElementById('viewerImg').src = url;
+  _viewBlob = blob || null;
+  _viewName = name || _imgName('炘也的图');
+  document.getElementById('viewerSave').hidden = !_viewBlob;
   document.getElementById('viewer').hidden = false;
 }
+document.getElementById('viewerSave').onclick = async () => {
+  if (!_viewBlob) return;
+  const btn = document.getElementById('viewerSave');
+  btn.disabled = true;
+  try {
+    // 先交给主 APP 那一层去存：AndroidDownload 这个 Java 接口只保证在顶层框架里有，
+    // iframe 里不一定 —— 让最外层来，才不会在 APK 里变成"点了没反应"
+    // （<a download> 在 APK 里是静默失败的，这条以前踩过）
+    let ok = false;
+    try {
+      if (window.parent !== window && typeof window.parent.__fcSaveImage === 'function') {
+        ok = await window.parent.__fcSaveImage(_viewBlob, _viewName);
+      }
+    } catch (e) { /* 跨框架失败就往下走本地的 */ }
+    if (!ok) ok = await saveFile(_viewBlob, _viewName);
+    toast(ok ? '已保存到手机 Download' : '没存成，长按图片试试');
+  } catch (e) {
+    toast('保存失败：' + ((e && e.message) || e));
+  }
+  btn.disabled = false;
+};
 document.getElementById('viewerClose').onclick = () => { document.getElementById('viewer').hidden = true; document.getElementById('viewerImg').src = ''; };
 document.getElementById('viewer').onclick = e => { if (e.target.id === 'viewer') document.getElementById('viewerClose').onclick(); };
 

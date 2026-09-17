@@ -55,6 +55,24 @@ window.__fcReplyToPost = (text) => {
   const ui = document.getElementById('userInput');
   if (ui) setTimeout(() => ui.focus(), 150);
 };
+
+/**
+ * 碎碎念那页（iframe）里点「保存到手机」时，把图交给主框架来存（2026-09-17 加）。
+ *
+ * 为什么要绕这一道：`AndroidDownload` 这个 Java 接口**只保证在顶层框架里有**，iframe 里不一定 ——
+ * 让最外层去调，才不会在 APK 里变成"点了没反应"（`<a download>` 在 APK 里是静默失败的，
+ * 这条以前踩过一次，所以碎碎念页的导出按钮才必须用 saveFile）。她那天问
+ * 「说说带的图我喜欢怎么保存」，那之前查看器只能看、存不下来。
+ */
+window.__fcSaveImage = async (blob, name) => {
+  try {
+    const { saveFile } = await import('./utils.js');
+    return await saveFile(blob, name);
+  } catch (e) {
+    console.log('[存图] 主框架保存失败:', e && e.message);
+    return false;
+  }
+};
 // ── Periodic Background Sync（后台定期拉消息，替代FCM）──────────────────────
 async function _registerPeriodicSync() {
   try {
