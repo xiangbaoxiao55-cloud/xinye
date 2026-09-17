@@ -2914,6 +2914,7 @@ export async function sendMessage() {
         }
         if (_m2FinalContent) {
           let _ft = _m2FinalContent;
+          _ft = await parseAndSaveSelfMemories(_ft).catch(() => _ft);
           if (_PFX === '') _ft = await parseAndSavePhoneState(_ft, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => _ft);
           typing.classList.remove('show');
           const _nm = await addMessage('assistant', _ft);
@@ -2944,6 +2945,7 @@ export async function sendMessage() {
       const msg0 = data.choices?.[0]?.message;
       const thinking = msg0?.reasoning_content || msg0?.thinking || '';
       let reply = msg0?.content || (thinking ? '' : '（没有收到回复）');
+      reply = await parseAndSaveSelfMemories(reply).catch(() => reply);
       if (_PFX === '') reply = await parseAndSavePhoneState(reply, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => reply);
       if (thinking) reply = `<thinking>${thinking}</thinking>\n${reply}`;
       typing.classList.remove('show');
@@ -3013,6 +3015,7 @@ export async function sendMessage() {
         throw new Error(fullText.replace(/^\s*\[Backend Error\]\s*/i, '').slice(0, 200));
       }
       if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
+      fullText = await parseAndSaveSelfMemories(fullText).catch(() => fullText);
       if (_PFX === '') fullText = await parseAndSavePhoneState(fullText, _turnReceivedImgs, window._currentTurnGeneratedDataUrl).catch(() => fullText);
       const idx = messages.findIndex(m => m.id === aiMsg.id);
       if (idx >= 0) { messages[idx].content = fullText; messages[idx].presetName = _uPre || ''; }
