@@ -9,7 +9,7 @@
 // 本地是局域网 http → 靠 APK 的 allowMixedContent 直连（和 image.js / draw.js 一个路子）。
 
 import { settings } from './state.js';
-import { buildServerFetchUrl, buildServerHeaders } from './settings.js';
+import { buildServerFetchUrl, buildServerHeaders, isLocalServerOnline } from './settings.js';
 
 export const PLATFORM_NAMES = { xiaohongshu: '小红书', weixin: '微信公众号', bilibili: 'B站', web: '网页' };
 
@@ -88,10 +88,16 @@ async function _askServer(srv, linkUrl) {
 
 // 小红书正文常常很短、内容全在图里，所以把图附在消息上一起交给主模型（见 readLinkForMessage）
 
-// 拿到链接的原始数据（不排版）。微信优先走本地，其余优先走云端。
+// 拿到链接的原始数据（不排版）。
+// 出口选择：
+//   · 微信公众号 —— 只能本地（云端在首尔，微信对海外 IP 回验证页）
+//   · 其余 —— **本地在线就本地优先**：走局域网更快，视频抽帧/转写也不占云端的带宽和 CPU；
+//     本地探测不到（人在外面 / 电脑关了）才走云端。
 export async function readLink(url) {
   const isWx = /mp\.weixin\.qq\.com/i.test(url);
-  const kinds = isWx ? ['local', 'cloud'] : ['cloud', 'local'];
+  const localOnline = isLocalServerOnline();
+  const kinds = isWx ? ['local', 'cloud']
+    : (localOnline ? ['local', 'cloud'] : ['cloud', 'local']);
   const available = kinds.map(k => _serverCandidate(k)).filter(Boolean);
   if (!available.length) return { ok: false, reason: 'no_server' };
 
