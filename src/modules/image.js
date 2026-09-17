@@ -357,7 +357,10 @@ export async function generateImage(userDesc, opts = {}) {
 
     if (!dataUrl) throw _lastErr || new Error('所有画图预设均失败');
 
-    const ctxDesc = `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
+    // opts.bubbleContent：让"后台自己画"那条路（主动消息配图）自己决定气泡上写什么。
+    // 默认那句带「你说：…」，是给"她在聊天里点画图"用的 —— 别人用会变成她没说过的话。
+    const ctxDesc = opts.bubbleContent
+      || `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
     const aiMsg = await addMessage('assistant', ctxDesc);
     aiMsg.isGenImage = true;
     aiMsg.genImageData = dataUrl;
@@ -369,13 +372,15 @@ export async function generateImage(userDesc, opts = {}) {
     if (_idx >= 0) messages[_idx] = aiMsg;
 
     await appendMsgDOM(aiMsg);
-    autoSaveGenImage(dataUrl, aiMsg.id);
+    // 后台自己画的（主动消息配图）不自动往她手机 Download 里塞 ——
+    // 气泡上有「保存」，她想要自己点；不然 Downloads 会被动生成的图堆满
+    if (!opts.skipAutoSave) autoSaveGenImage(dataUrl, aiMsg.id);
 
   } catch(e) {
     if (e.name === 'AbortError') {
-      toast('画图超时了...');
+      if (!opts.quiet) toast('画图超时了...');
     } else {
-      toast('画图失败：' + e.message);
+      if (!opts.quiet) toast('画图失败：' + e.message);
       console.error('[画图] 失败', e);
     }
   } finally {
@@ -403,8 +408,72 @@ export async function generateImage(userDesc, opts = {}) {
  *    /api/proxy-image-generations），客户端只管把同样的东西发出去就行。
  *    ⚠️ 以后改那条分支的请求体，这里要一起改（两份，属于已知重复，见记忆）。
  */
-export async function generateImageQuiet(prompt) {
+/**
+ * 取参考图（炘也 / 兔宝 / 画风）并压成能发给画图接口的 jpeg dataURL。
+ * 返回 [] = 没有参考图，调用方走"纯提示词"那条路。
+ *
+ * 2026-09-17 加，为了「说说配图」和「主动消息配图」也能垫参考图 ——
+ * 在那之前它们只能出一张跟炘也/兔宝一点关系都没有的图。
+ * ⚠️ chat.js 里那条「我在聊天里画图」另有一套参考图逻辑（多一路"她这条消息带的图"），
+ *    暂时没合并 —— 动那条路风险大，等哪天改到它再说。
+ */
+export async function collectRefImages(refChars, styleRef) {
+  const raw = [];
+  if (refChars && refChars !== 'none') {
+    const _aiRef = await dbGet('images', 'aiRef').catch(() => null);
+    const _userRef = await dbGet('images', 'userRef').catch(() => null);
+    if ((refChars === 'ai' || refChars === 'both') && _aiRef) raw.push(_aiRef);
+    if ((refChars === 'user' || refChars === 'both') && _userRef) raw.push(_userRef);
+  }
+  if (styleRef) {
+    const _srMeta = (await dbGet('settings', 'styleRefs').catch(() => null)) || [];
+    const _e = Array.isArray(_srMeta) ? _srMeta.find(s => s.name === styleRef) : null;
+    if (_e) { const _img = await dbGet('images', _e.imgKey).catch(() => null); if (_img) raw.push(_img); }
+  }
+  const out = [];
+  for (const b64 of raw) {
+    const c = await new Promise(r => {
+      const im = new Image();
+      im.onload = () => {
+        const sc = Math.min(1, 1500 / Math.max(im.width || 1, im.height || 1));
+        const cw = Math.round(im.width * sc), ch = Math.round(im.height * sc);
+        const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+        cv.getContext('2d').drawImage(im, 0, 0, cw, ch);
+        try { r(cv.toDataURL('image/jpeg', 0.82)); } catch (e) { r(null); }
+      };
+      im.onerror = () => r(null);
+      const s = String(b64);
+      if (s.startsWith('http')) { im.crossOrigin = 'anonymous'; im.src = s; }
+      else { im.src = s.startsWith('data:') ? s : `data:image/png;base64,${s}`; }
+    });
+    if (c) out.push(c);
+  }
+  return out;
+}
+
+/**
+ * 把参考图合成一个 Blob —— 给那些只认单个 `image` 字段的站子（预设上的 `singleImage`）。
+ * 多于一张就横排拼成一张，跟 chat.js 里画图那段做法一致。
+ */
+async function _oneRefBlob(refs) {
+  if (refs.length === 1) { try { return await (await fetch(refs[0])).blob(); } catch (e) { return null; } }
+  const imgs = await Promise.all(refs.map(b => new Promise((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = b;
+  })));
+  const h = 512, cv = document.createElement('canvas');
+  let x = 0;
+  const ws = imgs.map(i => Math.round(i.width * h / (i.height || 1)));
+  cv.width = ws.reduce((a, b) => a + b, 0) || 1; cv.height = h;
+  const ctx = cv.getContext('2d');
+  imgs.forEach((i, idx) => { ctx.drawImage(i, x, 0, ws[idx], h); x += ws[idx]; });
+  return await new Promise(res => cv.toBlob(res, 'image/png'));
+}
+
+export async function generateImageQuiet(prompt, opts = {}) {
   if (!settings.apiKey || !prompt) return null;
+
+  // 参考图（2026-09-17 加）：垫炘也 / 垫兔宝 / 垫两人 + 画风
+  const _refs = await collectRefImages(opts.refChars, opts.styleRef);
 
   const _rawPresets = getImagePresets();
   const _activeIdx = getImageCurPresetIdx();
@@ -454,9 +523,33 @@ export async function generateImageQuiet(prompt) {
       body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
       signal: AbortSignal.timeout(300000),
     });
+    // 有参考图时走 /images/edits（multipart）。
+    // ⚠️ 只能**直连**：本地和 Vercel 那两个代理都只转发 JSON，塞不进去图片
+    const _withRefs = async () => {
+      const _b = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
+      const _form = new FormData();
+      _form.append('model', imgModel);
+      _form.append('prompt', prompt + (opts.styleRef
+        ? '\n\nArt style reference: match the artistic style of the style reference image provided.' : ''));
+      _form.append('n', '1');
+      _form.append('size', settings.imageSize || '1024x1024');
+      if (_preset?.singleImage) {
+        _form.append('image', await _oneRefBlob(_refs), 'ref.png');
+      } else {
+        _refs.forEach((img, i) => _form.append('image[]', base64ToFile(img, `ref${i}.jpg`)));
+      }
+      return fetch(`${_b}/images/edits`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${imgKey}` },
+        body: _form,
+        signal: AbortSignal.timeout(300000),
+      });
+    };
     try {
       let imgRes;
-      if (localUrl) {
+      if (_refs.length) {
+        imgRes = await _withRefs();
+      } else if (localUrl) {
         const _genH = { 'Content-Type': 'application/json' };
         if (settings.imageProxyToken) _genH['Authorization'] = `Bearer ${settings.imageProxyToken}`;
         try {

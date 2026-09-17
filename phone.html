@@ -110,6 +110,13 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
   letter-spacing:.5px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .viewer-save:disabled{opacity:.5}
 .viewer-save:active{background:rgba(255,255,255,.3)}
+/* 提示词（2026-09-17 加）：她问「说说里的图能看见生图时的 prompt 吗」—— 以前只存了图，没存提示词 */
+.viewer-prompt{position:absolute;left:18px;right:18px;bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  max-height:24vh;overflow:auto;padding:10px 12px;border-radius:12px;
+  background:rgba(255,255,255,.1);color:rgba(255,255,255,.86);
+  font-size:12.5px;line-height:1.65;word-break:break-word;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.viewer-prompt[hidden]{display:none}
 
 /* ===== 独立打开时的提示条 ===== */
 .tip{
@@ -158,7 +165,7 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 <div class="more-wrap"><button class="more" id="btnMore" hidden>加载更多</button></div>
 
 <input type="file" id="importFile" accept="application/json,.json" hidden>
-<div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button><button class="viewer-save" id="viewerSave">保存到手机</button></div>
+<div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button><div class="viewer-prompt" id="viewerPrompt" hidden></div><button class="viewer-save" id="viewerSave">保存到手机</button></div>
 <div id="toast"></div>
 
 <script type="module">
@@ -271,15 +278,17 @@ async function loadAll() {
     if (p.post) {
       const kind = p.type === 'voice' ? 'voice' : 'image';
       const host = p.postId ? _postById.get(p.postId) : null;
-      if (host) host.media = { kind, blob: p.blob };
+      // prompt 一起带上 —— 她点开大图能看见他当时想画的是什么（2026-09-17）
+      const _media = { kind, blob: p.blob, prompt: p.prompt || '' };
+      if (host) host.media = _media;
       // 极端情况：配图到了、那条文字没到（APP 中途被杀过）→ 自己成一张卡，别丢
-      else if (p.blob) out.push({ tag:'post', ts: parseTime(p.time), text:'', postId: p.postId || '', media: { kind, blob: p.blob } });
+      else if (p.blob) out.push({ tag:'post', ts: parseTime(p.time), text:'', postId: p.postId || '', media: _media });
       continue;
     }
     if (p.type === 'memo') {
       out.push({ tag:'thought', ts: parseTime(p.time), text: p.caption || '' });
     } else if (p.blob) {
-      out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '' });
+      out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '', prompt: p.prompt || '' });
     }
   }
 
@@ -359,7 +368,7 @@ function card(it) {
       const wrap = el('div', 'it-img');
       const img = document.createElement('img');
       img.src = url; img.loading = 'lazy'; img.alt = '他画的';
-      img.onclick = () => openViewer(url, it.media.blob, _imgName('炘也的碎碎念图', it.ts));
+      img.onclick = () => openViewer(url, it.media.blob, _imgName('炘也的碎碎念图', it.ts), it.media.prompt);
       wrap.appendChild(img);
       a.appendChild(wrap);
     } else if (it.media?.kind === 'voice' && it.media.blob) {
@@ -400,7 +409,7 @@ function card(it) {
       const wrap = el('div', 'it-img');
       const img = document.createElement('img');
       img.src = url; img.loading = 'lazy'; img.alt = it.cap || '他存下来的图';
-      img.onclick = () => openViewer(url, it.blob, _imgName('炘也存下来的图', it.ts));
+      img.onclick = () => openViewer(url, it.blob, _imgName('炘也存下来的图', it.ts), it.prompt);
       wrap.appendChild(img);
       a.appendChild(wrap);
     }
@@ -444,11 +453,16 @@ function _imgName(prefix, ts) {
   const p = n => String(n).padStart(2, '0');
   return `${prefix}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.png`;
 }
-function openViewer(url, blob, name) {
+function openViewer(url, blob, name, prompt) {
   document.getElementById('viewerImg').src = url;
   _viewBlob = blob || null;
   _viewName = name || _imgName('炘也的图');
   document.getElementById('viewerSave').hidden = !_viewBlob;
+  // 提示词：老记录没存过 prompt（2026-09-17 起才存），所以没有就不显示那一块
+  const _pp = document.getElementById('viewerPrompt');
+  const _p = String(prompt || '').trim();
+  _pp.textContent = _p ? ('提示词：' + _p) : '';
+  _pp.hidden = !_p;
   document.getElementById('viewer').hidden = false;
 }
 document.getElementById('viewerSave').onclick = async () => {

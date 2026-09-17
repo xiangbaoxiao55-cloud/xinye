@@ -58,11 +58,16 @@ async function _storeMedia(p, budget) {
   const t = fmtPhoneTime(p.time || Date.now());
   if (p.image && budget.images > 0) {
     budget.images--;
-    const dataUrl = await generateImageQuiet(p.image);
+    // 参考图（2026-09-17 加）：云端可以指定垫炘也 / 垫兔宝 / 垫两人 ——
+    // 不然画里出现他和她的时候，长相跟本人一点关系都没有
+    const dataUrl = await generateImageQuiet(p.image, { refChars: p.ref_characters });
     if (dataUrl) {
       await addRecord('xinye_photos', {
         type: 'image', source: 'auto', post: true, postId: p.id || '',
         caption: '', blob: dataUrlToBlob(dataUrl), time: t,
+        // 提示词一起存下来 —— 她点开大图能看见他当时想画的是什么（2026-09-17 她问的）
+        prompt: String(p.image).slice(0, 500),
+        refChars: p.ref_characters || 'none',
       });
       return true;
     }

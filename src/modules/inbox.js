@@ -307,8 +307,9 @@ async function _consumePushInbox(opts = {}) {
       if (m.id) consumedSet.add(m.id);
       if (_seen.has(_sig(m.content, m.time))) continue;
       _seen.add(_sig(m.content, m.time));
-      // image 是**画图提示词**（云端不画，画在她手机这边，见 _drawProactiveImage）
-      allMessages.push({ content: m.content, time: m.time, image: m.image || '' });
+      // image 是**画图提示词**、refChars 是**垫谁**（都来自云端，画在她手机这边 —— 见 _drawProactiveImage）
+      allMessages.push({ content: m.content, time: m.time,
+        image: m.image || '', refChars: m.ref_characters || 'none' });
     }
 
     if (!allMessages.length) return _savedRows;
@@ -338,7 +339,7 @@ async function _consumePushInbox(opts = {}) {
       if (_saved) _savedRows.push(_saved);
       if (!opts.silent && _hasRendered && _saved) await appendMsgDOM(_saved);
       // 带图的：文字已经落地了，图在后台画（fire-and-forget，见 _drawProactiveImage）
-      if (msg.image && _saved && _imgBudget > 0) { _imgBudget--; _drawProactiveImage(msg.image); }
+      if (msg.image && _saved && _imgBudget > 0) { _imgBudget--; _drawProactiveImage(msg.image, msg.refChars); }
     }
     if (!opts.silent && !_hasRendered) renderMessages();
 
@@ -384,25 +385,25 @@ window._consumePushInbox = _consumePushInbox;
  *    （启动 / 30 秒轮询 / 切回前台）整个堵住 —— 她要的是话，图是附赠的。
  * ⚠️ 画失败就静默算了：文字已经在她手里了。别弹任何东西。
  */
-async function _drawProactiveImage(prompt) {
+async function _drawProactiveImage(prompt, refChars) {
   try {
-    const { generateImageQuiet } = await import('./image.js');
-    const dataUrl = await generateImageQuiet(prompt);
-    if (!dataUrl) { console.log('[Push] 主动消息配图没画出来（只留文字）'); return; }
-
-    const { addMessage, appendMsgDOM, activeStore } = await import('./chat.js');
-    const { dbPut } = await import('./db.js');
+    // 直接复用聊天里画图那条路（generateImage）—— 参考图、尺寸、预设轮询、多图垫图全在里面，
+    // 不用再抄一份。四个开关把它变成"后台悄悄画"：
+    //   background    —— 不锁输入框、不把她的话写进聊天
+    //   bubbleContent —— 气泡上写什么我们自己定（默认那句带「你说：…」，那是给"她点画图"用的）
+    //   skipAutoSave  —— 不自动往她手机 Download 里塞，想要她自己点气泡上的保存
+    //   quiet         —— 失败时别弹 toast（她没让我画，弹一句"画图失败"会莫名其妙）
+    const { generateImage } = await import('./image.js');
     const name = settings.aiName || '炘也';
-    const row = await addMessage('assistant', `[🎨 ${name}画了一张图]\n提示词：${prompt}`);
-    if (!row) return;
-    // 跟 chat.js 画图工具生成的那条保持同一套字段 —— 气泡上的保存/重试都认它们
-    row.isGenImage = true;
-    row.genImageData = dataUrl;
-    row.genSize = settings.imageSize || '1024x1024';
-    row.genRefChars = 'none';
-    await dbPut(activeStore(), null, row);
-    await appendMsgDOM(row);
-    try { window.autoSaveGenImage?.(dataUrl, row.id); } catch {}
+    const _refTag = refChars && refChars !== 'none' ? '根据垫图' : '';
+    await generateImage(prompt, {
+      background: true,
+      quiet: true,
+      skipAutoSave: true,
+      refChars: refChars || 'none',
+      size: settings.imageSize || '1024x1024',
+      bubbleContent: `[🎨 ${name}${_refTag}画了一张图]\n提示词：${prompt}`,
+    });
     console.log('[Push] 主动消息配图已画好');
   } catch (e) {
     console.log('[Push] 主动消息配图失败（只留文字）:', e && e.message);
