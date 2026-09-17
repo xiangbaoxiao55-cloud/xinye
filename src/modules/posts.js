@@ -88,6 +88,14 @@ export async function pullPosts() {
   if (_pulling) return 0;          // 上一轮还没跑完（补图可能要好几分钟）
   _pulling = true;
   try {
+    // ⚠️ 必须自己开库（2026-09-17 抓到的）：addRecord/putRecord 这些底层函数只认
+    //    已经打开的连接，而这个库在主页面里**没人显式开过** —— 唯一会 openPhoneDB 的
+    //    是 phone.html，那是 iframe 里的另一个 realm、另一份模块实例，开的也是它自己那条连接。
+    //    冷启动时这里会直接抛 "Cannot read properties of null (reading 'transaction')"，
+    //    被下面的 catch 吞掉 → 表现是「碎碎念没更新」，一点提示都没有。
+    //    （以前偶尔能成，是因为她在聊天里触发过待办相关的函数，顺手把连接开上了 ——
+    //      这种"碰巧能用"正是最难查的。）
+    await openPhoneDB();
     const srv = getCloudOrLocalUrl();
     if (!srv) return 0;
     const since = parseInt(localStorage.getItem(CURSOR_KEY) || '0');
