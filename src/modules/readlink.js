@@ -77,8 +77,9 @@ async function _askServer(srv, linkUrl) {
     body.asrModel = (settings.asrModel || '').trim();
   }
   const ac = new AbortController();
-  // 视频要抽帧（约 2-3 秒）、转写还要再抽音频上传，给它更长的窗口
-  const timer = setTimeout(() => ac.abort(), _asrKey ? 180000 : 60000);
+  // 视频要抽帧、转写还要再抽音频上传。云端从首尔拉国内 CDN 的 30MB 视频不快
+  // （那台是 30Mbps），所以窗口给宽一点，别让慢网把已经跑一半的处理掐掉。
+  const timer = setTimeout(() => ac.abort(), _asrKey ? 180000 : 120000);
   try {
     const r = await fetch(fetchUrl, { method: 'POST', headers, body: JSON.stringify(body), signal: ac.signal });
     if (!r.ok) return { ok: false, reason: 'http_' + r.status };
