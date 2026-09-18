@@ -1828,6 +1828,14 @@ export function initSettings() {
     };
   }
 
+  // ======================== 数据搬家（一次性，搬完就删） ========================
+  // 换域名 → 换 origin → 换 IndexedDB 沙箱。而 APK 的 WebView 里没法手输网址，
+  // 不给个入口她就根本打不开 migrate.html —— 这一步很容易被漏掉。
+  const _btnMigrate = $('#btnMigrate');
+  if (_btnMigrate) {
+    _btnMigrate.onclick = () => { location.href = '/migrate.html'; };
+  }
+
   // ======================== 强制检查更新 ========================
   const _btnForceUpdate = $('#btnForceUpdate');
   if (_btnForceUpdate) {
