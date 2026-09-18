@@ -188,3 +188,49 @@
   padding:12px 20px;border-top:1px solid var(--pink-light);
   display:flex;gap:10px;justify-content:flex-end;
 }
+
+/* ====================== 聊天记录搜索 ====================== */
+/* ⚠️ 暗色那几条必须写在 :hover / .active 后面，而且要带 :hover ——
+   特异性跟浅色的伪类相同、位置又更靠后，不写就等于暗色下 hover 失效。 */
+.cs-chip{
+  padding:4px 12px;border:none;border-radius:20px;background:rgba(0,0,0,.06);
+  color:var(--text-light);font-size:12px;font-family:inherit;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.cs-chip:hover{background:var(--pink-light);color:var(--pink-deep)}
+.cs-chip.active{background:var(--pink);color:#fff;font-weight:600}
+[data-theme="dark"] .cs-chip{background:rgba(255,255,255,.09)}
+[data-theme="dark"] .cs-chip:hover{background:rgba(255,255,255,.16);color:var(--pink-deep)}
+[data-theme="dark"] .cs-chip.active{background:var(--pink-deep);color:#fff}
+
+.cs-hit{
+  display:flex;flex-direction:column;gap:6px;
+  padding:11px 13px;border-radius:14px;
+  background:var(--ai-bubble);border:1px solid var(--ai-bubble-border);
+  box-shadow:0 1px 6px rgba(0,0,0,.05);
+}
+.cs-hit-head{display:flex;align-items:center;gap:8px}
+.cs-hit-who{font-size:12px;font-weight:700;color:var(--pink-deep)}
+/* 「我」用一档暖橙，跟炘也的粉拉开：浅色暗色下都够看清，不做主题分支 */
+.cs-hit-who.me{color:#d98c4a}
+.cs-hit-time{font-size:11px;color:var(--text-light);margin-left:auto}
+.cs-hit-text{font-size:13px;line-height:1.65;color:var(--text);word-break:break-word}
+.cs-mark{background:rgba(244,143,177,.38);color:inherit;border-radius:3px;padding:0 2px}
+[data-theme="dark"] .cs-mark{background:rgba(192,132,168,.5)}
+.cs-hit-more{
+  align-self:flex-start;padding:3px 10px;border:1px solid var(--border);border-radius:12px;
+  background:transparent;color:var(--text-light);font-size:11px;font-family:inherit;
+  cursor:pointer;transition:border-color .15s,color .15s;
+}
+.cs-hit-more:hover{border-color:var(--pink);color:var(--pink-deep)}
+.cs-hit-ctx{display:none;flex-direction:column;gap:6px;margin-top:2px;padding-top:8px;border-top:1px dashed var(--border)}
+.cs-hit-ctx[data-open="1"]{display:flex}
+.cs-ctx-tip{font-size:12px;color:var(--text-light);padding:2px 0}
+.cs-ctx-row{display:flex;flex-direction:column;gap:2px;padding:6px 9px;border-radius:10px;font-size:12px;line-height:1.6}
+.cs-ctx-row.me{background:var(--user-bubble)}
+.cs-ctx-row.ai{background:var(--warm-bg2)}
+.cs-ctx-row.cur{box-shadow:inset 0 0 0 1.5px var(--pink-deep)}
+.cs-ctx-who{font-size:11px;font-weight:700;color:var(--pink-deep)}
+.cs-ctx-row.me .cs-ctx-who{color:#d98c4a}
+.cs-ctx-text{color:var(--text);word-break:break-word;white-space:pre-wrap}
+.cs-ctx-time{font-size:10px;color:var(--text-light)}

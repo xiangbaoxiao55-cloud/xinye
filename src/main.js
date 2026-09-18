@@ -16,9 +16,11 @@ import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
 import { _startEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts, _registerPush, _registerPeriodicSync, _reportOverlayErr } from './modules/inbox.js';
 import { initRp } from './modules/rp.js';
+import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
   switchTab, openBookmarksPanel,
+  openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx,
   openMemoryViewer, renderMemoryViewer, renderMemoryBankPreview,
   setMemViewerFilter, resetMemoryCursor, skipMemoryCursorToEnd,
   rebuildArchiveIndex, manualExtractBatch, dedupMemoryBank, detectMemoryConflicts,
@@ -506,7 +508,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.18-1521';
+  if (_verEl) _verEl.textContent = 'v2026.09.18-1824';
 
   await openDB();
   await migrateFromLocalStorage();

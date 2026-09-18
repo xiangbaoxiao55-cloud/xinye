@@ -103,6 +103,7 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-icon" id="btnChatSearch" onclick="openChatSearch()" title="搜索聊天记录"><i class="ic ic-search"></i></button>
       <button class="btn-icon" id="btnDark" title="暗夜模式"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M20 14.12A8 8 0 119.88 4a6 6 0 0010.12 10.12z" fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18.5" cy="5" r="1.2" fill="currentColor"/><circle cx="21" cy="8.5" r="0.8" fill="currentColor"/></svg></button>
       <button class="btn-icon" id="btnSettings" title="设置"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2.8" fill="currentColor" opacity="0.4"/><circle cx="12" cy="5" r="2" fill="currentColor" opacity="0.45"/><circle cx="12" cy="19" r="2" fill="currentColor" opacity="0.45"/><circle cx="5" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="19" cy="12" r="2" fill="currentColor" opacity="0.45"/><circle cx="7.05" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="7.05" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="7.05" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/><circle cx="16.95" cy="16.95" r="1.7" fill="currentColor" opacity="0.35"/></svg></button>
     </div>
@@ -1108,6 +1109,26 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
     </div>
     <div id="bookmarksTagFilter" style="padding:8px 16px 0;display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0"></div>
     <div id="bookmarksList" style="flex:1;overflow-y:auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- 聊天记录搜索 -->
+<div class="modal-overlay" id="chatSearchOverlay" style="display:none;z-index:9600;align-items:flex-start;padding-top:0">
+  <div class="modal" style="width:100%;max-width:640px;height:100dvh;max-height:100dvh;border-radius:0;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <span><i class="ic ic-search"></i> 搜索聊天记录</span>
+      <button class="btn-close" onclick="closeChatSearch()"><i class="ic ic-x"></i></button>
+    </div>
+    <div style="padding:10px 16px 6px;flex-shrink:0;display:flex;flex-direction:column;gap:8px">
+      <input id="chatSearchInput" type="text" autocomplete="off" placeholder="搜你们说过的话…（空格分隔多个词）" style="width:100%;padding:9px 14px;border:1.5px solid var(--pink);border-radius:20px;font-size:14px;font-family:inherit;background:var(--bg);color:var(--text);box-sizing:border-box;outline:none">
+      <div id="chatSearchWho" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button class="cs-chip active" data-who="all" onclick="setChatSearchWho('all')">全部</button>
+        <button class="cs-chip" data-who="user" onclick="setChatSearchWho('user')">我说的</button>
+        <button class="cs-chip" data-who="ai" onclick="setChatSearchWho('ai')">炘也说的</button>
+      </div>
+      <div id="chatSearchStatus" style="font-size:12px;color:var(--text-light);min-height:17px"></div>
+    </div>
+    <div id="chatSearchList" style="flex:1;overflow-y:auto;padding:6px 16px 32px;display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </div>
 
