@@ -229,16 +229,81 @@ export async function ensureStickerImg(id) {
     if (data) {
       _cacheSet(id, data);
       // 自愈：把页面上还在占位的同 id 图换掉（聊天气泡和贴纸库里的都算）
+      // ⚠️ data-sid 不能摘 —— 视口懒加载的 observer 靠它认人
       document.querySelectorAll(`img[data-sid="${id}"]`).forEach(el => {
+        if (el.dataset.unmounted === '1') return;   // 离屏的别动，等它滚回来自己挂
         el.src = data;
         el.classList.remove('sticker-img-loading');
-        el.removeAttribute('data-sid');
       });
       return data;
     }
   } catch (e) { console.warn('[Sticker] 读图失败', id, e); }
   finally { _imgLoading.delete(id); }
   return null;
+}
+
+// ── 视口懒加载：滚出屏幕的贴纸卸掉，别让几十个 GIF 一起播 ──────────────────
+//
+// ⚠️ 为什么非做不可：贴纸图一旦渲染进 DOM，浏览器就**解码一份位图攥着不放**，
+// 而且 GIF 会**一直循环播放**。`_imgCache` 的 LRU 只管我这份 dataURL 缓存，
+// 管不到已经上屏的 <img>。聊天区又没有虚拟滚动（displayLimit 默认不限），
+// 攒到两三百条贴纸消息就是几十 MB 内存 + 几十个动画同时烧 CPU。
+//
+// 做法：滚出视口就换回 1×1 占位（位图释放、动画停止），滚回来再挂上。
+// 卸载前把实际显示尺寸写进 inline style，否则图变 1px、整页会往上缩着跳。
+
+const _PH_MAX = 130;   // 跟 .sticker-img 的 max-width/max-height 对齐
+
+function _placeholderSize(w, h) {
+  if (!w || !h) return null;
+  const k = Math.min(1, _PH_MAX / Math.max(w, h));
+  return [Math.round(w * k), Math.round(h * k)];
+}
+
+function _unmountStickerImg(el) {
+  if (el.dataset.unmounted === '1') return;
+  if (!el.src || el.src === _PH) return;
+  const size = _placeholderSize(el.naturalWidth, el.naturalHeight);
+  if (size) { el.style.width = size[0] + 'px'; el.style.height = size[1] + 'px'; }
+  el.dataset.unmounted = '1';
+  el.src = _PH;
+}
+
+async function _mountStickerImg(el) {
+  if (el.dataset.unmounted !== '1') return;
+  const sid = el.dataset.sid;
+  if (!sid) return;
+  const data = _cacheGet(sid) || await ensureStickerImg(sid);
+  if (!data || !el.isConnected) return;
+  delete el.dataset.unmounted;
+  el.style.width = '';
+  el.style.height = '';
+  el.src = data;
+}
+
+// 不支持 IntersectionObserver 的环境直接不注册 —— 那就退回"渲染完一直挂着"的老行为
+const _stickerObserver = (typeof IntersectionObserver === 'function')
+  ? new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        const el = e.target;
+        if (!el.dataset || !el.dataset.sid) continue;
+        if (e.isIntersecting) _mountStickerImg(el);
+        else _unmountStickerImg(el);
+      }
+    }, { rootMargin: '400px 0px' })
+  : null;
+
+/** 把 root 里还没登记的贴纸图挂上观察者（渲染完消息 / 追加新消息时调一次） */
+export function observeStickerImgs(root) {
+  if (!_stickerObserver || !root || !root.querySelectorAll) return;
+  // ⚠️ 只认聊天气泡里的 .sticker-img。贴纸面板和贴纸库里的缩略图是固定小尺寸
+  //    （48px / 网格等分），拿这里按 130px 算出来的占位尺寸会把它们的布局撑坏；
+  //    而且那两个每次开都重建 innerHTML，旧的图自己就释放了，不需要额外管。
+  root.querySelectorAll('img.sticker-img[data-sid]').forEach(el => {
+    if (el.dataset.obs === '1') return;
+    el.dataset.obs = '1';
+    _stickerObserver.observe(el);
+  });
 }
 
 // ── 索引读写 ──────────────────────────────────────────────────────────────
@@ -674,11 +739,13 @@ export function renderStickerHTML(name) {
   const s = getStickerByName(name);
   if (!s) return `<span class="sticker-pill">🎭 ${escHtml(name)}</span>`;
   if (!s.hasImg) return `<span class="sticker-pill">${escHtml(s.emoji || '🎭')} ${escHtml(s.name)}</span>`;
+  const sid = escHtml(s.id);
   const cached = _cacheGet(s.id);
   // dataURL 字符集是 base64，不含需要转义的字符，直接拼（escHtml 每帧跑几万字符的图太浪费）
-  if (cached) return `<img class="sticker-img" src="${cached}" alt="${escHtml(s.name)}">`;
+  // ⚠️ 不管有没有图都带 data-sid：视口懒加载的 observer 靠它认人
+  if (cached) return `<img class="sticker-img" data-sid="${sid}" src="${cached}" alt="${escHtml(s.name)}">`;
   ensureStickerImg(s.id);
-  return `<img class="sticker-img sticker-img-loading" data-sid="${escHtml(s.id)}" src="${_PH}" alt="${escHtml(s.name)}">`;
+  return `<img class="sticker-img sticker-img-loading" data-sid="${sid}" src="${_PH}" alt="${escHtml(s.name)}">`;
 }
 
 export function detectStickerMsg(content) {
@@ -778,5 +845,6 @@ export function initStickers() {
   Object.assign(window, {
     openStickerPanel, closeStickerPanel, sendStickerMsg,
     getStickerHint, applyStickerTags, detectStickerMsg, renderStickerHTML,
+    observeStickerImgs,
   });
 }

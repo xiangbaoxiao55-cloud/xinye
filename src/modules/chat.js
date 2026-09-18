@@ -451,6 +451,7 @@ export async function renderMessages() {
     chatArea.appendChild(row);
   }
   _observeLazyImgs(chatArea);
+  window.observeStickerImgs?.(chatArea);
   try {
     const cachedKeys = new Set(await dbGetAllKeys('ttsCache'));
     if (cachedKeys.size > 0) {
@@ -527,6 +528,7 @@ export async function appendMsgDOM(msg) {
   if (!isUser && _activeContent2 && !msg.isGenImage && !_isEmailRender2) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent2); }
   if (msg.content && !msg.isGenImage && !_sn && !_isEmailRender2) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
   chatArea.appendChild(row);
+  window.observeStickerImgs?.(row);
   scrollBottom();
   window.updateHeaderStatus?.();
 }
