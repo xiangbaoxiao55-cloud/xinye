@@ -4,6 +4,30 @@ import { dbPut, dbGet } from './db.js';
 import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
 import { getImagePresets, getImageCurPresetIdx } from './api.js';
+import { pendAdd, pendSetUrl, pendDone, pendBump } from './pendingdraw.js';
+
+/**
+ * 把一个 http 图片链接下载成 base64 —— 三级兜底：直连 → 本地代理 → Vercel 代理。
+ * 三个都失败就抛。
+ *
+ * 以前 generateImage / generateImageQuiet / 续账各抄一遍，2026-09-18 收成一份 ——
+ * 收的时候才发现 generateImage 那份少了 `r.ok` 检查（404 也会被当成图片塞进 FileReader）。
+ */
+async function _httpToB64(fetchUrl) {
+  const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
+  const _toB64 = async (u) => {
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const b = await r.blob();
+    return new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
+  };
+  try { return await _toB64(fetchUrl); } catch (e1) { console.warn('[画图] 直连下载失败，试代理:', e1.message); }
+  if (_lUrl) {
+    try { return await _toB64(`${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(fetchUrl)}`); }
+    catch (e2) { console.warn('[画图] 本地代理下载失败，试中转:', e2.message); }
+  }
+  return await _toB64(`/api/img-proxy?url=${encodeURIComponent(fetchUrl)}`);
+}
 
 export async function autoSaveGenImage(dataUrl, msgId) {
   const _imgLabel = window.__APP_ID__ === 'choubao' ? '臭宝画的图' : '炘也画的图';
@@ -88,11 +112,50 @@ export async function compositeRefImages(dataUrls) {
   return canvas.toDataURL('image/png');
 }
 
+/**
+ * 出图的收尾：落一条 AI 气泡、把图存进去。
+ *
+ * 正常画完、以及「续账时只把链接重新下载回来」两条路都走这一份 ——
+ * 2026-09-18 从 generateImage 里抽出来的，为的是续账那条路不必重跑一遍画图逻辑。
+ */
+async function _saveGenBubble(dataUrl, { size, hasRef, prompt, userDesc, opts, jd }) {
+  // opts.bubbleContent：让"后台自己画"那条路（主动消息配图）自己决定气泡上写什么。
+  // 默认那句带「你说：…」，是给"她在聊天里点画图"用的 —— 别人用会变成她没说过的话。
+  const ctxDesc = opts.bubbleContent
+    || `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
+  const aiMsg = await addMessage('assistant', ctxDesc);
+  aiMsg.isGenImage = true;
+  aiMsg.genImageData = dataUrl;
+  aiMsg.genSize = size;   // 记下来，气泡上的「重试」要按原尺寸重画
+  if (opts.refChars) aiMsg.genRefChars = opts.refChars;
+  if (opts.styleRef) aiMsg.genStyleRef = opts.styleRef;
+  await dbPut(activeStore(), null, aiMsg);
+  const _idx = messages.findIndex(m => m.id === aiMsg.id);
+  if (_idx >= 0) messages[_idx] = aiMsg;
+  await appendMsgDOM(aiMsg);
+  // 后台自己画的（主动消息配图）不自动往她手机 Download 里塞 ——
+  // 气泡上有「保存」，她想要自己点；不然 Downloads 会被动生成的图堆满
+  if (!opts.skipAutoSave) autoSaveGenImage(dataUrl, aiMsg.id);
+  pendDone(jd);   // 图真落进聊天了才算数
+}
+
+/**
+ * 续账：启动时把上次没画完的「聊天里画图」接着做完。
+ * 有链接就只重新下载（不再花画图的钱），没有才照原提示词重画一张。
+ * ⚠️ _resume 让 generateImage 别再落一遍她说的话 —— 那句上次已经在聊天里了。
+ */
+export async function resumeChatDraw(job) {
+  const _o = Object.assign({}, job.opts || {}, { _jd: job.id, _preUrl: job.url || '', _resume: true });
+  await generateImage(job.prompt, _o);
+}
+
 export async function generateImage(userDesc, opts = {}) {
   if (!settings.apiKey) { toast('请先设置 API Key'); return; }
   // opts.background：气泡上的「重试」走这条 —— 图在后台跑，不锁输入框、不动她正在打的东西
   const _bg = !!opts.background;
-  if (!_bg && window.isRequesting) return;
+  // opts._resume：续账来的（上次画到一半被刷新/闪退打断）——
+  // 她说的话那一步上次已经落过聊天了，这里不能再落一遍
+  if (!_bg && !opts._resume && window.isRequesting) return;
 
   const userInput = document.getElementById('userInput');
   const btnSend = document.getElementById('btnSend');
@@ -100,6 +163,13 @@ export async function generateImage(userDesc, opts = {}) {
   const imgPreview = document.getElementById('imgPreview');
 
   const _size = opts.size || settings.imageSize || '1024x1024';
+  // 记账：开工前先把「要画什么」落进账本 —— 中途被刷新 / 闪退 / 杀后台，启动时还找得回来。
+  // 调用方自己记了账就沿用它的 id（比如主动消息配图，kind=proactive）
+  const _jd = opts._jd || pendAdd({
+    kind: 'chat', prompt: userDesc,
+    opts: { size: _size, refChars: opts.refChars, styleRef: opts.styleRef,
+            bubbleContent: opts.bubbleContent, background: _bg, skipAutoSave: opts.skipAutoSave },
+  });
   // 后台重试不能用她此刻挂在输入框里的待发图，只用 opts 指定的参考图
   const refImgs = _bg ? [] : [...window.pendingImages];
   if (opts.refChars && opts.refChars !== 'none') {
@@ -116,7 +186,7 @@ export async function generateImage(userDesc, opts = {}) {
       if (_srImg) refImgs.push(_srImg);
     }
   }
-  if (!_bg) {
+  if (!_bg && !opts._resume) {
     // 只有「她主动要画」才动输入框、才把她的话落进聊天；后台重试不碰她在打的东西、也不伪造她说的话
     if (userInput) userInput.value = '';
     if (typeof window.autoResize === 'function') window.autoResize();
@@ -143,6 +213,16 @@ export async function generateImage(userDesc, opts = {}) {
 
     const _aiN = settings.aiName || '炘也';
     toast(hasRef ? `${_aiN}正在改图...` : `${_aiN}正在画...`);
+
+    // 续账：上次已经拿到图片链接、只是没下载完就被打断了 →
+    // 只把链接重新下载一次，不重画（不重复花一次画图的钱）。下不回来才往下走重画。
+    if (opts._preUrl) {
+      try {
+        const _d = await _httpToB64(opts._preUrl);
+        await _saveGenBubble(_d, { size: _size, hasRef, prompt, userDesc, opts, jd: _jd });
+        return;
+      } catch (e) { console.warn('[画图] 上次存的链接已经下不回来了，重画一张:', e.message); }
+    }
 
     // 构建预设列表，失败时自动轮询
     const _rawPresets = getImagePresets();
@@ -301,38 +381,17 @@ export async function generateImage(userDesc, opts = {}) {
         let _parsedUrl = _parseImg(imgData);
         console.log('[画图v2] 解析结果:', _parsedUrl ? _parsedUrl.slice(0,60)+'...' : 'null');
         if (_parsedUrl && _parsedUrl.startsWith('http')) {
-          const _urlToB64 = async (fetchUrl) => {
-            const _ur = await fetch(fetchUrl);
-            if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
-            const _ub = await _ur.blob();
-            return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
-          };
+          // 🔴 全流程最值钱的一行：此刻图已经在服务端画好了、钱已经花了，
+          //    但把它下载回来的活儿才刚开始 —— 这几秒里刷新/闪退，图就没了。
+          //    先把链接记进账本，下次启动只需重新下载，不用再画一遍。
+          pendSetUrl(_jd, _parsedUrl);
           try {
-            _parsedUrl = await _urlToB64(_parsedUrl);
+            _parsedUrl = await _httpToB64(_parsedUrl);
             console.log('[画图v2] URL已转base64存储');
           } catch(_ue) {
-            console.warn('[画图v2] 直接fetch失败，尝试代理下载:', _ue.message);
-            const _lUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
-            let _proxyOk = false;
-            if (_lUrl) {
-              try {
-                const _proxyUrl = `${_lUrl}/api/proxy-fetch?url=${encodeURIComponent(_parsedUrl)}`;
-                _parsedUrl = await _urlToB64(_proxyUrl);
-                console.log('[画图v2] 代理URL已转base64存储');
-                _proxyOk = true;
-              } catch(_pe) { console.warn('[画图v2] 本地代理失败，尝试Vercel代理:', _pe.message); }
-            }
-            if (!_proxyOk) {
-              try {
-                const _vercelProxy = `/api/img-proxy?url=${encodeURIComponent(_parsedUrl)}`;
-                _parsedUrl = await _urlToB64(_vercelProxy);
-                console.log('[画图v2] Vercel代理已转base64存储');
-              } catch(_ve) {
-                console.warn('[画图v2] 所有代理均失败，改存origUrl供手动打开:', _ve.message);
-                toast('图片无法内嵌显示，气泡里有链接可点击打开');
-                _parsedUrl = '__HTTP_URL__:' + _parsedUrl;
-              }
-            }
+            console.warn('[画图v2] 三个代理都没下来，改存origUrl供手动打开:', _ue.message);
+            toast('图片无法内嵌显示，气泡里有链接可点击打开');
+            _parsedUrl = '__HTTP_URL__:' + _parsedUrl;
           }
         }
         if (!_parsedUrl) {
@@ -357,26 +416,12 @@ export async function generateImage(userDesc, opts = {}) {
 
     if (!dataUrl) throw _lastErr || new Error('所有画图预设均失败');
 
-    // opts.bubbleContent：让"后台自己画"那条路（主动消息配图）自己决定气泡上写什么。
-    // 默认那句带「你说：…」，是给"她在聊天里点画图"用的 —— 别人用会变成她没说过的话。
-    const ctxDesc = opts.bubbleContent
-      || `[🎨 ${settings.aiName||'炘也'}${hasRef ? '根据垫图' : ''}给你画了一张图]\n你说：${userDesc}\n提示词：${prompt}`;
-    const aiMsg = await addMessage('assistant', ctxDesc);
-    aiMsg.isGenImage = true;
-    aiMsg.genImageData = dataUrl;
-    aiMsg.genSize = _size;   // 记下来，气泡上的「重试」要按原尺寸重画
-    if (opts.refChars) aiMsg.genRefChars = opts.refChars;
-    if (opts.styleRef) aiMsg.genStyleRef = opts.styleRef;
-    await dbPut(activeStore(), null, aiMsg);
-    const _idx = messages.findIndex(m => m.id === aiMsg.id);
-    if (_idx >= 0) messages[_idx] = aiMsg;
-
-    await appendMsgDOM(aiMsg);
-    // 后台自己画的（主动消息配图）不自动往她手机 Download 里塞 ——
-    // 气泡上有「保存」，她想要自己点；不然 Downloads 会被动生成的图堆满
-    if (!opts.skipAutoSave) autoSaveGenImage(dataUrl, aiMsg.id);
+    await _saveGenBubble(dataUrl, { size: _size, hasRef, prompt, userDesc, opts, jd: _jd });
 
   } catch(e) {
+    // 她看得见的那种失败（有 toast）→ 销账，别下次开机又偷偷画一张、再收一次钱。
+    // 悄悄失败的那种（主动消息/碎碎念配图，本来就不弹东西）→ 记一次，下次开机再试。
+    if (opts.quiet) pendBump(_jd); else pendDone(_jd);
     if (e.name === 'AbortError') {
       if (!opts.quiet) toast('画图超时了...');
     } else {
@@ -385,7 +430,7 @@ export async function generateImage(userDesc, opts = {}) {
     }
   } finally {
     clearTimeout(tid);
-    if (!_bg) {
+    if (!_bg && !opts._resume) {
       if (typing) typing.classList.remove('show');
       window.isRequesting = false;
       if (btnSend && userInput) btnSend.disabled = userInput.value.trim() === '';
@@ -471,6 +516,12 @@ async function _oneRefBlob(refs) {
 
 export async function generateImageQuiet(prompt, opts = {}) {
   if (!settings.apiKey || !prompt) return null;
+  const _jd = opts._jd || '';
+  // 续账：上次已经拿到链接、只是没下载完就被打断了 → 只重新下载，不重画
+  if (_jd && opts._preUrl) {
+    try { const _d = await _httpToB64(opts._preUrl); console.log('[碎碎念·画图] 上次存的链接下回来了'); return _d; }
+    catch (e) { console.warn('[碎碎念·画图] 上次的链接下不回来了，重画:', e.message); }
+  }
 
   // 参考图（2026-09-17 加）：垫炘也 / 垫兔宝 / 垫两人 + 画风
   const _refs = await collectRefImages(opts.refChars, opts.styleRef);
@@ -501,12 +552,6 @@ export async function generateImageQuiet(prompt, opts = {}) {
     if (typeof d?.data === 'string' && d.data.length > 100) return /^(data:|https?:)/.test(d.data) ? d.data : _b64(d.data);
     if (typeof d === 'string' && d.length > 100) return /^(data:|https?:)/.test(d) ? d : _b64(d);
     return null;
-  };
-  const _urlToB64 = async (fetchUrl) => {
-    const _ur = await fetch(fetchUrl);
-    if (!_ur.ok) throw new Error(`HTTP ${_ur.status}`);
-    const _ub = await _ur.blob();
-    return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(_ub); });
   };
 
   for (const _preset of _cfgs) {
@@ -568,16 +613,8 @@ export async function generateImageQuiet(prompt, opts = {}) {
       let url = _parseImg(await imgRes.json());
       if (!url) throw new Error('没从返回里解析出图片');
       if (url.startsWith('http')) {
-        // 跟 generateImage 一样的三级兜底：直连 → 本地代理 → Vercel 代理
-        let _ok = false;
-        try { url = await _urlToB64(url); _ok = true; } catch (_e1) {}
-        if (!_ok && localUrl) {
-          try { url = await _urlToB64(`${localUrl}/api/proxy-fetch?url=${encodeURIComponent(url)}`); _ok = true; } catch (_e2) {}
-        }
-        if (!_ok) {
-          try { url = await _urlToB64(`/api/img-proxy?url=${encodeURIComponent(url)}`); _ok = true; } catch (_e3) {}
-        }
-        if (!_ok) throw new Error('图片下不下来（三个代理都失败）');
+        if (_jd) pendSetUrl(_jd, url);   // 链接先记账：中断了只需重新下载，不用重画
+        url = await _httpToB64(url);     // 三级兜底（直连 → 本地代理 → Vercel 代理）都在里面
       }
       console.log(`[碎碎念·画图] ✓ ${_name}`);
       return url;

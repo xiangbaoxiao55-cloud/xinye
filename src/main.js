@@ -506,7 +506,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.18-0918';
+  if (_verEl) _verEl.textContent = 'v2026.09.18-0953';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -618,9 +618,44 @@ async function checkPendingMessage() {
   // 每晚那篇「炘也的日记」：过点了就补，写过了就跳过（判据在模块里，很便宜）
   setTimeout(() => autoWriteXinyeDiary(), 5000);
 
+  // 上次没画完的图，接着画完（2026-09-18）—— 排在最后：首屏、消息、碎碎念都发出去之后。
+  // 账本平时是空的，这一下只是读一次 localStorage；真有活也是丢到后台画，不挡启动。
+  setTimeout(() => _resumePendingDraws(), 6000);
+
   // 注册 Periodic Background Sync（让SW在后台也能定期拉消息）
   _registerPeriodicSync();
 })();
+
+
+/**
+ * 续账：把上次没画完的图接着画完（账本见 src/modules/pendingdraw.js）。
+ *
+ * 为什么要这一手：画图是「在内存里跑、最后一步才落库」，一张要画十几秒到一分钟，
+ * 这段里刷新 / 闪退 / 被系统杀后台，图就白丢了 —— 钱花了、气泡都没有。
+ * 2026-09-18 兔宝就是这么丢了一张主动消息配图（09:25:24 拿到链接，09:25:29 刷新）。
+ *
+ * ⚠️ 只有**被硬中断**的活才会留在账上（她自己看见的那种失败当场销账），
+ *    所以绝大多数时候这里读一次 localStorage 就返回了。
+ * ⚠️ 用动态 import：posts.js / inbox.js 不在启动的静态依赖链上，别为这个把启动拉长。
+ */
+async function _resumePendingDraws() {
+  try {
+    const { pendFreshJobs } = await import('./modules/pendingdraw.js');
+    const jobs = pendFreshJobs();
+    if (!jobs.length) return;
+    console.log(`[画图续账] 有 ${jobs.length} 张上次没画完的图，接着来`);
+    for (const job of jobs) {
+      try {
+        if (job.kind === 'post') (await import('./modules/posts.js')).resumePostImage(job);
+        else if (job.kind === 'proactive') (await import('./modules/inbox.js'))._resumeProactiveImage(job);
+        else (await import('./modules/image.js')).resumeChatDraw(job);
+      } catch (e) {
+        // 接不上就算了 —— 账上的活有 2 小时保质期，过期自己会清
+        console.log('[画图续账] 这一张接不上了:', e && e.message);
+      }
+    }
+  } catch (e) { console.log('[画图续账] 跳过:', e && e.message); }
+}
 
 
 // ======================== 启动 ========================

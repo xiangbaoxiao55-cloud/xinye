@@ -12,6 +12,7 @@ import { openPhoneDB, addRecord, dataUrlToBlob } from './phonedb.js';
 import { generateImageQuiet } from './image.js';
 import { generateTTSBlob } from './tts.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
+import { pendAdd, pendDone, pendBump } from './pendingdraw.js';
 
 const CURSOR_KEY = 'xinye_posts_lastSync';      // 拉到哪儿了（云端时间游标）
 const IDS_KEY    = 'xinye_posts_consumedIds';   // 已入库的 post id（游标是 ms，同一毫秒会有边界问题）
@@ -53,14 +54,20 @@ async function _storeText(p) {
   });
 }
 
-/** 补配图 / 配音（能成最好，不成不影响那条文字） */
-async function _storeMedia(p, budget) {
+/** 补配图 / 配音（能成最好，不成不影响那条文字）
+ *  opts.jd / opts.preUrl：续账来的（见 resumePostImage）——不能另开一笔，否则老账永远销不掉 */
+async function _storeMedia(p, budget, opts = {}) {
   const t = fmtPhoneTime(p.time || Date.now());
   if (p.image && budget.images > 0) {
     budget.images--;
     // 参考图（2026-09-17 加）：云端可以指定垫炘也 / 垫兔宝 / 垫两人 ——
     // 不然画里出现他和她的时候，长相跟本人一点关系都没有
-    const dataUrl = await generateImageQuiet(p.image, { refChars: p.ref_characters });
+    // 记账（2026-09-18）：图要画十几秒到一分钟，这段里刷新 / 闪退 / 被杀后台，图就白丢了
+    const _jd = opts.jd || pendAdd({
+      kind: 'post', prompt: p.image, refChars: p.ref_characters || 'none',
+      post: { id: p.id || '', text: String(p.text || ''), time: p.time || Date.now() },
+    });
+    const dataUrl = await generateImageQuiet(p.image, { refChars: p.ref_characters, _jd, _preUrl: opts.preUrl || '' });
     if (dataUrl) {
       await addRecord('xinye_photos', {
         type: 'image', source: 'auto', post: true, postId: p.id || '',
@@ -69,8 +76,10 @@ async function _storeMedia(p, budget) {
         prompt: String(p.image).slice(0, 500),
         refChars: p.ref_characters || 'none',
       });
+      pendDone(_jd);   // 图真落进手机相册了才算数
       return true;
     }
+    pendBump(_jd);     // 悄悄失败（她看不见）：下次开机再试一次，试够就销账
   } else if (p.voice && budget.voice) {
     budget.voice = false;
     const blob = await generateTTSBlob(String(p.text || ''));
@@ -83,6 +92,19 @@ async function _storeMedia(p, budget) {
     }
   }
   return false;
+}
+
+/**
+ * 续账：启动时把上次没画完的「碎碎念配图」接着做完。
+ *
+ * ⚠️ 只补图 —— 那条文字上次已经落过库了（`_storeText` 在补图之前，这是刻意的顺序）。
+ *    绝不能在这儿重新落一次文字，它会变成一条重复的说说。
+ */
+export async function resumePostImage(job) {
+  const p = Object.assign({}, job.post || {}, {
+    image: job.prompt, ref_characters: job.refChars || 'none',
+  });
+  await _storeMedia(p, { images: 1, voice: false }, { jd: job.id, preUrl: job.url || '' });
 }
 
 /**

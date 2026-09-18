@@ -18,6 +18,7 @@ import { settings, messages } from './state.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 import { pullPosts, hasUnreadPosts, markPostsSeen } from './posts.js';
 import { switchTab } from './diary.js';
+import { pendAdd } from './pendingdraw.js';
 
 // ======================== 碎碎念（他自己写的动态，2026-09-16） ========================
 // 拉的是云端新开的 /api/posts。**不弹通知、不进聊天** —— 只落在碎碎念那一页。
@@ -385,7 +386,13 @@ window._consumePushInbox = _consumePushInbox;
  *    （启动 / 30 秒轮询 / 切回前台）整个堵住 —— 她要的是话，图是附赠的。
  * ⚠️ 画失败就静默算了：文字已经在她手里了。别弹任何东西。
  */
-async function _drawProactiveImage(prompt, refChars) {
+async function _drawProactiveImage(prompt, refChars, opts = {}) {
+  // 记账（2026-09-18）：这条图要画十几秒到一分钟，这段里刷新 / 闪退 / 杀后台，图就白丢了
+  // —— 她那天就是这么丢的。续账来的带着 opts.jd，不能另开一笔。
+  const _jd = opts.jd || pendAdd({
+    kind: 'proactive', prompt, refChars: refChars || 'none',
+    size: settings.imageSize || '1024x1024',
+  });
   try {
     // 直接复用聊天里画图那条路（generateImage）—— 参考图、尺寸、预设轮询、多图垫图全在里面，
     // 不用再抄一份。四个开关把它变成"后台悄悄画"：
@@ -401,13 +408,26 @@ async function _drawProactiveImage(prompt, refChars) {
       quiet: true,
       skipAutoSave: true,
       refChars: refChars || 'none',
-      size: settings.imageSize || '1024x1024',
+      size: opts.size || settings.imageSize || '1024x1024',
       bubbleContent: `[🎨 ${name}${_refTag}画了一张图]\n提示词：${prompt}`,
+      _jd,
+      _preUrl: opts.preUrl || '',
     });
     console.log('[Push] 主动消息配图已画好');
   } catch (e) {
+    // 账本由 generateImage 内部销（quiet=true → 记一次，下次开机再试）
     console.log('[Push] 主动消息配图失败（只留文字）:', e && e.message);
   }
+}
+
+/**
+ * 续账：启动时把上次没画完的「主动消息配图」接着做完。
+ * ⚠️ 那条文字上次已经落进聊天了（`addMessage` 在画图之前），这里只补图，不重落文字。
+ */
+export async function _resumeProactiveImage(job) {
+  await _drawProactiveImage(job.prompt, job.refChars, {
+    jd: job.id, preUrl: job.url || '', size: job.size,
+  });
 }
 
 // ── 覆盖层里她回的那句话（2026-09-15） ─────────────────────────────────────
