@@ -81,7 +81,15 @@
   <button id="btnExport" class="primary">② 导出全部数据</button>
   <button id="btnImportDir" class="primary">③ 导入全部数据（选「下载」文件夹）</button>
   <button id="btnImport">　　或者：只挑文件（一个个勾）</button>
-  <input type="file" id="impFile" multiple accept=".json,application/json" hidden>
+  <!--
+    🔴 accept 千万别写多个类型。
+    2026-09-18 真机实测：原来写的是 accept=".json,application/json"（两个），
+    安卓的文件选择器遇到**多个 accept 类型就退回单选** —— 长按也进不去多选。
+    而聊天页那个 `<input accept="image/*">` 只有**一个**类型，长按就能多选
+    （这是她自己发现的，一句话直接定位到病根）。
+    反正选出来的东西在我们自己手里按文件名过滤，accept 白名单本来也没起作用。
+  -->
+  <input type="file" id="impFile" multiple hidden>
   <input type="file" id="impDir" webkitdirectory directory multiple hidden>
 
   <pre id="log">准备就绪。</pre>
@@ -96,8 +104,17 @@
 const SKIP_DBS = ['XinyePushInbox'];
 const SKIP_STORES = { XinyeChatDB: ['ttsCache'] };
 
-const CHUNK = 6 * 1024 * 1024;   // 每块目标大小（JSON 字符数），base64 过桥后约 8MB
+// 每块目标大小（JSON 字符数）。
+// 🔴 2026-09-18 从 6MB 提到 32MB：真机上发现安卓这个 WebView 的**文件选择器不给多选**
+//    （长按也不进多选模式），6MB 一块切出 77 个文件 = 她得点 77 次。32MB 的话 418MB
+//    只有十来个。base64 过桥后约 43MB —— 她那份 66MB 的备份导出都成功过，这条路安全。
+const CHUNK = 32 * 1024 * 1024;
 const PAGE  = 120;               // 每次从库里取多少条（内存峰值 = 一页）
+
+// 「哪些 store 已经清空过」—— 必须**跨批次记住**。
+// 🔴 否则分批导入会互相拆台：比如聊天记录有几十个块、她分三次导，
+//    每次都以 clear 开头 → 最后库里只剩最后那批。存 localStorage 里。
+const CLEARED_KEY = 'migrate_cleared_stores';
 
 const logEl = document.getElementById('log');
 const lines = [];
@@ -265,10 +282,18 @@ document.getElementById('btnExport').onclick = async () => {
           const page = await readPage(db, s.name, last, PAGE);
           if (!page.length) break;
           for (const r of page) {
+            const sz = JSON.stringify(r.value).length;
+            // ⚠️ 先估再放。原来是「放进去、超了再交」，那样每块会**多出一整条大记录**的量
+            //    —— 她的图单条十几 MB，实测切出来 39MB 一块，过 base64 桥后 50MB+，
+            //    离那个 60MB 的红线太近了。现在每块真的贴着 CHUNK 走。
+            if (buf.length && bytes + sz > CHUNK) {
+              await flush(name, version, schema, buf);
+              buf = []; bytes = 0;
+              await pause();
+            }
             buf.push({ store: s.name, value: r.value });
-            bytes += JSON.stringify(r.value).length;
+            bytes += sz;
             n++;
-            if (bytes >= CHUNK) { await flush(name, version, schema, buf); buf = []; bytes = 0; await pause(); }
           }
           last = page[page.length - 1].key;
         }
@@ -336,6 +361,13 @@ async function clearStore(db, store) {
   });
 }
 
+function loadCleared() {
+  try { return new Set(JSON.parse(localStorage.getItem(CLEARED_KEY) || '[]')); } catch { return new Set(); }
+}
+function saveCleared(s) {
+  try { localStorage.setItem(CLEARED_KEY, JSON.stringify([...s])); } catch {}
+}
+
 /** 把主动消息游标推到当下（见 handleImport 里的说明） */
 function markInboxSyncedNow() {
   try {
@@ -358,7 +390,9 @@ async function handleImport(picked) {
   try {
     const sorted = files.sort((a, z) => a.name.localeCompare(z.name));
     log(`收到 ${sorted.length} 个文件${hit.length !== picked.length ? `（跳过了 ${picked.length - hit.length} 个不相干的）` : ''}，按顺序写回…\n`);
-    const cleared = new Set();
+    const cleared = loadCleared();
+    const clearedNow = [];
+    if (cleared.size) log(`（接着上次导 —— 已经清空过的 store 不会再清：${cleared.size} 个）\n`);
     for (const f of sorted) {
       let data;
       try { data = JSON.parse(await f.text()); }
@@ -379,6 +413,11 @@ async function handleImport(picked) {
           if (cleared.has(k)) continue;
           await clearStore(cur, st);
           cleared.add(k);
+          clearedNow.push(k);
+        }
+        if (clearedNow.length) {
+          saveCleared(cleared);
+          log(`  （首次遇到，已清空：${clearedNow.map(x => x.split('::')[1]).join('、')}）`, 'ok');
         }
       } catch (e) { log(`  ⚠️ 清空旧数据失败：${e.message}`, 'warn'); }
       try { await putRows(cur, data.rows); }
