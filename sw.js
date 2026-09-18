@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260918-1045';
+const CACHE_NAME = 'xinye-20260918-1233';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -43,6 +43,7 @@ const STATIC_ASSETS = [
   '/draw.html', '/src/draw.js', '/src/styles/draw.css',
   '/flipbook.html', '/src/flipbook.js', '/src/styles/flipbook.css',
   '/storyboard.html', '/src/storyboard.js', '/src/styles/storyboard.css',
+  '/migrate.html',
   '/assets/style_library.json'
 ];
 

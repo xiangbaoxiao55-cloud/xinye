@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff8f0">
+<title>数据搬家 · 炘也</title>
+<!--
+  一次性的搬家页（2026-09-18）。
+
+  为什么需要它：把 APP 的 server.url 从 xinye-phi.vercel.app 换到 xinyetb.cn，
+  **origin 一变，IndexedDB 就是一本全新的空账**（APK/浏览器的两套沙箱那条铁律）。
+  而「一键备份到手机」**只带**聊天/日记文字/共读/设置/好友/预设/头像参考图/贴纸 ——
+  画廊(GalleryDB)、故事板(StoryboardDB)、画图台图库(DrawDB)、日记图片(DiaryImagesDB)
+  一个都不在里面，直接切过去就是整片消失。
+
+  这个页面同时放在新旧两个域名上（同一份代码、同一个仓库）：
+    在旧域名打开 → 「导出全部数据」；在新域名打开 → 「导入全部数据」。
+  两个按钮都在，是为了不依赖自动判断 origin（判断错了方向就反了）。
+
+  ⚠️ 分块的原因：saveFile 走的是 AndroidDownload 的 base64 JSBridge，
+     整站图片一次性过去会直接 OOM（画图台那边有个 60MB 上限提示，同一回事）。
+     所以按 ~6MB 一块切，内存峰值只有一块。
+
+  搬完就可以删掉这个页面和它在 sw.js 里的那一行。
+-->
+<style>
+  :root{
+    --bg:#fff8f0; --fg:#4a3f3a; --mid:#8a7a72; --line:#f0e4dc;
+    --pink:#e8a0a8; --pink-soft:#fdeef0; --warm:#fff3e8;
+  }
+  html[data-theme="dark"]{
+    --bg:#16121e; --fg:#e8e2ee; --mid:#9c93a8; --line:#2e2740;
+    --pink:#d98a97; --pink-soft:#2a2135; --warm:#221c2e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;padding:20px 16px 48px;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.65;
+  }
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px;font-weight:600}
+  .sub{color:var(--mid);font-size:13px;margin:0 0 20px}
+  .card{background:var(--warm);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+  .card h2{font-size:14px;margin:0 0 8px;font-weight:600;color:var(--mid)}
+  .card p{margin:0 0 8px;font-size:13px;color:var(--mid)}
+  .card p:last-child{margin-bottom:0}
+  .origin{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--pink);word-break:break-all}
+  button{
+    width:100%;padding:13px;margin-bottom:10px;border-radius:12px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:500;
+    border:1.5px solid var(--pink);background:var(--pink-soft);color:var(--fg);
+    transition:opacity .15s;
+  }
+  button:active{opacity:.6}
+  button:disabled{opacity:.45;cursor:default}
+  button.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
+  pre{
+    background:var(--warm);border:1px solid var(--line);border-radius:12px;
+    padding:12px;font-size:12px;line-height:1.6;max-height:44vh;overflow:auto;
+    white-space:pre-wrap;word-break:break-all;margin:0;color:var(--mid);
+    font-family:ui-monospace,Consolas,monospace;
+  }
+  .warn{color:#c0705c}
+  .ok{color:#6a9a72}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>数据搬家</h1>
+  <p class="sub">把画廊、故事板、画图台图库、日记图片这些「备份带不走」的东西，从旧域名搬到新域名。</p>
+
+  <div class="card">
+    <h2>当前在哪个域名</h2>
+    <p class="origin" id="org">…</p>
+    <p id="hint"></p>
+  </div>
+
+  <button id="btnScan">① 盘点一下有多少东西</button>
+  <button id="btnExport" class="primary">② 导出全部数据</button>
+  <button id="btnImport">③ 导入全部数据（选刚导出的文件）</button>
+  <input type="file" id="impFile" multiple accept=".json,application/json" hidden>
+
+  <pre id="log">准备就绪。</pre>
+</div>
+
+<script type="module">
+// ── 搬什么、不搬什么 ──────────────────────────────────────────────────────
+// 全部 IndexedDB 库都扫（动态发现），只跳过两样：
+//  · XinyePushInbox —— 推送收件箱，是"还没上屏的消息"的临时中转，搬过去只会让旧消息重弹
+//  · ttsCache       —— 语音缓存，能重新生成，往往是最大的那个，不值得搬
+const SKIP_DBS = ['XinyePushInbox'];
+const SKIP_STORES = { XinyeChatDB: ['ttsCache'] };
+
+const CHUNK = 6 * 1024 * 1024;   // 每块目标大小（JSON 字符数），base64 过桥后约 8MB
+const PAGE  = 120;               // 每次从库里取多少条（内存峰值 = 一页）
+
+const logEl = document.getElementById('log');
+const lines = [];
+function log(s, cls) {
+  lines.push(cls ? `<span class="${cls}">${s}</span>` : s);
+  if (lines.length > 400) lines.splice(0, lines.length - 400);
+  logEl.innerHTML = lines.join('\n');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+const pause = () => new Promise(r => setTimeout(r, 0));
+const mb = n => (n / 1048576).toFixed(1) + 'MB';
+
+// ── 保存文件（照抄 utils.js: saveFile 的逻辑，这里不想拉整条依赖链）──────
+async function saveFile(data, filename) {
+  let blob = data;
+  if (typeof data === 'string') {
+    try { blob = await (await fetch(data)).blob(); } catch { blob = null; }
+  }
+  if (window.AndroidDownload && blob) {
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(String(e.target.result).split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+      if (window.AndroidDownload.downloadFile(filename, blob.type || 'application/octet-stream', b64)) return true;
+    } catch (e) { console.warn('[saveFile] 原生保存失败，回退浏览器方式：', e.message); }
+  }
+  const url = typeof data === 'string' ? data : URL.createObjectURL(blob || new Blob([]));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  if (typeof data !== 'string') setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+
+// ── 发现库 ───────────────────────────────────────────────────────────────
+async function listDBs() {
+  if (indexedDB.databases) {
+    try {
+      const l = await indexedDB.databases();
+      return l.filter(d => d.name).map(d => ({ name: d.name, version: d.version || 1 }));
+    } catch {}
+  }
+  // 老内核兜底：硬编码清单（版本号只在"库不存在、要新建"时用得上）
+  return [
+    { name: 'XinyeChatDB', version: 4 }, { name: 'DrawDB', version: 4 },
+    { name: 'GalleryDB', version: 2 },   { name: 'StoryboardDB', version: 2 },
+    { name: 'ReadingDB', version: 2 },   { name: 'DiaryTextDB', version: 1 },
+    { name: 'DiaryImagesDB', version: 1 },{ name: 'XinyePhoneDB', version: 3 },
+  ];
+}
+
+function openDB(name, version) {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(name, version);
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('onblocked（这个库被别的标签页占着）'));
+  });
+}
+
+function readSchema(db) {
+  return [...db.objectStoreNames].map(n => {
+    const os = db.transaction(n, 'readonly').objectStore(n);
+    return {
+      name: n,
+      keyPath: os.keyPath,
+      autoIncrement: !!os.autoIncrement,
+      indexes: [...os.indexNames].map(ix => {
+        const i = os.index(ix);
+        return { name: i.name, keyPath: i.keyPath, unique: !!i.unique, multiEntry: !!i.multiEntry };
+      }),
+    };
+  });
+}
+
+/** 取一页（读完这一页就结束事务，好让外面 await 存盘时不把事务拖死） */
+function readPage(db, storeName, afterKey, size) {
+  return new Promise((res, rej) => {
+    const out = [];
+    const range = afterKey == null ? null : IDBKeyRange.lowerBound(afterKey, true);
+    const req = db.transaction(storeName, 'readonly').objectStore(storeName).openCursor(range);
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (!c || out.length >= size) { res(out); return; }
+      out.push({ key: c.key, value: c.value });
+      c.continue();
+    };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// ── ① 盘点 ───────────────────────────────────────────────────────────────
+document.getElementById('btnScan').onclick = async () => {
+  const b = document.getElementById('btnScan'); b.disabled = true;
+  lines.length = 0;
+  log('开始盘点…\n');
+  try {
+    const dbs = await listDBs();
+    if (!dbs.length) { log('一个库都没找到 —— 这个域名下确实是空的。', 'warn'); return; }
+    let grandTotal = 0, grandBytes = 0;
+    for (const { name, version } of dbs) {
+      const skipped = SKIP_DBS.includes(name);
+      let db;
+      try { db = await openDB(name, version); }
+      catch (e) { log(`${name}  v${version}  ⚠️ 打不开：${e.message}`, 'warn'); continue; }
+      const stores = readSchema(db);
+      let cnt = 0, bytes = 0;
+      for (const s of stores) {
+        if (skipped || (SKIP_STORES[name] || []).includes(s.name)) continue;
+        let last = null;
+        for (;;) {
+          const page = await readPage(db, s.name, last, PAGE);
+          if (!page.length) break;
+          cnt += page.length;
+          bytes += JSON.stringify(page).length;
+          last = page[page.length - 1].key;
+        }
+        await pause();
+      }
+      db.close();
+      grandTotal += cnt; grandBytes += bytes;
+      const tail = skipped ? '  （整库跳过：推送收件箱）' : '';
+      log(`${name.padEnd(16)} v${version}   ${String(cnt).padStart(6)} 条   约 ${mb(bytes)}${tail}`);
+    }
+    log(`\n合计 ${grandTotal} 条，约 ${mb(grandBytes)}。`, 'ok');
+    log('数据大的话导出要几分钟，中途别切走页面。');
+  } catch (e) {
+    log('盘点失败：' + e.message, 'warn');
+  } finally { b.disabled = false; }
+};
+
+// ── ② 导出 ───────────────────────────────────────────────────────────────
+let seq = 0;
+async function flush(dbName, ver, schema, rows) {
+  seq++;
+  const json = JSON.stringify({ v: 1, db: dbName, ver, schema, rows });
+  const fn = `xinye-migrate_${String(seq).padStart(4, '0')}_${dbName}.json`;
+  await saveFile(new Blob([json], { type: 'application/json' }), fn);
+  log(`  → ${fn}  ${rows.length} 条  ${mb(json.length)}`);
+}
+
+document.getElementById('btnExport').onclick = async () => {
+  const b = document.getElementById('btnExport'); b.disabled = true;
+  lines.length = 0;
+  try {
+    const dbs = await listDBs();
+    if (!dbs.length) { log('这个域名下一个库都没有，没什么可导的。', 'warn'); return; }
+    log(`开始导出（共 ${dbs.length} 个库）…`);
+    log('⚠️ 浏览器可能会问「是否允许下载多个文件」，点允许。\n');
+    seq = 0;
+    for (const { name, version } of dbs) {
+      if (SKIP_DBS.includes(name)) { log(`${name}：整库跳过`, 'ok'); continue; }
+      let db;
+      try { db = await openDB(name, version); }
+      catch (e) { log(`${name} 打不开，跳过：${e.message}`, 'warn'); continue; }
+      const schema = readSchema(db);
+      log(`\n${name} v${version}`);
+      for (const s of schema) {
+        if ((SKIP_STORES[name] || []).includes(s.name)) { log(`  ${s.name}：跳过（可重建的缓存）`, 'ok'); continue; }
+        let last = null, buf = [], bytes = 0, n = 0;
+        for (;;) {
+          const page = await readPage(db, s.name, last, PAGE);
+          if (!page.length) break;
+          for (const r of page) {
+            buf.push({ store: s.name, value: r.value });
+            bytes += JSON.stringify(r.value).length;
+            n++;
+            if (bytes >= CHUNK) { await flush(name, version, schema, buf); buf = []; bytes = 0; await pause(); }
+          }
+          last = page[page.length - 1].key;
+        }
+        if (buf.length) await flush(name, version, schema, buf);
+        if (!n) log(`  ${s.name}：空的`);
+      }
+      db.close();
+      await pause();
+    }
+    log(`\n✅ 导出完毕，共 ${seq} 个文件，都在手机的「下载 / Download」目录里。`, 'ok');
+    log('下一步：把 APP 换成新版本，在新域名里点「③ 导入全部数据」。');
+  } catch (e) {
+    log('导出失败：' + e.message, 'warn');
+  } finally { b.disabled = false; }
+};
+
+// ── ③ 导入 ───────────────────────────────────────────────────────────────
+async function ensureDB(name, ver, schema) {
+  // 先看现有版本：不能拿低版本去 open，会直接 VersionError
+  let cur = 0;
+  if (indexedDB.databases) {
+    try { cur = (await indexedDB.databases()).find(d => d.name === name)?.version || 0; } catch {}
+  }
+  const target = Math.max(ver || 1, cur || 1);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(name, target);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      for (const s of (schema || [])) {
+        if (d.objectStoreNames.contains(s.name)) continue;
+        const os = d.createObjectStore(s.name, { keyPath: s.keyPath, autoIncrement: !!s.autoIncrement });
+        for (const ix of (s.indexes || [])) {
+          try { os.createIndex(ix.name, ix.keyPath, { unique: !!ix.unique, multiEntry: !!ix.multiEntry }); } catch {}
+        }
+      }
+    };
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('onblocked'));
+  });
+}
+
+async function putRows(db, rows) {
+  const byStore = {};
+  for (const r of rows) (byStore[r.store] ||= []).push(r.value);
+  for (const [store, vals] of Object.entries(byStore)) {
+    await new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const os = tx.objectStore(store);
+      for (const v of vals) { try { os.put(v); } catch {} }
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('aborted'));
+    });
+  }
+}
+
+document.getElementById('impFile').addEventListener('change', async e => {
+  const files = [...(e.target.files || [])];
+  e.target.value = '';
+  if (!files.length) return;
+  const b = document.getElementById('btnImport'); b.disabled = true;
+  lines.length = 0;
+  let cur = null, curName = null, total = 0;
+  try {
+    const sorted = files.sort((a, z) => a.name.localeCompare(z.name));
+    log(`收到 ${sorted.length} 个文件，按顺序写回…\n`);
+    for (const f of sorted) {
+      let data;
+      try { data = JSON.parse(await f.text()); }
+      catch { log(`${f.name}：不是合法 JSON，跳过`, 'warn'); continue; }
+      if (!data || !data.db || !Array.isArray(data.rows)) { log(`${f.name}：格式不对，跳过`, 'warn'); continue; }
+      if (data.db !== curName) {
+        if (cur) cur.close();
+        cur = await ensureDB(data.db, data.ver, data.schema);
+        curName = data.db;
+        log(`\n${data.db} v${data.ver}`);
+      }
+      try { await putRows(cur, data.rows); }
+      catch (err) { log(`  ⚠️ ${f.name} 写入失败：${err.message}`, 'warn'); continue; }
+      total += data.rows.length;
+      log(`  ← ${f.name}  ${data.rows.length} 条`);
+      await pause();
+    }
+    if (cur) cur.close();
+    log(`\n✅ 导入完毕，共写回 ${total} 条。`, 'ok');
+    log('回到 APP 里刷新一下（设置 → 其他 → 检查更新并强制刷新），再去画廊/故事板/画图台看看东西在不在。');
+  } catch (err) {
+    log('导入失败：' + err.message, 'warn');
+  } finally { b.disabled = false; }
+});
+
+document.getElementById('btnImport').onclick = () => {
+  if (!confirm('已经在新域名里了、也已经导过备份了，再继续。\n\n从文件里选「xinye-migrate_」开头的那些 json（可以一次全选）。')) return;
+  document.getElementById('impFile').click();
+};
+
+// ── 头部提示 ─────────────────────────────────────────────────────────────
+const here = location.origin;
+document.getElementById('org').textContent = here;
+document.getElementById('hint').textContent =
+  here.includes('xinyetb.cn')
+    ? '这是新家。导出请在旧的那个（xinye-phi.vercel.app）里做。'
+    : '这是旧家。在这里点「② 导出全部数据」。';
+</script>
+</body>
+</html>
