@@ -176,24 +176,58 @@ const _DEFAULT_STICKERS = [
 ];
 
 const _chatStickers = [];        // 元数据（不含图片）
-const _imgCache = new Map();     // id → dataURL（加载过的图）
 const _imgLoading = new Set();   // 正在读的 id，防重复请求
+
+// 图片内存缓存，**按字节数做 LRU 淘汰**。
+// ⚠️ GIF 走不了 canvas（会只剩第一帧），所以原样存 —— 单张能到 2MB+，
+// 一个 80 张的表情包图包就是 50MB 上下。全留在内存里手机会 OOM，
+// 所以这里设上限，超了就把最久没用过的挤出去（DOM 里已渲染的图不受影响，
+// 浏览器自己拿着解码结果；只是下次重新渲染时要再读一次 IDB）。
+const _imgCache = new Map();     // id → dataURL（Map 的迭代顺序即 LRU 顺序）
+let _imgCacheBytes = 0;
+const _IMG_CACHE_MAX = 24 * 1024 * 1024;
+
+function _cacheGet(id) {
+  const v = _imgCache.get(id);
+  if (v === undefined) return undefined;
+  _imgCache.delete(id); _imgCache.set(id, v);   // 挪到队尾 = 最近用过
+  return v;
+}
+function _cacheSet(id, data) {
+  if (typeof data !== 'string') return;
+  const old = _imgCache.get(id);
+  if (old !== undefined) { _imgCacheBytes -= old.length; _imgCache.delete(id); }
+  _imgCache.set(id, data);
+  _imgCacheBytes += data.length;
+  while (_imgCacheBytes > _IMG_CACHE_MAX && _imgCache.size > 1) {
+    const oldest = _imgCache.keys().next().value;
+    _imgCacheBytes -= _imgCache.get(oldest).length;
+    _imgCache.delete(oldest);
+  }
+}
+function _cacheDrop(id) {
+  const v = _imgCache.get(id);
+  if (v === undefined) return;
+  _imgCacheBytes -= v.length;
+  _imgCache.delete(id);
+}
 
 export function getChatStickers() { return _chatStickers; }
 
 export function isStickerImgReady(id) { return _imgCache.has(id); }
 
 /** 拿已经加载好的图；没加载过返回 null（调用方自己决定要不要 await ensureStickerImg） */
-export function peekStickerImg(id) { return _imgCache.get(id) || null; }
+export function peekStickerImg(id) { return _cacheGet(id) || null; }
 
 export async function ensureStickerImg(id) {
-  if (_imgCache.has(id)) return _imgCache.get(id);
+  const hit = _cacheGet(id);
+  if (hit !== undefined) return hit;
   if (_imgLoading.has(id)) return null;
   _imgLoading.add(id);
   try {
     const data = await dbGet('settings', _IMG_PFX + id);
     if (data) {
-      _imgCache.set(id, data);
+      _cacheSet(id, data);
       // 自愈：把页面上还在占位的同 id 图换掉（聊天气泡和贴纸库里的都算）
       document.querySelectorAll(`img[data-sid="${id}"]`).forEach(el => {
         el.src = data;
@@ -286,10 +320,15 @@ export async function loadChatStickers() {
   _warmImages();
 }
 
-/** 后台把图一张张读进内存，别一次全读（首屏别跟加载抢） */
+/**
+ * 后台把图读进内存。⚠️ 只预热够用的那点量：GIF 压不了，单张能到 2MB，
+ * 全量预热 80 张就是 50MB，而且超上限的读完立刻被 LRU 淘汰 = 白读一遍 IDB。
+ * 剩下的按需加载。
+ */
 async function _warmImages() {
   const ids = _chatStickers.filter(s => s.hasImg && !_imgCache.has(s.id)).map(s => s.id);
-  for (let i = 0; i < ids.length; i += 6) {
+  const limit = Math.min(ids.length, 30);
+  for (let i = 0; i < limit; i += 6) {
     await Promise.all(ids.slice(i, i + 6).map(id => ensureStickerImg(id)));
     await new Promise(r => setTimeout(r, 40));
   }
@@ -368,7 +407,7 @@ export async function importStickerFiles(files, onProgress) {
         emoji: '🎭', hasImg: true, desc: '', ts: Date.now() + i,
       };
       await dbPut('settings', _IMG_PFX + item.id, data);
-      _imgCache.set(item.id, data);
+      _cacheSet(item.id, data);
       added.push(item);
     } catch (e) {
       console.warn('[Sticker] 导入失败：', f.name, e);
@@ -382,13 +421,135 @@ export async function importStickerFiles(files, onProgress) {
   return added.length;
 }
 
+// ── 从链接批量导入（别人分享的图包：名字 + 图片地址）─────────────────────
+
+const _URL_IN_LINE = /https?:\/\/[^\s"'<>]+/i;
+
+/**
+ * 解析粘贴的清单。每行一条「名字 + 链接」：
+ *     生气了哄不好的那种 https://u2.fukit.cn/4uhF9bynr
+ * 名字和链接之间用空格或 Tab 隔开；只有链接也行（名字自动生成）。
+ */
+export function parseStickerList(text) {
+  const out = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const m = line.match(_URL_IN_LINE);
+    if (!m) continue;
+    const name = line.slice(0, m.index).replace(/[\t\-—–:|]+$/, '').trim();
+    out.push({ name, url: m[0] });
+  }
+  return out;
+}
+
+function _blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = () => reject(new Error('读不出图'));
+    r.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 抓一张图转成 dataURL。先直连 —— 图床若给了 CORS 就不用绕路；
+ * 被跨域拦住再退回本站的 /api/img-proxy。
+ */
+async function _grabImage(url) {
+  try {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    if (res.ok) {
+      const blob = await res.blob();
+      if (blob && blob.size) return await _blobToDataUrl(blob);
+    }
+  } catch (_) { /* 跨域被拦，落到下面走代理 */ }
+  const res2 = await fetch(`/api/img-proxy?url=${encodeURIComponent(url)}`);
+  // 代理不跟随重定向。短链（302 到真实图床）走到这里就抓不到图 ——
+  // 直连之所以失败，正是因为那一跳没有 CORS 头，代理也补不了这个缺口。
+  if (res2.status === 301 || res2.status === 302) {
+    throw new Error('这是个短链，需要先解析成直链');
+  }
+  if (!res2.ok) throw new Error('HTTP ' + res2.status);
+  const blob2 = await res2.blob();
+  if (!blob2 || !blob2.size) throw new Error('空响应');
+  return await _blobToDataUrl(blob2);
+}
+
+let _urlImportAborted = false;
+export function abortStickerUrlImport() { _urlImportAborted = true; }
+
+/**
+ * 从「名字+链接」清单批量导入。
+ *
+ * ⚠️ 逐条串行、每条之间歇 150ms —— 实测那个图床并发请求会被 429。
+ * ⚠️ 清单里的图多数是 GIF，压不了（canvas 只能留第一帧），所以是**原样进库**：
+ *    单张能到 2MB。80 张就是 50MB，内存侧靠 _imgCache 的 LRU 兜着。
+ * 单条失败不中断整批，失败的回报给调用方。
+ *
+ * @param {string} text  清单正文，或**一个清单文件的链接**（整段只有一行链接时自动拉取）
+ * @returns {Promise<{added:number, failed:Array, total:number, aborted:boolean}>}
+ */
+export async function importStickerUrls(text, onProgress) {
+  _urlImportAborted = false;
+  let content = String(text || '');
+
+  // 整段就是个链接 → 当成清单文件拉下来
+  const probe = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (probe.length === 1 && /^https?:\/\/\S+$/i.test(probe[0])) {
+    try {
+      const res = await fetch(probe[0]);
+      if (res.ok) content = await res.text();
+    } catch (e) { console.warn('[Sticker] 清单拉取失败', e); }
+  }
+
+  const items = parseStickerList(content);
+  const added = [], failed = [], takenNames = [];
+  let cursor = 0, done = 0;
+
+  const worker = async () => {
+    while (cursor < items.length && !_urlImportAborted) {
+      const i = cursor++;
+      const { name, url } = items[i];
+      try {
+        const raw = await _grabImage(url);
+        const data = await _shrink(raw);
+        // 名字在这里同步分配 —— 三个 worker 并发时靠 takenNames 占位，不然会撞名
+        const nm = _nameFromFile(name || '', takenNames);
+        takenNames.push(nm);
+        const item = {
+          id: 'cst_' + Date.now() + '_' + i,
+          name: nm, emoji: '🎭', hasImg: true, desc: '', ts: Date.now() + i,
+        };
+        await dbPut('settings', _IMG_PFX + item.id, data);
+        _cacheSet(item.id, data);
+        added.push(item);
+      } catch (e) {
+        console.warn('[Sticker] 链接导入失败：', name, url, e);
+        failed.push({ name: name || url, url });
+      }
+      done++;
+      try { onProgress?.(done, items.length, name || url); } catch(_) {}
+      await new Promise(r => setTimeout(r, 100));
+    }
+  };
+  // 小并发。实测十几条并发会被图床 429，纯串行 80 张要跑七分钟 —— 三条刚好。
+  await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
+  if (added.length) {
+    _chatStickers.push(...added);
+    await _saveIndex();
+  }
+  try { onProgress?.(items.length, items.length, ''); } catch(_) {}
+  return { added: added.length, failed, total: items.length, aborted: _urlImportAborted };
+}
+
 // ── 增删改 ────────────────────────────────────────────────────────────────
 
 export async function deleteStickerById(id) {
   const i = _chatStickers.findIndex(s => s.id === id);
   if (i < 0) return;
   _chatStickers.splice(i, 1);
-  _imgCache.delete(id);
+  _cacheDrop(id);
   try { await dbDelete('settings', _IMG_PFX + id); } catch(_) {}
   await _saveIndex();
 }
@@ -401,7 +562,7 @@ export async function deleteStickersByIds(ids) {
   _chatStickers.length = 0;
   _chatStickers.push(...keep);
   for (const id of set) {
-    _imgCache.delete(id);
+    _cacheDrop(id);
     try { await dbDelete('settings', _IMG_PFX + id); } catch(_) {}
   }
   await _saveIndex();
@@ -457,11 +618,11 @@ export async function exportStickers() {
   for (const s of _chatStickers) {
     const item = { id: s.id, name: s.name, emoji: s.emoji };
     if (s.hasImg) {
-      let img = _imgCache.get(s.id);
+      let img = _cacheGet(s.id);
       if (!img) {
         try { img = await dbGet('settings', _IMG_PFX + s.id); } catch(_) {}
       }
-      if (img) { _imgCache.set(s.id, img); item.image = img; }
+      if (img) { _cacheSet(s.id, img); item.image = img; }
     }
     out.push(item);
   }
@@ -476,7 +637,7 @@ export async function exportStickers() {
 export async function importStickersData(arr) {
   if (!Array.isArray(arr)) return 0;
   for (const s of _chatStickers) {
-    _imgCache.delete(s.id);
+    _cacheDrop(s.id);
     try { await dbDelete('settings', _IMG_PFX + s.id); } catch(_) {}
   }
   _chatStickers.length = 0;
@@ -493,7 +654,7 @@ export async function importStickersData(arr) {
       try { img = await _shrink(s.image); } catch(_) {}
       try {
         await dbPut('settings', _IMG_PFX + id, img);
-        _imgCache.set(id, img);
+        _cacheSet(id, img);
       } catch(e) { console.warn('[Sticker] 恢复图片失败', s.name, e); item.hasImg = false; }
     }
     idx.push(item);
@@ -513,7 +674,7 @@ export function renderStickerHTML(name) {
   const s = getStickerByName(name);
   if (!s) return `<span class="sticker-pill">🎭 ${escHtml(name)}</span>`;
   if (!s.hasImg) return `<span class="sticker-pill">${escHtml(s.emoji || '🎭')} ${escHtml(s.name)}</span>`;
-  const cached = _imgCache.get(s.id);
+  const cached = _cacheGet(s.id);
   // dataURL 字符集是 base64，不含需要转义的字符，直接拼（escHtml 每帧跑几万字符的图太浪费）
   if (cached) return `<img class="sticker-img" src="${cached}" alt="${escHtml(s.name)}">`;
   ensureStickerImg(s.id);

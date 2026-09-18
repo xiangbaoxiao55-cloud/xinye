@@ -65,7 +65,7 @@
 #stickerSheet{width:100%;max-width:600px;margin:0 auto;background:var(--card);border-radius:22px 22px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);max-height:55vh;overflow-y:auto}
 #stickerPanel.show #stickerSheet{transform:translateY(0)}
 .sp-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 12px}
-.sticker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sticker-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .sticker-pick-btn{display:flex;flex-direction:column;align-items:center;gap:5px;border:none;background:var(--bg);border-radius:14px;padding:10px 4px;cursor:pointer;font-size:11px;color:var(--text-mid);font-family:inherit;transition:background .15s}
 .sticker-pick-btn:active{background:var(--pink-light)}
 .sticker-pick-img{width:48px;height:48px;object-fit:contain;border-radius:8px}
@@ -128,13 +128,13 @@
 
 .sl-grid{
   flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
   align-content:start;padding-bottom:8px;
 }
 .sl-cell{
   position:relative;cursor:pointer;
   display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:var(--bg,#fdf6f0);border:1.5px solid transparent;border-radius:14px;
+  background:var(--bg,#fdf6f0);border:1.5px solid transparent;border-radius:14px;min-width:0;
   padding:8px 4px;transition:background .15s,border-color .15s;
 }
 .sl-cell.on{border-color:var(--pink-deep,#d81b60);background:var(--pink-light,#ffe4ec)}
@@ -185,3 +185,14 @@ html[data-theme="dark"] .sl-toolbar input{background:#261820;color:#f0e6ee;borde
 html[data-theme="dark"] .sl-foot-btn{background:#261820;color:#f0e6ee}
 html[data-theme="dark"] .sl-rename{background:#261820;color:#f0e6ee}
 html[data-theme="dark"] .sl-status{color:#9a8a95}
+
+/* 从链接批量导入（别人分享的图包） */
+.sl-url{margin-bottom:8px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.sl-url textarea{
+  width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;line-height:1.6;
+  border:1px solid var(--border,#eee);background:var(--bg,#fdf6f0);color:var(--text,#2b2b2b);
+  border-radius:12px;padding:9px 12px;outline:none;resize:vertical;min-height:76px;
+}
+.sl-url textarea:focus{border-color:var(--pink-deep,#d81b60)}
+.sl-url-actions{display:flex;gap:8px;align-items:center}
+html[data-theme="dark"] .sl-url textarea{background:#261820;color:#f0e6ee;border-color:#3a2a3a}

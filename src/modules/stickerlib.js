@@ -2,6 +2,7 @@ import { $, toast, escHtml, setStatus } from './utils.js';
 import {
   getChatStickers, importStickerFiles, deleteStickerById, deleteStickersByIds,
   renameStickerById, ensureStickerImg, peekStickerImg, renderStickerMgr,
+  importStickerUrls, abortStickerUrlImport, parseStickerList,
 } from './stickers.js';
 
 // 贴纸库弹层：批量导入 / 搜索 / 多选删除 / 改名。
@@ -119,9 +120,62 @@ async function _doImport(files) {
   }
 }
 
+async function _doUrlImport() {
+  if (_importing) return;
+  const ta = _el('slUrlText');
+  const text = (ta?.value || '').trim();
+  if (!text) { toast('先把清单粘进来'); return; }
+
+  const preview = parseStickerList(text);
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const isListUrl = preview.length === 0 && lines.length === 1 && /^https?:\/\/\S+$/i.test(lines[0]);
+  if (!preview.length && !isListUrl) { toast('没解析出链接，看看格式对不对'); return; }
+  if (preview.length && !confirm(`解析出 ${preview.length} 条，开始下载？\n每张几十 KB 到 2MB，会走流量。`)) return;
+
+  _importing = true;
+  const runBtn = _el('slUrlRun'), stopBtn = _el('slUrlStop');
+  if (runBtn) runBtn.style.display = 'none';
+  if (stopBtn) stopBtn.style.display = '';
+  const statusEl = _el('slStatus');
+  try {
+    const r = await importStickerUrls(text, (done, total, name) => {
+      setStatus(statusEl, 'clock-dash', `下载中 ${done}/${total} · ${String(name || '').slice(0, 14)}`);
+    });
+    const msg = (r.aborted ? `已停下，导入了 ${r.added} 张` : `导入完成：${r.added} 张`)
+              + (r.failed.length ? `，${r.failed.length} 张失败` : '');
+    setStatus(statusEl, r.failed.length ? 'x-circle' : 'check', msg);
+    toast(msg);
+    if (r.failed.length) console.warn('[StickerLib] 失败的：', r.failed);
+    renderStickerMgr();
+    _renderGrid();
+    if (!r.failed.length && ta) ta.value = '';
+  } catch (e) {
+    console.warn('[StickerLib] 链接导入异常', e);
+    setStatus(statusEl, 'x-circle', '导入失败，看 vConsole');
+  } finally {
+    _importing = false;
+    if (runBtn) runBtn.style.display = '';
+    if (stopBtn) stopBtn.style.display = 'none';
+  }
+}
+
 function _bind() {
   if (_bound) return;
   _bound = true;
+
+  _el('slUrlToggle')?.addEventListener('click', () => {
+    const p = _el('slUrlPanel');
+    if (!p) return;
+    const show = p.style.display === 'none';
+    p.style.display = show ? 'block' : 'none';
+    if (show) _el('slUrlText')?.focus();
+  });
+  _el('slUrlClose')?.addEventListener('click', () => {
+    const p = _el('slUrlPanel');
+    if (p) p.style.display = 'none';
+  });
+  _el('slUrlRun')?.addEventListener('click', _doUrlImport);
+  _el('slUrlStop')?.addEventListener('click', () => { abortStickerUrlImport(); toast('正在停下…'); });
 
   _el('slClose')?.addEventListener('click', closeStickerLib);
   _el('stickerLib')?.addEventListener('click', (e) => {

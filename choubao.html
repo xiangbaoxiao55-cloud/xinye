@@ -1328,12 +1328,21 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
       <div class="sl-title">贴纸库 <span id="slCount" class="sl-count"></span></div>
       <div class="sl-head-btns">
         <button class="sl-btn" id="slImport"><i class="ic ic-plus"></i> 导入</button>
+        <button class="sl-btn" id="slUrlToggle" title="从链接导入"><i class="ic ic-link"></i></button>
         <button class="sl-icon-btn" id="slClose" title="关闭"><i class="ic ic-x"></i></button>
       </div>
       <input type="file" id="slFile" accept="image/*" multiple style="display:none">
     </div>
     <div class="sl-toolbar">
       <input type="text" id="slSearch" placeholder="搜索贴纸名字…">
+    </div>
+    <div class="sl-url" id="slUrlPanel" style="display:none">
+      <textarea id="slUrlText" rows="4" placeholder="每行一条：名字 + 图片链接&#10;生气了哄不好的那种 https://u2.fukit.cn/4uhF9bynr&#10;也可以只粘一个清单文件的链接"></textarea>
+      <div class="sl-url-actions">
+        <button class="sl-btn" id="slUrlRun"><i class="ic ic-download"></i> 开始导入</button>
+        <button class="sl-foot-btn" id="slUrlStop" style="display:none">停止</button>
+        <button class="sl-foot-btn" id="slUrlClose">收起</button>
+      </div>
     </div>
     <div class="sl-status" id="slStatus"></div>
     <div class="sl-grid" id="slGrid"></div>
