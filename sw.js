@@ -100,13 +100,17 @@ self.addEventListener('fetch', e => {
 });
 
 /**
- * 覆盖层那两个文件走**网络优先**（2026-09-15）。
+ * 覆盖层那两个文件走**网络优先**（2026-09-15），搬家的页面也是（2026-09-18）。
  *
  * 它是改得最勤的一块 —— 她那边「明明推了新版，手机上还是老样子」就是这么来的：
  * 走缓存优先的话，返回的是上一版，兜底脚本还是老的（会抢在真话前面冒出来）。
  * 网络 2.5 秒不回来就退回缓存，别让覆盖层弹出来的时候干等。
+ *
+ * migrate.html 加进来的理由一样，而且更要命：它是**一次性**的，
+ * 走缓存优先的话她导进去的是上一版逻辑 —— 2026-09-18 那天就是这么差点
+ * 让她用没修好的版本重导一遍 418MB。这类"必须是最新"的页面都往这儿放。
  */
-const NET_FIRST = ['/overlay.html', '/src/overlay.js'];
+const NET_FIRST = ['/overlay.html', '/src/overlay.js', '/migrate.html'];
 
 async function handleFetch(request, pathname) {
   if (NET_FIRST.indexOf(pathname) >= 0) {
