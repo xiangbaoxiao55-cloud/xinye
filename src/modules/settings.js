@@ -1833,7 +1833,11 @@ export function initSettings() {
   // 不给个入口她就根本打不开 migrate.html —— 这一步很容易被漏掉。
   const _btnMigrate = $('#btnMigrate');
   if (_btnMigrate) {
-    _btnMigrate.onclick = () => { location.href = '/migrate.html'; };
+    // ⚠️ 带一个每次都不同的查询串。SW 的 cache.match 是按完整 URL 匹配的，
+    //    带上时间戳就永远命不中缓存 → 每次都是刚从服务器拿的最新那版。
+    //    2026-09-18 在这上面栽过：她刷新了、我推了新代码，两边都以为在说同一版，
+    //    实际她跑的还是缓存的旧页面，白折腾了好几轮。
+    _btnMigrate.onclick = () => { location.href = '/migrate.html?t=' + Date.now(); };
   }
 
   // ======================== 强制检查更新 ========================
