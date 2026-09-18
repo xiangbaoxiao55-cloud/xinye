@@ -99,7 +99,8 @@
   <input type="file" id="impDir" webkitdirectory directory multiple hidden>
 
   <pre id="log">准备就绪。</pre>
-  <p style="margin:16px 0 0"><a href="/" style="color:var(--pink);font-size:13px;text-decoration:none">← 回 APP</a></p>
+  <p style="margin:14px 0 0"><a href="#" id="lnkReset" style="color:var(--mid);font-size:12px;text-decoration:none">导错了要整个重来？点这里重置</a></p>
+  <p style="margin:10px 0 0"><a href="/" style="color:var(--pink);font-size:13px;text-decoration:none">← 回 APP</a></p>
 </div>
 
 <script type="module">
@@ -118,7 +119,7 @@ const CHUNK = 32 * 1024 * 1024;
 const PAGE  = 120;               // 每次从库里取多少条（内存峰值 = 一页）
 
 /** 每次改这个页面就往上加一位 —— 页面上会显示出来，用来确认手机跑的是哪一版 */
-const MIGRATE_BUILD = '0918-1415';
+const MIGRATE_BUILD = '第6版';
 
 // 「哪些 store 已经清空过」—— 必须**跨批次记住**。
 // 🔴 否则分批导入会互相拆台：比如聊天记录有几十个块、她分三次导，
@@ -300,7 +301,7 @@ document.getElementById('btnExport').onclick = async () => {
               buf = []; bytes = 0;
               await pause();
             }
-            buf.push({ store: s.name, value: r.value });
+            buf.push({ store: s.name, key: r.key, value: r.value });
             bytes += sz;
             n++;
           }
@@ -345,14 +346,25 @@ async function ensureDB(name, ver, schema) {
   });
 }
 
-async function putRows(db, rows) {
+async function putRows(db, rows, schema) {
   const byStore = {};
-  for (const r of rows) (byStore[r.store] ||= []).push(r.value);
-  for (const [store, vals] of Object.entries(byStore)) {
+  for (const r of rows) (byStore[r.store] ||= []).push(r);
+  for (const [store, recs] of Object.entries(byStore)) {
+    // 🔴 out-of-line key 的 store（XinyeChatDB 的 settings 和 images）**必须把 key 显式给回去**。
+    //    它们是 `createObjectStore('settings')` 这种没有 keyPath 的写法，key 由调用方传
+    //    （dbPut('settings','main',…)）。少给这个 key，put 就会自己发一个新的自增 key ——
+    //    `main` 不再叫 `main`，于是设置页读出来全空、头像背景全丢。
+    //    2026-09-18 真机上就是这么栽的：消息一条不差，设置和图片全没了。
+    const kp = (schema || []).find(s => s.name === store)?.keyPath;
     await new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       const os = tx.objectStore(store);
-      for (const v of vals) { try { os.put(v); } catch {} }
+      for (const r of recs) {
+        try {
+          if (kp == null && r.key !== undefined) os.put(r.value, r.key);
+          else os.put(r.value);
+        } catch {}
+      }
       tx.oncomplete = res;
       tx.onerror = () => rej(tx.error);
       tx.onabort = () => rej(tx.error || new Error('aborted'));
@@ -429,7 +441,7 @@ async function handleImport(picked) {
           log(`  （首次遇到，已清空：${clearedNow.map(x => x.split('::')[1]).join('、')}）`, 'ok');
         }
       } catch (e) { log(`  ⚠️ 清空旧数据失败：${e.message}`, 'warn'); }
-      try { await putRows(cur, data.rows); }
+      try { await putRows(cur, data.rows, data.schema); }
       catch (err) { log(`  ⚠️ ${f.name} 写入失败：${err.message}`, 'warn'); continue; }
       total += data.rows.length;
       log(`  ← ${f.name}  ${data.rows.length} 条`);
@@ -468,6 +480,15 @@ const _askImport = which => {
 document.getElementById('btnImportDir').onclick = () => _askImport('dir');
 document.getElementById('btnImport').onclick = () => _askImport('file');
 
+// 「已经清空过哪些 store」这个记录是跨批次攒起来的。要是中途发现数据不对、
+// 想从头再来一遍，得先把它清掉 —— 否则那些库会被当成"清过了"而跳过清空，
+// 上一轮写歪的旧记录就留在库里了。
+document.getElementById('lnkReset').onclick = e => {
+  e.preventDefault();
+  localStorage.removeItem(CLEARED_KEY);
+  log('已重置：下次导入会把每个库重新清空一遍。', 'warn');
+};
+
 // ── 头部提示 ─────────────────────────────────────────────────────────────
 const here = location.origin;
 document.getElementById('org').textContent = here;
@@ -479,7 +500,7 @@ document.getElementById('hint').textContent =
 // 明晃晃地写出版本 —— SW 会喂缓存，不给个肉眼可见的标记，
 // 就会变成「我推了新版、你刷新了、但还是老样子」这种扯不清的局面（2026-09-18 踩过）。
 document.getElementById('buildInfo').textContent =
-  `页面版本：分块 ${CHUNK / 1048576}MB · 长按多选修复 ${MIGRATE_BUILD}`;
+  `页面版本：分块 ${CHUNK / 1048576}MB · ${MIGRATE_BUILD}`;
 </script>
 </body>
 </html>
