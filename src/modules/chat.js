@@ -942,11 +942,12 @@ export async function sendMessage() {
   if (_linkUrls.length) {
     try {
       toast('🔗 正在读链接…');
-      const _ctxs = [], _imgs = [];
+      const _ctxs = [], _imgs = [], _datas = [];
       for (const _u of _linkUrls) {
         const _r = await readLinkForMessage(_u);
         if (_r.context) _ctxs.push(_r.context);
         _imgs.push(..._r.images);
+        if (_r.data) _datas.push(_r.data);   // 给下面那条 toast 报转写状态用
       }
       const _ctx = _ctxs.filter(Boolean).join('\n\n');
       if (_ctx) {
@@ -959,7 +960,15 @@ export async function sendMessage() {
         }
         await dbPut(activeStore(), null, userMsg);
         const _t = _ctx.match(/^标题：(.+)$/m);
-        toast('🔗 已读' + (_t ? '：' + _t[1].slice(0, 18) : '那条链接') + (_imgs.length ? `（带 ${_imgs.length} 张图）` : ''));
+        // 转写状态必须一起报出来：只报图数的话，「没转写」和「转了但没图」在界面上长得一模一样 ——
+        // 2026-09-18 兔宝就对着「带 6 张图」猜了半天到底转没转，最后只能去问代码。
+        const _d = _datas.find(d => d && (d.transcript || d.transcriptError || d.transcriptSkipped)) || _datas[0] || {};
+        const _bits = [];
+        if (_imgs.length) _bits.push(`带 ${_imgs.length} 张图`);
+        if (_d.transcript) _bits.push(`转写 ${_d.transcript.length} 字`);
+        else if (_d.transcriptError) _bits.push('转写失败');
+        else if (_d.transcriptSkipped) _bits.push('没转写·没配 key');
+        toast('🔗 已读' + (_t ? '：' + _t[1].slice(0, 18) : '那条链接') + (_bits.length ? `（${_bits.join('｜')}）` : ''));
       }
     } catch (e) { console.warn('[读链接] 失败，照常发消息', e); }
   }

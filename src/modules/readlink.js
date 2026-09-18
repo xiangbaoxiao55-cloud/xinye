@@ -178,6 +178,9 @@ export function formatLinkContext(data, opts) {
     }
     if (data.transcript) L.push('视频里说的话（语音转写）：\n' + data.transcript);
     else if (data.transcriptError) L.push(`（声音没能转成文字：${data.transcriptError}）`);
+    // 没配转写 key —— 服务端原来这里什么都不返回，导致模型从画面字幕里认了字、
+    // 却以为自己"听过"了。必须明说，它才不会把字幕当成听到的内容（见 project_readlink 的事故记录）
+    else if (data.transcriptSkipped) L.push('（这条视频**没有做语音转写**：设置里没配「语音转写 API」的 key。所以画面上写的字你看得到，**但视频里说的话你听不到** —— 别把画面字幕当成你听过的声音。）');
   } else if (data.images && data.images.length) {
     L.push(framesAttached ? `（这条带 ${data.images.length} 张图，都在下面了）` : `（这条带 ${data.images.length} 张图，但这条路没把图带过来）`);
   }
