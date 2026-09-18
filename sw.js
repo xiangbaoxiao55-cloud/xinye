@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260917-2357';
+const CACHE_NAME = 'xinye-20260918-0918';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -42,8 +42,7 @@ const STATIC_ASSETS = [
   '/draw.html', '/src/draw.js', '/src/styles/draw.css',
   '/flipbook.html', '/src/flipbook.js', '/src/styles/flipbook.css',
   '/storyboard.html', '/src/storyboard.js', '/src/styles/storyboard.css',
-  '/health.html', '/src/health.js', '/src/modules/healthdb.js', '/src/modules/healthfood.js', '/src/styles/health.css',
-  '/assets/style_library.json', '/assets/food_library.json', '/assets/common_servings.json'
+  '/assets/style_library.json'
 ];
 
 // ── 接收 app 传来的本地服务器 URL，持久存进 Cache ────────────────────────
