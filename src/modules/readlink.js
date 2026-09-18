@@ -87,6 +87,31 @@ async function _askServer(srv, linkUrl) {
   } finally { clearTimeout(timer); }
 }
 
+// ── 「炘也自己去逛B站」─────────────────────────────────────────────────
+// B站的搜索接口**没有 CORS 头**、还要带游客 cookie（少了一律回 412 风控），
+// 所以网页端直连不了，只能从服务器发。
+// ⚠️ 目前**只有家里那台 8787** 有这个端点（云端那份还没加）—— 探不到本地就返回 null，
+//    由调用方静默降级，绝不能拖累原有的新闻那一路。
+// ⚠️ 全程只用**游客态**，不登录、不碰兔宝的账号。
+export async function fetchBiliFeed(keywords) {
+  if (!isLocalServerOnline()) return null;
+  const srv = _serverCandidate('local');
+  if (!srv) return null;
+  const path = '/api/bili-feed?keywords=' + encodeURIComponent((keywords || []).join(','));
+  try {
+    const r = await fetch(buildServerFetchUrl(srv, path), {
+      headers: buildServerHeaders(srv, {}),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j && j.ok && Array.isArray(j.items) && j.items.length) ? j.items : null;
+  } catch (e) {
+    console.warn('[B站] 逛失败:', e.message || e);
+    return null;
+  }
+}
+
 // 小红书正文常常很短、内容全在图里，所以把图附在消息上一起交给主模型（见 readLinkForMessage）
 
 // 拿到链接的原始数据（不排版）。

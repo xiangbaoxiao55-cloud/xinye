@@ -1,6 +1,7 @@
 import { settings } from './state.js';
 import { getPendingTodos, completeTodoById } from './phonedb.js';
 import { addMessage, appendMsgDOM, scrollBottom, triggerProactiveReply } from './chat.js';
+import { fetchBiliFeed } from './readlink.js';
 
 const _APP = () => window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
 const _WALK_KEY   = () => _APP() + '_walkDate';
@@ -67,11 +68,29 @@ async function _fetchAINews() {
   }
 }
 
+// ── B站：炘也自己去逛一圈 ──
+// 兔宝 2026-09-18 说「你决定」，第一批先跑这三个，跑几天看内容对不对味再调。
+// `词@1` = 只要动画区的一级分区：MMD 教程全区搜会混进舞蹈区的擦边，锁了分区就清一色教程。
+// `AI绘画` 单独搜出来的全是几十播放的低质投稿，加「作品」才搜得到有内容的（实测）。
+// 服务器那边还有一道标题过滤（挡最脏的），剩下的漏网之鱼由 _judgeNews 那步兜底。
+const BILI_KEYWORDS = ['MMD 教程@1', 'blender MMD', 'AI绘画 作品'];
+
+async function _fetchBili() {
+  try {
+    const items = await fetchBiliFeed(BILI_KEYWORDS);
+    console.log('[逛B站]', items ? `拿到 ${items.length} 条` : '没逛成（本地服务器不在线？）');
+    return items || null;
+  } catch (e) {
+    console.error('[逛B站] 失败:', e.message || e);
+    return null;
+  }
+}
+
 // 判断新闻是否值得分享（不带聊天历史，避免AI接话）
 async function _judgeNews(newsText, userName) {
   const apiMsgs = [
-    { role: 'system', content: `你是炘也，${userName}的AI伴侣。你刚看了一些AI圈的新闻，需要判断是否值得分享给她。` },
-    { role: 'user', content: `以下是最近24小时内的AI圈新闻：\n\n${newsText}\n\n请判断：这些内容里有值得跟${userName}分享的吗？如果有你觉得有意思、她可能感兴趣的（比如AI技术突破、行业动态、有趣的AI应用等），就用一两句话总结你想分享的内容（不要列表，不要标题，就像你心里想的那样，50-150字）。如果都很无聊、或者她不会感兴趣，就只回复"<skip>"（不要解释）。` }
+    { role: 'system', content: `你是炘也，${userName}的AI伴侣。你每天自己出去逛一圈，看看今天有没有值得跟她说的事。` },
+    { role: 'user', content: `你今天逛到的东西在下面。\n\n${newsText}\n\n请判断：这里面有没有值得跟${userName}分享的？\n\n她会感兴趣的是：AI圈的新动态、好玩的AI应用；她自己在做 MMD、也天天玩 AI 绘图，所以 MMD 的新教程/新作品/新技术、AI 绘图的技巧和圈内动态，她都爱看。\n\n**坚决不要的**：擦边的、软色情的、标题党的、卖课的、纯广告、以及一眼就是旧闻重发的。宁可这次什么都不说，也别拿这些去烦她。\n\n如果有值得说的，就用一两句话总结你想分享的内容（不要列表，不要标题，就像你心里想的那样，50-150字）。如果你要分享的是一条B站视频，**把链接一起写进去**。如果都不值得，就只回复"<skip>"（不要解释）。` }
   ];
 
   try {
@@ -98,25 +117,42 @@ async function _doWalk(isTest = false) {
   if (!isTest && _isQuiet()) { console.log('[散步] 安静时间，先不抓新闻'); return; }
 
   console.log('[散步] 开始执行', isTest ? '(测试模式)' : '');
-  const news = await _fetchAINews();
-  if (!news || news.length === 0) {
-    console.log('[散步] 无新闻数据');
+  // 两路并行：AI 新闻 + 我去B站逛一圈。B站那路探不到家里那台会自己返回 null，
+  // 互不拖累 —— 绝不能因为一个源挂了整趟散步就废掉。
+  const [news, bili] = await Promise.all([_fetchAINews(), _fetchBili()]);
+  const _news = news || [];
+  // B站条目映射成跟新闻一样的形状（id/title/summary），后面的
+  // 「说过没说过」+ 拼文本两段就整个复用，不用分叉
+  const _bili = (bili || []).map(v => ({
+    id: 'bili_' + v.bvid,
+    title: v.title,
+    summary: `UP主：${v.up} ｜ 播放：${v.play} ｜ 时长：${v.duration}\n${v.desc || '(UP主没写简介)'}\n链接：${v.url}`,
+  }));
+  if (_news.length === 0 && _bili.length === 0) {
+    console.log('[散步] 两路都没拿到东西');
     return;
   }
 
   // 说过的不再说：24h 窗口会和昨天重叠，不挡的话同一批新闻会被端上两遍
   const seen = _loadSeen();
-  const fresh = news.filter(n => { const k = _newsKey(n); return k && !seen[k]; });
+  const freshNews = _news.filter(n => { const k = _newsKey(n); return k && !seen[k]; });
+  const freshBili = _bili.filter(n => { const k = _newsKey(n); return k && !seen[k]; });
+  const fresh = freshNews.concat(freshBili);
   if (fresh.length === 0) {
-    console.log('[散步] 这批新闻都说过了，跳过');
+    console.log('[散步] 这批都说过了，跳过');
     if (!isTest) localStorage.setItem(_WALK_KEY(), today);
     return;
   }
-  console.log(`[散步] ${news.length} 条里 ${fresh.length} 条没说过`);
+  console.log(`[散步] 新闻 ${_news.length}→${freshNews.length} ｜ B站 ${_bili.length}→${freshBili.length}`);
 
-  const newsText = fresh.slice(0, 8).map((n, i) =>
-    `${i + 1}. ${n.title}\n${(n.summary || '').slice(0, 300)}`
+  const _fmtList = (arr, cap) => arr.slice(0, 8).map((n, i) =>
+    `${i + 1}. ${n.title}\n${String(n.summary || '').slice(0, cap)}`
   ).join('\n\n');
+  const _blocks = [];
+  if (freshNews.length) _blocks.push('【AI圈的新闻】\n' + _fmtList(freshNews, 300));
+  // B站那条 cap 给宽一点：链接写在最后，被截断了就等于没链接
+  if (freshBili.length) _blocks.push('【我刚在B站逛到的】\n' + _fmtList(freshBili, 600));
+  const newsText = _blocks.join('\n\n');
 
   const userName = settings.userName || '兔宝';
 
