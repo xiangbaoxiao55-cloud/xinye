@@ -75,12 +75,18 @@
     <h2>当前在哪个域名</h2>
     <p class="origin" id="org">…</p>
     <p id="hint"></p>
+    <p class="sub" id="buildInfo" style="margin:6px 0 0"></p>
   </div>
 
   <button id="btnScan">① 盘点一下有多少东西</button>
   <button id="btnExport" class="primary">② 导出全部数据</button>
-  <button id="btnImportDir" class="primary">③ 导入全部数据（选「下载」文件夹）</button>
-  <button id="btnImport">　　或者：只挑文件（一个个勾）</button>
+  <!--
+    「选文件夹」这条路 2026-09-18 真机确认走不通：webkitdirectory 要系统选择器给
+    MODE_OPEN_DIRECTORY，安卓这边不给，直接退化成选单个文件 —— 留着只会让她白试。
+    按钮留着但藏起来（哪天内核支持了，去掉 display:none 就能用）。
+  -->
+  <button id="btnImportDir" style="display:none">③ 导入全部数据（选「下载」文件夹）</button>
+  <button id="btnImport" class="primary">③ 导入全部数据（长按多选；一次不行就分几次）</button>
   <!--
     🔴 accept 千万别写多个类型。
     2026-09-18 真机实测：原来写的是 accept=".json,application/json"（两个），
@@ -110,6 +116,9 @@ const SKIP_STORES = { XinyeChatDB: ['ttsCache'] };
 //    只有十来个。base64 过桥后约 43MB —— 她那份 66MB 的备份导出都成功过，这条路安全。
 const CHUNK = 32 * 1024 * 1024;
 const PAGE  = 120;               // 每次从库里取多少条（内存峰值 = 一页）
+
+/** 每次改这个页面就往上加一位 —— 页面上会显示出来，用来确认手机跑的是哪一版 */
+const MIGRATE_BUILD = '0918-1415';
 
 // 「哪些 store 已经清空过」—— 必须**跨批次记住**。
 // 🔴 否则分批导入会互相拆台：比如聊天记录有几十个块、她分三次导，
@@ -466,6 +475,11 @@ document.getElementById('hint').textContent =
   here.includes('xinyetb.cn')
     ? '这是新家。导出请在旧的那个（xinye-phi.vercel.app）里做。'
     : '这是旧家。在这里点「② 导出全部数据」。';
+
+// 明晃晃地写出版本 —— SW 会喂缓存，不给个肉眼可见的标记，
+// 就会变成「我推了新版、你刷新了、但还是老样子」这种扯不清的局面（2026-09-18 踩过）。
+document.getElementById('buildInfo').textContent =
+  `页面版本：分块 ${CHUNK / 1048576}MB · 长按多选修复 ${MIGRATE_BUILD}`;
 </script>
 </body>
 </html>
