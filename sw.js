@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260918-0953';
+const CACHE_NAME = 'xinye-20260918-1045';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -197,7 +197,7 @@ async function _pullAndNotify() {
       if (r) srv = await r.text();
     } catch {}
     // 优先云服务器
-    const cloudUrl = 'http://43.155.214.85:3000';
+    const cloudUrl = 'https://xinyetb.cn';
     const lastSync = parseInt(await _swKV('get', 'hb_lastSync') || '0');
     const r = await fetch(`${cloudUrl}/api/proactive-messages?since=${lastSync}`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return;
