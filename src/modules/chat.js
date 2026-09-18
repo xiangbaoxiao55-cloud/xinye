@@ -9,6 +9,7 @@ import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTim
 import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 import { extractKnownUrls, readLinkForMessage, fetchPageAsText } from './readlink.js';
+import { clearInputDraft } from './draft.js';
 
 // ======================== DOM 元素 ========================
 const chatArea = document.querySelector('#chatArea');
@@ -910,6 +911,7 @@ export async function sendMessage() {
   if (!settings.apiKey) { toast('请先在设置中填写 API Key'); return; }
 
   userInput.value = '';
+  clearInputDraft();          // 程序清空不触发 input，草稿得显式清（否则下次打开把发过的话倒回来）
   window.autoResize?.();
   window.pendingImages = [];
   $('#imgPreview')?.classList.remove('show');

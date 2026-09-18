@@ -5,6 +5,7 @@ import { addMessage, appendMsgDOM, scrollBottom, activeStore } from './chat.js';
 import { resetIdleTimer } from './notifications.js';
 import { getImagePresets, getImageCurPresetIdx } from './api.js';
 import { pendAdd, pendSetUrl, pendDone, pendBump } from './pendingdraw.js';
+import { clearInputDraft } from './draft.js';
 
 /**
  * 把一个 http 图片链接下载成 base64 —— 三级兜底：直连 → 本地代理 → Vercel 代理。
@@ -189,6 +190,7 @@ export async function generateImage(userDesc, opts = {}) {
   if (!_bg && !opts._resume) {
     // 只有「她主动要画」才动输入框、才把她的话落进聊天；后台重试不碰她在打的东西、也不伪造她说的话
     if (userInput) userInput.value = '';
+    clearInputDraft();          // 描述已经被取走了，草稿留着就会在下次打开时倒回来
     if (typeof window.autoResize === 'function') window.autoResize();
     window.pendingImages = [];
     if (imgPreview) imgPreview.classList.remove('show');

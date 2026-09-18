@@ -17,6 +17,7 @@ import { checkGift } from './modules/gift.js';
 import { _startEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts, _registerPush, _registerPeriodicSync, _reportOverlayErr } from './modules/inbox.js';
 import { initRp } from './modules/rp.js';
 import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
+import { initInputDraft } from './modules/draft.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
   switchTab, openBookmarksPanel,
@@ -494,6 +495,11 @@ function autoResize() {
 }
 ['input','compositionend','keyup','paste','cut'].forEach(e => userInput.addEventListener(e, autoResize));
 
+// 输入框草稿：刷新 / 被系统回收 / 手滑关掉 APP，打了一半的字都还在。
+// ⚠️ 恢复是程序性赋 value，不触发 input 事件，所以要手动补一次 autoResize（它顺带点亮发送键）。
+initInputDraft(userInput);
+autoResize();
+
 // ======================== 图片上传（Vision，多图） ========================
 initImageUpload();
 
@@ -508,7 +514,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.18-1904';
+  if (_verEl) _verEl.textContent = 'v2026.09.18-1926';
 
   await openDB();
   await migrateFromLocalStorage();
