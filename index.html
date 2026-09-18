@@ -979,15 +979,12 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
       <button class="btn-danger" id="btnClearS" style="width:100%;margin-top:8px"><i class="ic ic-trash"></i> 清空聊天记录</button>
     </div>
 
-    <!-- 贴纸管理 -->
-    <div class="setting-divider"><i class="ic ic-smile"></i> 贴纸管理</div>
+    <!-- 贴纸库 -->
+    <div class="setting-divider"><i class="ic ic-smile"></i> 贴纸</div>
     <div class="setting-group">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <input type="text" id="newStickerName" placeholder="贴纸名称（如：比心）" style="flex:1">
-        <button class="btn-secondary" id="btnAddSticker" style="white-space:nowrap"><i class="ic ic-plus"></i> 添加</button>
-      </div>
-      <div class="hint">名称即 AI 发送时用的标签；图片可选，不上传显示名称胶囊</div>
-      <div id="stickerMgrList" style="margin-top:10px"></div>
+      <button class="btn-secondary" id="btnOpenStickerLib" style="width:100%"><i class="ic ic-smile"></i> 打开贴纸库</button>
+      <div class="hint" id="stickerCount" style="margin-top:6px"></div>
+      <div class="hint">名称就是 AI 发贴纸时用的标签。批量导入、改名、搜索、删除都在贴纸库里。</div>
     </div>
 
     <!-- 版本更新 -->
@@ -1339,6 +1336,31 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
   <div id="stickerSheet">
     <div class="sp-handle"></div>
     <div id="stickerGrid" class="sticker-grid"></div>
+  </div>
+</div>
+
+<!-- 贴纸库 -->
+<div id="stickerLib" onclick="if(event.target===this)closeStickerLib()">
+  <div id="slSheet">
+    <div class="sl-head">
+      <div class="sl-title">贴纸库 <span id="slCount" class="sl-count"></span></div>
+      <div class="sl-head-btns">
+        <button class="sl-btn" id="slImport"><i class="ic ic-plus"></i> 导入</button>
+        <button class="sl-icon-btn" id="slClose" title="关闭"><i class="ic ic-x"></i></button>
+      </div>
+      <input type="file" id="slFile" accept="image/*" multiple style="display:none">
+    </div>
+    <div class="sl-toolbar">
+      <input type="text" id="slSearch" placeholder="搜索贴纸名字…">
+    </div>
+    <div class="sl-status" id="slStatus"></div>
+    <div class="sl-grid" id="slGrid"></div>
+    <div class="sl-foot" id="slFoot" style="display:none">
+      <span id="slSelInfo"></span>
+      <button class="sl-foot-btn" id="slRename">重命名</button>
+      <button class="sl-foot-btn danger" id="slDelSel">删除</button>
+      <button class="sl-foot-btn" id="slSelClear">取消</button>
+    </div>
   </div>
 </div>
 

@@ -3,7 +3,7 @@ import { db, dbPut, dbGet, dbGetAll, dbClear, dbDelete, lsBackup } from './db.js
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { settings, messages, ensureMemoryBank, markVectorsDirty, mergeVectors } from './state.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets } from './api.js';
-import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers } from './stickers.js';
+import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, exportStickers, importStickersData } from './stickers.js';
 import { getFriendsBackupData } from './friends.js';
 import { renderMessages } from './chat.js';
 
@@ -392,7 +392,7 @@ export async function backupToPhone() {
       messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images; return r; }),
       rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
-      stickers: getDecoStickers(), chatStickers: getChatStickers(),
+      stickers: getDecoStickers(), chatStickers: await exportStickers(),
       styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
       diary: diaryData, reading: readingData,
       friendsData: await getFriendsBackupData(),
@@ -477,7 +477,7 @@ export async function exportData(mode) {
       styleRef_4:    isLite ? null : (await dbGet('images', 'styleRef_4')    || null),
     },
     stickers: isLite ? [] : getDecoStickers(),
-    chatStickers: getChatStickers(),
+    chatStickers: await exportStickers(),
     styleRefs: isLite ? [] : (await dbGet('settings', 'styleRefs').catch(() => null) || []),
     friendsData: await getFriendsBackupData(),
   };
@@ -518,7 +518,7 @@ export async function doImportPresetsOnly(jsonText) {
   if (data.visionPresets && Array.isArray(data.visionPresets)) setVisionPresets(data.visionPresets);
   if (data.imagePresets && Array.isArray(data.imagePresets))  setImagePresets(data.imagePresets);
   if (data.chatStickers && Array.isArray(data.chatStickers)) {
-    saveChatStickers(data.chatStickers);
+    await importStickersData(data.chatStickers);
   }
   if (data.stickers && Array.isArray(data.stickers)) {
     await dbClear('stickers');
@@ -651,8 +651,8 @@ export async function doImport(jsonText) {
   }
 
   if (data.chatStickers && Array.isArray(data.chatStickers) && data.chatStickers.length > 0) {
-    try { saveChatStickers(data.chatStickers); }
-    catch(e) { toast('⚠️ 聊天贴纸图片过大，已跳过（其他数据正常恢复）'); console.warn('[import] chatStickers超出localStorage配额:', e); }
+    try { await importStickersData(data.chatStickers); }
+    catch(e) { toast('⚠️ 贴纸恢复失败，其他数据正常'); console.warn('[import] chatStickers恢复失败:', e); }
   }
 
   if (data.rpMessages && Array.isArray(data.rpMessages) && data.rpMessages.length > 0) {
