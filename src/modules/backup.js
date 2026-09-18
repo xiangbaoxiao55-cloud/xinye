@@ -603,6 +603,15 @@ export async function doImport(jsonText) {
       await dbPut('settings', 'main', importedSettings);
       markVectorsDirty();
     }
+    // 🔴 把主动消息游标推到当下。这份历史是**刚刚导进来的**，而游标
+    //    （heartbeat_lastSyncTime）和去重标记都在 localStorage 里 ——
+    //    换设备 / 换 origin / 重装之后它们是空的，游标 0 = 「从开天辟地开始拉」，
+    //    云端会把全部历史主动消息当成新的灌一遍，跟这份撞成一片重复。
+    //    2026-09-18 搬域名时真踩到了：她导完备份，聊天底部堆了一整片主动消息。
+    try {
+      localStorage.setItem('heartbeat_lastSyncTime', String(Date.now()));
+      localStorage.removeItem('heartbeat_consumedIds');
+    } catch {}
   }
 
   if (data.images) {

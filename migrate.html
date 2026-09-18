@@ -326,6 +326,24 @@ async function putRows(db, rows) {
   }
 }
 
+async function clearStore(db, store) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).clear();
+    tx.oncomplete = res;
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error || new Error('aborted'));
+  });
+}
+
+/** 把主动消息游标推到当下（见 handleImport 里的说明） */
+function markInboxSyncedNow() {
+  try {
+    localStorage.setItem('heartbeat_lastSyncTime', String(Date.now()));
+    localStorage.removeItem('heartbeat_consumedIds');
+  } catch {}
+}
+
 async function handleImport(picked) {
   // 选整个文件夹时会把「下载」里别的东西也一起带进来，先用文件名挡一道。
   // ⚠️ 但不能挡死：万一文件被重命名过，过滤后为空就退回用全部，别让她干瞪眼。
@@ -340,6 +358,7 @@ async function handleImport(picked) {
   try {
     const sorted = files.sort((a, z) => a.name.localeCompare(z.name));
     log(`收到 ${sorted.length} 个文件${hit.length !== picked.length ? `（跳过了 ${picked.length - hit.length} 个不相干的）` : ''}，按顺序写回…\n`);
+    const cleared = new Set();
     for (const f of sorted) {
       let data;
       try { data = JSON.parse(await f.text()); }
@@ -351,6 +370,17 @@ async function handleImport(picked) {
         curName = data.db;
         log(`\n${data.db} v${data.ver}`);
       }
+      // 每个 store 第一次遇到时先清空再写。
+      // 🔴 不清的话会**并存成两套**：比如先导过主备份，聊天记录是被重建出来的、
+      //    带的是新建的自增 id，而这份迁移数据带的是原来的 id —— put 覆盖不掉前一套。
+      try {
+        for (const st of [...new Set(data.rows.map(r => r.store))]) {
+          const k = curName + '::' + st;
+          if (cleared.has(k)) continue;
+          await clearStore(cur, st);
+          cleared.add(k);
+        }
+      } catch (e) { log(`  ⚠️ 清空旧数据失败：${e.message}`, 'warn'); }
       try { await putRows(cur, data.rows); }
       catch (err) { log(`  ⚠️ ${f.name} 写入失败：${err.message}`, 'warn'); continue; }
       total += data.rows.length;
@@ -358,6 +388,14 @@ async function handleImport(picked) {
       await pause();
     }
     if (cur) cur.close();
+    if (total) {
+      // 🔴 主动消息的游标（heartbeat_lastSyncTime）和去重标记都存在 localStorage 里，
+      //    而换域名/换设备时 localStorage 是空的 —— 游标是 0 就等于「从开天辟地开始拉」，
+      //    云端会把全部历史主动消息当成新的灌一遍，跟刚导进来的这份撞成一片重复。
+      //    刚把历史搬完，就把游标推到当下：往后只拉真正新的。
+      markInboxSyncedNow();
+      log('（已把主动消息游标推到当下，云端不会再补一遍历史）');
+    }
     log(`\n✅ 导入完毕，共写回 ${total} 条。`, 'ok');
     log('回到 APP 里刷新一下（设置 → 其他 → 检查更新并强制刷新），再去画廊/故事板/画图台看看东西在不在。');
   } catch (err) {
