@@ -79,8 +79,10 @@
 
   <button id="btnScan">① 盘点一下有多少东西</button>
   <button id="btnExport" class="primary">② 导出全部数据</button>
-  <button id="btnImport">③ 导入全部数据（选刚导出的文件）</button>
+  <button id="btnImportDir" class="primary">③ 导入全部数据（选「下载」文件夹）</button>
+  <button id="btnImport">　　或者：只挑文件（一个个勾）</button>
   <input type="file" id="impFile" multiple accept=".json,application/json" hidden>
+  <input type="file" id="impDir" webkitdirectory directory multiple hidden>
 
   <pre id="log">准备就绪。</pre>
   <p style="margin:16px 0 0"><a href="/" style="color:var(--pink);font-size:13px;text-decoration:none">← 回 APP</a></p>
@@ -324,16 +326,20 @@ async function putRows(db, rows) {
   }
 }
 
-document.getElementById('impFile').addEventListener('change', async e => {
-  const files = [...(e.target.files || [])];
-  e.target.value = '';
+async function handleImport(picked) {
+  // 选整个文件夹时会把「下载」里别的东西也一起带进来，先用文件名挡一道。
+  // ⚠️ 但不能挡死：万一文件被重命名过，过滤后为空就退回用全部，别让她干瞪眼。
+  const hit = picked.filter(f => /^xinye-migrate_\d+_/.test(f.name));
+  const files = hit.length ? hit : picked;
   if (!files.length) return;
-  const b = document.getElementById('btnImport'); b.disabled = true;
+
+  const btns = ['btnImport', 'btnImportDir'].map(id => document.getElementById(id)).filter(Boolean);
+  btns.forEach(x => (x.disabled = true));
   lines.length = 0;
   let cur = null, curName = null, total = 0;
   try {
     const sorted = files.sort((a, z) => a.name.localeCompare(z.name));
-    log(`收到 ${sorted.length} 个文件，按顺序写回…\n`);
+    log(`收到 ${sorted.length} 个文件${hit.length !== picked.length ? `（跳过了 ${picked.length - hit.length} 个不相干的）` : ''}，按顺序写回…\n`);
     for (const f of sorted) {
       let data;
       try { data = JSON.parse(await f.text()); }
@@ -356,13 +362,25 @@ document.getElementById('impFile').addEventListener('change', async e => {
     log('回到 APP 里刷新一下（设置 → 其他 → 检查更新并强制刷新），再去画廊/故事板/画图台看看东西在不在。');
   } catch (err) {
     log('导入失败：' + err.message, 'warn');
-  } finally { b.disabled = false; }
+  } finally { btns.forEach(x => (x.disabled = false)); }
+}
+
+document.getElementById('impFile').addEventListener('change', e => {
+  const f = [...(e.target.files || [])]; e.target.value = ''; handleImport(f);
+});
+document.getElementById('impDir').addEventListener('change', e => {
+  const f = [...(e.target.files || [])]; e.target.value = ''; handleImport(f);
 });
 
-document.getElementById('btnImport').onclick = () => {
-  if (!confirm('已经在新域名里了、也已经导过备份了，再继续。\n\n从文件里选「xinye-migrate_」开头的那些 json（可以一次全选）。')) return;
-  document.getElementById('impFile').click();
+const _askImport = which => {
+  if (!confirm('已经在新域名里了、也已经导过备份了，再继续。\n\n' +
+    (which === 'dir'
+      ? '选「下载」那个文件夹就行 —— 里面别的文件会自动跳过。'
+      : '从文件里选「xinye-migrate_」开头的那些 json（可以一次多选）。'))) return;
+  document.getElementById(which === 'dir' ? 'impDir' : 'impFile').click();
 };
+document.getElementById('btnImportDir').onclick = () => _askImport('dir');
+document.getElementById('btnImport').onclick = () => _askImport('file');
 
 // ── 头部提示 ─────────────────────────────────────────────────────────────
 const here = location.origin;
