@@ -119,7 +119,7 @@ const CHUNK = 32 * 1024 * 1024;
 const PAGE  = 120;               // 每次从库里取多少条（内存峰值 = 一页）
 
 /** 每次改这个页面就往上加一位 —— 页面上会显示出来，用来确认手机跑的是哪一版 */
-const MIGRATE_BUILD = '第6版';
+const MIGRATE_BUILD = '第7版';
 
 // 「哪些 store 已经清空过」—— 必须**跨批次记住**。
 // 🔴 否则分批导入会互相拆台：比如聊天记录有几十个块、她分三次导，
@@ -136,6 +136,53 @@ function log(s, cls) {
 }
 const pause = () => new Promise(r => setTimeout(r, 0));
 const mb = n => (n / 1048576).toFixed(1) + 'MB';
+
+// ── Blob 编解码 ──────────────────────────────────────────────────────────
+// 🔴 炘也「碎碎念」里的配图和配音存的是**真的 Blob**（phonedb.js 写进 xinye_photos 的
+//    `blob` 字段）。JSON.stringify 会把 Blob 变成 `{}` —— 静默丢内容，而且导进去之后
+//    更毒：phone.html 渲染到那一条会 `URL.createObjectURL({})` 直接抛错，
+//    **整个渲染循环中断** —— 表现是「列表只出来几条，点加载更多也没反应」。
+//    2026-09-18 真机上就是这么丢的：相册全空 + 含笑花列表卡在前 4 条。
+function _hasBlob(v) {
+  if (v instanceof Blob) return true;
+  if (!v || typeof v !== 'object') return false;
+  if (Array.isArray(v)) return v.some(_hasBlob);
+  return Object.values(v).some(_hasBlob);
+}
+function _hasBlobMarker(v) {
+  if (!v || typeof v !== 'object') return false;
+  if (v.__blob === 1) return true;
+  if (Array.isArray(v)) return v.some(_hasBlobMarker);
+  return Object.values(v).some(_hasBlobMarker);
+}
+function _blobToB64(b) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = rej;
+    r.readAsDataURL(b);
+  });
+}
+function _b64ToBlob(b64, type) {
+  try {
+    const bin = atob(b64 || '');
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: type || 'application/octet-stream' });
+  } catch { return null; }
+}
+async function _encVal(v) {
+  if (v instanceof Blob) return { __blob: 1, t: v.type, b64: await _blobToB64(v) };
+  if (Array.isArray(v)) { const a = []; for (const x of v) a.push(await _encVal(x)); return a; }
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = await _encVal(v[k]); return o; }
+  return v;
+}
+async function _decVal(v) {
+  if (!v || typeof v !== 'object') return v;
+  if (v.__blob === 1) return _b64ToBlob(v.b64, v.t);
+  if (Array.isArray(v)) { const a = []; for (const x of v) a.push(await _decVal(x)); return a; }
+  const o = {}; for (const k of Object.keys(v)) o[k] = await _decVal(v[k]); return o;
+}
 
 // ── 保存文件（照抄 utils.js: saveFile 的逻辑，这里不想拉整条依赖链）──────
 async function saveFile(data, filename) {
@@ -292,7 +339,10 @@ document.getElementById('btnExport').onclick = async () => {
           const page = await readPage(db, s.name, last, PAGE);
           if (!page.length) break;
           for (const r of page) {
-            const sz = JSON.stringify(r.value).length;
+            // Blob 必须先转 base64 —— JSON.stringify 会把它变成 {}，内容静默丢光
+            let _v = r.value;
+            if (_hasBlob(_v)) _v = await _encVal(_v);
+            const sz = JSON.stringify(_v).length;
             // ⚠️ 先估再放。原来是「放进去、超了再交」，那样每块会**多出一整条大记录**的量
             //    —— 她的图单条十几 MB，实测切出来 39MB 一块，过 base64 桥后 50MB+，
             //    离那个 60MB 的红线太近了。现在每块真的贴着 CHUNK 走。
@@ -301,7 +351,7 @@ document.getElementById('btnExport').onclick = async () => {
               buf = []; bytes = 0;
               await pause();
             }
-            buf.push({ store: s.name, key: r.key, value: r.value });
+            buf.push({ store: s.name, key: r.key, value: _v });
             bytes += sz;
             n++;
           }
@@ -358,10 +408,18 @@ async function putRows(db, rows, schema) {
     const kp = (schema || []).find(s => s.name === store)?.keyPath;
     // 旧版导出文件：out-of-line 的 store 整批都没 key，写不进去 —— 直接跳过，别白试
     if (kp == null && recs.every(r => r.key === undefined)) continue;
+    // Blob 要先还原出来，而且**必须在开事务之前做完** ——
+    // 事务里一旦 await，它就会自己提交掉，后面那些 put 全部落空（而且是静默的）。
+    const decoded = [];
+    for (const r of recs) {
+      let v = r.value;
+      if (_hasBlobMarker(v)) v = await _decVal(v);
+      decoded.push({ key: r.key, value: v });
+    }
     await new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       const os = tx.objectStore(store);
-      for (const r of recs) {
+      for (const r of decoded) {
         try {
           if (kp == null && r.key !== undefined) os.put(r.value, r.key);
           else os.put(r.value);
