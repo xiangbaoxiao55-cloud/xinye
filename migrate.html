@@ -356,6 +356,8 @@ async function putRows(db, rows, schema) {
     //    `main` 不再叫 `main`，于是设置页读出来全空、头像背景全丢。
     //    2026-09-18 真机上就是这么栽的：消息一条不差，设置和图片全没了。
     const kp = (schema || []).find(s => s.name === store)?.keyPath;
+    // 旧版导出文件：out-of-line 的 store 整批都没 key，写不进去 —— 直接跳过，别白试
+    if (kp == null && recs.every(r => r.key === undefined)) continue;
     await new Promise((res, rej) => {
       const tx = db.transaction(store, 'readwrite');
       const os = tx.objectStore(store);
@@ -432,6 +434,16 @@ async function handleImport(picked) {
         for (const st of [...new Set(data.rows.map(r => r.store))]) {
           const k = curName + '::' + st;
           if (cleared.has(k)) continue;
+          // 🔴 旧版导出文件里，out-of-line key 的 store（settings / images）没带 key，
+          //    导不进去。这时候**千万别清空** —— 一清就把「从备份恢复回来的那份好数据」
+          //    也抹了，等于拿一个空壳换掉完整的。跳过它，让它安安静静待着。
+          const _kp = (data.schema || []).find(s => s.name === st)?.keyPath;
+          const _smp = data.rows.find(r => r.store === st);
+          if (_kp == null && _smp && _smp.key === undefined) {
+            cleared.add(k);                    // 记下来，同一个 store 的后续块也别再试
+            log(`  ⚠️ ${st}：这份文件是旧版导的、没带 key，跳过不动（用备份恢复它）`, 'warn');
+            continue;
+          }
           await clearStore(cur, st);
           cleared.add(k);
           clearedNow.push(k);
