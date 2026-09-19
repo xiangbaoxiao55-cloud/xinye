@@ -1205,7 +1205,19 @@ ${numbered.map(n => n.text).join('\n\n')}
       if (statusEl) setStatus(statusEl, 'x-circle', '返回格式错误');
       return { reviewed: top.length, removed: 0 };
     }
-    const parsed = JSON.parse(match[0]);
+    let parsed;
+    try { parsed = JSON.parse(match[0]); } catch(e) {
+      // reason 是自由文本，模型同样可能写进未转义的引号 —— 修一次再试
+      try {
+        parsed = JSON.parse(_repairLooseJsonQuotes(match[0]));
+        console.log('[Conflict] JSON 里有未转义引号，已修复后解析成功');
+      } catch(e2) {
+        console.warn('[Conflict] JSON 解析失败（修复后仍失败）：', match[0]);
+        if (!silent) toast('返回格式错误，看vConsole');
+        if (statusEl) setStatus(statusEl, 'x-circle', '返回格式错误');
+        return { reviewed: top.length, removed: 0 };
+      }
+    }
     const conflicts = Array.isArray(parsed.conflicts) ? parsed.conflicts : [];
     console.log(`[Conflict] 解析出 conflicts.length=${conflicts.length}`);
 
