@@ -56,20 +56,26 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 /* ===== 信息流 ===== */
 .feed{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
-.item{padding:16px 16px 15px;border-bottom:1px solid var(--border);
-  /* ⚠️ 2026-09-19 真机踩到：不禁用选择的话，手机上长按会被系统判定成「划词选中」——
-     浏览器随即发 pointercancel，把长按计时器直接掐掉，表现是"一长按就选中文字、
-     浮层永远不出现"。合成事件测不出来（它不触发系统划词），只有真机能暴露。
-     代价是她不能划词复制了，所以浮层里补了一个「复制」作为补偿。 */
-  -webkit-user-select:none;user-select:none;
+.item{padding:16px 16px 15px;border-bottom:1px solid var(--border);touch-action:pan-y}
+/* ⚠️⚠️ 2026-09-19 真机踩到：禁选择**必须直接写在后代身上**。
+   只写在 .item 上时，Chromium 会把 none 传给子级（桌面实测子元素 computed 就是 none），
+   但鸿蒙的 WebView 不认这个传递 —— 她真机上长按照样划词，"复制/分享/全选"整套菜单都弹出来。
+   所以子孙一律显式写死，别指望继承。 */
+.item,.item *{
+  -webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;
   -webkit-touch-callout:none;   /* 顺带关掉长按弹菜单那种系统行为 */
-  touch-action:pan-y}           /* 只让浏览器接管竖向滚动，别去猜别的手势 */
+}
 .item:last-child{border-bottom:none}
 .it-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .it-badge{
   font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.4px;
 }
 .it-time{font-size:11px;color:var(--text-light);margin-left:auto;white-space:nowrap}
+/* 「⋯」—— **系统抢不走的那条路**。她真机上长按被系统划词吃了两回，所以留一个
+   点一下就必然能用的入口（长按仍然在，这里只是保底）。嫌碍眼说一声就摘掉。 */
+.it-more{border:none;background:none;color:var(--text-light);font-family:inherit;
+  font-size:16px;line-height:1;padding:0 0 2px 10px;cursor:pointer}
+.it-more:active{color:var(--pink-deep)}
 .it-text{font-size:14.5px;line-height:1.72;color:var(--text);white-space:pre-wrap;word-break:break-word}
 .it-why{margin-top:7px;font-size:13px;line-height:1.6;color:var(--text-mid)}
 .it-src{font-size:12px;color:var(--text-light);margin-top:6px}
@@ -158,6 +164,7 @@ html.dark .sheet-box{background:rgba(38,24,32,.94)}
 .sheet-copy:active{opacity:.6}
 .sheet-del{display:block;width:100%;padding:13px;border:none;border-radius:14px;background:none;
   font-family:inherit;font-size:15px;font-weight:700;color:#d9534f;cursor:pointer}
+.sheet-del[hidden]{display:none}   /* 同上：display:block 会盖掉 [hidden] 的默认值 */
 html.dark .sheet-del{color:#ff7b72}
 .sheet-del:active{opacity:.6}
 .sheet-cancel{display:block;width:100%;padding:12px;margin-top:2px;border:none;border-radius:14px;
@@ -390,9 +397,10 @@ function updateSub(shownCount) {
 
 // ======================== 长按删除（2026-09-19 加） ========================
 // 她这天翻这一页发现一堆重复的笔记（聊天里记下的"没说出口的/心情"），看着难受却删不掉。
-// 长按一条 → 底部浮出确认。⚠️ 只给**能定位到 IDB 记录**的条目挂（it.store + it.id）：
-// 老数据的 drafts/mood 是聚合对象（key 是 'current'/'history'），删不了，不挂 —— 长按没反应，
-// 也不会误删到别的东西。
+// 长按一条 → 底部浮出浮层，里头的按钮按条目能力显示：
+//   能定位到 IDB 记录的（it.store + it.id）→ 给「删除」；
+//   有正文的 → 给「复制」（因为 .item 上禁了划词，得留条路把他的话带走）。
+//   老数据的 drafts/mood 是聚合对象（key 是 'current'/'history'），删不了 → 只给复制。
 const LP_FIRE_MS  = 450;   // 按住多久算长按。⚠️ 别调到 500 以上：系统的长按手势 ~500ms 就介入，
                            //    两边抢同一个手势，我们得先出手（配合 .item 的 user-select:none）
 const LP_PRESS_MS = 140;   // 多久之后才给「按住了」的视觉反馈（给早了普通点击会闪一下）
@@ -413,7 +421,7 @@ function _lpCancel() {
 }
 
 function bindLongPress(node, it) {
-  if (!it || !it.store || it.id == null) return;
+  if (!it) return;   // 能不能删/能不能复制由 askDelete 判断，见下面那条注释
   node.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;   // 只认左键
     _lpCancel();
@@ -435,6 +443,18 @@ function bindLongPress(node, it) {
   });
   node.addEventListener('pointerup',    () => { if (_lp && _lp.node === node) _lpCancel(); });
   node.addEventListener('pointercancel',() => { if (_lp && _lp.node === node) _lpCancel(); });
+
+  // 🔴🔴 抢不过系统时的兜底（2026-09-19 真机第二轮）：鸿蒙上长按会被系统整个拿走 ——
+  //    开始划词、并发一个 pointercancel，上面那个计时器当场被掐，永远等不到 450ms。
+  //    下面两条是另外两个独立机制，各堵一头：
+  //    · selectstart —— 划词真正开始的那一刻，直接拦掉（不依赖 user-select 生效）
+  //    · contextmenu —— 长按最后多半还会产生它，从那儿再开一次浮层
+  //    三条路都通向 askDelete，谁先到算谁的（它内部有去重）。
+  node.addEventListener('selectstart', e => e.preventDefault());
+  node.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    askDelete(it);
+  });
 }
 
 document.addEventListener('click', e => {
@@ -445,14 +465,20 @@ document.addEventListener('click', e => {
 let _pendingDel = null;
 
 function askDelete(it) {
-  _pendingDel = it;
   const t = String(it.text || '').trim();
+  const canDel = !!(it.store && it.id != null);
+  if (!t && !canDel) return;                                                    // 什么都做不了，别弹个只剩"取消"的空浮层
+  if (!document.getElementById('sheet').hidden && _pendingDel === it) return;    // 两条路都到了，只当一次
+  _pendingDel = it;
+  // 浮层里现在有两个出口（复制 / 删除），话就别只冲着「删」说；
+  // 老数据（草稿箱/心情那种聚合记录）删不了，就只剩复制可给。
   const cut = t.slice(0, 50) + (t.length > 50 ? '…' : '');
-  // 浮层里现在有两个出口（复制 / 删除），话就别只冲着「删」说
-  document.getElementById('sheetTxt').textContent = t
-    ? `「${cut}」\n删掉就找不回来了，想留就先复制。`
-    : '这一条删掉就找不回来了。';
-  document.getElementById('sheetCopy').hidden = !t;   // 没有正文的条目（浏览记录）就别显示复制
+  const hint = (t && canDel) ? '删掉就找不回来了，想留就先复制。'
+             : t ? '这条删不了（老数据），需要的话复制走。'
+                 : '这一条删掉就找不回来了。';
+  document.getElementById('sheetTxt').textContent = (t ? `「${cut}」\n` : '') + hint;
+  document.getElementById('sheetCopy').hidden = !t;
+  document.getElementById('sheetDel').hidden = !canDel;
   document.getElementById('sheet').hidden = false;
 }
 
@@ -504,7 +530,7 @@ document.getElementById('sheetCancel').onclick = closeSheet;
 document.getElementById('sheetDel').onclick = async () => {
   const it = _pendingDel;
   closeSheet();
-  if (!it) return;
+  if (!it || !it.store || it.id == null) return;   // 老数据没有可删的记录，按钮本来就该是隐藏的
   try {
     await deleteItem(it);
     // 本地摘掉就行，不重跑 loadAll —— 她多半要连着删好几条，重读整库又慢又费。
@@ -541,6 +567,13 @@ function card(it) {
     top.appendChild(el('span', 'it-badge', '存下来了'));
   }
   if (it.ts) top.appendChild(el('span', 'it-time', fmtTime(it.ts)));
+  // 点一下就能开浮层 —— 长按那条路依赖手势，而手势可能被系统抢走（她真机栽了两回），
+  // 所以再给一个点一下必然能用的入口。
+  const more = el('button', 'it-more', '⋯');
+  more.title = '更多';
+  if (!it.ts) more.style.marginLeft = 'auto';
+  more.onclick = e => { e.stopPropagation(); askDelete(it); };
+  top.appendChild(more);
   if (top.childNodes.length) a.appendChild(top);
 
   if (it.tag === 'post') {
@@ -601,7 +634,7 @@ function card(it) {
     if (it.text) a.appendChild(el('div', 'it-text', it.text));
   }
 
-  bindLongPress(a, it);   // 能定位到 IDB 记录的才挂得上，见上面的说明
+  bindLongPress(a, it);   // 所有条目都挂：能删的给删除，删不了的（老数据）至少还能复制
   return a;
 }
 
