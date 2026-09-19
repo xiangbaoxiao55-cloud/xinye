@@ -74,7 +74,7 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 /* 「⋯」—— **系统抢不走的那条路**。她真机上长按被系统划词吃了两回，所以留一个
    点一下就必然能用的入口（长按仍然在，这里只是保底）。嫌碍眼说一声就摘掉。 */
 .it-more{border:none;background:none;color:var(--text-light);font-family:inherit;
-  font-size:16px;line-height:1;padding:0 0 2px 10px;cursor:pointer}
+  padding:0 0 0 10px;cursor:pointer;line-height:0;display:inline-flex;align-items:center}
 .it-more:active{color:var(--pink-deep)}
 .it-text{font-size:14.5px;line-height:1.72;color:var(--text);white-space:pre-wrap;word-break:break-word}
 .it-why{margin-top:7px;font-size:13px;line-height:1.6;color:var(--text-mid)}
@@ -569,8 +569,12 @@ function card(it) {
   if (it.ts) top.appendChild(el('span', 'it-time', fmtTime(it.ts)));
   // 点一下就能开浮层 —— 长按那条路依赖手势，而手势可能被系统抢走（她真机栽了两回），
   // 所以再给一个点一下必然能用的入口。
-  const more = el('button', 'it-more', '⋯');
+  // ⚠️ 图标用内联 SVG，别用「⋯」那个字符：U+22EF 有些设备字体里没有，会渲染成空白，
+  //    那就等于入口根本不存在（她第一次就说"没看见三个点"）。
+  const more = el('button', 'it-more');
   more.title = '更多';
+  more.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">'
+    + '<circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>';
   if (!it.ts) more.style.marginLeft = 'auto';
   more.onclick = e => { e.stopPropagation(); askDelete(it); };
   top.appendChild(more);

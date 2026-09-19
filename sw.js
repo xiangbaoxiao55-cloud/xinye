@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260919-2355';
+const CACHE_NAME = 'xinye-20260920-0007';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -111,8 +111,14 @@ self.addEventListener('fetch', e => {
  * migrate.html 加进来的理由一样，而且更要命：它是**一次性**的，
  * 走缓存优先的话她导进去的是上一版逻辑 —— 2026-09-18 那天就是这么差点
  * 让她用没修好的版本重导一遍 418MB。这类"必须是最新"的页面都往这儿放。
+ *
+ * 🔴 **phone.html（2026-09-19 晚加）**：这一页在 iframe 里，而 `diary.js` 的
+ *    `_phoneLoaded` 让它**一个会话只加载一次**；底下那条路又是 stale-while-revalidate
+ *    （先返回缓存、后台再更新）。两件事一叠加就是：「她刷新了、主页面版本号也变了，
+ *    可碎碎念那页还是老样子」—— 我连推三版她都没看到，全是这个原因。
+ *    ⚠️ 以后再改 phone.html，记得它走的就是 NET_FIRST 这条路（网络 2.5s → 退回缓存）。
  */
-const NET_FIRST = ['/overlay.html', '/src/overlay.js', '/migrate.html'];
+const NET_FIRST = ['/overlay.html', '/src/overlay.js', '/migrate.html', '/phone.html'];
 
 async function handleFetch(request, pathname) {
   if (NET_FIRST.indexOf(pathname) >= 0) {
