@@ -89,7 +89,19 @@ export function switchTab(tab) {
   // 碎碎念 = 炘也的手机，只存在于 index.html（choubao.html 没有这个 Tab）
   if (tab === 'phone') {
     const pf = document.getElementById('phoneFrame');
-    if (pf && !_phoneLoaded) { pf.src = 'phone.html'; _phoneLoaded = true; }
+    // 🔴🔴 2026-09-20：这一页的网址**必须带一个会变的尾巴**。
+    //    她连着四轮说"刷新了还是老样子"（连右上角那个「⋯」都看不见），
+    //    根因是两件事叠在一起：
+    //      1. 它在 iframe 里，而 `_phoneLoaded` 让它**一个会话只加载一次**
+    //      2. 它前面隔着两层缓存：SW 自己的 + WebView 的 HTTP 缓存
+    //    ⇒ 只要网址不变，每一次拿到的都是同一层旧缓存 —— 她重开多少次都没用。
+    //    而**一个从来没被请求过的地址，任何缓存都不可能命中**，只能去网上取。
+    //    版本号拿不到就退回一个随机串：宁可这次多拉一遍，也不能再吃到旧的那一层。
+    if (pf && !_phoneLoaded) {
+      const _v = (document.getElementById('appVersion')?.textContent || '').trim();
+      pf.src = 'phone.html?v=' + encodeURIComponent(_v || ('t' + Date.now()));
+      _phoneLoaded = true;
+    }
     else { try { pf?.contentWindow?.__fcOnShow?.(); } catch(e) {} }
     // 🔴 每次切进来都去拉一次（2026-09-19）：她那天看到的是「最近 01:28」，
     //    夜里那三条说说压根没进来 —— 拉取本身没坏，是**切页不会重新拉**，

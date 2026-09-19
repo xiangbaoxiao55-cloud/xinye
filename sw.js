@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260920-0007';
+const CACHE_NAME = 'xinye-20260920-0015';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -130,7 +130,10 @@ async function handleFetch(request, pathname) {
       clearTimeout(timer);
       if (r.ok) { nfCache.put(request, r.clone()); return r; }
     } catch {}
-    const hit = await nfCache.match(request);
+    // ⚠️ 先按原样找（比如 phone.html?v=xxx 那份），找不到再退回**不带参数的预缓存副本** ——
+    //    phone.html 现在带着版本尾巴请求（见 diary.js），而离线时能救命的正是 STATIC_ASSETS
+    //    里那份 `/phone.html`。少了这一步，她在电梯里打开 APP 会看到这一页白屏。
+    const hit = (await nfCache.match(request)) || (await nfCache.match(pathname));
     if (hit) return hit;
     return fetch(request);
   }
