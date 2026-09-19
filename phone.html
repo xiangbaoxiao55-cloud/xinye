@@ -127,6 +127,30 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 .tip button{border:none;background:none;color:var(--text-light);font-size:12px;
   font-family:inherit;cursor:pointer;float:right;padding:0 4px}
 
+/* ===== 长按删除（2026-09-19 加）=====
+   她说「这一页攒下来的重复删不掉」—— deleteRecord 一直存在，但全项目没人调用过。
+   长按一条 → 底部浮出确认。⚠️ 只给**能定位到 IDB 记录**的条目挂（it.store + it.id）：
+   老数据的 drafts/mood 是聚合对象（key 是 'current'/'history'），删不了，不挂长按。 */
+.item.pressing{background:var(--bg2)}
+.sheet{position:fixed;inset:0;z-index:55;display:flex;align-items:flex-end}
+.sheet[hidden]{display:none}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.3);
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+/* ⚠️ 悬浮层必须留 backdrop-filter（去色块那条审美线：底色可以不要，模糊不能丢） */
+.sheet-box{position:relative;width:100%;padding:16px 16px calc(14px + env(safe-area-inset-bottom,0px));
+  background:rgba(255,248,243,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--border);border-radius:18px 18px 0 0}
+html.dark .sheet-box{background:rgba(38,24,32,.94)}
+.sheet-txt{font-size:13px;line-height:1.65;color:var(--text-mid);margin-bottom:12px;
+  max-height:22vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.sheet-del{display:block;width:100%;padding:13px;border:none;border-radius:14px;background:none;
+  font-family:inherit;font-size:15px;font-weight:700;color:#d9534f;cursor:pointer}
+html.dark .sheet-del{color:#ff7b72}
+.sheet-del:active{opacity:.6}
+.sheet-cancel{display:block;width:100%;padding:12px;margin-top:2px;border:none;border-radius:14px;
+  background:none;color:var(--text-light);font-family:inherit;font-size:14.5px;cursor:pointer}
+.sheet-cancel:active{opacity:.6}
+
 /* ===== 轻提示 ===== */
 #toast{
   position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);
@@ -166,10 +190,18 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 <div class="viewer" id="viewer" hidden><img id="viewerImg" alt=""><button class="viewer-close" id="viewerClose">×</button><div class="viewer-prompt" id="viewerPrompt" hidden></div><button class="viewer-save" id="viewerSave">保存到手机</button></div>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-bg" id="sheetBg"></div>
+  <div class="sheet-box">
+    <div class="sheet-txt" id="sheetTxt"></div>
+    <button class="sheet-del" id="sheetDel">删除这一条</button>
+    <button class="sheet-cancel" id="sheetCancel">取消</button>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script type="module">
-import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, dataUrlToBlob } from './src/modules/phonedb.js';
+import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, deleteRecord, dataUrlToBlob } from './src/modules/phonedb.js';
 // ⚠️ 导出必须走 saveFile：APK 的 WebView 不处理 <a download> 的 blob: 链接，点了是**静默失败**
 // （浏览器里正常）→ 在 APK 里会弹"已导出"但下载目录里什么都没有。saveFile 会分流到原生桥。
 import { saveFile, fmtTime } from './src/modules/utils.js';
@@ -231,28 +263,31 @@ async function loadAll() {
   for (const m of memo) {
     if (!m.content) continue;
     if (m.type === 'todo') {
-      out.push({ tag:'todo', ts: parseTime(m.time), text: m.content,
+      out.push({ tag:'todo', ts: parseTime(m.time), text: m.content, store:'xinye_memo', id: m.id,
                  when: m.trigger_at ? parseTime(m.trigger_at) : 0, done: !!m.done });
     } else if (m.type === 'post') {
       // 他自己写的（没聊天的时候），见 posts.js。跟聊天里记的那些共用 xinye_memo，
       // 只靠 type 区分 —— 这样**不用动 DB_VER**（动它风险大），导出/导入也自动跟着走。
-      out.push({ tag:'post', ts: parseTime(m.time), text: m.content, postId: m.postId || '', media: null });
+      out.push({ tag:'post', ts: parseTime(m.time), text: m.content, postId: m.postId || '', media: null,
+                 store:'xinye_memo', id: m.id });
     } else {
       // ⚠️ 2026-09-16 合并：「记下来 / 没说出口 / 那天的心情」**不再贴角标**。
       //    她那边有 996 条，往下一翻根本不会去分辨是哪一类 —— 为一套只有最上面几条用得上的
       //    区分，让他每天做三次判断不划算。现在整页只有两种东西：
       //    **没角标 = 他聊天时写的**、**「说说」= 你没在场时他自己写的**。
       //    老数据的 drafts/mood 记录照样显示，只是不再贴标签（数据一条没删）。
-      out.push({ tag:'thought', ts: parseTime(m.time), text: m.content });
+      out.push({ tag:'thought', ts: parseTime(m.time), text: m.content, store:'xinye_memo', id: m.id });
     }
   }
 
   for (const it of quotes) {
-    out.push({ tag:'quotes', ts: parseTime(it.time), text: it.content || '', src: it.source || '' });
+    out.push({ tag:'quotes', ts: parseTime(it.time), text: it.content || '', src: it.source || '',
+               store:'xinye_quotes', id: it.id });
   }
 
   for (const it of browser) {
-    out.push({ tag:'browser', ts: parseTime(it.time), title: it.title || '', url: it.url || '', note: it.note || '' });
+    out.push({ tag:'browser', ts: parseTime(it.time), title: it.title || '', url: it.url || '', note: it.note || '',
+               store:'xinye_browser', id: it.id });
   }
 
   // 草稿箱 / 心情：current + history
@@ -282,13 +317,15 @@ async function loadAll() {
       const _media = { kind, blob: p.blob, prompt: p.prompt || '' };
       if (host) host.media = _media;
       // 极端情况：配图到了、那条文字没到（APP 中途被杀过）→ 自己成一张卡，别丢
-      else if (p.blob) out.push({ tag:'post', ts: parseTime(p.time), text:'', postId: p.postId || '', media: _media });
+      else if (p.blob) out.push({ tag:'post', ts: parseTime(p.time), text:'', postId: p.postId || '', media: _media,
+                                  store:'xinye_photos', id: p.id });
       continue;
     }
     if (p.type === 'memo') {
-      out.push({ tag:'thought', ts: parseTime(p.time), text: p.caption || '' });
+      out.push({ tag:'thought', ts: parseTime(p.time), text: p.caption || '', store:'xinye_photos', id: p.id });
     } else if (p.blob) {
-      out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '', prompt: p.prompt || '' });
+      out.push({ tag:'photos', ts: parseTime(p.time), blob: p.blob, cap: p.caption || '', prompt: p.prompt || '',
+                 store:'xinye_photos', id: p.id });
     }
   }
 
@@ -336,6 +373,108 @@ function updateSub(shownCount) {
   const latest = _all[0]?.ts;
   sub.textContent = `共 ${_all.length} 条 · 最近 ${fmtTime(latest)}`;
 }
+
+// ======================== 长按删除（2026-09-19 加） ========================
+// 她这天翻这一页发现一堆重复的笔记（聊天里记下的"没说出口的/心情"），看着难受却删不掉。
+// 长按一条 → 底部浮出确认。⚠️ 只给**能定位到 IDB 记录**的条目挂（it.store + it.id）：
+// 老数据的 drafts/mood 是聚合对象（key 是 'current'/'history'），删不了，不挂 —— 长按没反应，
+// 也不会误删到别的东西。
+const LP_FIRE_MS  = 550;   // 按住多久算长按
+const LP_PRESS_MS = 140;   // 多久之后才给「按住了」的视觉反馈（给早了普通点击会闪一下）
+const LP_MOVE_PX  = 10;    // 手指/鼠标抖这么多就当是在滚动，取消长按
+
+let _lp = null;
+// 长按刚触发的那张卡：它紧接着收到的那次 click 必须吞掉（松手时浏览器会补一个 click，
+// 不拦会顺手点开大图 / 播语音 / 跳链接）。
+// ⚠️ 别写成"多少毫秒内吞掉所有 click" —— 那样她在半秒内点「取消」也会被吞掉。
+//    按来源判：只有落在**那张卡里面**的点击才吞，点浮层按钮一律放行。
+let _lpFiredNode = null;
+
+function _lpCancel() {
+  if (!_lp) return;
+  clearTimeout(_lp.tPress); clearTimeout(_lp.tFire);
+  _lp.node.classList.remove('pressing');
+  _lp = null;
+}
+
+function bindLongPress(node, it) {
+  if (!it || !it.store || it.id == null) return;
+  node.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;   // 只认左键
+    _lpCancel();
+    _lpFiredNode = null;                                       // 清掉上一次留下的
+    const rec = { node, x: e.clientX, y: e.clientY };
+    rec.tPress = setTimeout(() => node.classList.add('pressing'), LP_PRESS_MS);
+    rec.tFire  = setTimeout(() => {
+      _lp = null;
+      node.classList.remove('pressing');
+      _lpFiredNode = node;
+      try { navigator.vibrate && navigator.vibrate(15); } catch(_e) {}
+      askDelete(it);
+    }, LP_FIRE_MS);
+    _lp = rec;
+  });
+  node.addEventListener('pointermove', e => {
+    if (!_lp || _lp.node !== node) return;
+    if (Math.abs(e.clientX - _lp.x) > LP_MOVE_PX || Math.abs(e.clientY - _lp.y) > LP_MOVE_PX) _lpCancel();
+  });
+  node.addEventListener('pointerup',    () => { if (_lp && _lp.node === node) _lpCancel(); });
+  node.addEventListener('pointercancel',() => { if (_lp && _lp.node === node) _lpCancel(); });
+}
+
+document.addEventListener('click', e => {
+  if (_lpFiredNode && _lpFiredNode.contains(e.target)) { e.stopPropagation(); e.preventDefault(); }
+  _lpFiredNode = null;
+}, true);
+
+let _pendingDel = null;
+
+function askDelete(it) {
+  _pendingDel = it;
+  const t = String(it.text || '').trim();
+  const preview = t ? `「${t.slice(0, 50)}${t.length > 50 ? '…' : ''}」` : '这一条';
+  document.getElementById('sheetTxt').textContent = `删掉 ${preview} ？删了就找不回来了。`;
+  document.getElementById('sheet').hidden = false;
+}
+
+function closeSheet() {
+  document.getElementById('sheet').hidden = true;
+  _pendingDel = null;
+}
+
+// ⚠️ 说说带的图/语音在 xinye_photos 里用 postId 指向它，必须一起删 ——
+//    只删文字的话那张图会变成"孤图"，loadAll 里那条兜底会把它单独渲染成一张卡。
+async function deleteItem(it) {
+  await openPhoneDB();
+  if (it.tag === 'post' && it.postId) {
+    const photos = await getAllFromStore('xinye_photos');
+    for (const p of photos) {
+      if (p && p.postId === it.postId && p.id != null) await deleteRecord('xinye_photos', p.id);
+    }
+  }
+  await deleteRecord(it.store, it.id);
+}
+
+document.getElementById('sheetBg').onclick = closeSheet;
+document.getElementById('sheetCancel').onclick = closeSheet;
+document.getElementById('sheetDel').onclick = async () => {
+  const it = _pendingDel;
+  closeSheet();
+  if (!it) return;
+  try {
+    await deleteItem(it);
+    // 本地摘掉就行，不重跑 loadAll —— 她多半要连着删好几条，重读整库又慢又费。
+    _all = _all.filter(x => x !== it);
+    const feed = document.getElementById('feed');
+    const top = feed.scrollTop;      // ⚠️ renderFeed 会清空 feed，滚动位置会跳回顶部，先记下再放回去
+    renderTags();
+    renderFeed(true);
+    feed.scrollTop = top;
+    toast('删掉了');
+  } catch (e) {
+    toast('没删掉：' + ((e && e.message) || e));
+  }
+};
 
 function card(it) {
   const a = el('article', 'item');
@@ -418,6 +557,7 @@ function card(it) {
     if (it.text) a.appendChild(el('div', 'it-text', it.text));
   }
 
+  bindLongPress(a, it);   // 能定位到 IDB 记录的才挂得上，见上面的说明
   return a;
 }
 
