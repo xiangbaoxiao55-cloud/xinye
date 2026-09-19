@@ -1598,6 +1598,25 @@ export async function saveOneMemoryToBank(bank, parsed, msgTime) {
   }
 }
 
+// ── 宽容 JSON 修复：模型偶尔在字符串值里直接写英文双引号 ──────────────────────
+// 例：{"summary":"我说"他眼里只有她"，兔宝不开心"} —— 中间那两个引号没转义，
+// JSON.parse 会整条失败。这里逐字符扫描，把「落在字符串值内部、后面又接不上
+// , : } ] 的裸引号」补上转义。只在直接解析失败后兜底，正常返回不受影响。
+function _repairLooseJsonQuotes(s) {
+  let out = '';
+  let inStr = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '\\') { out += c + (s[i + 1] || ''); i++; continue; }
+    if (c !== '"') { out += c; continue; }
+    if (!inStr) { inStr = true; out += c; continue; }
+    // 已在字符串里：后面紧跟分隔符 = 这是收尾引号；否则是正文里的裸引号
+    if (/^\s*[:,}\]]/.test(s.slice(i + 1))) { inStr = false; out += c; }
+    else out += '\\"';
+  }
+  return out;
+}
+
 // ── updateMoodState（自动提取记忆） ──────────────────────────────────────────
 let _extractFailCount = 0;
 
@@ -1655,14 +1674,15 @@ ${chatText}
 
 用一个 JSON 回复，不要任何额外文字。
 格式A（不值得记）：{"save":false}
-格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从${settings.aiName || '炘也'}（我）的第一视角写，用"我"和"${settings.userName || '兔宝'}"，不用第三人称","emotion":"当时情绪，4字以内","weight":2,"arousal":0.5,"valence":0.0}]}
+格式B（值得记）：{"save":true,"memories":[{"pin":false,"summary":"最值得记住的一句话，25字以内，从${settings.aiName || '炘也'}（我）的第一视角写，用「我」和「${settings.userName || '兔宝'}」，不用第三人称","emotion":"当时情绪，4字以内","weight":2,"arousal":0.5,"valence":0.0}]}
 如果有多件不相关的事都值得记，memories 数组可以写多条，每条各自独立。
 weight：1=日常闲聊/普通信息，2=有长期记录价值（有情感、有约定、重大时刻、关系进展）。只填1或2，不填其他值。
 arousal 0-1：情绪强度，0=完全平静，1=极度激动/崩溃/亲密高潮。高arousal的记忆衰减更慢。
 valence -1~1：情感正负，-1=极负面痛苦，0=中性，1=极正面幸福。
 pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
 行为指令、习惯偏好不要写进 summary，只记录发生的事和情感。
-特别规则：如果新信息明确推翻了已有记忆的结论（如"不买"推翻"决定买"），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。`;
+特别规则：如果新信息明确推翻了已有记忆的结论（如「不买」推翻「决定买」），该条加字段 "updates":"被推翻记忆的前10个字"，summary 写最终结论。
+🔴 所有字段的值里都不要出现英文双引号（"）。要引用原话就用「」——写成 "summary":"他说"别走"" 会让整条 JSON 解析失败，这一批记忆全部丢失。`;
 
     const res = await subApiFetch({ messages: [{ role: 'system', content: '你是一个JSON输出工具。直接输出JSON，不要任何分析过程、不要思考、不要解释。' }, { role: 'user', content: prompt }], temperature: 0.3, max_tokens: 4000, stream: false }, 'gpt-4o-mini');
 
@@ -1698,8 +1718,14 @@ pin=true 仅用于极重要的时刻（weight≥4且不可替代）。
     if (!match) { console.warn('[Memory Extract] 返回内容无JSON', raw); await saveSettings(); return; }
     let parsed;
     try { parsed = JSON.parse(match[0]); } catch(e) {
-      console.warn('[Memory Extract] JSON 解析失败', match[0]);
-      await saveSettings(); return;
+      // summary 里引用了原话、又没转义引号 —— 修一次再试，别把整批记忆丢掉
+      try {
+        parsed = JSON.parse(_repairLooseJsonQuotes(match[0]));
+        console.log('[Memory Extract] JSON 里有未转义引号，已修复后解析成功');
+      } catch(e2) {
+        console.warn('[Memory Extract] JSON 解析失败（修复后仍失败）', match[0]);
+        await saveSettings(); return;
+      }
     }
 
     bankNow.lastProcessedTime = batchLastTime;
