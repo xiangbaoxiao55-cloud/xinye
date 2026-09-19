@@ -56,7 +56,14 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 /* ===== 信息流 ===== */
 .feed{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
-.item{padding:16px 16px 15px;border-bottom:1px solid var(--border)}
+.item{padding:16px 16px 15px;border-bottom:1px solid var(--border);
+  /* ⚠️ 2026-09-19 真机踩到：不禁用选择的话，手机上长按会被系统判定成「划词选中」——
+     浏览器随即发 pointercancel，把长按计时器直接掐掉，表现是"一长按就选中文字、
+     浮层永远不出现"。合成事件测不出来（它不触发系统划词），只有真机能暴露。
+     代价是她不能划词复制了，所以浮层里补了一个「复制」作为补偿。 */
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;   /* 顺带关掉长按弹菜单那种系统行为 */
+  touch-action:pan-y}           /* 只让浏览器接管竖向滚动，别去猜别的手势 */
 .item:last-child{border-bottom:none}
 .it-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .it-badge{
@@ -143,6 +150,12 @@ body{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 html.dark .sheet-box{background:rgba(38,24,32,.94)}
 .sheet-txt{font-size:13px;line-height:1.65;color:var(--text-mid);margin-bottom:12px;
   max-height:22vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
+/* 「复制」是给 user-select:none 的补偿 —— 禁了划词，总得有个别的办法把他的话带走。
+   ⚠️ 这条写了 display:block，会盖掉 [hidden] 的默认 display:none，所以要自己补一条 */
+.sheet-copy{display:block;width:100%;padding:13px;margin-bottom:2px;border:none;border-radius:14px;
+  background:none;color:var(--text);font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+.sheet-copy[hidden]{display:none}
+.sheet-copy:active{opacity:.6}
 .sheet-del{display:block;width:100%;padding:13px;border:none;border-radius:14px;background:none;
   font-family:inherit;font-size:15px;font-weight:700;color:#d9534f;cursor:pointer}
 html.dark .sheet-del{color:#ff7b72}
@@ -194,6 +207,7 @@ html.dark .sheet-del{color:#ff7b72}
   <div class="sheet-bg" id="sheetBg"></div>
   <div class="sheet-box">
     <div class="sheet-txt" id="sheetTxt"></div>
+    <button class="sheet-copy" id="sheetCopy">复制这段文字</button>
     <button class="sheet-del" id="sheetDel">删除这一条</button>
     <button class="sheet-cancel" id="sheetCancel">取消</button>
   </div>
@@ -379,7 +393,8 @@ function updateSub(shownCount) {
 // 长按一条 → 底部浮出确认。⚠️ 只给**能定位到 IDB 记录**的条目挂（it.store + it.id）：
 // 老数据的 drafts/mood 是聚合对象（key 是 'current'/'history'），删不了，不挂 —— 长按没反应，
 // 也不会误删到别的东西。
-const LP_FIRE_MS  = 550;   // 按住多久算长按
+const LP_FIRE_MS  = 450;   // 按住多久算长按。⚠️ 别调到 500 以上：系统的长按手势 ~500ms 就介入，
+                           //    两边抢同一个手势，我们得先出手（配合 .item 的 user-select:none）
 const LP_PRESS_MS = 140;   // 多久之后才给「按住了」的视觉反馈（给早了普通点击会闪一下）
 const LP_MOVE_PX  = 10;    // 手指/鼠标抖这么多就当是在滚动，取消长按
 
@@ -432,8 +447,12 @@ let _pendingDel = null;
 function askDelete(it) {
   _pendingDel = it;
   const t = String(it.text || '').trim();
-  const preview = t ? `「${t.slice(0, 50)}${t.length > 50 ? '…' : ''}」` : '这一条';
-  document.getElementById('sheetTxt').textContent = `删掉 ${preview} ？删了就找不回来了。`;
+  const cut = t.slice(0, 50) + (t.length > 50 ? '…' : '');
+  // 浮层里现在有两个出口（复制 / 删除），话就别只冲着「删」说
+  document.getElementById('sheetTxt').textContent = t
+    ? `「${cut}」\n删掉就找不回来了，想留就先复制。`
+    : '这一条删掉就找不回来了。';
+  document.getElementById('sheetCopy').hidden = !t;   // 没有正文的条目（浏览记录）就别显示复制
   document.getElementById('sheet').hidden = false;
 }
 
@@ -454,6 +473,31 @@ async function deleteItem(it) {
   }
   await deleteRecord(it.store, it.id);
 }
+
+// 复制 —— 是给 .item 上 user-select:none 的补偿（禁了划词，总得留条路把他的话带走）。
+// clipboard API 要安全上下文 + 文档有焦点，WebView 里不一定给，所以留一条 execCommand 老路兜底。
+async function copyText(s) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(s); return true; }
+  } catch (_e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = s; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select(); ta.setSelectionRange(0, s.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_e) { return false; }
+}
+
+document.getElementById('sheetCopy').onclick = async () => {
+  const t = String((_pendingDel && _pendingDel.text) || '').trim();
+  closeSheet();
+  if (!t) return;
+  toast((await copyText(t)) ? '复制好了' : '没复制成');
+};
 
 document.getElementById('sheetBg').onclick = closeSheet;
 document.getElementById('sheetCancel').onclick = closeSheet;
