@@ -6,7 +6,7 @@ import { getApiPresets, getImagePresets, getImageCurPresetIdx, mainApiFetch } fr
 import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
-import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
+import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup, getRecentNotes } from './phonedb.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 import { extractKnownUrls, readLinkForMessage, fetchPageAsText } from './readlink.js';
 import { clearInputDraft } from './draft.js';
@@ -1022,7 +1022,10 @@ export async function sendMessage() {
 
 ### 触发场景
 
-1. **备忘录 memo** —— 聊天时留下的痕迹，都写在这儿（会显示在碎碎念那一页）：
+1. **备忘录 memo** —— 聊天时留下的痕迹，都写在这儿（会显示在碎碎念那一页）。
+   🔴 **同一个意思只记一次**：下面「你最近在备忘录里记过的」那份清单里有的，就别再写 ——
+   换个说法、多补两句，在她眼里还是同一条（她那天一晚上看到四条「她今天吃了四顿饭」，
+   只会觉得你在复读）。要记就记**这一轮新出现的**那件事。
    - 没说出口的话、此刻的心情（想对她说但觉得不合适：太肉麻 / 时机不对 / 怕她烦 / 怕她担心；
      情绪有明显变化、值得记一笔的）—— 这两样本来就是一回事
    - 待办事项（"记得催她喝水"）
@@ -1135,6 +1138,19 @@ export async function sendMessage() {
               _allTodos.map(t => `- [id:${t.id}] ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
             apiMsgs.push({ role: 'system', content: _allBlock + _dueBlock });
             _apiMeta.push({ label: `system · 待办(${_allTodos.length}条${_due.length ? `，${_due.length}到期` : ''})` });
+          }
+        } catch(_e) {}
+        // 🔴 2026-09-19：他记笔记时看不见自己记过什么 —— 每一轮都重新判断"今天发生了什么"，
+        //    于是同一件事被记了四遍（她那天一晚上看到四条「她今天吃了四顿饭」）。
+        //    把最近记过的摆到他眼前，他才有东西可比。（云端碎碎念那条路的 recentPostStr 同理）
+        try {
+          const _recentNotes = await getRecentNotes(8);
+          if (_recentNotes.length) {
+            apiMsgs.push({ role: 'system', content:
+              '【你最近在备忘录里记过的（碎碎念那一页显示的就是这些）—— 同一个意思不要再记一遍】\n'
+              + _recentNotes.map(x => `- ${String(x.content).slice(0, 90)}`).join('\n')
+              + '\n上面这些**已经记过了**：换个说法、补两句，在她眼里还是同一条。要记就记这一轮新出现的。' });
+            _apiMeta.push({ label: `system · 近期笔记(${_recentNotes.length}条)` });
           }
         } catch(_e) {}
       }

@@ -97,6 +97,29 @@ export async function getAllUndoneTodos() {
   return all.filter(m => m.type === 'todo' && !m.done);
 }
 
+/**
+ * 他最近记的笔记（不含待办、不含云端写的「说说」）—— 取出来拼进提示词。
+ *
+ * 🔴 2026-09-19 加：她那天一晚上在碎碎念里看到**四条「她今天吃了四顿饭…」**
+ *    （00:12 / 00:28 / 01:26 / 01:28，同一个意思换了四种说法）。
+ *    根因**不是**写入端漏查重 —— 是**模型看不见自己已经记过什么**：
+ *    phone_state 的约定是"只输出本轮新增的"，可每一轮它都重新判断一次"今天发生了什么"，
+ *    于是把当天最显眼的那件事又写一遍。把最近记过的摆到它眼前（跟云端碎碎念那条路
+ *    的 recentPostStr 一个道理），它才有东西可比。
+ *
+ * ⚠️ 只取最近 `hours` 小时的：几天前记过「今天吃了四顿饭」，今天再记一条是**新的事**，
+ *    不该被这条清单吓得不敢写。
+ */
+export async function getRecentNotes(limit = 8, hours = 48) {
+  await openPhoneDB();
+  const all = await getAllFromStore('xinye_memo');
+  const cutoff = Date.now() - hours * 3600 * 1000;
+  return all
+    .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
+    .filter(m => { const t = Date.parse(String(m.time || '').replace(/-/g, '/')); return !t || t >= cutoff; })
+    .slice(-limit);
+}
+
 // 单条标记待办为已完成（供 complete_reminder 工具调用）
 export async function completeTodoById(id) {
   await openPhoneDB();
