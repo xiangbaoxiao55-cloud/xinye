@@ -47,6 +47,13 @@ async function _pullPosts() {
 // 碎碎念那页每次露面时（含切标签）会调它 —— 走 diary.js 的 window.__fcOnShow
 window.__fcPostsSeen = () => { markPostsSeen(); _updatePhoneDot(); };
 
+// 🔴 2026-09-19：她刷新前看到的是「最近 01:28」——夜里那三条（03:53/05:24/06:55）没进手机。
+//    原因不是拉取坏了（她一刷新就补上了），是**切到这一页不会重新拉一次**：
+//    switchTab('phone') 走的是 __fcOnShow（只标记已读），而 _pullPosts 只在启动和
+//    从后台切回前台时跑。所以从别处切进来看到的可能一直是几小时前的旧内容。
+//    这里给它开一个入口，diary.js 切到这个 Tab 时顺手拉一次。
+window.__fcPullPosts = () => { _pullPosts(); };
+
 // 「回他一句」：从碎碎念那页跳回聊天，并给**下一条**消息带上"你在回他哪一条"。
 // ⚠️ 不把引文塞进输入框 —— 那样她还得手动删。走 localStorage 传一句上下文，
 //    chat.js 在发送时注入成一条 system（跟「翻手机感知」同一个套路），用完即删。

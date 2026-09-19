@@ -91,6 +91,10 @@ export function switchTab(tab) {
     const pf = document.getElementById('phoneFrame');
     if (pf && !_phoneLoaded) { pf.src = 'phone.html'; _phoneLoaded = true; }
     else { try { pf?.contentWindow?.__fcOnShow?.(); } catch(e) {} }
+    // 🔴 每次切进来都去拉一次（2026-09-19）：她那天看到的是「最近 01:28」，
+    //    夜里那三条说说压根没进来 —— 拉取本身没坏，是**切页不会重新拉**，
+    //    只有启动和从后台切回前台才跑。拉到了 posts.js 会自己让这页重画。
+    try { window.__fcPullPosts?.(); } catch(e) {}
   }
 
   // choubao.html 没有画廊 Tab，取不到就跳过（否则每次切 Tab 都会在这里抛异常）
