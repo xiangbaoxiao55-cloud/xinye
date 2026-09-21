@@ -1041,7 +1041,7 @@ export function updateLocalServerDot() {
   if (!settings.solitudeServerUrl) { dot.className = ''; dot.textContent = ''; return; }
   dot.className = _localServerOnline ? 'dot on' : 'dot';
   dot.textContent = '';
-  dot.title = _localServerOnline ? 'Tailscale 已连接' : '未连接（离线将跳过同步）';
+  dot.title = _localServerOnline ? '本地服务器已连接' : '未连接（离线将跳过同步）';
 }
 
 export async function checkLocalServer() {
