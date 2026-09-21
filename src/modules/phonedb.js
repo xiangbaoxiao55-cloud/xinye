@@ -1,6 +1,21 @@
 // XinyePhoneDB — 炘也手机数据库
 const DB_NAME = 'XinyePhoneDB';
 const DB_VER  = 3;
+
+/**
+ * 🔴 2026-09-21：她在碎碎念里看到两条**一字不差**的
+ *    「她要开始每周去图书馆+书店的节奏了…」（08:24 和 08:44）。
+ *
+ * 这一层只挡「逐字相同」—— 措辞不同的重复仍然靠 chat.js 那份「你最近记过的」清单
+ * 摆到他眼前（她 9/19 定的规矩就是"别搞内容查重"）。但**一模一样**的那种没有任何
+ * 可解释的余地：换行/空格不同也算同一条，所以先压掉空白再比。
+ *
+ * ⚠️ 只往回看 12 小时：隔几天再写同样一句，那是新的事，不该被这条挡住。
+ */
+const NOTE_DUP_WINDOW_MS = 12 * 3600 * 1000;
+
+/** 碎碎念那一页的数据被改过了（inbox.js 的轮询看到它会去让那页重画，见 __phoneDirty） */
+function _markPhoneDirty() { try { window.__phoneDirty = true; } catch (e) {} }
 const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers'];
 
 let _db = null;
@@ -151,6 +166,7 @@ export async function addTodoWithDedup(content, triggerAt) {
   if (dup) return 'duplicate';
   const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
   await addRecord('xinye_memo', { type: 'todo', content, done: false, trigger_at: triggerAt, time: now });
+  _markPhoneDirty();      // 待办也在碎碎念那一页上（她正开着那页时让它重画）
   return 'ok';
 }
 
@@ -179,8 +195,28 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
 
   // memo（只处理笔记，待办由 set_reminder 工具统一管理）
   if (data.memo?.items) {
+    // 先把「最近记过的」拉出来，逐字相同的直接跳过（见上面 NOTE_DUP_WINDOW_MS 那段）。
+    // 一次读库就够 —— 下面每一条都在这个集合里比。
+    const _nowMs = Date.now();
+    const _norm = s => String(s || '').replace(/\s+/g, '');
+    const _seenNotes = new Set(
+      (await getAllFromStore('xinye_memo'))
+        .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
+        .filter(m => {
+          const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
+          return !t || _nowMs - t <= NOTE_DUP_WINDOW_MS;
+        })
+        .map(m => _norm(m.content))
+    );
     for (const item of data.memo.items) {
       if (item.type !== 'todo') {
+        const _key = _norm(item.content);
+        if (!_key) continue;
+        if (_seenNotes.has(_key)) {
+          console.log('[碎碎念] 逐字重复，跳过一条：', String(item.content).slice(0, 30));
+          continue;                       // 12 小时内写过的同一句话，不再落一条
+        }
+        _seenNotes.add(_key);             // 同一轮里他写了两遍也挡住
         await addRecord('xinye_memo', { type: item.type || 'note', content: item.content, done: false, time: now });
       }
     }
@@ -225,6 +261,14 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
         }
       } catch(e) { /* 静默跳过单张图的失败 */ }
     }
+  }
+
+  // 🔴 2026-09-21：这一轮真往库里写东西了 → 举一下手，让主 APP 知道碎碎念那一页该重画了。
+  //    她正开着那页时，inbox.js 的 30 秒轮询会看到这个标记（见 _pullPosts）。
+  //    宁可多举一次手（那页自己会比对指纹，没变就不重排），也别漏。
+  if (data.memo?.items?.length || data.quotes?.items?.length || data.browser?.items?.length
+      || data.photos?.items?.length || data.drafts?.content || data.mood?.content) {
+    _markPhoneDirty();
   }
 
   return rawText.replace(/<!--phone_state[\s\S]*?-->/, '').trimEnd();

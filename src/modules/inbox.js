@@ -37,9 +37,15 @@ async function _pullPosts() {
   try { n = await pullPosts(); } catch (e) { console.log('[碎碎念] 拉取异常:', e.message); }
   // 她正开着碎碎念这一页 → 直接让它重画，不用等她切走再切回来
   const onPhoneTab = document.getElementById('tab-phone')?.classList.contains('active');
-  if (n && onPhoneTab) {
+  // 🔴 2026-09-21：要重画的不只是「云端新说说」—— **聊天里写进备忘录的那些也在这一页上**
+  //    （而且占绝大多数）。他那句回复写完时她可能已经切到这页了，那条备忘就静静躺在库里
+  //    没人告诉她。phonedb.js 落库时举一下手（window.__phoneDirty），这儿看到就重画；
+  //    那页自己比对指纹，没真变就不重排（见 phone.html 的 __fcReload）。
+  const dirty = !!window.__phoneDirty;
+  if (dirty) window.__phoneDirty = false;    // 看过了就清掉（切进那页本来也会重读一遍）
+  if (onPhoneTab && (n || dirty)) {
     try { document.getElementById('phoneFrame')?.contentWindow?.__fcReload?.(); } catch (e) {}
-    markPostsSeen();
+    if (n) markPostsSeen();
   }
   _updatePhoneDot();
 }

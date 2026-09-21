@@ -854,11 +854,37 @@ function markVisit(tagKey) {
 window.__fcOnShow = () => {
   syncTheme(); syncAvatar(); markVisit();
   postsSeen();
+  // 🔴 2026-09-21：**每次露面都把库重读一遍**。
+  //    她的原话：「含笑花如果不后台退出 APP 重进的话，它好像不会自己刷新」。
+  //    根因是这一页只有三条路会重读数据：① iframe 首次加载（一个会话只加载一次）
+  //    ② __fcReload —— 而它原先**只在云端新「说说」到达时**才被调
+  //    ③ 整页刷新。**聊天里写进备忘录的那些（这一页的绝大多数）一条都不走 ①②** ——
+  //    她聊天时被记下来的事，切过来看不见，非得杀掉 APP 重进。这就是她说那个现象。
+  //    __fcReload 自己会比对指纹，没变就什么都不做（不闪、不重排、滚动位置不动），
+  //    所以这儿白读一次库而已。
+  window.__fcReload?.();
 };
 
-// 主 APP 拉到新贴、而她正开着这页时会调它（main.js 的 _pullPosts）
-window.__fcReload = async () => {
-  try { await loadAll(); _shown = PAGE; renderTags(); renderFeed(true); } catch (e) {}
+// 数据指纹 —— 只为「重排之前先问一句要不要重排」，别的什么都不用
+function _feedSig() {
+  const n = _all.length;
+  if (!n) return '0';
+  const head = _all[0];
+  return `${n}|${head.ts}|${head.id != null ? head.id : ''}|${_all[n - 1].ts}`;
+}
+
+// 主 APP 拉到新贴、或她每次切进这一页时会调它（inbox.js 的 _pullPosts / __fcOnShow）
+// opts.keepScroll：数据变了也留住她当前的滚动位置；默认回到顶部（进这一页就是来看新的）
+window.__fcReload = async (opts = {}) => {
+  const feed = document.getElementById('feed');
+  const before = _feedSig();
+  try { await loadAll(); } catch (e) { return; }
+  // 一条都没变就别重排了：重排会闪一下，还会把「加载更多」翻过的页数打回第一页
+  if (_feedSig() === before && !opts.force) return;
+  _shown = PAGE;
+  renderTags();
+  renderFeed(true);
+  if (feed) feed.scrollTop = opts.keepScroll ? feed.scrollTop : 0;
 };
 
 function postsSeen() {
