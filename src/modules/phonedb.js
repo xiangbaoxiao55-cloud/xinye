@@ -199,15 +199,22 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
     // 一次读库就够 —— 下面每一条都在这个集合里比。
     const _nowMs = Date.now();
     const _norm = s => String(s || '').replace(/\s+/g, '');
-    const _seenNotes = new Set(
-      (await getAllFromStore('xinye_memo'))
-        .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
-        .filter(m => {
-          const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
-          return !t || _nowMs - t <= NOTE_DUP_WINDOW_MS;
-        })
-        .map(m => _norm(m.content))
-    );
+    let _seenNotes = new Set();
+    try {
+      _seenNotes = new Set(
+        (await getAllFromStore('xinye_memo'))
+          .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
+          .filter(m => {
+            const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
+            return !t || _nowMs - t <= NOTE_DUP_WINDOW_MS;
+          })
+          .map(m => _norm(m.content))
+      );
+    } catch (e) {
+      // 读不出来就退化成"不做这层兜底" —— 绝不能因为查重把整条 phone_state 顶掉
+      // （那会让这段 JSON 直接显示在她说的话里）。写库本身还是会照常抛，跟原来一样。
+      console.log('[碎碎念] 查重读库失败，跳过查重:', e && e.message);
+    }
     for (const item of data.memo.items) {
       if (item.type !== 'todo') {
         const _key = _norm(item.content);
