@@ -42,6 +42,59 @@ async function getDiaryBackupData() {
   return out;
 }
 
+// ===== DrawDB helpers（画图台）=====
+// 画图台的数据在**另一个库**（DrawDB）里。同源所以能直接开，但两个坑：
+//   ⚠️ open **不能带版本号** —— 带了就会跟 draw.html 那边的升级打架（onblocked 锁死）
+//   ⚠️ 读取失败只 warn，绝不能把主备份带下去
+// 只取**纯文字**：审美档案（大师对她的理解，几百字节但最珍贵）+ 每张图的
+// prompt/评分/标签。图片一律不带（一张好几 MB），自动备份要保持轻；
+// 图片资产走她主动点的全量备份。2026-09-22 加 —— 那天图库被清空，
+// 一千条 prompt 和审美档案差点全灭，因为它们从来没进过任何备份。
+function _openDrawDB() {
+  return new Promise((res, rej) => {
+    let done = false;
+    const req = indexedDB.open('DrawDB');          // 不带版本，跟随当前
+    req.onsuccess = e => { if (!done) { done = true; res(e.target.result); } };
+    req.onerror = e => { if (!done) { done = true; rej(e.target.error); } };
+    setTimeout(() => { if (!done) { done = true; rej(new Error('打开 DrawDB 超时')); } }, 3000);
+  });
+}
+
+async function getDrawBackupData() {
+  try {
+    const d = await _openDrawDB();
+    const getAll = store => new Promise((res, rej) => {
+      try {
+        const req = d.transaction(store, 'readonly').objectStore(store).getAll();
+        req.onsuccess = () => res(req.result || []);
+        req.onerror = () => rej(req.error);
+      } catch (e) { rej(e); }
+    });
+    const out = { settings: {}, gallery: [] };
+    try {
+      for (const row of await getAll('settings')) {
+        if (row.key === 'aestheticProfile') out.settings.aestheticProfile = row.value;
+        // characters 挂着 refImage（base64 大图），只留名字和 prompt
+        if (row.key === 'characters' && Array.isArray(row.value)) {
+          out.settings.characters = row.value.map(c => ({ id: c.id, name: c.name, prompt: c.prompt, icon: c.icon }));
+        }
+      }
+    } catch (e) { console.warn('[backup] DrawDB settings:', e); }
+    try {
+      out.gallery = (await getAll('gallery')).map(g => ({
+        id: g.id, personaId: g.personaId, personaName: g.personaName,
+        prompt: g.prompt, negPrompt: g.negPrompt, params: g.params,
+        rating: g.rating, tags: g.tags, styles: g.styles, createdAt: g.createdAt,
+      }));
+    } catch (e) { console.warn('[backup] DrawDB gallery:', e); }
+    try { d.close(); } catch {}
+    return out;
+  } catch (e) {
+    console.warn('[backup] 画图台数据读取失败（不影响主备份）:', e);
+    return null;
+  }
+}
+
 async function restoreDiaryData(diaryObj) {
   try {
     const ddb = await _openDiaryTextDB();
@@ -296,6 +349,7 @@ export async function autoBackupToServer() {
       diary: diaryData,
       reading: readingData,
       friendsData: await getFriendsBackupData(),
+      draw: await getDrawBackupData(),
     };
 
     // 大件（贴纸库、形象/风格参考图）从自动备份里摘掉：它们几乎不变却占 28MB，
