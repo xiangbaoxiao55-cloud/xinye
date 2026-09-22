@@ -203,7 +203,7 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
     try {
       _seenNotes = new Set(
         (await getAllFromStore('xinye_memo'))
-          .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
+          .filter(m => m && m.content && m.type !== 'todo')
           .filter(m => {
             const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
             return !t || _nowMs - t <= NOTE_DUP_WINDOW_MS;
