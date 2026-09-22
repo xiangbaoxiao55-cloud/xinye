@@ -188,7 +188,13 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
 
   let data;
   try { data = JSON.parse(match[1].trim()); }
-  catch(e) { return rawText.replace(/<!--phone_state[\s\S]*?-->/, '').trimEnd(); }
+  catch(e) {
+    // 🔴 一个静默失败的口子：他吐的那段 JSON 坏了，这里原来一声不吭地把它删掉就走 ——
+    //    页面上看不出来、库里也不留痕迹，事后只能靠"翻库数条数"去猜是不是丢过东西。
+    console.log('[碎碎念] phone_state 解析失败，这一整段丢了：', e && e.message,
+      '| 原文前 120 字：', String(match[1]).trim().slice(0, 120));
+    return rawText.replace(/<!--phone_state[\s\S]*?-->/, '').trimEnd();
+  }
 
   await openPhoneDB();
   const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
