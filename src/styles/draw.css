@@ -334,7 +334,10 @@ textarea:focus{border-color:var(--purple)}
 #btn-master-img{padding:8px 10px;font-size:16px;line-height:1;flex-shrink:0}
 .master-msg .msg-img{max-height:100px;max-width:160px;border-radius:6px;margin-bottom:4px;display:block}
 #master-input-area{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
-#master-input{flex:1;padding:10px 12px;border-radius:var(--r)}
+#master-input{flex:1;padding:10px 12px;border-radius:var(--r);min-height:80px}
+@media(max-width:768px){
+  #master-input{min-height:100px}
+}
 
 /* ── Char ref quick-select ── */
 #ref-char-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
