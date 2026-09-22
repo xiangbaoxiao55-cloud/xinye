@@ -67,6 +67,9 @@ const S={
 let _galItems=[];
 let _galShown=30;
 let _galObserver=null;
+// 铺多少张。有缩略图的库一次可以铺几百（一张几 KB）；还在用原图的老库只能小批量
+// （一张几 MB，铺多了解码内存就爆）。她翻看老库的过程会把缩略图逐步补上，于是自动变大。
+const _galPageSize=()=>(_galItems[0]&&_galItems[0].thumb)?240:30;
 const GAL_PAGE=30;
 
 const CAT={
@@ -618,9 +621,14 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
 
 async function saveToGallery(imageData,prompt,negPrompt,size,styles){
   const p=S.personas.find(x=>x.id===S.curPersonaId);
+  // 入库前先瘦身。原图一张 1536×2048 有 5 MB，一千张就是 5 GB ——
+  // 库大到导不出、备不了份，上一次误删就是这么全灭的。
+  // 768 是"喂大师时本来就会压到的尺寸"，存这个级别等于零损失。
+  const big=await _makeThumb(imageData,768,0.72)||imageData;
+  const thumb=await _makeThumb(imageData,192,0.7)||null;
   await db.put('gallery',{
     id:uid(),personaId:S.curPersonaId||null,personaName:p?.name||null,
-    imageData,prompt,negPrompt,params:{size},rating:0,tags:[],
+    imageData:big,thumb,prompt,negPrompt,params:{size},rating:0,tags:[],
     styles:styles&&styles.length?styles:undefined,
     createdAt:Date.now()
   });
@@ -640,10 +648,12 @@ async function confirmGalleryImport(){
   const prompt=document.getElementById('gallery-import-prompt').value.trim();
   const source=document.getElementById('gallery-import-source').value.trim();
   for(const file of files){
-    const imageData=await f2b(file);
+    const raw=await f2b(file);
+    const imageData=await _makeThumb(raw,768,0.72)||raw;
+    const thumb=await _makeThumb(raw,192,0.7)||null;
     await db.put('gallery',{
       id:uid(),personaId:null,personaName:source||'外部导入',
-      imageData,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
+      imageData,thumb,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
     });
   }
   closeModal('modal-gallery-import');
@@ -683,6 +693,26 @@ const _shrinkImg=(dataUrl,maxDim=768,quality=0.7)=>new Promise(res=>{
     c.getContext('2d').drawImage(img,0,0,w,h);
     res(c.toDataURL('image/jpeg',quality).replace(/^data:image\/\w+;base64,/,''));
   };img.src=dataUrl;
+});
+
+// 缩小版 dataURL（**带前缀**，可以直接当 img.src）。两个用途：
+//   列表缩略图 _makeThumb(img,192) —— 一张几 KB，一千张能一次铺开
+//   入库大图   _makeThumb(img,768) —— 喂大师时本来就会压到这个尺寸，零损失
+// 原图 1536×2048 有几 MB，一千张铺出来光解码就要 1.7 GB，页面必崩。
+// 失败返回 null —— 调用方要能接受"没有缩略图"，别让一张坏图卡住整批。
+const _makeThumb=(dataUrl,maxDim=192,quality=0.7)=>new Promise(res=>{
+  const img=new Image();
+  img.onload=()=>{
+    try{
+      let{width:w,height:h}=img;
+      if(w>maxDim||h>maxDim){const r=Math.min(maxDim/w,maxDim/h);w=Math.round(w*r);h=Math.round(h*r)}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',quality));
+    }catch(_e){res(null)}
+  };
+  img.onerror=()=>res(null);
+  img.src=dataUrl;
 });
 
 // ── Master API ────────────────────────────────────────────────
@@ -1748,7 +1778,7 @@ async function renderGallery(){
   sel.value=cur;
 
   _galItems=items;
-  _galShown=GAL_PAGE;
+  _galShown=_galPageSize();
   _paintGallery();
 }
 
@@ -1757,12 +1787,21 @@ function _paintGallery(){
   if(_galObserver){_galObserver.disconnect();_galObserver=null;}
   grid.innerHTML='';
   if(!_galItems.length){grid.innerHTML='<div class="empty-state">还没有图片，去工作台画一张吧 ✨</div>';_updateBatchBar();return}
+  // 有缩略图的直接显示（一张几 KB，不碰数据库）；老记录还没缩略图，
+  // 滚到跟前才读整条 —— 读出来顺手补一张存回去，所以老库会在翻看的过程中自己变小。
   _galObserver=new IntersectionObserver(entries=>{
     for(const entry of entries){
       if(!entry.isIntersecting) continue;
       const img=entry.target;
       _galObserver.unobserve(img);
-      db.get('gallery',img.dataset.id).then(r=>{if(r) img.src=r.imageData;});
+      db.get('gallery',img.dataset.id).then(async r=>{
+        if(!r) return;
+        img.src=r.imageData;
+        if(!r.thumb){
+          const t=await _makeThumb(r.imageData,192,0.7);
+          if(t){r.thumb=t;try{await db.put('gallery',r)}catch(_e){}}
+        }
+      });
     }
   },{rootMargin:'200px'});
   const analyzedSet=S.allAnalyzedIds;
@@ -1777,8 +1816,8 @@ function _paintGallery(){
         :'<div class="gallery-badge new-img">NEW</div>';
     const cb=selecting?`<label class="gal-cb"><input type="checkbox" ${S.gallerySelected.has(item.id)?'checked':''}><span class="gal-check"></span></label>`:'';
     const delBtn=selecting?'':'<button class="gal-quick-del" title="删除"><i class="ic ic-x"></i></button>';
-    el.innerHTML=`<img data-id="${item.id}" alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
-    _galObserver.observe(el.querySelector('img'));
+    el.innerHTML=`<img data-id="${item.id}"${item.thumb?` src="${item.thumb}"`:''} alt="" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover">${badge}${cb}${delBtn}<div class="gallery-item-overlay"><span class="gallery-item-rating">${'⭐'.repeat(item.rating||0)}</span><span class="gallery-item-persona">${item.personaName||''}</span></div>`;
+    if(!item.thumb) _galObserver.observe(el.querySelector('img'));
     const qdel=el.querySelector('.gal-quick-del');
     if(qdel) qdel.addEventListener('click',e=>{e.stopPropagation();_quickDeleteGallery(item)});
     if(selecting){
@@ -1800,7 +1839,7 @@ function _paintGallery(){
     const btn=document.createElement('button');
     btn.className='gallery-load-more';
     btn.textContent=`加载更多（还有 ${remaining} 张）`;
-    btn.onclick=()=>{_galShown+=GAL_PAGE;_paintGallery()};
+    btn.onclick=()=>{_galShown+=_galPageSize();_paintGallery()};
     grid.appendChild(btn);
   }
   _updateBatchBar();
