@@ -197,8 +197,22 @@ export function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
+/** 查重用：最近 NOTE_DUP_WINDOW_MS 内、所有非待办条目的「压掉空白」文本。
+ *  ⚠️ 这里的归一化必须跟下面 `_norm(item.content)` 完全一致，否则 Set 比不中、查重形同虚设。 */
+async function _loadSeenNotes(nowMs) {
+  return new Set(
+    (await getAllFromStore('xinye_memo'))
+      .filter(m => m && m.content && m.type !== 'todo')
+      .filter(m => {
+        const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
+        return !t || nowMs - t <= NOTE_DUP_WINDOW_MS;
+      })
+      .map(m => String(m.content || '').replace(/\s+/g, ''))
+  );
+}
+
 // 解析 phone_state，写入IDB
-// turnReceivedImgs: dataUrl[] | null，turnGeneratedDataUrl: string | null
+// turnReceivedImgs: dataUrl[] | null, turnGeneratedDataUrl: string | null
 export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGeneratedDataUrl) {
   const match = rawText.match(/<!--phone_state\s*([\s\S]*?)-->/);
   if (!match) return rawText;
@@ -224,19 +238,18 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
     const _norm = s => String(s || '').replace(/\s+/g, '');
     let _seenNotes = new Set();
     try {
-      _seenNotes = new Set(
-        (await getAllFromStore('xinye_memo'))
-          .filter(m => m && m.content && m.type !== 'todo')
-          .filter(m => {
-            const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
-            return !t || _nowMs - t <= NOTE_DUP_WINDOW_MS;
-          })
-          .map(m => _norm(m.content))
-      );
+      _seenNotes = await _loadSeenNotes(_nowMs);
     } catch (e) {
-      // 读不出来就退化成"不做这层兜底" —— 绝不能因为查重把整条 phone_state 顶掉
-      // （那会让这段 JSON 直接显示在她说的话里）。写库本身还是会照常抛，跟原来一样。
-      console.log('[碎碎念] 查重读库失败，跳过查重:', e && e.message);
+      // 🔴 2026-09-22：这里原来是一句日志就"跳过查重" —— 于是这一轮他写什么都会原样落库。
+      //    读库失败最常见的原因，跟碎碎念那一页是同一个：**连接被系统回收**
+      //    （`_db` 这个引用还在、拿它开的任何事务都抛，见 openPhoneDB 上面那段）。
+      //    丢掉旧连接重开一条再试一次；两次都不行才退化成"这轮不查重"
+      //    （那时宁可有重复，也不能因为他写了没落库而把内容丢了）。
+      console.log('[碎碎念] 查重读库失败，重开连接再试一次：', e && e.message);
+      try { resetPhoneDB(); _seenNotes = await _loadSeenNotes(_nowMs); }
+      catch (e2) {
+        console.log('[碎碎念] 查重仍然读不出来 —— 这一轮不查重，可能出现重复：', e2 && e2.message);
+      }
     }
     for (const item of data.memo.items) {
       if (item.type !== 'todo') {
