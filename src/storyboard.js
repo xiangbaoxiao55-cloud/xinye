@@ -85,12 +85,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   showProjectSelector();
 });
 
+// 和 draw.js 同一份 localStorage key —— 那边坏掉时这里也会坏。
+// loadDrawConfig 是同步调用，JSON.parse 抛错会打断整个 DOMContentLoaded 回调，
+// 表现同样是「整页空白 + 点哪儿都没反应」。坏数据只丢它自己。
+function _safeArr(raw){
+  try{
+    const v=JSON.parse(raw||'[]');
+    return Array.isArray(v)?v:[];
+  }catch(e){
+    console.warn('[storyboard] 本地配置损坏，已退回默认值：',String(raw||'').slice(0,60));
+    return [];
+  }
+}
 function loadDrawConfig() {
-  S.drawPresets = JSON.parse(localStorage.getItem('draw_drawPresets') || '[]');
+  S.drawPresets = _safeArr(localStorage.getItem('draw_drawPresets'));
   S.curDrawId = localStorage.getItem('draw_curDrawId') || S.drawPresets[0]?.id || null;
   S.localServer = localStorage.getItem('draw_localServer') || '';
   S.defaultSize = localStorage.getItem('sb_defaultSize') || '1536x2048';
-  S.masterPresets = JSON.parse(localStorage.getItem('draw_masterPresets') || '[]');
+  S.masterPresets = _safeArr(localStorage.getItem('draw_masterPresets'));
   S.curMasterId = localStorage.getItem('draw_curMasterId') || S.masterPresets[0]?.id || null;
 }
 

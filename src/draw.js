@@ -179,10 +179,22 @@ function buildPrompt(){
 }
 
 // ── API Config ────────────────────────────────────────────────
+// 本地存的预设可能是「半个 JSON」—— 清理工具/站点数据清理中途删过 LocalStorage 就会这样。
+// loadCfg 是同步调用，JSON.parse 一抛错会同步打断 init，后面的 bindEvents() 就永远轮不到，
+// 表现是整页空白 + 点哪儿都没反应。所以这里一律退回默认值，坏数据只丢它自己。
+function _safeArr(raw){
+  try{
+    const v=JSON.parse(raw||'[]');
+    return Array.isArray(v)?v:[];
+  }catch(e){
+    console.warn('[draw] 本地配置损坏，已退回默认值：',String(raw||'').slice(0,60));
+    return [];
+  }
+}
 function loadCfg(){
-  S.drawPresets=JSON.parse(localStorage.getItem('draw_drawPresets')||'[]');
+  S.drawPresets=_safeArr(localStorage.getItem('draw_drawPresets'));
   S.curDrawId=localStorage.getItem('draw_curDrawId')||S.drawPresets[0]?.id||null;
-  S.masterPresets=JSON.parse(localStorage.getItem('draw_masterPresets')||'[]');
+  S.masterPresets=_safeArr(localStorage.getItem('draw_masterPresets'));
   S.curMasterId=localStorage.getItem('draw_curMasterId')||S.masterPresets[0]?.id||null;
   S.localServer=localStorage.getItem('draw_localServer')||'';
   S.masterPersona=localStorage.getItem('draw_masterPersona')||'';
@@ -3010,15 +3022,21 @@ async function restoreTaskCards(){
 }
 
 async function init(){
-  await db.open();
-  await seedTokens();
-  loadCfg();
-  await loadPersonas();
-  await loadCharacters();
-  await loadAestheticProfile();
-  await loadStyleRefs();
-  bindEvents();
-  renderStyleRefStrip();
-  await restoreTaskCards();
+  // 每一步独立容错：本地数据坏一格（比如昨天清 Edge 缓存留下的半个 IndexedDB/LocalStorage），
+  // 不该让整页变成空白 + 点不动。bindEvents 一定要跑到，那是"点得动"的前提。
+  const step=async(n,fn)=>{ try{ await fn(); }catch(e){ console.error('[draw init] '+n+' 失败：',e); } };
+  await step('db.open',()=>Promise.race([
+    db.open(),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('打开数据库超时')),6000))
+  ]));
+  await step('seedTokens',()=>seedTokens());
+  await step('loadCfg',()=>loadCfg());
+  await step('loadPersonas',()=>loadPersonas());
+  await step('loadCharacters',()=>loadCharacters());
+  await step('loadAestheticProfile',()=>loadAestheticProfile());
+  await step('loadStyleRefs',()=>loadStyleRefs());
+  await step('bindEvents',()=>bindEvents());
+  await step('renderStyleRefStrip',()=>renderStyleRefStrip());
+  await step('restoreTaskCards',()=>restoreTaskCards());
 }
 init().catch(console.error);
