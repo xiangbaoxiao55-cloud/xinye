@@ -20,8 +20,19 @@ const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xiny
 
 let _db = null;
 
+/**
+ * 🔴 2026-09-22：连接**可能已经被系统悄悄回收**（鸿蒙 WebView 在后台、或内存吃紧时会这么干）——
+ *    `_db` 这个引用还在，但拿它开的任何事务都会抛 InvalidStateError。
+ *    这里原来是 `if (_db) return _db`，坏连接会被一直用下去。表现就是她那句
+ *    「含笑花不退出重进就不刷新」：每次切进那一页读库都失败，而失败被静默吞掉，
+ *    页面停在旧内容；她退出重进 = 换了一条全新连接，立刻就正常了。
+ *    拿一个空事务探一下 —— 坏了就丢掉，往下重开。
+ */
 export function openPhoneDB() {
-  if (_db) return Promise.resolve(_db);
+  if (_db) {
+    try { _db.transaction('xinye_memo'); return Promise.resolve(_db); }
+    catch (e) { try { _db.close(); } catch (_e) {} _db = null; }
+  }
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = e => {
@@ -55,6 +66,12 @@ export function openPhoneDB() {
 
 function tx(store, mode = 'readonly') {
   return _db.transaction(store, mode).objectStore(store);
+}
+
+/** 丢掉当前连接（读库失败重试时用）—— 下一次 openPhoneDB() 会重开一条新的 */
+export function resetPhoneDB() {
+  try { if (_db) _db.close(); } catch (e) {}
+  _db = null;
 }
 
 export function addRecord(store, data) {

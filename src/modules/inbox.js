@@ -42,10 +42,24 @@ async function _pullPosts() {
   //    没人告诉她。phonedb.js 落库时举一下手（window.__phoneDirty），这儿看到就重画；
   //    那页自己比对指纹，没真变就不重排（见 phone.html 的 __fcReload）。
   const dirty = !!window.__phoneDirty;
-  if (dirty) window.__phoneDirty = false;    // 看过了就清掉（切进那页本来也会重读一遍）
   if (onPhoneTab && (n || dirty)) {
-    try { document.getElementById('phoneFrame')?.contentWindow?.__fcReload?.(); } catch (e) {}
-    if (n) markPostsSeen();
+    // 🔴 2026-09-22：**只有那页真的读成功了才算数**。`__fcReload` 现在会自报成败 ——
+    //    读库那条连接被系统回收时，它会丢掉旧的重开一条再读，两次都失败才返回 false。
+    //    失败就把 dirty 留着，30 秒后的下一轮接着试；**原来是先清掉**，
+    //    于是只失败一次就永久静默 —— 她那边看到的就是「小圆点亮过、内容再也不动，
+    //    除非退出 APP 重进」（重开 = 换一条全新连接，所以立刻正常）。
+    //    keepScroll：这一页可能是她正开着的时候自动刷新的，
+    //    不能把她读到一半的位置拽回顶部（她主动切进来的回顶由 __fcOnShow 负责）。
+    let ok = false;
+    try {
+      const r = await document.getElementById('phoneFrame')?.contentWindow?.__fcReload?.({ keepScroll: true });
+      ok = r !== false;
+    } catch (e) { ok = false; }
+    if (ok) { window.__phoneDirty = false; if (n) markPostsSeen(); }
+    else console.log('[碎碎念] 那一页这次没读成功，标记留着，下一轮再试');
+  } else if (dirty) {
+    // 她不在这一页：标记没必要留着 —— 切进来时 __fcOnShow 本来就会整页重读一次
+    window.__phoneDirty = false;
   }
   _updatePhoneDot();
 }

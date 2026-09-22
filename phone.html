@@ -222,7 +222,7 @@ html.dark .sheet-del{color:#ff7b72}
 <div id="toast"></div>
 
 <script type="module">
-import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, deleteRecord, dataUrlToBlob } from './src/modules/phonedb.js';
+import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, deleteRecord, dataUrlToBlob, resetPhoneDB } from './src/modules/phonedb.js';
 // ⚠️ 导出必须走 saveFile：APK 的 WebView 不处理 <a download> 的 blob: 链接，点了是**静默失败**
 // （浏览器里正常）→ 在 APK 里会弹"已导出"但下载目录里什么都没有。saveFile 会分流到原生桥。
 import { saveFile, fmtTime } from './src/modules/utils.js';
@@ -851,9 +851,8 @@ function markVisit(tagKey) {
 // 主 APP 每次切到这个 Tab 会调它（见 diary.js switchTab）
 // ⚠️ 首次加载走的是 src 赋值那条路，**不会**调这个（见 diary.js 的 phone 分支），
 //    所以 init() 末尾也要调一次 postsSeen()，否则第一次进来小圆点不消。
-window.__fcOnShow = () => {
+window.__fcOnShow = async () => {
   syncTheme(); syncAvatar(); markVisit();
-  postsSeen();
   // 🔴 2026-09-21：**每次露面都把库重读一遍**。
   //    她的原话：「含笑花如果不后台退出 APP 重进的话，它好像不会自己刷新」。
   //    根因是这一页只有三条路会重读数据：① iframe 首次加载（一个会话只加载一次）
@@ -862,7 +861,11 @@ window.__fcOnShow = () => {
   //    她聊天时被记下来的事，切过来看不见，非得杀掉 APP 重进。这就是她说那个现象。
   //    __fcReload 自己会比对指纹，没变就什么都不做（不闪、不重排、滚动位置不动），
   //    所以这儿白读一次库而已。
-  window.__fcReload?.();
+  // 🔴 2026-09-22：消圆点挪到**读过之后**。原来是无条件先消 —— 一旦读库失败
+  //    （连接被系统回收，见 __fcReload 里那段），就会变成「底栏的提示亮过、
+  //    点进来却什么都没有」，比不给提示更让人摸不着头脑。**读到才算看过。**
+  const ok = await window.__fcReload?.();
+  if (ok !== false) postsSeen();
 };
 
 // 数据指纹 —— 只为「重排之前先问一句要不要重排」，别的什么都不用
@@ -878,13 +881,24 @@ function _feedSig() {
 window.__fcReload = async (opts = {}) => {
   const feed = document.getElementById('feed');
   const before = _feedSig();
-  try { await loadAll(); } catch (e) { return; }
+  try { await loadAll(); }
+  catch (e) {
+    // 🔴 2026-09-22：这儿原来是静默 `return` —— 读库失败时页面上"什么都不发生"，
+    //    她连着几轮说的「不退出重进就不刷新」正是栽在这条上（根因见 phonedb.js 的
+    //    openPhoneDB：iframe 自己那条连接被系统回收之后，_db 这个引用还在，
+    //    但任何读取都抛，于是每次切进来都白读一遍；重开 APP 换了新连接就好了）。
+    //    丢掉旧连接重开一次再读 —— 她完全无感；两次都失败才真的放弃这一轮。
+    console.log('[碎碎念] 读库失败，重开连接再读一次：', e && e.message);
+    try { resetPhoneDB(); await loadAll(); }
+    catch (e2) { console.log('[碎碎念] 重试仍失败，这一页先不动：', e2 && e2.message); return false; }
+  }
   // 一条都没变就别重排了：重排会闪一下，还会把「加载更多」翻过的页数打回第一页
-  if (_feedSig() === before && !opts.force) return;
+  if (_feedSig() === before && !opts.force) return true;
   _shown = PAGE;
   renderTags();
   renderFeed(true);
   if (feed) feed.scrollTop = opts.keepScroll ? feed.scrollTop : 0;
+  return true;
 };
 
 function postsSeen() {
