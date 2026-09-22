@@ -336,7 +336,10 @@ textarea:focus{border-color:var(--purple)}
 #master-input-area{display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
 #master-input{flex:1;padding:10px 12px;border-radius:var(--r);min-height:80px}
 @media(max-width:768px){
-  #master-input{min-height:100px}
+  #tab-master{padding:8px}
+  #master-input-area{flex-wrap:wrap;align-items:stretch}
+  #master-input{flex:1 0 100%;order:-1;min-height:88px}
+  #master-input-area > button{padding:8px 10px;font-size:12px;white-space:nowrap}
 }
 
 /* ── Char ref quick-select ── */
