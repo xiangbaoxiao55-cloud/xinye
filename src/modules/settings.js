@@ -9,6 +9,9 @@ import { setupReminders, resetIdleTimer } from './notifications.js';
 import { saveToLocal, exportData, doImport, doImportPresetsOnly, backupToPhone, autoBackupToServer, initBackupDeps, fetchServerBackupList, restoreFromServer } from './backup.js';
 import { renderStickers, renderStickerMgr } from './stickers.js';
 
+// ── 画图预设张数上限（2026-09-23 由 10 放宽到 30）────────────────────────────
+const MAX_IMAGE_PRESETS = 30;
+
 // ── 画图尺寸映射 ──────────────────────────────────────────────────────────────
 const _IMAGE_SIZE_MAP = {
   '1K': [
@@ -538,11 +541,11 @@ export function renderImagePresets() {
   const cardBorder = dark ? 'rgba(80,60,100,.9)' : 'var(--pink-light)';
   list.innerHTML = '';
   if (presets.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--sub,#999);text-align:center;padding:6px 0">还没有预设，点下方按钮添加（最多5个）</div>';
+    list.innerHTML = `<div style="font-size:12px;color:var(--sub,#999);text-align:center;padding:6px 0">还没有预设，点下方按钮添加（最多${MAX_IMAGE_PRESETS}个）</div>`;
   }
   presets.forEach((p, i) => list.appendChild(_buildImagePresetCard(p, i, i === activeIdx, cardBg, cardBorder)));
   const addBtn = $('#btnAddImagePreset');
-  if (addBtn) addBtn.style.display = presets.length >= 10 ? 'none' : '';
+  if (addBtn) addBtn.style.display = presets.length >= MAX_IMAGE_PRESETS ? 'none' : '';
 }
 
 function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
@@ -583,6 +586,7 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     <div style="display:flex;align-items:center;gap:8px">
       <label style="min-width:40px;font-size:12px">模型</label>
       <input type="text" data-f="model" value="${p.model || ''}" placeholder="gpt-image-1" style="flex:1;font-size:12px;padding:5px 8px">
+      <button data-a="fetch-models" title="用上面的 URL + Key 拉取可用模型列表" style="flex:none;padding:4px 8px;font-size:11px;background:none;border:1px solid var(--border,#ddd);border-radius:4px;cursor:pointer;color:var(--text)">获取</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <label style="min-width:40px;font-size:12px">格式</label>
@@ -618,7 +622,7 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
   };
   hdr.querySelector('[data-a="copy"]').onclick = () => {
     const presets = getImagePresets();
-    if (presets.length >= 10) { toast('画图预设最多10个'); return; }
+    if (presets.length >= MAX_IMAGE_PRESETS) { toast(`画图预设最多${MAX_IMAGE_PRESETS}个`); return; }
     const copy = { ...presets[idx], name: (presets[idx].name || '未命名') + ' 副本' };
     presets.splice(idx + 1, 0, copy);
     setImagePresets(presets);
@@ -671,6 +675,13 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
     toast('画图预设已保存 ✓');
   };
   body.querySelector('[data-a="save"]').onclick = doSave;
+  body.querySelector('[data-a="fetch-models"]').onclick = () => {
+    const urlEl = body.querySelector('[data-f="baseUrl"]');
+    const keyEl = body.querySelector('[data-f="apiKey"]');
+    const modelEl = body.querySelector('[data-f="model"]');
+    // 画图预设没有聊天面板那个代理开关：填了本地服务器就走代理（手机端绕 CORS），Key 留空复用主 API Key
+    fetchModelList(urlEl, keyEl, modelEl, { proxy: !!settings.solitudeServerUrl, fmt: 'openai' });
+  };
   body.querySelector('[data-a="use"]').onclick = () => {
     doSave();
     setImageCurPresetIdx(idx);
@@ -1305,7 +1316,7 @@ export function initSettings() {
   if (_addImgPresetBtn) {
     _addImgPresetBtn.onclick = () => {
       const presets = getImagePresets();
-      if (presets.length >= 10) { toast('最多10个画图预设'); return; }
+      if (presets.length >= MAX_IMAGE_PRESETS) { toast(`最多${MAX_IMAGE_PRESETS}个画图预设`); return; }
       presets.push({ name: `画图预设${presets.length + 1}`, apiKey: '', baseUrl: '', model: 'gpt-image-1', apiFormat: 'images', skip: false });
       setImagePresets(presets);
       renderImagePresets();
@@ -2016,7 +2027,10 @@ export function initSettings() {
 }
 
 // ======================== 模型列表获取 ========================
-function _openModelPicker(title, items, targetInputId) {
+// targetRef 可以是元素 id，也可以是元素本身（画图预设卡片没有 id）
+function _resolveEl(ref) { return typeof ref === 'string' ? $('#' + ref) : ref; }
+
+function _openModelPicker(title, items, targetRef) {
   const overlay = $('#modelPickerOverlay');
   const list = $('#modelPickerList');
   const search = $('#modelPickerSearch');
@@ -2036,7 +2050,7 @@ function _openModelPicker(title, items, targetInputId) {
   list.onclick = (e) => {
     const item = e.target.closest('.model-pick-item');
     if (!item) return;
-    const input = $('#' + targetInputId);
+    const input = _resolveEl(targetRef);
     if (input) input.value = item.dataset.val;
     overlay.style.display = 'none';
   };
@@ -2044,16 +2058,19 @@ function _openModelPicker(title, items, targetInputId) {
   setTimeout(() => search.focus(), 100);
 }
 
-export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
-  const rawUrl = $('#' + urlInputId).value.trim() || ($('#setBaseUrl') ? $('#setBaseUrl').value.trim() : '') || 'https://api.openai.com';
+export async function fetchModelList(urlRef, keyRef, modelRef, opts = {}) {
+  const _urlEl = _resolveEl(urlRef), _keyEl = _resolveEl(keyRef);
+  const rawUrl = _urlEl?.value.trim() || ($('#setBaseUrl') ? $('#setBaseUrl').value.trim() : '') || 'https://api.openai.com';
   const baseUrl = rawUrl.replace(/\/+$/, '');
-  const apiKey = $('#' + keyInputId).value.trim() || ($('#setApiKey') ? $('#setApiKey').value.trim() : '');
+  const apiKey = _keyEl?.value.trim() || ($('#setApiKey') ? $('#setApiKey').value.trim() : '');
   if (!baseUrl && !apiKey) { toast('请先填写 Base URL 和 API Key'); return; }
   const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
   toast('⏳ 获取模型列表…');
   try {
-    const _useProxy = $('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl;
-    const _fmt = $('#apiPresetApiFormat')?.value || 'openai';
+    // 画图预设那边传 proxy/fmt 进来（它没有聊天面板那两个开关）
+    const _useProxy = ('proxy' in opts) ? (opts.proxy && settings.solitudeServerUrl)
+      : ($('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl);
+    const _fmt = opts.fmt || $('#apiPresetApiFormat')?.value || 'openai';
     const _fetchUrl = _useProxy ? `${settings.solitudeServerUrl.replace(/\/+$/,'')}/api/llm-proxy-get?target=${encodeURIComponent(url)}&key=${encodeURIComponent(apiKey)}` : url;
     const _fetchOpts = _useProxy ? {} : _fmt === 'anthropic'
       ? { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } }
@@ -2063,7 +2080,7 @@ export async function fetchModelList(urlInputId, keyInputId, modelInputId) {
     const data = await res.json();
     const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
     if (!models.length) { toast('（无可用模型）'); return; }
-    _openModelPicker('<i class="ic ic-clipboard"></i> 选择模型', models.map(m => ({ label: m, value: m })), modelInputId);
+    _openModelPicker('<i class="ic ic-clipboard"></i> 选择模型', models.map(m => ({ label: m, value: m })), modelRef);
   } catch(e) {
     toast(`❌ 获取失败：${e.message}`);
   }
