@@ -32,6 +32,57 @@ class SBDatabase {
   async byIndex(store,idx,val){
     return this._p(this._tx(store).index(idx).getAll(val));
   }
+
+  /**
+   * 容错遍历（2026-09-23，和 draw.js 的 `DrawDB.allSafe` 是**同一颗雷**）。
+   *
+   * Chromium 把大图**外置**到站点的 `IndexedDB/*.indexeddb.blob/`，那个目录被清掉之后
+   * （她 2026-09-21 清 C 盘动过 Edge 的站点数据）记录整条读不出来：
+   * `NotReadableError: Data lost due to missing file`。后果有两层，两层都踩过 ——
+   *   ① `getAll()` **一条坏、全军覆没**（故事板表现为"项目列表出不来、新建也没反应"）；
+   *   ② 🔴 **连 `openCursor()` 都会失败**，所以只能用 `getAllKeys()` 当入口
+   *      —— 它只碰 key 不碰内容，坏记录拦不住它。
+   * `purge=true` 把读不出来的删掉：脏记录留着的话，**写事务**也会被它 abort。
+   */
+  async allSafe(s, purge = true) {
+    try { return await this.all(s) } catch (e) { /* 有坏记录 → 走下面那条稳的 */ }
+    const keys = await this._p(this._tx(s).getAllKeys());
+    return this._salvage(s, keys, purge);
+  }
+
+  /** byIndex 的容错版（索引上 getAllKeys 拿到的同样是主键，直接拿去 get 就行） */
+  async byIndexSafe(store, idx, val, purge = true) {
+    try { return await this.byIndex(store, idx, val) } catch (e) {}
+    const keys = await this._p(this._tx(store).index(idx).getAllKeys(IDBKeyRange.only(val)));
+    return this._salvage(store, keys, purge);
+  }
+
+  async _salvage(s, keys, purge) {
+    if (!keys.length) return [];
+    const store = this._tx(s);
+    const rs = await Promise.all(keys.map(k => new Promise(res => {
+      const q = store.get(k);
+      q.onsuccess = e => res({ k, v: e.target.result });
+      // ⚠️ 这行 preventDefault 不能省：不拦下来的话单条失败会 abort 整个事务，
+      //    后面每一条都读不到。也**必须一次性把所有请求发出去**（事务没有待处理
+      //    请求又回到事件循环时会自动提交，逐条 await 会把它拖死）。
+      q.onerror   = e => { e.preventDefault(); res({ k, bad: true }); };
+    })));
+    const out = rs.filter(r => !r.bad).map(r => r.v);
+    const bad = rs.filter(r => r.bad).map(r => r.k);
+    if (bad.length) {
+      console.warn(`[StoryboardDB] ${s} 有 ${bad.length} 条记录读不出来（外置图文件被清）：`, bad);
+      if (purge) {
+        const w = this._tx(s, 'readwrite');
+        await Promise.all(bad.map(k => new Promise(res => {
+          const q = w.delete(k);
+          q.onsuccess = q.onerror = () => res();
+        })));
+        console.warn(`[StoryboardDB] ${s} 已清掉这 ${bad.length} 条，库恢复可写`);
+      }
+    }
+    return out;
+  }
 }
 
 // ── State ────────────────────────────────────────────────────────
@@ -79,10 +130,13 @@ const SB_SIZES = [
 
 // ── Init ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  await db.open();
-  loadDrawConfig();
-  await ensureAssetsProject();
-  showProjectSelector();
+  // 和 draw.js 同一个道理：**每一步都独立兜住**。不然前面某一步抛错，
+  // 后面的绑定和渲染全都轮不到 —— 表现就是"页面在、可点哪儿都没反应"。
+  const step = async (n, fn) => { try { await fn() } catch (e) { console.error('[storyboard init] ' + n + ' 失败：', e) } };
+  await step('db.open', () => db.open());
+  await step('loadDrawConfig', () => loadDrawConfig());
+  await step('ensureAssetsProject', () => ensureAssetsProject());
+  await step('showProjectSelector', () => showProjectSelector());
 });
 
 // 和 draw.js 同一份 localStorage key —— 那边坏掉时这里也会坏。
@@ -107,7 +161,15 @@ function loadDrawConfig() {
 }
 
 async function ensureAssetsProject() {
-  let assets = await db.get('projects', '__ASSETS__');
+  let assets = null;
+  try {
+    assets = await db.get('projects', '__ASSETS__');
+  } catch (e) {
+    // 读不出来 = 那条记录 irrecoverable（外置图文件被清）。留着它整个库都写不进去，
+    // 只能删掉重建 —— 这个项目只是个空壳，名称和画布位置都是默认值。
+    console.warn('[storyboard] 资产库项目读不出来（外置图文件被清），删掉重建：', e?.message || e);
+    try { await db.del('projects', '__ASSETS__'); } catch (_e) {}
+  }
   if (!assets) {
     await db.put('projects', {
       id: '__ASSETS__',
@@ -139,7 +201,7 @@ async function loadOrCreateProject() {
       S.panX = proj.panX || 0;
       S.panY = proj.panY || 0;
       S.zoom = proj.zoom || 1;
-      S.cards = await db.byIndex('cards', 'byProject', proj.id);
+      S.cards = await db.byIndexSafe('cards','byProject', proj.id);
       document.getElementById('project-name').value = proj.name;
       return;
     }
@@ -1891,7 +1953,7 @@ async function doSave() {
       await db.put('cards', { ...card });
     }
 
-    const existingIds = (await db.byIndex('cards', 'byProject', S.projectId)).map(c => c.id);
+    const existingIds = (await db.byIndexSafe('cards','byProject', S.projectId)).map(c => c.id);
     const currentIds = new Set(S.cards.map(c => c.id));
     for (const eid of existingIds) {
       if (!currentIds.has(eid)) await db.del('cards', eid);
@@ -1922,20 +1984,20 @@ async function showProjectSelector() {
 }
 
 async function renderProjectGrid() {
-  const projects = await db.all('projects');
+  const projects = await db.allSafe('projects');
   const grid = document.getElementById('ps-grid');
   grid.innerHTML = '';
   
   const assets = projects.find(p => p.id === '__ASSETS__');
   if (assets) {
-    const cardsCount = (await db.byIndex('cards', 'byProject', '__ASSETS__')).length;
+    const cardsCount = (await db.byIndexSafe('cards','byProject', '__ASSETS__')).length;
     const card = createProjectCard(assets, cardsCount, true);
     grid.appendChild(card);
   }
   
   const regular = projects.filter(p => p.id !== '__ASSETS__').sort((a,b) => b.updatedAt - a.updatedAt);
   for (const proj of regular) {
-    const cardsCount = (await db.byIndex('cards', 'byProject', proj.id)).length;
+    const cardsCount = (await db.byIndexSafe('cards','byProject', proj.id)).length;
     const card = createProjectCard(proj, cardsCount, false);
     grid.appendChild(card);
   }
@@ -1977,7 +2039,7 @@ async function enterProject(projectId) {
   S.panX = proj.panX || 0;
   S.panY = proj.panY || 0;
   S.zoom = proj.zoom || 1;
-  S.cards = await db.byIndex('cards', 'byProject', proj.id);
+  S.cards = await db.byIndexSafe('cards','byProject', proj.id);
   S.view = 'canvas';
   
   document.getElementById('project-selector').classList.add('hidden');
@@ -2051,7 +2113,7 @@ document.querySelectorAll('#project-ctx-menu button').forEach(btn => {
       }
     } else if (action === 'duplicate') {
       const proj = await db.get('projects', projectId);
-      const cards = await db.byIndex('cards', 'byProject', projectId);
+      const cards = await db.byIndexSafe('cards','byProject', projectId);
       const newId = uid();
       await db.put('projects', {
         ...proj,
@@ -2068,7 +2130,7 @@ document.querySelectorAll('#project-ctx-menu button').forEach(btn => {
     } else if (action === 'delete') {
       if (!confirm(`确定删除项目"${(await db.get('projects', projectId)).name}"？`)) return;
       await db.del('projects', projectId);
-      const cards = await db.byIndex('cards', 'byProject', projectId);
+      const cards = await db.byIndexSafe('cards','byProject', projectId);
       for (const card of cards) await db.del('cards', card.id);
       renderProjectGrid();
       toast('项目已删除');
@@ -2086,7 +2148,7 @@ async function toggleProjectDropdown() {
     return;
   }
   
-  const projects = await db.all('projects');
+  const projects = await db.allSafe('projects');
   const regular = projects.filter(p => p.id !== '__ASSETS__').sort((a,b) => b.updatedAt - a.updatedAt);
   
   dropdown.innerHTML = regular.map(p => `
@@ -2122,7 +2184,7 @@ async function openAssetsModal() {
     return;
   }
   
-  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  const assetCards = await db.byIndexSafe('cards','byProject', '__ASSETS__');
   const grid = document.getElementById('assets-grid');
   grid.innerHTML = '';
   
@@ -2161,7 +2223,7 @@ async function addSelectedAssets() {
   const selectedIds = Array.from(document.querySelectorAll('.asset-item.selected')).map(el => el.dataset.id);
   if (!selectedIds.length) return;
   
-  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  const assetCards = await db.byIndexSafe('cards','byProject', '__ASSETS__');
   const toAdd = assetCards.filter(c => selectedIds.includes(c.id));
   
   const viewCenter = screenToCanvas(window.innerWidth/2, window.innerHeight/2);
@@ -2199,7 +2261,7 @@ async function addToAssets(cardIds) {
     return;
   }
   
-  const assetCards = await db.byIndex('cards', 'byProject', '__ASSETS__');
+  const assetCards = await db.byIndexSafe('cards','byProject', '__ASSETS__');
   let maxX = Math.max(0, ...assetCards.map(c => c.x + (c.width || 280)));
   
   for (const card of toAdd) {

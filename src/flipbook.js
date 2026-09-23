@@ -30,6 +30,47 @@ class SBDatabase {
   put(s, o) { return this._p(this._tx(s, 'readwrite').put(o)); }
   del(s, k) { return this._p(this._tx(s, 'readwrite').delete(k)); }
   byIndex(store, idx, val) { return this._p(this._tx(store).index(idx).getAll(val)); }
+
+  /**
+   * 容错遍历（2026-09-23，和 draw.js 的 `DrawDB.allSafe` 是**同一颗雷**）。
+   * 大图被 Chromium 外置到 `IndexedDB/*.indexeddb.blob/`，那个目录被清掉后记录整条
+   * 读不出来（`NotReadableError: Data lost due to missing file`）。`getAll()` 一条坏、
+   * 全军覆没，**连 openCursor() 都会失败** —— 只能拿 `getAllKeys()`（只碰 key）当入口。
+   * `purge` 把读不出来的删掉，否则连写事务都会被它 abort。
+   */
+  async allSafe(s, purge = true) {
+    try { return await this.all(s); } catch (e) { /* 有坏记录 → 走稳的那条 */ }
+    const keys = await this._p(this._tx(s).getAllKeys());
+    return this._salvage(s, keys, purge);
+  }
+  async byIndexSafe(store, idx, val, purge = true) {
+    try { return await this.byIndex(store, idx, val); } catch (e) {}
+    const keys = await this._p(this._tx(store).index(idx).getAllKeys(IDBKeyRange.only(val)));
+    return this._salvage(store, keys, purge);
+  }
+  async _salvage(s, keys, purge) {
+    if (!keys.length) return [];
+    const store = this._tx(s);
+    const rs = await Promise.all(keys.map(k => new Promise(res => {
+      const q = store.get(k);
+      q.onsuccess = e => res({ k, v: e.target.result });
+      // ⚠️ preventDefault 不能省：不拦的话单条失败会 abort 整个事务，后面一条都读不到。
+      q.onerror = e => { e.preventDefault(); res({ k, bad: true }); };
+    })));
+    const out = rs.filter(r => !r.bad).map(r => r.v);
+    const bad = rs.filter(r => r.bad).map(r => r.k);
+    if (bad.length) {
+      console.warn(`[flipbook] ${s} 有 ${bad.length} 条记录读不出来（外置图文件被清）：`, bad);
+      if (purge) {
+        const w = this._tx(s, 'readwrite');
+        await Promise.all(bad.map(k => new Promise(res => {
+          const q = w.delete(k); q.onsuccess = q.onerror = () => res();
+        })));
+        console.warn(`[flipbook] ${s} 已清掉这 ${bad.length} 条，库恢复可写`);
+      }
+    }
+    return out;
+  }
 }
 
 const db = new SBDatabase();
@@ -156,12 +197,12 @@ async function loadAllBooks() {
   const result = [];
 
   // 只加载故事书（导出的精选），不加载项目书
-  const stories = await db.all('stories');
+  const stories = await db.allSafe('stories');
   for (const story of stories) {
     const proj = await db.get('projects', story.projectId);
     if (!proj) continue;
 
-    const allCards = await db.byIndex('cards', 'byProject', story.projectId);
+    const allCards = await db.byIndexSafe('cards', 'byProject', story.projectId);
     const storyCards = story.cardIds.map(id => allCards.find(c => c.id === id)).filter(c => c && c.imageData);
     if (!storyCards.length) continue;
 
@@ -261,7 +302,7 @@ async function openStory(storyId) {
   const story = await db.get('stories', storyId);
   if (!story) { toast('找不到这个故事书'); return; }
 
-  const allCards = await db.byIndex('cards', 'byProject', story.projectId);
+  const allCards = await db.byIndexSafe('cards', 'byProject', story.projectId);
   const storyCards = story.cardIds.map(id => allCards.find(c => c.id === id)).filter(c => c && c.imageData);
   if (!storyCards.length) { toast('故事书没有图片'); return; }
 
