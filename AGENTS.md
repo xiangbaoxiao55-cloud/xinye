@@ -73,13 +73,19 @@
 
 ### 基本做法
 
+- 🔴 **先选对服务器 —— 这决定了你测到的是不是新代码**：验证一律用 **nostore 静态服务器**
+  （本机端口 **8792**，所有响应都带 `Cache-Control: no-store`）。**不要**用业务服务器 8787（那是真在跑的那台），
+  **也不要**用 `python -m http.server`（本机 8791 / 8799）—— 它**不带任何缓存头**，浏览器会走启发式缓存，
+  反复改反复测照样拿到旧模块。换个没占用过的端口也行（新 origin = 全新 HTTP 缓存）。
+  本机 `.claude/launch.json` 里已配好这几项（`xinye-nostore` / `xinye-gallery-test` / `xinye-nostore-8794`），能读到就直接用
 - 起 headless Chrome：`--headless=new --remote-debugging-port=9222 --user-data-dir=<干净目录>`
 - 连 CDP 用 Node 内置 WebSocket 就够，**不用装 puppeteer / playwright**
 - **一律轮询等到条件满足，别用固定 sleep** —— `<head>` 里那串 CDN 外链在国内会把解析卡住好几秒，
   这段时间 `document.body` 还是 null。任何"元素找不到"先怀疑没加载完
 - 两条腿走路：`getComputedStyle` 读计算值（硬判据）+ 截图（看排版）。
   **颜色 / 尺寸 / 间距一律读计算值，别靠看图**
-- 每轮测试换干净的 profile / 端口，否则脚本注入会累积、缓存会喂旧代码
+- 每轮测试换干净的 profile，否则 `Page.addScriptToEvaluateOnNewDocument` 的注入会**累积** ——
+  console 被重复包装、覆盖过的函数被后来者盖掉，症状是"越测越不对"
 
 ### 哪些改动必须验什么
 
@@ -94,7 +100,8 @@
 
 - **缓存会喂旧代码，而验证结果看起来是"对的"**。Service Worker 的 Cache Storage 和
   浏览器的 HTTP disk cache 是**两层**，各挡各的 —— 改完先确认拿到的是新版
-  （遍历 `document.styleSheets` 找新选择器，或 `fetch(url + '?bust=' + 时间戳)`）
+  （遍历 `document.styleSheets` 找新选择器，或 `fetch(url + '?bust=' + 时间戳)`）。
+  **源头解法见上面「基本做法」第一条：用对服务器**
 - **测试素材比真机宽松，等于没验**。判"会不会换行"必须拿**能让容器最窄的那个内容**去测
   （竖长图、最长的那条文本），别拿手边最方便的正方形
 - **假故障比真故障更费时间**。判"面板打开了没"别用你猜的 class 名
