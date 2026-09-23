@@ -2236,7 +2236,7 @@ function _buildPresetCard(preset,isActive,type){
   body.innerHTML=`
     <div class="preset-row"><label>Key</label><input type="password" data-f="key" value="${preset.key||''}" placeholder="sk-..."></div>
     <div class="preset-row"><label>URL</label><input type="text" data-f="url" value="${preset.url||''}" placeholder="https://api.xxx.com/v1"></div>
-    <div class="preset-row"><label>模型</label><input type="text" data-f="model" value="${preset.model||''}" placeholder="${type==='draw'?'dall-e-3':'claude-opus-4-7'}"></div>
+    <div class="preset-row"><label>模型</label><input type="text" data-f="model" value="${preset.model||''}" placeholder="${type==='draw'?'dall-e-3':'claude-opus-4-7'}"><button class="btn-tiny" data-a="fetch-models" title="用上面的 URL + Key 拉取可用模型列表" style="flex:none">获取</button></div>
     ${fmtRow}
     <div class="preset-row" style="gap:8px;align-items:center">
       <label style="min-width:40px;text-align:right">备用</label>
@@ -2273,6 +2273,7 @@ function _buildPresetCard(preset,isActive,type){
   };
   body.querySelector('[data-a="save"]').onclick=doSave;
   body.querySelector('[data-a="use"]').onclick=()=>{doSave();_setActive(preset,type)};
+  body.querySelector('[data-a="fetch-models"]').onclick=function(){_fetchPresetModels(preset,body,this)};
 
   card.append(hdr,meta,body);
   return card;
@@ -2284,6 +2285,68 @@ function _setActive(preset,type){
   savePresetsToLS();
   renderDrawPresets();renderMasterPresets();
   toast(`已切换到"${preset.name}" ✓`);
+}
+
+// 用预设卡片里当前填的 URL + Key 拉模型列表（不用先保存）
+async function _fetchPresetModels(preset,body,btn){
+  const rd=f=>body.querySelector(`[data-f="${f}"]`)?.value.trim()||'';
+  const key=rd('key'),rawUrl=rd('url');
+  if(!rawUrl){toast('先填 URL 再获取模型','warn');return}
+  const base=rawUrl.replace(/\/+$/,'');
+  const target=/\/v\d+$/.test(base)?`${base}/models`:`${base}/v1/models`;
+  const old=btn.textContent;btn.disabled=true;btn.textContent='…';
+  toast('⏳ 获取模型列表…');
+  try{
+    let r=null;
+    if(S.localServer){
+      // 有本地服务器就走 llm-proxy-get（server-to-server，绕过站子 CORS）
+      try{
+        r=await fetch(`${S.localServer.replace(/\/+$/,'')}/api/llm-proxy-get?target=${encodeURIComponent(target)}&key=${encodeURIComponent(key)}`);
+      }catch(e){console.log(`[${ts()}] 模型列表代理不可达(${e.message})，降级直连`)}
+    }
+    if(!r) r=await fetch(target,{headers:key?{Authorization:`Bearer ${key}`}:{}});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d=await r.json();
+    const models=(d.data||d.models||[]).map(m=>typeof m==='string'?m:(m.id||m.model||m.name)).filter(Boolean).sort();
+    if(!models.length) throw new Error('返回里没有模型');
+    console.log(`[${ts()}] 模型列表 ${models.length} 个 | ${target}`);
+    _openModelPick(models,m=>{
+      const el=body.querySelector('[data-f="model"]');
+      if(el) el.value=m;
+      toast(`已选模型：${m} ✓`);
+    });
+  }catch(e){
+    console.log(`[${ts()}] 获取模型失败:`,e.message);
+    toast(`❌ 获取失败：${e.message}`,'warn');
+  }finally{btn.disabled=false;btn.textContent=old}
+}
+
+function _openModelPick(models,onPick){
+  const ov=document.getElementById('modal-model-pick');
+  const list=document.getElementById('model-pick-list');
+  const search=document.getElementById('model-pick-search');
+  if(!ov||!list) return;
+  search.value='';
+  const render=q=>{
+    const kw=(q||'').toLowerCase();
+    const arr=kw?models.filter(m=>m.toLowerCase().includes(kw)):models;
+    list.innerHTML='';
+    if(!arr.length){
+      list.innerHTML='<div style="padding:14px;color:var(--sub);font-size:12px;text-align:center">无匹配结果</div>';
+      return;
+    }
+    arr.slice(0,600).forEach(m=>{
+      const d=document.createElement('div');
+      d.className='model-pick-item';
+      d.textContent=m;
+      d.onclick=()=>{onPick(m);ov.style.display='none'};
+      list.appendChild(d);
+    });
+  };
+  render('');
+  search.oninput=()=>render(search.value);
+  ov.style.display='flex';
+  setTimeout(()=>{try{search.focus()}catch(e){}},100);
 }
 
 function addDrawPreset(){
@@ -2877,6 +2940,7 @@ function bindEvents(){
   };
   document.getElementById('btn-settings').onclick=openSettings;
   document.getElementById('btn-close-settings').onclick=()=>closeModal('modal-settings');
+  document.getElementById('btn-close-model-pick').onclick=()=>closeModal('modal-model-pick');
   document.getElementById('btn-save-local-server').onclick=()=>{
     const v=(document.getElementById('input-local-server').value||'').trim().replace(/\/$/,'');
     localStorage.setItem('draw_localServer',v);S.localServer=v;toast(v?`已保存：${v}`:'已清除本地服务器地址');
