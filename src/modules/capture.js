@@ -45,7 +45,7 @@ function _panel() {
         <div class="cap-tip">
           截最近几条？<br>
           <span>进去之后聊天会整页摊开、图片和贴纸全部加载好，你再用<b>指关节画 S</b> 截长图。
-          截完点最上面那条<b>「退出长截图模式」</b>就回来了。</span>
+          截完点最上面（或最下面）那个<b> ← </b>就回来了。</span>
         </div>
         <div class="cap-limits">
           ${LIMITS.map(n => `<button class="cap-limit${n === _limit ? ' active' : ''}" data-limit="${n}">${n} 条</button>`).join('')}
@@ -105,18 +105,24 @@ function _hotspot() {
  *
  * 🔴 2026-09-23 她真机试完的第一句话就是「截完后怎么退出🥺」—— 我原本只做了一个
  * 完全透明的左上角热区（为的是不被截进长图），但看不见的东西等于不存在。
- * 现在补一个看得见的，代价是长图最前面会带上它一条 —— 比找不到退出强太多。
+ * 现在补一个看得见的，代价是长图首尾会带上它 —— 比找不到退出强太多。
  * ⚠️ 也**不能**改成 position:fixed 的悬浮条：滚动截屏逐屏拼接，fixed 元素会在长图里
  * **每一屏**都重复出现一次（这正是它只能放文档流里的原因）。
  *
  * ⚠️ 首尾各放一个：进模式时她站在页首，看得到上面那个；但滚动截屏结束后视口可能
  * 停在页尾，那时只剩下面那个够得着。两个都带上 `data-cap-exit` 好一次清掉。
+ *
+ * 🔴 2026-09-23 她第二轮反馈：「图片也会带着那个'退出长截图模式'，要不要就一个左
+ * 箭头不要这行字」—— 所以只剩一个箭头、整体调淡（见 layout.css 的 opacity）。
+ * 想截一张彻底干净的图，点左上角那片空白（#capHotspot，不进长图）退出就行。
  */
 function _exitBar() {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.dataset.capExit = '1';
-  btn.innerHTML = '<i class="ic ic-arrow-left"></i> 退出长截图模式';
+  btn.title = '退出长截图模式';
+  btn.setAttribute('aria-label', '退出长截图模式');
+  btn.innerHTML = '<i class="ic ic-arrow-left"></i>';
   btn.addEventListener('click', () => exitCaptureMode());
   return btn;
 }
@@ -156,7 +162,7 @@ export async function enterCaptureMode(limit = 50) {
   await _wakeImages(chatArea);
   if (!_active) return;   // 唤醒过程中她可能已经点了退出
   _hotspot();
-  toast('可以截了：指关节画 S｜截完点最上面那条「退出长截图模式」');
+  toast('可以截了：指关节画 S｜截完点那个 ← 退出');
 }
 
 /** 退出长截图模式，恢复成原来的聊天界面 */

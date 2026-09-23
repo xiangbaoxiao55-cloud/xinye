@@ -200,16 +200,20 @@ body.capture-mode .msg-row.cap-hide{display:none !important}
 #capHotspot{position:fixed;top:0;left:0;width:76px;height:88px;z-index:12000;background:transparent}
 #capHotspot:active{background:rgba(233,30,99,.12)}
 
-/* 退出按钮：走文档流，插在消息列表首尾各一个。⚠️ 不能改成悬浮 —— 见 capture.js 的说明 */
+/* 退出按钮：走文档流，插在消息列表首尾各一个。⚠️ 不能改成悬浮 —— 见 capture.js 的说明。
+   只有一个箭头、整体调淡（她说「图片也会带着那个'退出长截图模式'」）：它一定会被截进
+   长图的首尾，那就做得越不显眼越好。align-self 是必须的 —— .chat-area 是 column flex，
+   默认 stretch 会把它拉成整行宽 */
 [data-cap-exit]{
-  display:flex;align-items:center;gap:8px;
-  padding:11px 14px;margin-bottom:14px;width:100%;box-sizing:border-box;
-  border:1.5px dashed var(--pink);border-radius:14px;
-  background:rgba(255,255,255,.55);color:var(--text);
-  font-size:13px;font-family:inherit;text-align:left;
-  cursor:pointer;transition:background .18s;
+  display:flex;align-items:center;justify-content:center;
+  align-self:flex-start;
+  width:34px;height:34px;padding:0;margin:2px 0 12px;
+  border:1.5px solid var(--pink);border-radius:50%;
+  background:rgba(255,255,255,.45);color:var(--text);
+  font-size:14px;line-height:1;cursor:pointer;
+  opacity:.5;transition:opacity .18s,background .18s;
 }
-[data-cap-exit]:active{background:var(--pink-light)}
+[data-cap-exit]:active{opacity:1;background:var(--pink-light)}
 html[data-theme="dark"] [data-cap-exit]{background:rgba(255,255,255,.08)}
 
 /* 「截长图」选择面板 */
