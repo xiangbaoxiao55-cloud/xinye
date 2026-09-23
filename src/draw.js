@@ -46,19 +46,32 @@ class DrawDB {
    * 目录，那个目录一旦被清掉（她 2026-09-21 清 C 盘动过 Edge 的站点数据），记录本身还在
    * leveldb 里、**但整条读不出来** —— `NotReadableError: Data lost due to missing file`。
    * 而 `getAll()` 是**一条坏、全军覆没**：于是「画风参考列表永远空 + 保存必失败」。
-   * 坏的那条**已经不可恢复**（图文件没了），跳过它，好东西照样能用。
+   *
+   * 🔴 **purge=true 会顺手把那条坏记录删掉**，别省这一步：irrecoverable 的记录不只是读不到，
+   *    它连整个 store 的**写**都会带崩（Chromium 在写事务里碰到它就 abort）——
+   *    光跳过的话库还是脏的，`db.put()` 照样 `NotReadableError`，
+   *    表现就是「明明加了跳过，还是存不进去」（2026-09-23 在真机上又栽了一次）。
+   *    删掉是唯一的自愈路径；那条记录的图文件早就没了，删它不损失可用内容。
+   *    只在**必须能写**的 store 上开 purge；gallery 那种只读的先用默认值（万一要数据恢复）。
    *
    * 用游标而不是逐条 get：gallery 这种几千条的 store，逐条开会把事务数打爆。
    */
-  allSafe(s){
+  allSafe(s, purge=false){
     return new Promise((res,rej)=>{
-      const out=[];
-      const req=this._tx(s).openCursor();
+      const out=[], dropped=[];
+      const req=this._tx(s, purge?'readwrite':'readonly').openCursor();
       req.onsuccess=e=>{
         const c=e.target.result;
-        if(!c) return res(out);
+        if(!c){
+          if(dropped.length) console.warn(`[DrawDB] ${s} 清掉了 ${dropped.length} 条已损坏的记录：`,dropped);
+          return res(out);
+        }
         try{ out.push(c.value) }
-        catch(err){ console.warn(`[DrawDB] ${s} 有一条记录读不出来（多半是外置图文件被清），已跳过：`,c.key,err?.message||err) }
+        catch(err){
+          dropped.push(c.key);
+          console.warn(`[DrawDB] ${s} 有一条记录读不出来（外置图文件被清）：`,c.key,err?.message||err);
+          if(purge){ try{ c.delete() }catch(e2){ console.warn('[DrawDB] ↳ 删除也失败了：',e2?.message||e2) } }
+        }
         c.continue();
       };
       req.onerror=e=>rej(e.target.error);
@@ -844,20 +857,21 @@ function getAllRefs(){
 }
 
 // ── Style Refs CRUD ───────────────────────────────────────────
-// ⚠️ 这里用 allSafe 而不是 all：库里只要有一条 irrecoverable 的记录（外置图被清），
-//    getAll() 就整条路失败 → 列表永远空、保存也必失败。见 DrawDB.allSafe 的注释。
+// ⚠️ 这里用 allSafe(...,true) 而不是 all：库里只要有一条 irrecoverable 的记录，
+//    getAll() 整条路失败（列表永远空），**连 put 都会被它带崩**（保存必失败）。
+//    而且必须 purge —— 脏记录不删掉，库就一直写不进去。见 DrawDB.allSafe 的注释。
 async function loadStyleRefs(){
-  S.styleRefs=await db.allSafe('styleRefs');
+  S.styleRefs=await db.allSafe('styleRefs',true);
 }
 async function saveStyleRef(name,images,description=''){
   const item={id:uid(),name,images,description,createdAt:Date.now()};
   await db.put('styleRefs',item);
-  S.styleRefs=await db.allSafe('styleRefs');
+  S.styleRefs=await db.allSafe('styleRefs',true);
   return item;
 }
 async function deleteStyleRef(id){
   await db.del('styleRefs',id);
-  S.styleRefs=await db.all('styleRefs');
+  S.styleRefs=await db.allSafe('styleRefs',true);
   if(S.curStyleRefId===id) S.curStyleRefId=null;
 }
 
@@ -1016,7 +1030,7 @@ function renderStyleRefList(){
         if(!newName){toast('名称不能为空','warn');return;}
         sr.name=newName;sr.description=descInput.value.trim();
         await db.put('styleRefs',sr);
-        S.styleRefs=await db.all('styleRefs');
+        S.styleRefs=await db.allSafe('styleRefs',true);
         renderStyleRefStrip();renderStyleRefList();
         toast('已保存 ✓');
       };
@@ -2500,30 +2514,38 @@ async function exportFullDB(){
     };
     // 用 Blob 数组 + cursor 逐条刷入，避免 getAll() 把整个 gallery 一次性加载到 JS 堆 OOM
     const blobs=[new Blob([JSON.stringify(meta).slice(0,-1)])];
-    const counts=[];
+    const counts=[]; let totalSkipped=0;
     for(const store of FULL_STORES){
       blobs.push(new Blob([`,"${store}":[`]));
-      let first=true,count=0;
+      let first=true,count=0,skipped=0;
       await new Promise((res,rej)=>{
         const req=db._tx(store).openCursor();
         req.onsuccess=e=>{
           const cur=e.target.result;
-          if(cur){
+          if(!cur) return res();
+          // ⚠️ 读不出来的记录（外置图被清）必须在这里接住：异常从 onsuccess 逃走的话，
+          //    这个 promise 既不 resolve 也不 reject → 导出永远卡住。
+          //    导出是**只读**操作，跳过就行，不动她的库。
+          try{
             blobs.push(new Blob([(first?'':',')+JSON.stringify(cur.value)]));
             first=false;count++;
-            cur.continue();
-          }else{res()}
+          }catch(err){
+            skipped++;
+            console.warn(`[导出] ${store} 有一条读不出来，已跳过：`,cur.key,err?.message||err);
+          }
+          cur.continue();
         };
         req.onerror=e=>rej(e.target.error);
       });
       blobs.push(new Blob([']']));
       if(count) counts.push(`${store}(${count})`);
+      if(skipped){counts.push(`${store} 跳过${skipped}条损坏`);totalSkipped+=skipped}
       if(btn) btn.textContent=`⏳ ${store}(${count})…`;
     }
     blobs.push(new Blob(['}']));
     const blob=new Blob(blobs,{type:'application/json'});
     saveBlob(blob,`draw_full_backup_${new Date().toISOString().slice(0,10)}.json`);
-    toast(`全部数据已导出 ✓\n${counts.join('、')}`);
+    toast(`全部数据已导出 ✓\n${counts.join('、')}${totalSkipped?`\n（有 ${totalSkipped} 条已损坏的记录没导出来）`:''}`);
   }catch(e){toast('导出失败：'+e.message,'error')}
   finally{if(btn){btn.disabled=false;btn.innerHTML='<i class="ic ic-storage"></i> 导出全部数据'}}
 }
