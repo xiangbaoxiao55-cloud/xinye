@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260923-1010';
+const CACHE_NAME = 'xinye-20260923-1023';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -99,6 +99,15 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.hostname !== self.location.hostname) return;
+  // 🔴 `/api/` 一律放行（2026-09-23）：这是**动态接口**，SW 那两条策略对它都是帮倒忙 ——
+  //    ① 本地服务器那条只拼 pathname，会把 query 整个丢掉（`/api/llm-proxy-get?target=…`
+  //       变成没有 target 的请求 → 400）；
+  //    ② 兜底那条是 stale-while-revalidate，会把**上一次**的响应喂回来（模型列表、代理结果
+  //       这类东西拿到旧的是错的）。
+  //    还有更直接的一层：网页和接口**同 hostname** 时（她在电脑上用 localhost:8787 打开网页
+  //    就是这个情形）这些请求会被接管，实测**连发都发不出去**，服务器日志里一条记录都没有。
+  //    ⚠️ 静态资源那条路不受影响，别把 return 挪到上面去。
+  if (url.pathname.startsWith('/api/')) return;
   e.respondWith(handleFetch(e.request, url.pathname));
 });
 
