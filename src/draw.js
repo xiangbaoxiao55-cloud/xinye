@@ -58,14 +58,19 @@ class DrawDB {
    *    不拦下来的话后面每一条都读不到。也**必须一次性把所有 get 请求发出去**
    *    （事务在没有待处理请求又回到事件循环时会自动提交，逐条 await 会把它拖死）。
    */
-  async allSafe(s, purge=false){
-    try { return await this.all(s) } catch(e) { /* 库里有读不出来的 —— 走下面那条稳的 */ }
+  async allSafe(s, purge=false, map=null, skipFast=false){
+    const _x = map || (r => r);
+    // ① 先试最快的。⚠️ 记录特别大的 store（gallery）必须 skipFast ——
+    //    getAll() 会把所有大图一次性读进内存，那正是当初 evict 它的原因。
+    if(!skipFast){
+      try { return (await this.all(s)).map(_x) } catch(e) { /* 库里有读不出来的 —— 走下面那条稳的 */ }
+    }
     const keys = await this._p(this._tx(s).getAllKeys());
     if(!keys.length) return [];
     const store = this._tx(s);
     const rs = await Promise.all(keys.map(k => new Promise(res => {
       const q = store.get(k);
-      q.onsuccess = e => res({ k, v: e.target.result });
+      q.onsuccess = e => res({ k, v: _x(e.target.result) });
       q.onerror   = e => { e.preventDefault(); res({ k, bad: true }); };
     })));
     const out = rs.filter(r => !r.bad).map(r => r.v);
@@ -83,22 +88,19 @@ class DrawDB {
     }
     return out;
   }
+
+  /**
+   * 图库列表用的元信息（**剥掉 imageData**）。
+   * ⚠️ 不能直接 allSafe('gallery')：① gallery 的记录含大图，必须 skipFast 走逐条读；
+   *    ② 它原来那套 openCursor 一碰 irrecoverable 记录就整个失败（同 styleRefs 那颗雷），
+   *    图库会永远停在「加载中…」（2026-09-23 她在 Edge 里就是这个）。
+   */
+  galleryMeta(){
+    return this.allSafe('gallery', true, ({ imageData, ...meta }) => meta, true);
+  }
   get(s,k){return this._p(this._tx(s).get(k))}
   put(s,o){return this._p(this._tx(s,'readwrite').put(o))}
   del(s,k){return this._p(this._tx(s,'readwrite').delete(k))}
-  /**
-   * ⚠️ 游标里那句 `cursor.value` 必须在**回调内部**接住异常：外置图被清掉的记录
-   * 读它就会抛 `NotReadableError`，而异常从 `onsuccess` 里逃出去之后，
-   * 这个 promise **既不 resolve 也不 reject** → 图库永远停在"加载中"，
-   * 比直接报错还难查（2026-09-23 顺手拆的同一颗雷，跟 styleRefs 同源）。
-   */
-  galleryMeta(){return new Promise((res,rej)=>{const items=[];const req=this._tx('gallery').openCursor();
-    req.onsuccess=e=>{const cursor=e.target.result;
-      if(!cursor) return res(items);
-      try{ const {imageData,...meta}=cursor.value; items.push(meta); }
-      catch(err){ console.warn('[DrawDB] gallery 有一条读不出来（多半是外置图文件被清），已跳过：',cursor.key,err?.message||err) }
-      cursor.continue();};
-    req.onerror=e=>rej(e.target.error);});}
   async getSetting(k,def=null){const r=await this.get('settings',k);return r?r.value:def}
   setSetting(k,v){return this.put('settings',{key:k,value:v})}
   async tokensByCategory(){
@@ -1875,7 +1877,7 @@ function _paintGallery(){
           const t=await _makeThumb(r.imageData,192,0.7);
           if(t){r.thumb=t;try{await db.put('gallery',r)}catch(_e){}}
         }
-      });
+      }).catch(e=>console.warn('[图库] 这条图读不出来（外置图文件被清）：',img.dataset.id,e?.message||e));
     }
   },{rootMargin:'200px'});
   const analyzedSet=S.allAnalyzedIds;
@@ -2130,7 +2132,13 @@ async function openTemplates(){
 
 // ── Detail Modal ──────────────────────────────────────────────
 async function openDetail(item){
-  const full=await db.get('gallery',item.id);
+  let full;
+  try{ full=await db.get('gallery',item.id) }
+  catch(e){
+    console.warn('[图库] 这条图打不开（外置图文件被清）：',item.id,e?.message||e);
+    toast('这张图的数据已损坏，打不开了','warn');
+    return;
+  }
   if(!full) return;
   S.curDetail=full;
   document.getElementById('detail-image').src=full.imageData;
