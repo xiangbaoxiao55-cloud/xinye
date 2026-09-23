@@ -11,3 +11,5 @@ index.html.bak
 data/cmd_config.json
 data/dashboard.zip
 debug.log
+# WorkBuddy 的工作日志 —— 里面写着用户私事，而 GitHub 仓库是 public（跟 CLAUDE.md / .claude/ 同理）
+.workbuddy-ai/
