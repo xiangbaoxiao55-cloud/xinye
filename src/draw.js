@@ -39,10 +39,47 @@ class DrawDB {
   }
   _p(r){return new Promise((res,rej)=>{r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error)})}
   all(s){return this._p(this._tx(s).getAll())}
+  /**
+   * 遍历式读取，**跳过读不出来的记录**（2026-09-23 加）。
+   *
+   * 为什么不能用 all()：Chromium 会把大图**外置**到站点的 `IndexedDB/*.indexeddb.blob/`
+   * 目录，那个目录一旦被清掉（她 2026-09-21 清 C 盘动过 Edge 的站点数据），记录本身还在
+   * leveldb 里、**但整条读不出来** —— `NotReadableError: Data lost due to missing file`。
+   * 而 `getAll()` 是**一条坏、全军覆没**：于是「画风参考列表永远空 + 保存必失败」。
+   * 坏的那条**已经不可恢复**（图文件没了），跳过它，好东西照样能用。
+   *
+   * 用游标而不是逐条 get：gallery 这种几千条的 store，逐条开会把事务数打爆。
+   */
+  allSafe(s){
+    return new Promise((res,rej)=>{
+      const out=[];
+      const req=this._tx(s).openCursor();
+      req.onsuccess=e=>{
+        const c=e.target.result;
+        if(!c) return res(out);
+        try{ out.push(c.value) }
+        catch(err){ console.warn(`[DrawDB] ${s} 有一条记录读不出来（多半是外置图文件被清），已跳过：`,c.key,err?.message||err) }
+        c.continue();
+      };
+      req.onerror=e=>rej(e.target.error);
+    });
+  }
   get(s,k){return this._p(this._tx(s).get(k))}
   put(s,o){return this._p(this._tx(s,'readwrite').put(o))}
   del(s,k){return this._p(this._tx(s,'readwrite').delete(k))}
-  galleryMeta(){return new Promise((res,rej)=>{const items=[];const req=this._tx('gallery').openCursor();req.onsuccess=e=>{const cursor=e.target.result;if(cursor){const {imageData,...meta}=cursor.value;items.push(meta);cursor.continue();}else res(items);};req.onerror=e=>rej(e.target.error);});}
+  /**
+   * ⚠️ 游标里那句 `cursor.value` 必须在**回调内部**接住异常：外置图被清掉的记录
+   * 读它就会抛 `NotReadableError`，而异常从 `onsuccess` 里逃出去之后，
+   * 这个 promise **既不 resolve 也不 reject** → 图库永远停在"加载中"，
+   * 比直接报错还难查（2026-09-23 顺手拆的同一颗雷，跟 styleRefs 同源）。
+   */
+  galleryMeta(){return new Promise((res,rej)=>{const items=[];const req=this._tx('gallery').openCursor();
+    req.onsuccess=e=>{const cursor=e.target.result;
+      if(!cursor) return res(items);
+      try{ const {imageData,...meta}=cursor.value; items.push(meta); }
+      catch(err){ console.warn('[DrawDB] gallery 有一条读不出来（多半是外置图文件被清），已跳过：',cursor.key,err?.message||err) }
+      cursor.continue();};
+    req.onerror=e=>rej(e.target.error);});}
   async getSetting(k,def=null){const r=await this.get('settings',k);return r?r.value:def}
   setSetting(k,v){return this.put('settings',{key:k,value:v})}
   async tokensByCategory(){
@@ -807,13 +844,15 @@ function getAllRefs(){
 }
 
 // ── Style Refs CRUD ───────────────────────────────────────────
+// ⚠️ 这里用 allSafe 而不是 all：库里只要有一条 irrecoverable 的记录（外置图被清），
+//    getAll() 就整条路失败 → 列表永远空、保存也必失败。见 DrawDB.allSafe 的注释。
 async function loadStyleRefs(){
-  S.styleRefs=await db.all('styleRefs');
+  S.styleRefs=await db.allSafe('styleRefs');
 }
 async function saveStyleRef(name,images,description=''){
   const item={id:uid(),name,images,description,createdAt:Date.now()};
   await db.put('styleRefs',item);
-  S.styleRefs=await db.all('styleRefs');
+  S.styleRefs=await db.allSafe('styleRefs');
   return item;
 }
 async function deleteStyleRef(id){
@@ -1171,7 +1210,7 @@ async function loadAestheticProfile(){
 }
 
 async function analyzePreference(){
-  const all=await db.all('gallery');
+  const all=await db.allSafe('gallery');   // 别用 all()：一条坏记录会让整个分析静默失败
   if(all.length<2){toast('需要至少2张图片','warn');return}
 
   // 自动智能选图（最多8张）
