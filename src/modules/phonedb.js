@@ -158,6 +158,11 @@ export async function completeTodoById(id) {
   const item = await getRecord('xinye_memo', id);
   if (!item || item.done) return 'not_found';
   await putRecord('xinye_memo', { ...item, done: true });
+  // 🔴 2026-09-23：原来这里**漏了举手** —— addTodoWithDedup 有、勾掉没有，于是
+  //    "他勾了、她那页还写着要提醒你"，非得退出 APP 重进才划掉。
+  //    她的截图就是证据：20:23 那条还挂在「要提醒你」，20:24 重进一次才变「已完成」。
+  //    补一次 _markPhoneDirty()，inbox.js 的 30 秒轮询看到就重画含笑花那一页。
+  _markPhoneDirty();
   return 'ok';
 }
 
@@ -225,7 +230,31 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
   if (data.memo?.items) {
     for (const item of data.memo.items) {
       if (item.type !== 'todo' || !item.content) continue;
-      await addRecord('xinye_memo', { type: 'todo', content: item.content, done: false, time: now });
+      // 🔴 2026-09-23：这一段原来在**静默丢数据**，她当天撞的两个问题都出自这儿 ——
+      //
+      //   ① `trigger_at` 根本没接：模型在 memo 里写了触发时间，落库也只剩 content。
+      //      后果两条：含笑花那页「提醒时间 X月X日 X点」那行**压根不渲染**
+      //      （她原话："我看不到他设的是什么时候呀"）；更要命的是 getPendingTodos
+      //      靠 `m.trigger_at &&` 筛 —— 没有它的待办**永远不会到期、永远不会被提起**，
+      //      只能挂在列表里当僵尸（她那条"下次买木薯"就是这么来的）。
+      //      → 模型给了就必须带上。时间可以缺省（"下次买木薯"本来就没具体时刻）。
+      //
+      //   ② `done:true` 被无视：提示词原本让他"append 相同 content、done 设为 true"来勾掉，
+      //      可这儿写死了 `done: false` —— 于是"勾掉"实际变成了**又插一条新的未完成**
+      //      （越勾越多）。→ 现在真的去勾：按原文匹配那条未完成待办，走 completeTodoById。
+      if (item.done) {
+        // ⚠️ 这条路要读一次库，读失败**别把整段解析带崩**：外层的 `.catch(() => text)`
+        //    会把**没剥掉 <!--phone_state--> 的原文**返回给调用方 —— 那段隐藏 JSON
+        //    就直接露在她眼前了。所以单条失败就单条跳过，不影响后面。
+        try {
+          const undone = ((await getAllFromStore('xinye_memo')) || [])
+            .find(m => m.type === 'todo' && !m.done && m.content === item.content);
+          if (undone) await completeTodoById(undone.id);
+        } catch (_e) { /* 读失败就跳过这条，绝不外抛 */ }
+        continue;
+      }
+      await addRecord('xinye_memo', { type: 'todo', content: item.content, done: false,
+                                      trigger_at: item.trigger_at || null, time: now });
     }
   }
 

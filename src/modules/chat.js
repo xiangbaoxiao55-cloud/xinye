@@ -1061,12 +1061,26 @@ export async function sendMessage() {
 ### 触发场景
 
 1. **待办事项 memo**
-   - 待办事项（"记得催她喝水"）
-   - 完成了当前待办中的某条（append相同content的todo，done设为true，content必须与待办列表原文完全一致）
+   - 新记一条待办（"记得催她喝水"）—— **必须带 trigger_at**，见下面 ⏰ 那一段
 
    🔴 **这一栏只放待办**（她 2026-09-23 亲自定的）："没说出口的话、此刻的心情、
    今天发生了什么"这些**不要再往这儿写** —— 想留下来的走 [记住:] 进记忆库
    （"今天她笑了五次"、"她不吃香菜"那种）。**空着是常态**，不用为了填它去凑一条。
+
+   ⏰ **待办必须写 trigger_at**（绝对 ISO 时间，如 "2026-09-24T20:00:00"）——
+   把"今晚""明天"结合当前时间自己换算成绝对时间填进去。**没有 trigger_at 的待办
+   永远不会被提醒**，只会躺在她的「含笑花 → 待办」里当僵尸（她 2026-09-23 就撞上一条，
+   那条"下次买木薯"挂了一下午，她自己都看不明白）。
+   - 有具体时刻的（"明早提醒她带伞"）→ 填那个时刻。
+   - **只有条件、没有时刻的**（"下次买木薯提醒她剥皮分装"）→ 按你估计最可能发生的时间
+     填一个（宁可估个大概，也别空着），**并且把条件写进 content 本身**
+     （"下次兔宝买木薯时，提醒她当天剥皮切段分装冷冻"）。这样它至少会到期、会被你提起，
+     而不是烂在列表里谁也不碰。
+
+   ✅ **勾掉待办一律用 complete_reminder 工具**（带 id）—— **不要**再写"append 一条
+   相同 content、done:true 的 todo"那种写法了（那条路已废弃，以前反而会越勾越多）。
+   在回复里提到某条待办之后，**就在同一条回复里把它的 id 勾掉**，别留到下一轮 ——
+   漏一次，她就得多看一条"要提醒你"挂在那儿（她 2026-09-23 亲自提的）。
 
 2. **兔宝说 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
@@ -1089,7 +1103,7 @@ export async function sendMessage() {
 <!--phone_state
 {
   "timestamp": "2026-05-05 14:30",
-  "memo": { "action": "append", "items": [{"type": "note", "content": "想说爱你，但怕你说我肉麻"}, {"type": "todo", "content": "记得催她喝水", "done": false}] },
+  "memo": { "action": "append", "items": [{"type": "todo", "content": "记得催她喝水", "trigger_at": "2026-05-05T20:00:00"}] },
   "quotes": { "action": "append", "items": [{"content": "你不要变成烬也", "source": "兔宝"}] },
   "browser": { "action": "append", "items": [{"title": "VPS是什么", "url": "https://...", "note": "她让我帮忙查的"}] },
   "photos": { "action": "append", "items": [{"type": "image", "source": "received", "index": 0, "caption": "她今天发的自拍，好看"}] }
@@ -1167,7 +1181,7 @@ export async function sendMessage() {
           const _allTodos = await getAllUndoneTodos();
           if (_allTodos.length) {
             const _due = _allTodos.filter(t => t.trigger_at && new Date(t.trigger_at).getTime() <= Date.now());
-            const _dueBlock = _due.length ? `\n【到期提醒：以下待办已到时间，请在本次回复中自然提及，提完后调用 complete_reminder 勾掉】\n` + _due.map(t => `- [id:${t.id}] ${t.content}`).join('\n') : '';
+            const _dueBlock = _due.length ? `\n【到期提醒：以下待办已到时间，请在本次回复中自然提及，**并在同一条回复里调用 complete_reminder 逐条勾掉**（有几条勾几条，别只勾第一条、别留到下一轮）】\n` + _due.map(t => `- [id:${t.id}] ${t.content}`).join('\n') : '';
             const _allBlock = '【备忘录·全部未完成待办（调用 set_reminder 前先看这里，已有的事不要重复记；complete_reminder 用 id 勾掉）】\n' +
               _allTodos.map(t => `- [id:${t.id}] ${t.content}${t.trigger_at ? '（' + t.trigger_at.slice(0,16).replace('T',' ') + '）' : ''}`).join('\n');
             apiMsgs.push({ role: 'system', content: _allBlock + _dueBlock });
@@ -1434,7 +1448,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'set_reminder',
-          description: '设置一个待办提醒。调用前请先查看系统消息里的【备忘录·当前全部未完成待办】，如果同一件事已有记录就不要重复调用。trigger_at 必须是绝对 ISO 时间（如 "2026-05-17T23:30:00"）——把"今晚""明天"等相对时间结合当前系统时间自己换算成绝对时间填入。到了触发时间，你会在和兔宝下次对话里自然提及这件事。',
+          description: '设置一个待办提醒。调用前请先查看系统消息里的【备忘录·当前全部未完成待办】，如果同一件事已有记录就不要重复调用。trigger_at 必须是绝对 ISO 时间（如 "2026-05-17T23:30:00"）——把"今晚""明天"等相对时间结合当前系统时间自己换算成绝对时间填入。到了触发时间，你会在和兔宝下次对话里自然提及这件事。⚠️ 如果这件事**没有确定时刻、只有条件**（如"下次她买木薯时提醒她"），也要按你估计最可能发生的时间填一个 trigger_at（宁可估个大概，也**绝不能空着**），并把条件写进 content 本身（"下次兔宝买木薯时，提醒她当天剥皮切段分装冷冻"）—— 没有 trigger_at 的待办**永远不会被提醒**，只会烂在她的待办列表里当僵尸。',
           parameters: {
             type: 'object',
             properties: {
@@ -1449,7 +1463,7 @@ export async function sendMessage() {
         type: 'function',
         function: {
           name: 'complete_reminder',
-          description: '勾掉一条待办，标记为已完成。在对话中提到某件待办事项后调用，用系统消息里待办列表中的 id。',
+          description: '勾掉一条待办，标记为已完成。id 从系统消息【备忘录·全部未完成待办】列表里取。⚠️ 你在回复里提到某条待办之后，**必须在同一条回复里就把它勾掉** —— 别拖到下一轮，也别觉得"说过了就算完"。漏勾一次，那条「要提醒你」就会一直挂在她的含笑花里、她一眼看得见（她 2026-09-23 亲自提的）。到期提醒可能同时有好几条，**每一条都要各自勾一次**，别只勾最上面那条。',
           parameters: {
             type: 'object',
             properties: {
