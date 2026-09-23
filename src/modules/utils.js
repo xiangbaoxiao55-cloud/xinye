@@ -28,9 +28,15 @@ export function setStatus(el, icon, text) {
 export function fallbackCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
-  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  // readOnly + inputmode=none：焦点落到只读控件上，手机 WebView 不弹软键盘。
+  // 也刻意不显式 focus()，选中交给 select() —— 和 phone.html 那条路一致。
+  //（缺这两样，每次复制都会「闪一下键盘出来又消失」）
+  ta.setAttribute('readonly', '');
+  ta.setAttribute('inputmode', 'none');
+  ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;pointer-events:none';
   document.body.appendChild(ta);
-  ta.focus(); ta.select();
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
   try { document.execCommand('copy'); toast('已复制'); }
   catch(e) { toast('复制失败'); }
   document.body.removeChild(ta);

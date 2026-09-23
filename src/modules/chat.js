@@ -705,7 +705,10 @@ chatArea.addEventListener('click', async e => {
     const id = Number(copyBtn.dataset.id);
     const msg = messages.find(m => m.id === id);
     if (msg) {
-      const text = msg.content;
+      // 生图消息的 content 是 `[🎨 …画了一张图（垫两人）]\n提示词：xxx` 这个壳，
+      // 气泡和收藏都只留 prompt —— 复制也照做：她要的是提示词本身，不是这段说明。
+      const _isGen = msg.isGenImage || (msg.role === 'assistant' && msg.content?.startsWith('[🎨'));
+      const text = ((_isGen ? _extractGenPrompt(msg.content) : msg.content) || '');
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => toast('已复制')).catch(() => fallbackCopy(text));
       } else { fallbackCopy(text); }
