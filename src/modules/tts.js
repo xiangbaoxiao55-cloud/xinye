@@ -72,6 +72,18 @@ export function stripForTTS(t) {
     .replace(_THINK_RE, '')
     .replace(/\[sticker:[^\]]{1,20}\]/g, '')
     .replace(/（.+?发了一个「.+?」贴纸）/g, '')
+    // Markdown 只服务于气泡渲染，念出来全是符号（**粗体** 会念成"星星"）。
+    // 顺序要紧：**粗体** 必须先于 *斜体*，否则会被拆成落单的单星号。
+    .replace(/```[a-z]*\r?\n?([\s\S]*?)```/g, '$1')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/~~([^~\n]+)~~/g, '$1')
+    .replace(/\[([^\]\n]+)\]\([^)\s]+\)/g, '$1')
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]*>[ \t]+/gm, '')
+    .replace(/^[ \t]*(?:[-*+]|\d+[.、])[ \t]+/gm, '')
+    .replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '')
     .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
     .replace(/[\u{2600}-\u{26FF}]/gu, '')
     .replace(/[\u{FE00}-\u{FE0F}]/gu, '')
