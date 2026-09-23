@@ -207,7 +207,7 @@ body.capture-mode .msg-row.cap-hide{display:none !important}
 .cap-limits{display:flex;gap:8px}
 .cap-limit{
   flex:1;padding:9px 0;border:1.5px solid var(--pink);border-radius:12px;
-  background:none;color:var(--text);font-size:13px;font-family:inherit;
-  cursor:pointer;transition:all .18s;
+  background:none;color:var(--text);font-size:12px;font-family:inherit;
+  cursor:pointer;transition:all .18s;white-space:nowrap;
 }
 .cap-limit.active{background:var(--pink);color:#fff}

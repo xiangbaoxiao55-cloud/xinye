@@ -18,12 +18,12 @@
  */
 import { toast } from './utils.js';
 
-const LIMITS = [20, 50, 100];
+const LIMITS = [5, 10, 20, 50];
 
 let _active = false;
-// 默认 20：手机系统的滚动截屏有长度上限，长图越长越容易截到一半失败或者文件巨大。
-// 截短了她可以再截一次，截太长就白忙活
-let _limit = 20;
+// 默认 10：她「一般就截最近几条」，给大了每次都得先改档位。手机系统的滚动截屏
+// 还有长度上限，长图越长越容易截到一半失败或者文件巨大 —— 截短了可以再截
+let _limit = 10;
 let _hiddenRows = [];
 
 // ======================== 选择面板 ========================
@@ -43,12 +43,12 @@ function _panel() {
       </div>
       <div class="modal-body" style="padding:16px 20px">
         <div class="cap-tip">
-          要截哪一段？<br>
+          截最近几条？<br>
           <span>进去之后聊天会整页摊开、图片和贴纸全部加载好，你再用<b>指关节画 S</b> 截长图。
           截完<b>点屏幕左上角</b>退出（找不到就重开一次 APP，一样能恢复）。</span>
         </div>
         <div class="cap-limits">
-          ${LIMITS.map(n => `<button class="cap-limit${n === _limit ? ' active' : ''}" data-limit="${n}">最近 ${n} 条</button>`).join('')}
+          ${LIMITS.map(n => `<button class="cap-limit${n === _limit ? ' active' : ''}" data-limit="${n}">${n} 条</button>`).join('')}
         </div>
       </div>
       <div class="modal-footer">
