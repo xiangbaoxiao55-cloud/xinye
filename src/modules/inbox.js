@@ -249,17 +249,22 @@ async function _fetchInboxPayload() {
         const db = req.result;
         const tx = db.transaction('inbox', 'readwrite');
         const store = tx.objectStore('inbox');
-        const items = [], keys = [];
+        const items = [];
         store.openCursor().onsuccess = e => {
           const cursor = e.target.result;
           if (cursor) {
-            // 别人的记录照样删（不然永远堆在库里），只是不认领
+            // 🔴 2026-09-23（第二轮）：**自己的记录不在这儿删** —— 带上 key 交出去，
+            //    等真的落进聊天库之后才删（见本文件 _dropInboxKeys）。
+            //    原来这里是"读出来就删"，而删除发生在写库**之前**：写库失败、或者 APP
+            //    恰好在这中间被系统回收，这条就永远找不回来了 —— 它只存在于 SW 收件箱里
+            //    （云端那份要靠游标回拉，而游标那时可能已经推过去了）。
+            //    别人的记录照旧当场删：不认领、也没人会去写库，留着只会让这个库一直涨。
             // 老记录（2026-09-14 之前 SW 没写 appId）按炘也算，不然会丢消息
-            if ((cursor.value.appId || 'xinye') === _appId) items.push(cursor.value);
-            keys.push(cursor.key); cursor.continue();
+            if ((cursor.value.appId || 'xinye') === _appId) items.push({ ...cursor.value, _key: cursor.key });
+            else store.delete(cursor.key);
+            cursor.continue();
           }
           else {
-            keys.forEach(k => store.delete(k));
             tx.oncomplete = () => { db.close(); resolve(items); };
           }
         };
@@ -312,6 +317,34 @@ function _startEarlyInboxFetch() {
  */
 function _discardEarlyInboxFetch() { _earlyInboxFetch = null; }
 
+/**
+ * 从 SW 收件箱里删掉这些记录 —— **只在确认真的不再需要它们之后**才调。
+ *
+ * 🔴 2026-09-23：这一步是为了把"读出来就删"改成"落库确认了再删"。判定标准就一条：
+ *    **这条消息以后还会不会再被用到？**
+ *      · 已经写进聊天库了            → 不会了，删
+ *      · 内容跟库里已有的重复        → 不会了，删
+ *      · 已经被 consumedSet 标过记   → 不会了，删
+ *      · **写库失败 / 事务被中止**   → **还会**（下次轮询要重试），留着
+ *    留下来的记录不会堆死：30 秒轮询下一次就会重新读到它再试。
+ */
+async function _dropInboxKeys(keys) {
+  if (!keys || !keys.length) return;
+  await new Promise((resolve) => {
+    const req = indexedDB.open('XinyePushInbox', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('inbox', { autoIncrement: true });
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction('inbox', 'readwrite');
+      const store = tx.objectStore('inbox');
+      keys.forEach(k => store.delete(k));
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = tx.onabort = () => { try { db.close(); } catch {} resolve(); };
+    };
+    req.onerror = () => resolve();     // 删不掉不是什么大事：记录留着，下次再试
+  });
+}
+
 // 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
 // 4个触发源（启动/visibilitychange/30秒轮询/SW消息）可能同时打进来，必须防重入，
 // 否则两个调用会用同一个 since 并发拉到同一条消息 → 重复上屏
@@ -330,19 +363,24 @@ async function _consumePushInbox(opts = {}) {
     const consumedSet = new Set(consumed);
 
     // 内容兜底去重：SW 的 push 记录可能没有 id，用「内容+10分钟时段」再挡一层
+    // ⚠️ 2026-09-23：窗口从 30 提到 60 —— 现在"写入失败就整批重拉"是设计的一部分，
+    //    重拉那一批里写成功的要靠这儿挡住；一次补的消息多起来时，30 条会漏在窗口外。
     const _sig = (c, t) => `${c}||${Math.round((t || 0) / 600000)}`;
-    const _seen = new Set(messages.slice(-30).filter(m => m.role === 'assistant').map(m => _sig(m.content, m.time)));
+    const _seen = new Set(messages.slice(-60).filter(m => m.role === 'assistant').map(m => _sig(m.content, m.time)));
 
     // 合并去重（保留完整消息对象，包含时间戳）
     const allMessages = [];
+    // SW 收件箱里"确定不再需要"的记录：处理完统一删（判定标准见 _dropInboxKeys）
+    const _inboxDrop = [];
     for (const m of pushMsgs) {
       const pid = m.proactiveId || m.id;
-      if (pid && consumedSet.has(pid)) continue;
+      // 这几种都是"不用再处理"的：不带进 allMessages，但它的 SW 记录可以删了
+      if (pid && consumedSet.has(pid)) { if (m._key != null) _inboxDrop.push(m._key); continue; }
       if (pid) consumedSet.add(pid);
-      if (_seen.has(_sig(m.content, m.time))) continue;
+      if (_seen.has(_sig(m.content, m.time))) { if (m._key != null) _inboxDrop.push(m._key); continue; }
       _seen.add(_sig(m.content, m.time));
-      // id 带着走 —— 下面万一写不进库，要靠它把"已消费"标记撤回（见循环之后那段）
-      allMessages.push({ id: pid || '', content: m.content, time: m.time });
+      // id 带着走 —— 下面万一写不进库，要靠它判定"这一批没全成"（见循环之后那段）
+      allMessages.push({ id: pid || '', _key: m._key, content: m.content, time: m.time });
     }
     for (const m of cloudMsgs) {
       if (m.id && consumedSet.has(m.id)) continue;
@@ -364,18 +402,12 @@ async function _consumePushInbox(opts = {}) {
     //    （症状：通知照弹、聊天里空 —— 通知走原生 ProactiveService，不经过这里。）
     const { addMessage, appendMsgDOM, renderMessages } = await import('./chat.js');
 
-    // 去重状态立刻落盘（不能等消息写完再存，否则并发调用会重复消费同一条）
-    // ⚠️ 但"立刻落盘"不等于"永不回头"：下面写不进库的那些，循环之后要把标记**撤回**、
-    //    游标也要**退回来**（所以这里先记下旧值）。不然那条会被当成已经处理过，
-    //    下次 since 直接跳过它 —— 聊天里永远少了这一条，而且一声不响。
-    //    （症状就是「通知弹了、聊天里没有」：通知走原生 ProactiveService，不经过这里。）
-    const _prevSync = localStorage.getItem('heartbeat_lastSyncTime');
-    if (consumedSet.size !== consumed.length)
-      localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
-    if (cloudMsgs.length) {
-      const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
-      if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
-    }
+    // 🔴 2026-09-23（第二轮）：去重标记和游标**都挪到"确认落库之后"才推进**（见下面循环之后那段）。
+    //    原来这两行写在这儿 —— 写库**之前**，理由是"防并发重复消费"。可那样一来，
+    //    写入失败、而进程恰好在这中间被系统回收掉（鸿蒙 WebView 被回收是常事），
+    //    撤回那段根本跑不到：那条被标成已消费、游标也推过去了 —— **永久跳过，再也补不回来**。
+    //    现在反过来：并发那点风险有 `_seen` 兜着（它是基于**已入库**的消息做内容去重，
+    //    本来就只在成功之后才有意义），而漏一条是永久性的 —— 两者不对等。
 
     // 逐条追加，不用 renderMessages：整屏重绘会清空重建，页面会从顶部弹回底部
     const _chatEl = document.querySelector('#chatArea');
@@ -392,20 +424,33 @@ async function _consumePushInbox(opts = {}) {
         if (msg.id) _failedIds.push(msg.id);
         continue;
       }
-      if (_saved) _savedRows.push(_saved);
+      if (_saved) {
+        _savedRows.push(_saved);
+        if (msg._key != null) _inboxDrop.push(msg._key);   // 真落进库了 → 这条 SW 记录可以删了
+      }
       if (!opts.silent && _hasRendered && _saved) await appendMsgDOM(_saved);
       // 带图的：文字已经落地了，图在后台画（fire-and-forget，见 _drawProactiveImage）
       if (msg.image && _saved && _imgBudget > 0) { _imgBudget--; _drawProactiveImage(msg.image, msg.refChars); }
     }
 
-    // 🔴 有没写进去的 → 把标记和游标一起退回来，下次拉取会重新带上它们。
-    //    （写成功的那些留在 consumedSet 里，所以重拉也不会写第二遍。）
-    if (_failedIds.length) {
-      for (const id of _failedIds) consumedSet.delete(id);
-      localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
-      if (_prevSync === null) localStorage.removeItem('heartbeat_lastSyncTime');
-      else localStorage.setItem('heartbeat_lastSyncTime', _prevSync);
-      console.warn(`[Push] ${_failedIds.length} 条没能写进聊天，已撤回它们的标记 —— 下次会重拉`);
+    // 🔴 全部落进库了 → **这才**推进去重标记和游标（"成功之后才确认消费"）。
+    //    只要有一条没成，就**整批都不推进**：标记一个不加、游标也留在原处，
+    //    下次把这一批重新拉一遍 —— 上次写成功的那些靠 `_seen` 内容去重挡掉，不会写第二遍。
+    //    ⚠️ 别改成"只推进成功的那些"：游标是个单值，一旦往前跳，失败那条就再也回不来了。
+    if (!_failedIds.length) {
+      if (consumedSet.size !== consumed.length)
+        localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
+      if (cloudMsgs.length) {
+        const maxTime = Math.max(...cloudMsgs.map(m => m.time || 0));
+        if (maxTime > 0) localStorage.setItem('heartbeat_lastSyncTime', String(maxTime));
+      }
+    } else {
+      // 有失败的 → 游标**绝不推进**（它是单值，往前一跳，失败那条就再也回不来了）；
+      // 标记里**只留写成功的**那些 —— 下次整批重拉时它们会被挡住，只有失败的重新写一遍。
+      // （这样就不指望 `_seen` 那个有限窗口去兜底了，它只对"没有 id 的 push 消息"还有用。）
+      const _ok = [...consumedSet].filter(id => id && !_failedIds.includes(id));
+      localStorage.setItem('heartbeat_consumedIds', JSON.stringify(_ok.slice(-50)));
+      console.warn(`[Push] ${_failedIds.length} 条没能写进聊天 —— 游标不动，下次只重写这几条`);
     }
     if (!opts.silent && !_hasRendered) renderMessages();
 
@@ -427,6 +472,10 @@ async function _consumePushInbox(opts = {}) {
         });
       } catch { try { new Notification(settings.aiName || '炘也', { body: body.slice(0, 120), icon: '/xinye-icon.png' }); } catch {} }
     }
+
+    // SW 收件箱：把"确定不再需要"的记录删掉（落库成功的 + 判定不用处理的）。
+    // 写失败的那些**留着** —— 30 秒轮询下一次会重新读到它们，再试一遍。
+    await _dropInboxKeys(_inboxDrop);
 
     console.log(`[Push] 消费了 ${pushMsgs.length} 条推送 + ${cloudMsgs.length} 条心跳消息（写入 ${allMessages.length} 条）`);
     return _savedRows;

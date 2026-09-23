@@ -376,13 +376,25 @@ export async function addMessage(role, content, images, timestamp) {
   const store = tx.objectStore(storeName);
   return new Promise((resolve, reject) => {
     const req = store.add(msg);
-    req.onsuccess = () => { msg.id = req.result; messages.push(msg); window.scheduleAutoSave?.(); resolve(msg); };
-    // 🔴 2026-09-23：这两行是补的，之前**只有 onsuccess** —— 写入一旦失败，这个 Promise
+    let _newId = null;
+    // 🔴 等**整个事务 commit** 才算数（2026-09-23 第二轮）：`req.onsuccess` 只说明
+    //    这个请求排上了，事务随后还可能 abort（配额、连接被回收、别的请求出错）——
+    //    在那之前 resolve，等于把"还没写稳"的一条当成已入库报给调用方。
+    //    落库确认了再更新内存（messages）和自动存盘，顺序才是对的。
+    req.onsuccess = () => { _newId = req.result; };
+    tx.oncomplete = () => {
+      msg.id = _newId;
+      messages.push(msg);
+      window.scheduleAutoSave?.();
+      resolve(msg);
+    };
+    // 🔴 2026-09-23 补的：之前**只有 onsuccess** —— 写入一旦失败，这个 Promise
     //    **永远不 settle**，调用方的 `await` 就挂在那儿。后果比"丢一条消息"严重得多：
     //    inbox.js 的 `_consumePushInbox` 靠 `_consumingInbox` 这个重入锁防并发，
     //    它卡在 await 上就永远不会释放 → **之后每一次消费都直接返回空数组**，
     //    云端主动消息再也进不了聊天，而且一声不响（这正是「通知弹了、聊天里没有」那张脸）。
     req.onerror = () => reject(req.error || new Error('addMessage 写入失败'));
+    tx.onerror = () => reject(tx.error || new Error('addMessage 事务出错'));
     tx.onabort = () => reject(tx.error || new Error('addMessage 事务被中止'));
   });
 }
