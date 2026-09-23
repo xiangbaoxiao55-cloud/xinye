@@ -45,7 +45,7 @@ function _panel() {
         <div class="cap-tip">
           截最近几条？<br>
           <span>进去之后聊天会整页摊开、图片和贴纸全部加载好，你再用<b>指关节画 S</b> 截长图。
-          截完<b>点屏幕左上角</b>退出（找不到就重开一次 APP，一样能恢复）。</span>
+          截完点最上面那条<b>「退出长截图模式」</b>就回来了。</span>
         </div>
         <div class="cap-limits">
           ${LIMITS.map(n => `<button class="cap-limit${n === _limit ? ' active' : ''}" data-limit="${n}">${n} 条</button>`).join('')}
@@ -100,6 +100,27 @@ function _hotspot() {
   return el;
 }
 
+/**
+ * 退出按钮**必须走文档流**（普通 in-flow 元素），不能做成悬浮按钮。
+ *
+ * 🔴 2026-09-23 她真机试完的第一句话就是「截完后怎么退出🥺」—— 我原本只做了一个
+ * 完全透明的左上角热区（为的是不被截进长图），但看不见的东西等于不存在。
+ * 现在补一个看得见的，代价是长图最前面会带上它一条 —— 比找不到退出强太多。
+ * ⚠️ 也**不能**改成 position:fixed 的悬浮条：滚动截屏逐屏拼接，fixed 元素会在长图里
+ * **每一屏**都重复出现一次（这正是它只能放文档流里的原因）。
+ *
+ * ⚠️ 首尾各放一个：进模式时她站在页首，看得到上面那个；但滚动截屏结束后视口可能
+ * 停在页尾，那时只剩下面那个够得着。两个都带上 `data-cap-exit` 好一次清掉。
+ */
+function _exitBar() {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.dataset.capExit = '1';
+  btn.innerHTML = '<i class="ic ic-arrow-left"></i> 退出长截图模式';
+  btn.addEventListener('click', () => exitCaptureMode());
+  return btn;
+}
+
 /** 进入长截图模式：摊平整页 + 只留最近 limit 条 + 唤醒图片贴纸 */
 export async function enterCaptureMode(limit = 50) {
   if (_active) return;
@@ -128,10 +149,14 @@ export async function enterCaptureMode(limit = 50) {
   // 下面的贴纸会在她滚过去之前就被换成 1×1 占位
   window.pauseStickerLazy?.(true);
 
+  // 退出按钮插在消息列表首尾：进模式时她站在页首，一眼能看到上面那个
+  chatArea.insertBefore(_exitBar(), chatArea.firstChild);
+  chatArea.appendChild(_exitBar());
+
   await _wakeImages(chatArea);
   if (!_active) return;   // 唤醒过程中她可能已经点了退出
   _hotspot();
-  toast('可以截了：指关节画 S｜截完点屏幕左上角退出');
+  toast('可以截了：指关节画 S｜截完点最上面那条「退出长截图模式」');
 }
 
 /** 退出长截图模式，恢复成原来的聊天界面 */
@@ -144,6 +169,7 @@ export function exitCaptureMode() {
   _hiddenRows.forEach(r => r.classList.remove('cap-hide'));
   _hiddenRows = [];
   document.querySelector('#capHotspot')?.remove();
+  document.querySelectorAll('[data-cap-exit]').forEach(el => el.remove());
   window.pauseStickerLazy?.(false);
 
   const chatArea = document.querySelector('#chatArea');

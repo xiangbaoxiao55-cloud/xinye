@@ -200,6 +200,18 @@ body.capture-mode .msg-row.cap-hide{display:none !important}
 #capHotspot{position:fixed;top:0;left:0;width:76px;height:88px;z-index:12000;background:transparent}
 #capHotspot:active{background:rgba(233,30,99,.12)}
 
+/* 退出按钮：走文档流，插在消息列表首尾各一个。⚠️ 不能改成悬浮 —— 见 capture.js 的说明 */
+[data-cap-exit]{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 14px;margin-bottom:14px;width:100%;box-sizing:border-box;
+  border:1.5px dashed var(--pink);border-radius:14px;
+  background:rgba(255,255,255,.55);color:var(--text);
+  font-size:13px;font-family:inherit;text-align:left;
+  cursor:pointer;transition:background .18s;
+}
+[data-cap-exit]:active{background:var(--pink-light)}
+html[data-theme="dark"] [data-cap-exit]{background:rgba(255,255,255,.08)}
+
 /* 「截长图」选择面板 */
 .cap-tip{font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px}
 .cap-tip span{font-size:12px;color:var(--text-light);line-height:1.8}
