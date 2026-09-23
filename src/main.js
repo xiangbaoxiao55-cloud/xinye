@@ -15,7 +15,7 @@ import { openSettings, closeSettings, renderApiPresets, renderVisionPresets, ren
 import { triggerDrawImage, initImageUpload, compositeRefImages, base64ToFile, autoSaveGenImage, generateImage } from './modules/image.js';
 import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
-import { _startEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts, _registerPush, _registerPeriodicSync, _reportOverlayErr } from './modules/inbox.js';
+import { _startEarlyInboxFetch, _discardEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts, _registerPush, _registerPeriodicSync, _reportOverlayErr } from './modules/inbox.js';
 import { initRp } from './modules/rp.js';
 import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
 import { initInputDraft } from './modules/draft.js';
@@ -515,7 +515,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.23-1313';
+  if (_verEl) _verEl.textContent = 'v2026.09.23-1350';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -550,7 +550,12 @@ async function checkPendingMessage() {
       toast('已从本地存档恢复数据');
       // ⚠️ 上面那次早拉是在这之前发起的，那时 settings 里还没有云服务器地址
       //（IDB 是空的，配置是从 localStorage 恢复的）→ 作废重发一次
-      _earlyInboxFetch = null;
+      // 🔴 2026-09-23：这里原来写的是 `_earlyInboxFetch = null;` —— 那个变量是 inbox.js
+      //    私有的，没导出。main.js 是 ES module（严格模式），给不存在的标识符赋值会抛
+      //    ReferenceError，把整个启动 IIFE 从这儿打断（后面的 _startEarlyInboxFetch、
+      //    _consumePushInbox、applyUI 全都跑不到）。只有"IDB 空 + localStorage 有备份"
+      //    这条路会走到，所以平时打开 APP 一切正常 —— 见 inbox.js 里那个导出的注释。
+      _discardEarlyInboxFetch();
       _startEarlyInboxFetch();
     }
   }

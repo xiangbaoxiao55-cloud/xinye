@@ -299,6 +299,19 @@ function _startEarlyInboxFetch() {
   return _earlyInboxFetch;
 }
 
+/**
+ * 作废掉启动那一次早拉 —— main.js 在「IDB 是空的、刚从 localStorage 恢复完备份」之后要用它：
+ * 那次早拉是在配置**恢复之前**发起的（那时 settings 里还没有云服务器地址），结果必然不对。
+ *
+ * 🔴 2026-09-23：这一步原来直接写在 main.js 里，写的是 `_earlyInboxFetch = null;` ——
+ *    可这个变量是**这个文件私有的**，压根没导出。main.js 是 ES module（严格模式），
+ *    给一个不存在的标识符赋值会当场抛 `ReferenceError`，把那个启动 IIFE 从中间打断：
+ *    后面的 `_startEarlyInboxFetch()`、`_consumePushInbox`、`applyUI` 一个都跑不到。
+ *    只有「IDB 空 + localStorage 里有备份」这一条路会走到（她 9/18 搬站恢复时正是这条路），
+ *    所以平时打开 APP 一切正常，不代表它没问题。
+ */
+function _discardEarlyInboxFetch() { _earlyInboxFetch = null; }
+
 // 启动时从 PushInbox 消费炘也主动消息（后台收到push时写入的）+ 从云端拉取心跳主动消息
 // 4个触发源（启动/visibilitychange/30秒轮询/SW消息）可能同时打进来，必须防重入，
 // 否则两个调用会用同一个 since 并发拉到同一条消息 → 重复上屏
@@ -328,7 +341,8 @@ async function _consumePushInbox(opts = {}) {
       if (pid) consumedSet.add(pid);
       if (_seen.has(_sig(m.content, m.time))) continue;
       _seen.add(_sig(m.content, m.time));
-      allMessages.push({ content: m.content, time: m.time });
+      // id 带着走 —— 下面万一写不进库，要靠它把"已消费"标记撤回（见循环之后那段）
+      allMessages.push({ id: pid || '', content: m.content, time: m.time });
     }
     for (const m of cloudMsgs) {
       if (m.id && consumedSet.has(m.id)) continue;
@@ -336,7 +350,7 @@ async function _consumePushInbox(opts = {}) {
       if (_seen.has(_sig(m.content, m.time))) continue;
       _seen.add(_sig(m.content, m.time));
       // image 是**画图提示词**、refChars 是**垫谁**（都来自云端，画在她手机这边 —— 见 _drawProactiveImage）
-      allMessages.push({ content: m.content, time: m.time,
+      allMessages.push({ id: m.id || '', content: m.content, time: m.time,
         image: m.image || '', refChars: m.ref_characters || 'none' });
     }
 
@@ -351,6 +365,11 @@ async function _consumePushInbox(opts = {}) {
     const { addMessage, appendMsgDOM, renderMessages } = await import('./chat.js');
 
     // 去重状态立刻落盘（不能等消息写完再存，否则并发调用会重复消费同一条）
+    // ⚠️ 但"立刻落盘"不等于"永不回头"：下面写不进库的那些，循环之后要把标记**撤回**、
+    //    游标也要**退回来**（所以这里先记下旧值）。不然那条会被当成已经处理过，
+    //    下次 since 直接跳过它 —— 聊天里永远少了这一条，而且一声不响。
+    //    （症状就是「通知弹了、聊天里没有」：通知走原生 ProactiveService，不经过这里。）
+    const _prevSync = localStorage.getItem('heartbeat_lastSyncTime');
     if (consumedSet.size !== consumed.length)
       localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
     if (cloudMsgs.length) {
@@ -362,12 +381,31 @@ async function _consumePushInbox(opts = {}) {
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
     let _imgBudget = 1;      // 一次消费最多画一张 —— 跟碎碎念的 MAX_MEDIA_PER_PULL 一个道理
+    const _failedIds = [];   // 没写进库的那些：循环之后要撤回它们的"已消费"标记
     for (const msg of allMessages) {
-      const _saved = await addMessage('assistant', msg.content, null, msg.time);
+      let _saved = null;
+      try {
+        _saved = await addMessage('assistant', msg.content, null, msg.time);
+      } catch (e) {
+        // 一条写不进去**别把整批带停** —— 记下它，继续写后面的
+        console.warn('[Push] 这条写进聊天失败，稍后撤回它的已消费标记:', e && e.message);
+        if (msg.id) _failedIds.push(msg.id);
+        continue;
+      }
       if (_saved) _savedRows.push(_saved);
       if (!opts.silent && _hasRendered && _saved) await appendMsgDOM(_saved);
       // 带图的：文字已经落地了，图在后台画（fire-and-forget，见 _drawProactiveImage）
       if (msg.image && _saved && _imgBudget > 0) { _imgBudget--; _drawProactiveImage(msg.image, msg.refChars); }
+    }
+
+    // 🔴 有没写进去的 → 把标记和游标一起退回来，下次拉取会重新带上它们。
+    //    （写成功的那些留在 consumedSet 里，所以重拉也不会写第二遍。）
+    if (_failedIds.length) {
+      for (const id of _failedIds) consumedSet.delete(id);
+      localStorage.setItem('heartbeat_consumedIds', JSON.stringify([...consumedSet].slice(-50)));
+      if (_prevSync === null) localStorage.removeItem('heartbeat_lastSyncTime');
+      else localStorage.setItem('heartbeat_lastSyncTime', _prevSync);
+      console.warn(`[Push] ${_failedIds.length} 条没能写进聊天，已撤回它们的标记 —— 下次会重拉`);
     }
     if (!opts.silent && !_hasRendered) renderMessages();
 
@@ -473,9 +511,8 @@ async function _consumeOverlayReply() {
     // ⚠️ 先拿到 chat 模块，**再**删她说的话（同 _consumePushInbox 那个 import 坑，2026-09-17）：
     //    不然模块加载失败时她的话已经被抹掉，那条回复就永远回不来了
     const { addMessage, appendMsgDOM, renderMessages } = await import('./chat.js');
-    localStorage.removeItem('xinye_overlay_reply');
     const d = JSON.parse(raw);
-    if (!d || !d.text) return;
+    if (!d || !d.text) { localStorage.removeItem('xinye_overlay_reply'); return; }
 
     const _chatEl = document.querySelector('#chatArea');
     const _hasRendered = !!_chatEl?.querySelector('.msg-row');
@@ -489,6 +526,10 @@ async function _consumeOverlayReply() {
 
     const saved = await addMessage('user', d.text, null, d.at || Date.now());
     if (!saved) return;
+    // 🔴 落库了才算"消费掉"（2026-09-23 挪过来的）：原来这行在写入**之前**，
+    //    而 addMessage 现在写入失败会抛 —— 标记先清掉的话，她的话就永远回不来了。
+    //    （她 9/19 亲口定的规矩：一次性标记必须"成功之后才清"。）
+    localStorage.removeItem('xinye_overlay_reply');
     // 空聊天（一条都还没渲染）时追加不进任何行，得整体渲染一次才看得见
     if (_hasRendered) await appendMsgDOM(saved); else renderMessages();
 
@@ -535,6 +576,6 @@ function _reportOverlayErr() {
 }
 
 export {
-  _startEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts,
+  _startEarlyInboxFetch, _discardEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts,
   _registerPush, _registerPeriodicSync, _reportOverlayErr,
 };
