@@ -6,8 +6,9 @@ import { settings, saveSettings, ensureMemoryState, ensureMemoryBank, normalizeM
 import { stripForTTS, _hasTTSMarkers, generateTTSBlob, markCached, playAudioBlob, playTTS, enqueueTTS, showVoiceBar, downloadTTS, exportTTSCache } from './modules/tts.js';
 import { getApiPresets, setApiPresets, getVisionPresets, setVisionPresets, getImagePresets, setImagePresets, getSubApiCfg, mainApiFetch, subApiFetch } from './modules/api.js';
 import { stripThinkingTags, getEmbedding, getMemoryContextBlocks, parseAndSaveSelfMemories, updateMoodState, autoDigestMemory, digestMemory, cleanupMemoryBank, saveOneMemoryToBank, rebuildArchiveIndex, renderMemoryBankPreview, renderMemoryEntryChip, renderMemoryViewer, openMemoryViewer, setMemViewerFilter, toggleMemoryPin, toggleMemoryResolved, deleteMemoryEntry, editMemoryEntry, saveMemoryEdit, skipMemoryCursorToEnd, resetMemoryCursor, manualExtractBatch, rememberLatestExchange, testEmbeddingApi, archiveMemoryBank, autoSyncArchiveToLocal, initMemoryDeps, cosineSimilarity, dedupMemoryBank, detectMemoryConflicts } from './modules/memory.js';
-import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmarksPanel, toggleBmExpand, removeBookmark, getAiAvatar, getUserAvatar, activeStore, addMessage, updateMessage, renderMessages, appendMsgDOM, scrollBottom, deleteMessage, renderMdHtml, linkifyEl, saveTokenLog, renderTokenLog, sendMessage } from './modules/chat.js';
-import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, loadChatStickers, renderStickerMgr, initStickers } from './modules/stickers.js';
+import { toggleBookmark, updateBookmarkBadge, openBookmarksPanel, renderBookmarksPanel, toggleBmExpand, removeBookmark, getAiAvatar, getUserAvatar, activeStore, addMessage, updateMessage, renderMessages, appendMsgDOM, scrollBottom, deleteMessage, renderMdHtml, linkifyEl, saveTokenLog, renderTokenLog, sendMessage, flushLazyImgs } from './modules/chat.js';
+import { getDecoStickers, setDecoStickers, renderStickers, getChatStickers, saveChatStickers, loadChatStickers, renderStickerMgr, initStickers, pauseStickerLazy, mountAllStickerImgs } from './modules/stickers.js';
+import { openCapturePanel, enterCaptureMode, exitCaptureMode } from './modules/capture.js';
 import { initStickerLib } from './modules/stickerlib.js';
 import { switchTab, openDiaryGen, initDiary, quickNoteOpen, quickNoteClose, quickNoteSave, autoWriteXinyeDiary } from './modules/diary.js';
 import { saveToLocal, loadFromLocal, autoBackupToServer } from './modules/backup.js';
@@ -35,6 +36,9 @@ Object.assign(window, {
   maybeTTS, autoResize, resetIdleTimer, updateSendBtn,
   scheduleAutoSave, updateHeaderStatus, sendMessage,
   exportTTSCache,
+  // 长截图模式：面板由顶栏按钮 onclick 唤起；另外三个是它进出模式时要调的钩子
+  openCapturePanel, enterCaptureMode, exitCaptureMode,
+  flushLazyImgs, pauseStickerLazy, mountAllStickers: mountAllStickerImgs,
 });
 
 if('serviceWorker' in navigator){
@@ -515,7 +519,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.23-1528';
+  if (_verEl) _verEl.textContent = 'v2026.09.23-1603';
 
   await openDB();
   await migrateFromLocalStorage();

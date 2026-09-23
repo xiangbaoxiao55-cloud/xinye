@@ -281,6 +281,10 @@ async function _mountStickerImg(el) {
   el.src = data;
 }
 
+// 长截图模式会把整页摊开，只有第一屏在视口里 —— 不暂停的话，下面的贴纸会在
+// 她滚过去之前就被换成 1×1 占位，长图里全是空白。暂停期间"挂回"照常，只停"卸载"。
+let _lazyPaused = false;
+
 // 不支持 IntersectionObserver 的环境直接不注册 —— 那就退回"渲染完一直挂着"的老行为
 const _stickerObserver = (typeof IntersectionObserver === 'function')
   ? new IntersectionObserver((entries) => {
@@ -288,10 +292,21 @@ const _stickerObserver = (typeof IntersectionObserver === 'function')
         const el = e.target;
         if (!el.dataset || !el.dataset.sid) continue;
         if (e.isIntersecting) _mountStickerImg(el);
-        else _unmountStickerImg(el);
+        else if (!_lazyPaused) _unmountStickerImg(el);
       }
     }, { rootMargin: '400px 0px' })
   : null;
+
+/** 长截图模式：进模式时 true（别把视口外的贴纸卸掉），退出时 false */
+export function pauseStickerLazy(paused) {
+  _lazyPaused = !!paused;
+}
+
+/** 长截图模式：把 root 里已经被卸载的贴纸当场全挂回来，返回全部完成的 promise */
+export function mountAllStickerImgs(root) {
+  const list = [...(root || document).querySelectorAll('img.sticker-img[data-unmounted="1"]')];
+  return Promise.all(list.map(el => _mountStickerImg(el)));
+}
 
 /** 把 root 里还没登记的贴纸图挂上观察者（渲染完消息 / 追加新消息时调一次） */
 export function observeStickerImgs(root) {

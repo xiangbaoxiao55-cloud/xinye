@@ -153,3 +153,61 @@
   .input-area{padding:10px 12px}
   #btnDecoFloat{bottom:16px;right:16px;width:48px;height:48px;font-size:20px}
 }
+
+/* ====================== 长截图模式 ====================== */
+/* 平时聊天界面是「整页锁死一屏高 + .chat-area 自己滚」，WebView 里根本没有可滚动
+   内容 —— 手机系统的滚动截屏识别不到，指关节画 S 只会截下当前一屏。这个模式把
+   html/body/.app 的高度和 overflow 全放开，文档自然撑成一条长页，系统就能滚了。
+   ⚠️ 这里不许出现 position:fixed 的**可见**元素：滚动截屏是逐屏拼接的，fixed 元素
+   相对视口定位，会在长图的**每一屏**重复出现一次（退出热区是透明的，所以没事）。 */
+html.capture-mode,body.capture-mode{overflow:visible !important;height:auto !important}
+/* 长图里不留整页滚动条（手机上是 overlay 式会自己淡出，桌面/部分 WebView 是常驻的） */
+html.capture-mode{scrollbar-width:none}
+html.capture-mode::-webkit-scrollbar{display:none}
+html.capture-mode{background:var(--warm-bg)}
+body.capture-mode{background:linear-gradient(135deg,var(--warm-bg) 0%,var(--pink-light) 50%,var(--apricot) 100%)}
+body.capture-mode #bgLayer,
+body.capture-mode #bgMask,
+body.capture-mode #stickerLayer{display:none !important}
+body.capture-mode .app{height:auto !important;padding-bottom:0 !important}
+body.capture-mode .chat-area{
+  overflow:visible !important;flex:none !important;height:auto !important;
+  scroll-behavior:auto;padding-bottom:48px;
+}
+body.capture-mode .header,
+body.capture-mode .input-area,
+body.capture-mode .typing-indicator,
+body.capture-mode #bottomTabs,
+body.capture-mode #quickNoteFloatBtn,
+body.capture-mode #btnDecoFloat{display:none !important}
+/* 所有浮层/侧栏一律按死。它们都是 position:fixed —— 只要有一丝露在视口里
+   （设置面板滑到 translateX(319.6px)、宽度 320，就露了半像素），长图里每一屏
+   都会重复出现同一条边。⚠️ #toast 不能进这个名单，进模式的提示就靠它。 */
+body.capture-mode #settingsPanel,
+body.capture-mode #overlay,
+body.capture-mode #diaryOverlay,
+body.capture-mode #stickerPanel,
+body.capture-mode #stickerLib,
+body.capture-mode #quickNoteModal,
+body.capture-mode #friendsPanel,
+body.capture-mode #friendChatOverlay,
+body.capture-mode .modal-overlay{display:none !important}
+/* 长图里不留任何操作控件（删除/编辑/收藏/token日志/保存重试…） */
+body.capture-mode .msg-row button{display:none !important}
+body.capture-mode .msg-row.cap-hide{display:none !important}
+
+/* 退出热区：必须完全透明 —— 看得见的话会在长图里每屏重复一次 */
+#capHotspot{position:fixed;top:0;left:0;width:76px;height:88px;z-index:12000;background:transparent}
+#capHotspot:active{background:rgba(233,30,99,.12)}
+
+/* 「截长图」选择面板 */
+.cap-tip{font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px}
+.cap-tip span{font-size:12px;color:var(--text-light);line-height:1.8}
+.cap-tip b{color:var(--pink-deep)}
+.cap-limits{display:flex;gap:8px}
+.cap-limit{
+  flex:1;padding:9px 0;border:1.5px solid var(--pink);border-radius:12px;
+  background:none;color:var(--text);font-size:13px;font-family:inherit;
+  cursor:pointer;transition:all .18s;
+}
+.cap-limit.active{background:var(--pink);color:#fff}

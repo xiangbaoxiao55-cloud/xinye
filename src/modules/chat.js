@@ -40,40 +40,56 @@ function _replaceLazyImg(el, html) {
   el.replaceWith(frag);
 }
 
+// 抽成独立函数：滚动触发（observer）和长截图模式主动唤醒（flushLazyImgs）共用同一条路。
+// lazyLoading 标记防重入 —— 长截图模式下两边可能同时点到同一个占位
+function _loadLazyImg(el) {
+  if (!el || el.dataset.lazyLoading === '1') return Promise.resolve();
+  el.dataset.lazyLoading = '1';
+  const msgId = Number(el.dataset.lazyMsgId);
+  const field = el.dataset.lazyField; // 'genImageData' | 'images'
+  if (!msgId) return Promise.resolve();
+  const store = window._rpActive ? 'rpMessages' : 'messages';
+  return dbGet(store, msgId).then(full => {
+    if (!full) return;
+    if (field === 'genImageData' && full.genImageData) {
+      const src = full.genImageData;
+      const origUrl = src.startsWith('__HTTP_URL__:') ? src.slice(13) : null;
+      const imgSrc = origUrl ? null : (src.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(src) : src);
+      if (origUrl) {
+        _replaceLazyImg(el, `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>`);
+      } else {
+        _replaceLazyImg(el, `<img class="gen-img" src="${escHtml(imgSrc)}" alt="炘也画的图" data-src="${escHtml(imgSrc)}">`);
+      }
+      // 同时回写内存，后续操作（保存/重试等）可直接用
+      const mm = messages.find(m => m.id === msgId);
+      if (mm) { mm.genImageData = full.genImageData; delete mm._hasGenImage; }
+    } else if (field === 'images') {
+      const allImgs = full.images || (full.image ? [full.image] : []);
+      if (allImgs.length) {
+        _replaceLazyImg(el, allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join(''));
+        const mm = messages.find(m => m.id === msgId);
+        if (mm) { mm.images = full.images; mm.image = full.image; delete mm._hasImages; }
+      }
+    }
+  }).catch(() => {});
+}
+
 const _imgObserver = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (!entry.isIntersecting) return;
-    const el = entry.target;
-    _imgObserver.unobserve(el);
-    const msgId = Number(el.dataset.lazyMsgId);
-    const field = el.dataset.lazyField; // 'genImageData' | 'images'
-    if (!msgId) return;
-    const store = window._rpActive ? 'rpMessages' : 'messages';
-    dbGet(store, msgId).then(full => {
-      if (!full) return;
-      if (field === 'genImageData' && full.genImageData) {
-        const src = full.genImageData;
-        const origUrl = src.startsWith('__HTTP_URL__:') ? src.slice(13) : null;
-        const imgSrc = origUrl ? null : (src.startsWith('http://') ? '/api/img-proxy?url='+encodeURIComponent(src) : src);
-        if (origUrl) {
-          _replaceLazyImg(el, `<div class="gen-img-http-fallback">图片为HTTP链接，无法内嵌显示<br><a href="${escHtml(origUrl)}" target="_blank" rel="noopener">点此在浏览器打开 →</a></div>`);
-        } else {
-          _replaceLazyImg(el, `<img class="gen-img" src="${escHtml(imgSrc)}" alt="炘也画的图" data-src="${escHtml(imgSrc)}">`);
-        }
-        // 同时回写内存，后续操作（保存/重试等）可直接用
-        const mm = messages.find(m => m.id === msgId);
-        if (mm) { mm.genImageData = full.genImageData; delete mm._hasGenImage; }
-      } else if (field === 'images') {
-        const allImgs = full.images || (full.image ? [full.image] : []);
-        if (allImgs.length) {
-          _replaceLazyImg(el, allImgs.map(s => `<img class="bubble-img" src="${escHtml(s)}" alt="图片">`).join(''));
-          const mm = messages.find(m => m.id === msgId);
-          if (mm) { mm.images = full.images; mm.image = full.image; delete mm._hasImages; }
-        }
-      }
-    }).catch(() => {});
+    _imgObserver.unobserve(entry.target);
+    _loadLazyImg(entry.target);
   });
 }, { rootMargin: '200px' });
+
+/**
+ * 长截图模式用：不等滚动，把 root 里所有图片占位当场全加载。
+ * 摊平之后只有第一屏在视口里，只靠 observer 的话长图下半部分全是空占位。
+ */
+export function flushLazyImgs(root) {
+  const list = [...(root || document).querySelectorAll('.lazy-img-ph')];
+  return Promise.all(list.map(_loadLazyImg));
+}
 
 function _lazyImgPlaceholder(msgId, field) {
   return `<span class="lazy-img-ph" data-lazy-msg-id="${msgId}" data-lazy-field="${field}"><span class="lazy-img-spinner"></span></span>`;
