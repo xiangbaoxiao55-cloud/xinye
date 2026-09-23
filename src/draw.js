@@ -30,7 +30,13 @@ class DrawDB {
       r.onerror=e=>rej(e.target.error);
     });
   }
-  _tx(s,m='readonly'){return this.db.transaction(s,m).objectStore(s)}
+  _tx(s,m='readonly'){
+    // ⚠️ this.db 为 null = init 里 db.open() 超时/失败了（step() 只 console.error，页面照样能用）。
+    //    这种情况下面每行都会是 TypeError: Cannot read properties of null —— 完全看不出病因，
+    //    所以这里抛一句人话（2026-09-23：她在 Edge 里「点保存套装没反应」就是这个）。
+    if(!this.db) throw new Error('数据库没打开（可能被同站点的其它标签页占着，全部关掉再重开这一页）');
+    return this.db.transaction(s,m).objectStore(s)
+  }
   _p(r){return new Promise((res,rej)=>{r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error)})}
   all(s){return this._p(this._tx(s).getAll())}
   get(s,k){return this._p(this._tx(s).get(k))}
@@ -882,7 +888,16 @@ async function confirmSaveStyleRef(){
   const desc=(document.getElementById('new-style-ref-desc').value||'').trim();
   if(!name){toast('请填写套装名称','warn');return}
   if(!_pendingStyleRefB64s||!_pendingStyleRefB64s.length){toast('请选择至少1张参考图','warn');return}
-  const item=await saveStyleRef(name,[..._pendingStyleRefB64s],desc);
+  // 写库这一步以前没有 catch —— 库一旦不可用（DrawDB 没打开、被别的标签页占着），
+  // onclick 是个 async 函数、抛了没人接，**表现就是"按钮点了没反应"**，查都没法查。
+  let item;
+  try{
+    item=await saveStyleRef(name,[..._pendingStyleRefB64s],desc);
+  }catch(e){
+    console.error('[画风参考] 保存失败：',e);
+    toast(`❌ 保存失败：${e?.message||e}`,'warn');
+    return;
+  }
   _pendingStyleRefB64s=[];
   document.getElementById('new-style-ref-name').value='';
   document.getElementById('new-style-ref-desc').value='';
