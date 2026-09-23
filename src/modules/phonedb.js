@@ -2,18 +2,6 @@
 const DB_NAME = 'XinyePhoneDB';
 const DB_VER  = 3;
 
-/**
- * 🔴 2026-09-21：她在碎碎念里看到两条**一字不差**的
- *    「她要开始每周去图书馆+书店的节奏了…」（08:24 和 08:44）。
- *
- * 这一层只挡「逐字相同」—— 措辞不同的重复仍然靠 chat.js 那份「你最近记过的」清单
- * 摆到他眼前（她 9/19 定的规矩就是"别搞内容查重"）。但**一模一样**的那种没有任何
- * 可解释的余地：换行/空格不同也算同一条，所以先压掉空白再比。
- *
- * ⚠️ 只往回看 12 小时：隔几天再写同样一句，那是新的事，不该被这条挡住。
- */
-const NOTE_DUP_WINDOW_MS = 12 * 3600 * 1000;
-
 /** 碎碎念那一页的数据被改过了（inbox.js 的轮询看到它会去让那页重画，见 __phoneDirty） */
 function _markPhoneDirty() { try { window.__phoneDirty = true; } catch (e) {} }
 const STORES  = ['xinye_memo','xinye_lyrics','xinye_quotes','xinye_drafts','xinye_mood','xinye_browser','xinye_photos','xinye_wallpapers'];
@@ -106,11 +94,46 @@ export function deleteRecord(store, key) {
   });
 }
 
+/**
+ * 读一个 store 的全部记录。
+ *
+ * 🔴 2026-09-23：这是「她清 C 盘」那颗雷的**第六处**（前五处是 draw.js / storyboard.js /
+ *    flipbook.js 的 allSafe —— 那天她那边图库、画风参考、故事板一起瘫）。
+ *    坏记录（Chromium 把大图外置成 blob 文件，文件被清掉之后记录还在、**整条读不出来**）
+ *    会让 `getAll()` **一条坏、全军覆没**，而且**连 openCursor() 都跑不起来** ——
+ *    只有 `getAllKeys()`（只碰 key、不碰内容）拦不住它。
+ *    同一套写法照搬过来，手机这边也一并受益：xinye_memo 有一千多条，一次 getAll 又慢，
+ *    真撞上坏记录时待办、相册、整页数据会一起读不出来。
+ *
+ * ⚠️ get 失败必须 `preventDefault()` —— 不拦的话那个错误会 abort 掉整个事务，
+ *    后面每一条都读不到。也**必须一次性把所有 get 请求发出去**：事务在没有待处理
+ *    请求又回到事件循环时会自动提交，逐条 await 会把它拖死。
+ *
+ * ⚠️ 只跳过、**不删**那条坏记录（draw.js 那边给了 purge 开关，这边不接）——
+ *    这是读函数，删数据不该发生在这儿。真遇上"脏记录连写事务都被 abort"再说。
+ */
 export function getAllFromStore(store) {
   return new Promise((resolve, reject) => {
     const req = tx(store).getAll();
     req.onsuccess = () => resolve(req.result);
-    req.onerror   = e => reject(e.target.error);
+    // 读不出来 = 库里有坏记录。**不 reject** —— 往下退到那条稳的路，
+    // 原来直接抛，于是"一条坏 → 这个列表永远是空的"，调用方多半还静默吞掉
+    req.onerror   = () => resolve(null);
+  }).then(fast => {
+    if (fast) return fast;                    // 正常路径（空 store 拿到 []，也是 truthy）
+    return new Promise((resolve, reject) => {
+      const kr = tx(store).getAllKeys();
+      kr.onsuccess = () => resolve(kr.result);
+      kr.onerror   = e => reject(e.target.error);   // 连 key 都拿不到 = 连接坏了，照旧抛
+    }).then(keys => {
+      if (!keys.length) return [];
+      const s = tx(store);
+      return Promise.all(keys.map(k => new Promise(res => {
+        const q = s.get(k);
+        q.onsuccess = e => res(e.target.result);
+        q.onerror   = e => { e.preventDefault(); res(undefined); };
+      }))).then(rs => rs.filter(v => v !== undefined));
+    });
   });
 }
 
@@ -127,29 +150,6 @@ export async function getAllUndoneTodos() {
   await openPhoneDB();
   const all = await getAllFromStore('xinye_memo');
   return all.filter(m => m.type === 'todo' && !m.done);
-}
-
-/**
- * 他最近记的笔记（不含待办、不含云端写的「说说」）—— 取出来拼进提示词。
- *
- * 🔴 2026-09-19 加：她那天一晚上在碎碎念里看到**四条「她今天吃了四顿饭…」**
- *    （00:12 / 00:28 / 01:26 / 01:28，同一个意思换了四种说法）。
- *    根因**不是**写入端漏查重 —— 是**模型看不见自己已经记过什么**：
- *    phone_state 的约定是"只输出本轮新增的"，可每一轮它都重新判断一次"今天发生了什么"，
- *    于是把当天最显眼的那件事又写一遍。把最近记过的摆到它眼前（跟云端碎碎念那条路
- *    的 recentPostStr 一个道理），它才有东西可比。
- *
- * ⚠️ 只取最近 `hours` 小时的：几天前记过「今天吃了四顿饭」，今天再记一条是**新的事**，
- *    不该被这条清单吓得不敢写。
- */
-export async function getRecentNotes(limit = 8, hours = 48) {
-  await openPhoneDB();
-  const all = await getAllFromStore('xinye_memo');
-  const cutoff = Date.now() - hours * 3600 * 1000;
-  return all
-    .filter(m => m && m.content && m.type !== 'todo' && m.type !== 'post')
-    .filter(m => { const t = Date.parse(String(m.time || '').replace(/-/g, '/')); return !t || t >= cutoff; })
-    .slice(-limit);
 }
 
 // 单条标记待办为已完成（供 complete_reminder 工具调用）
@@ -197,20 +197,6 @@ export function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
-/** 查重用：最近 NOTE_DUP_WINDOW_MS 内、所有非待办条目的「压掉空白」文本。
- *  ⚠️ 这里的归一化必须跟下面 `_norm(item.content)` 完全一致，否则 Set 比不中、查重形同虚设。 */
-async function _loadSeenNotes(nowMs) {
-  return new Set(
-    (await getAllFromStore('xinye_memo'))
-      .filter(m => m && m.content && m.type !== 'todo')
-      .filter(m => {
-        const t = Date.parse(String(m.time || '').replace(/-/g, '/'));
-        return !t || nowMs - t <= NOTE_DUP_WINDOW_MS;
-      })
-      .map(m => String(m.content || '').replace(/\s+/g, ''))
-  );
-}
-
 // 解析 phone_state，写入IDB
 // turnReceivedImgs: dataUrl[] | null, turnGeneratedDataUrl: string | null
 export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGeneratedDataUrl) {
@@ -230,38 +216,16 @@ export async function parseAndSavePhoneState(rawText, turnReceivedImgs, turnGene
   await openPhoneDB();
   const now = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-');
 
-  // memo（只处理笔记，待办由 set_reminder 工具统一管理）
+  // memo —— 🔴 2026-09-23 起**只收待办**。她那天亲口砍掉了「备忘录笔记」这一类：
+  //    聊天时顺手记的"她说的话 / 今天发生了什么"她不要了 —— 该留的走 [记住:] 进记忆库，
+  //    她想看的只有他自己那一页（说说，云端心跳写的，由 posts.js 拉回来）。
+  //    ⚠️ 待办不受影响，这个出口原样留着。
+  //    提示词改了模型也未必完全听话，多吐出来的 note 在这儿直接丢掉 —— **不落库**是唯一的保证
+  //    （以前那种"同一件事记两三遍"的重复，根子就在这些写入点上）。
   if (data.memo?.items) {
-    // 先把「最近记过的」拉出来，逐字相同的直接跳过（见上面 NOTE_DUP_WINDOW_MS 那段）。
-    // 一次读库就够 —— 下面每一条都在这个集合里比。
-    const _nowMs = Date.now();
-    const _norm = s => String(s || '').replace(/\s+/g, '');
-    let _seenNotes = new Set();
-    try {
-      _seenNotes = await _loadSeenNotes(_nowMs);
-    } catch (e) {
-      // 🔴 2026-09-22：这里原来是一句日志就"跳过查重" —— 于是这一轮他写什么都会原样落库。
-      //    读库失败最常见的原因，跟碎碎念那一页是同一个：**连接被系统回收**
-      //    （`_db` 这个引用还在、拿它开的任何事务都抛，见 openPhoneDB 上面那段）。
-      //    丢掉旧连接重开一条再试一次；两次都不行才退化成"这轮不查重"
-      //    （那时宁可有重复，也不能因为他写了没落库而把内容丢了）。
-      console.log('[碎碎念] 查重读库失败，重开连接再试一次：', e && e.message);
-      try { resetPhoneDB(); _seenNotes = await _loadSeenNotes(_nowMs); }
-      catch (e2) {
-        console.log('[碎碎念] 查重仍然读不出来 —— 这一轮不查重，可能出现重复：', e2 && e2.message);
-      }
-    }
     for (const item of data.memo.items) {
-      if (item.type !== 'todo') {
-        const _key = _norm(item.content);
-        if (!_key) continue;
-        if (_seenNotes.has(_key)) {
-          console.log('[碎碎念] 逐字重复，跳过一条：', String(item.content).slice(0, 30));
-          continue;                       // 12 小时内写过的同一句话，不再落一条
-        }
-        _seenNotes.add(_key);             // 同一轮里他写了两遍也挡住
-        await addRecord('xinye_memo', { type: item.type || 'note', content: item.content, done: false, time: now });
-      }
+      if (item.type !== 'todo' || !item.content) continue;
+      await addRecord('xinye_memo', { type: 'todo', content: item.content, done: false, time: now });
     }
   }
 

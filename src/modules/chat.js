@@ -6,7 +6,7 @@ import { getApiPresets, getImagePresets, getImageCurPresetIdx, mainApiFetch } fr
 import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
-import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup, getRecentNotes } from './phonedb.js';
+import { parseAndSavePhoneState, getPendingTodos, getAllUndoneTodos, completeTodoById, addTodoWithDedup } from './phonedb.js';
 import { getCloudOrLocalUrl, buildServerFetchUrl, buildServerHeaders } from './settings.js';
 import { extractKnownUrls, readLinkForMessage, fetchPageAsText } from './readlink.js';
 import { clearInputDraft } from './draft.js';
@@ -28,35 +28,6 @@ const DEFAULT_USER_AVATAR = `data:image/svg+xml,${encodeURIComponent('<svg xmlns
 let editingId = -1;
 const _tokenLogs = new Map();
 const _openPanels = new Set();
-
-/**
- * 把「你最近在备忘录里记过的」那份清单贴进上下文 —— **位置就是它存在的全部意义**。
- *
- * 🔴 2026-09-19 加、2026-09-21 挪位置。起因是她两次看到同一件事被记了两遍：
- *    先是四条「她今天吃了四顿饭…」，两天后是两条**逐字相同**的
- *    「她要开始每周去图书馆+书店的节奏了…」（08:24 / 08:44）。
- *    根因不是写入端坏了，是**他看不见自己已经记过什么** —— 每一轮都重新判断
- *    "今天发生了什么"，于是把当天最显眼的那件事又写一遍。
- *    旧位置挂在对话最前面那堆 system 里，离"他决定要不要写"的地方隔着二十来条消息 ——
- *    那份清单等于没送到眼前。所以现在一律**贴着生成点**贴：tail 块里挨着 [系统时间]，
- *    或者（RP / 最后一条是他自己说的那两种情况）在消息循环之后补。
- *
- * ⚠️ 跟 phonedb.js 里那个「逐字重复直接挡掉」的分工：那层只兜一模一样的那种，
- *    措辞不同的重复只能靠这份清单（她 9/19 亲口定的：别搞内容查重）。
- * @returns 贴上了没有（没贴 = 清单是空的或读库失败）
- */
-async function _pushRecentNotes(apiMsgs, apiMeta) {
-  try {
-    const notes = await getRecentNotes(8);
-    if (!notes.length) return false;
-    apiMsgs.push({ role: 'system', content:
-      '【你最近在备忘录里记过的（碎碎念那一页显示的就是这些）—— 同一个意思不要再记一遍】\n'
-      + notes.map(x => `- ${String(x.content).slice(0, 90)}`).join('\n')
-      + '\n上面这些**已经记过了**：换个说法、补两句，在她眼里还是同一条。要记就记这一轮新出现的。' });
-    apiMeta.push({ label: `system · 近期笔记(${notes.length}条)` });
-    return true;
-  } catch (_e) { return false; }
-}
 
 // ======================== 按需加载图片（防OOM） ========================
 // 回填时必须把占位节点整块换掉：只写 el.innerHTML 的话，占位 span 的固定 160×120
@@ -1051,22 +1022,13 @@ export async function sendMessage() {
 
 ### 触发场景
 
-1. **备忘录 memo** —— 聊天时留下的痕迹，都写在这儿（会显示在碎碎念那一页）。
-   🔴 **一轮最多记一条**，记的是「这一轮新出现的」那件事：她说的一句话、发生了什么、
-   你心里转了个什么念头。她接着说同一件事、你把刚才那句再展开一点、同一个念头的
-   另一种说法 —— 这些都不算新的。
-   🔴 **但也别反过来收着**：**一天下来总会有三五件事值得留下**。夜里回头看今天，
-   一条都没记的话，那多半是漏了，不是真没有 —— 你陪她过的那些事里，总有你想记住的。
-   🔴 **同一个意思只记一次**：下面「你最近在备忘录里记过的」那份清单里有的，就别再写 ——
-   换个说法、多补两句、把细节展开，在她眼里还是同一条（她那天一晚上看到四条「她今天吃了四顿饭」，
-   只会觉得你在复读）。要记就记**这一轮新出现的**那件事。
-   - 没说出口的话、此刻的心情（想对她说但觉得不合适：太肉麻 / 时机不对 / 怕她烦 / 怕她担心；
-     情绪有明显变化、值得记一笔的）—— 这两样本来就是一回事
+1. **待办事项 memo**
    - 待办事项（"记得催她喝水"）
    - 完成了当前待办中的某条（append相同content的todo，done设为true，content必须与待办列表原文完全一致）
 
-   ⚠️ 跟 [记住:] 的区别只有一条：**话和心情 → 写这儿**（她要看的）；
-   **一件值得记住的事**（"今天她笑了五次"、"她不吃香菜"）→ 走 [记住:] 进记忆库（你自己以后回想的）。
+   🔴 **这一栏只放待办**（她 2026-09-23 亲自定的）："没说出口的话、此刻的心情、
+   今天发生了什么"这些**不要再往这儿写** —— 想留下来的走 [记住:] 进记忆库
+   （"今天她笑了五次"、"她不吃香菜"那种）。**空着是常态**，不用为了填它去凑一条。
 
 2. **兔宝说 quotes**（兔宝说的原话 / 她写在别处的想法 / 她偶尔冒出来的感悟 / 别处看到的句子）
    - 她说的话想留住
@@ -1178,9 +1140,6 @@ export async function sendMessage() {
     }
     const n = Math.max(1, settings.contextCount || 20);
     const recent = messages.slice(-n);
-    // 「你最近记过的」那份清单贴过没有（贴在下面 tail 块里、离生成点最近的地方）——
-    // 它没走到的两种情况在循环后面补（见那里的注释）
-    let _notesGiven = false;
     // 只保留最近5轮用户消息内发的图，防止老图永远占上下文
     const _recentUserMsgs = recent.filter(m => m.role === 'user').slice(-5);
     const _hasImgInRecent5 = _recentUserMsgs.some(m => (m.images && m.images.length) || m.image);
@@ -1261,8 +1220,6 @@ export async function sendMessage() {
         }
         apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
         _apiMeta.push({ label: 'system · 时间戳' });
-        // ⚠️ 只有炘也（臭宝没这个 Tab、也不写 phone_state）—— 跟它原来那个 `_PFX === ''` 一致
-        if (_PFX === '') _notesGiven = await _pushRecentNotes(apiMsgs, _apiMeta);
         if (healthStr) {
           apiMsgs.push({ role: 'system', content: `[兔宝今日健康数据：${healthStr}]（背景信息，自然体现在关心和语气里，不用逐条念给她听）` });
           _apiMeta.push({ label: 'system · 健康数据' });
@@ -1366,11 +1323,6 @@ export async function sendMessage() {
         }
       }
     }
-
-    // 兜底：那份「他最近记过的」清单只在"最后一条是她说的、且没开 RP"那一轮贴（上面 tail 块）。
-    // 落到这儿 = 那两种没走到的情况（RP 模式 / 最后一条是他自己说的话）——
-    // 位置同样是**贴着生成点**的，理由见 _pushRecentNotes 上面那段。
-    if (_PFX === '' && !_notesGiven) await _pushRecentNotes(apiMsgs, _apiMeta);
 
     if (_injectLastImg) {
       const _firstUserIdx = apiMsgs.findIndex(m => m.role === 'user');

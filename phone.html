@@ -228,16 +228,16 @@ import { openPhoneDB, getAllFromStore, addRecord, putRecord, getRecord, deleteRe
 import { saveFile, fmtTime } from './src/modules/utils.js';
 
 // ======================== 标签定义 ========================
-// thought = 碎碎念（备忘录笔记 + 草稿箱 + 心情 合流）
+// post = 说说（他自己写的，云端心跳产出）；老笔记（thought）只在「全部」里翻得到
 const TAGS = [
   { key:'all',     label:'全部',   test: () => true },
-  { key:'thought', label:'碎碎念', test: it => it.tag === 'thought' || it.tag === 'post' },
+  { key:'post',    label:'说说',   test: it => it.tag === 'post' },
   { key:'photos',  label:'相册',   test: it => it.tag === 'photos' },
   { key:'quotes',  label:'兔宝说', test: it => it.tag === 'quotes' },
   { key:'browser', label:'浏览',   test: it => it.tag === 'browser' },
   { key:'todo',    label:'待办',   test: it => it.tag === 'todo' },
 ];
-let _tag = 'all';
+let _tag = 'post';
 let _all = [];        // 归一化后的全部条目（时间倒序）
 let _shown = 0;
 const PAGE = 40;
@@ -841,7 +841,7 @@ function syncAvatar() {
 
 // 兔宝翻他东西了 —— 下一次聊天他会"感知"到（chat.js 读这个 key）
 // 带上她当时在看哪一类，他就能说出"你刚才去翻我相册了"这种具体的
-const TAG2APP = { all: [], thought: ['memo'], photos: ['photos'],
+const TAG2APP = { all: [], post: ['memo'], photos: ['photos'],
                   quotes: ['quotes'], browser: ['browser'], todo: ['memo'] };
 function markVisit(tagKey) {
   const apps = TAG2APP[tagKey ?? _tag] || [];
