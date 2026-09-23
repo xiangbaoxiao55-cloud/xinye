@@ -40,42 +40,48 @@ class DrawDB {
   _p(r){return new Promise((res,rej)=>{r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error)})}
   all(s){return this._p(this._tx(s).getAll())}
   /**
-   * 遍历式读取，**跳过读不出来的记录**（2026-09-23 加）。
+   * 安全遍历，**跳过（purge 时清掉）读不出来的记录**（2026-09-23）。
    *
-   * 为什么不能用 all()：Chromium 会把大图**外置**到站点的 `IndexedDB/*.indexeddb.blob/`
-   * 目录，那个目录一旦被清掉（她 2026-09-21 清 C 盘动过 Edge 的站点数据），记录本身还在
-   * leveldb 里、**但整条读不出来** —— `NotReadableError: Data lost due to missing file`。
-   * 而 `getAll()` 是**一条坏、全军覆没**：于是「画风参考列表永远空 + 保存必失败」。
+   * 背景：Chromium 会把大图**外置**到站点的 `IndexedDB/*.indexeddb.blob/` 目录，那个目录
+   * 被清掉之后（她 2026-09-21 清 C 盘动过 Edge 的站点数据），记录还在 leveldb 里、
+   * **但整条读不出来** —— `NotReadableError: Data lost due to missing file`。
+   * 后果有两层，两层都踩过：
+   *   ① `getAll()` **一条坏、全军覆没** → 列表永远空；
+   *   ② 光"读的时候跳过"不够 —— `put()` 是**写事务**，Chromium 在写事务里碰到那条
+   *      irrecoverable 记录**照样 abort** → 保存依旧失败。**得把那条删掉，库才能自愈。**
+   *   ③ 🔴 连 `openCursor()` 都会失败（游标定位也要读记录）—— 所以跳过式游标**根本跑不起来**，
+   *      这是 2026-09-23 第二轮修复后她那边依旧报错的原因。
    *
-   * 🔴 **purge=true 会顺手把那条坏记录删掉**，别省这一步：irrecoverable 的记录不只是读不到，
-   *    它连整个 store 的**写**都会带崩（Chromium 在写事务里碰到它就 abort）——
-   *    光跳过的话库还是脏的，`db.put()` 照样 `NotReadableError`，
-   *    表现就是「明明加了跳过，还是存不进去」（2026-09-23 在真机上又栽了一次）。
-   *    删掉是唯一的自愈路径；那条记录的图文件早就没了，删它不损失可用内容。
-   *    只在**必须能写**的 store 上开 purge；gallery 那种只读的先用默认值（万一要数据恢复）。
-   *
-   * 用游标而不是逐条 get：gallery 这种几千条的 store，逐条开会把事务数打爆。
+   * 所以顺序是：**先试最快的 getAll() → 失败才退到「只取 key、再逐条读」**。
+   * `getAllKeys()` 只碰 key、不碰内容，坏记录拦不住它 —— 这是唯一稳定的入口。
+   * ⚠️ ② 里那条 `event.preventDefault()` 不能省：get 失败会 abort 整个事务，
+   *    不拦下来的话后面每一条都读不到。也**必须一次性把所有 get 请求发出去**
+   *    （事务在没有待处理请求又回到事件循环时会自动提交，逐条 await 会把它拖死）。
    */
-  allSafe(s, purge=false){
-    return new Promise((res,rej)=>{
-      const out=[], dropped=[];
-      const req=this._tx(s, purge?'readwrite':'readonly').openCursor();
-      req.onsuccess=e=>{
-        const c=e.target.result;
-        if(!c){
-          if(dropped.length) console.warn(`[DrawDB] ${s} 清掉了 ${dropped.length} 条已损坏的记录：`,dropped);
-          return res(out);
-        }
-        try{ out.push(c.value) }
-        catch(err){
-          dropped.push(c.key);
-          console.warn(`[DrawDB] ${s} 有一条记录读不出来（外置图文件被清）：`,c.key,err?.message||err);
-          if(purge){ try{ c.delete() }catch(e2){ console.warn('[DrawDB] ↳ 删除也失败了：',e2?.message||e2) } }
-        }
-        c.continue();
-      };
-      req.onerror=e=>rej(e.target.error);
-    });
+  async allSafe(s, purge=false){
+    try { return await this.all(s) } catch(e) { /* 库里有读不出来的 —— 走下面那条稳的 */ }
+    const keys = await this._p(this._tx(s).getAllKeys());
+    if(!keys.length) return [];
+    const store = this._tx(s);
+    const rs = await Promise.all(keys.map(k => new Promise(res => {
+      const q = store.get(k);
+      q.onsuccess = e => res({ k, v: e.target.result });
+      q.onerror   = e => { e.preventDefault(); res({ k, bad: true }); };
+    })));
+    const out = rs.filter(r => !r.bad).map(r => r.v);
+    const bad = rs.filter(r => r.bad).map(r => r.k);
+    if(bad.length){
+      console.warn(`[DrawDB] ${s} 有 ${bad.length} 条记录读不出来（外置图文件被清）：`, bad);
+      if(purge){
+        const w = this._tx(s, 'readwrite');
+        await Promise.all(bad.map(k => new Promise(res => {
+          const q = w.delete(k);
+          q.onsuccess = q.onerror = () => res();
+        })));
+        console.warn(`[DrawDB] ${s} 已清掉这 ${bad.length} 条，库恢复可写`);
+      }
+    }
+    return out;
   }
   get(s,k){return this._p(this._tx(s).get(k))}
   put(s,o){return this._p(this._tx(s,'readwrite').put(o))}
