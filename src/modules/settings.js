@@ -2067,23 +2067,60 @@ export async function fetchModelList(urlRef, keyRef, modelRef, opts = {}) {
   const url = /\/v\d+$/.test(baseUrl) ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
   toast('⏳ 获取模型列表…');
   try {
-    // 画图预设那边传 proxy/fmt 进来（它没有聊天面板那两个开关）
-    const _useProxy = ('proxy' in opts) ? (opts.proxy && settings.solitudeServerUrl)
-      : ($('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl);
-    const _fmt = opts.fmt || $('#apiPresetApiFormat')?.value || 'openai';
-    const _fetchUrl = _useProxy ? `${settings.solitudeServerUrl.replace(/\/+$/,'')}/api/llm-proxy-get?target=${encodeURIComponent(url)}&key=${encodeURIComponent(apiKey)}` : url;
-    const _fetchOpts = _useProxy ? {} : _fmt === 'anthropic'
-      ? { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } }
-      : { headers: { Authorization: `Bearer ${apiKey}` } };
-    const res = await fetch(_fetchUrl, _fetchOpts);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const models = (data.data || []).map(m => m.id || m).filter(Boolean).sort();
+    const models = await _fetchModelsWithFallback(url, apiKey, opts);
     if (!models.length) { toast('（无可用模型）'); return; }
     _openModelPicker('<i class="ic ic-clipboard"></i> 选择模型', models.map(m => ({ label: m, value: m })), modelRef);
   } catch(e) {
     toast(`❌ 获取失败：${e.message}`);
   }
+}
+
+/**
+ * 拉 /models 列表，按序试几条路，第一条通了就用。
+ *
+ * 为什么要有兜底：**手机上本地服务器地址是空的** → 只能直连 → 而有些站子不给 CORS
+ * （2026-09-06 就记过 linapi.org「手机直连被 CORS 拦」）。所以直连失败时自动改走
+ * 云服务器 / 本地服务器上的 `/api/llm-proxy-get`（server-to-server，没有 CORS 这回事）。
+ * ⚠️ 直连仍是**第一条**：能在本地跑通就别绕远路，也避免悄悄改变原有的成功路径。
+ */
+async function _fetchModelsWithFallback(url, apiKey, opts) {
+  const _parse = async (res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    return (d.data || d.models || []).map(m => m.id || m).filter(Boolean).sort();
+  };
+  const _proxyPath = `/api/llm-proxy-get?target=${encodeURIComponent(url)}&key=${encodeURIComponent(apiKey)}`;
+  // 画图预设那边传 proxy/fmt 进来（它没有聊天面板那两个开关）
+  const _useProxy = ('proxy' in opts) ? (opts.proxy && settings.solitudeServerUrl)
+    : ($('#apiPresetUseProxy')?.checked && settings.solitudeServerUrl);
+  const _fmt = opts.fmt || $('#apiPresetApiFormat')?.value || 'openai';
+  const _directOpts = _fmt === 'anthropic'
+    ? { headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } }
+    : { headers: { Authorization: `Bearer ${apiKey}` } };
+
+  const attempts = [];
+  if (_useProxy) {
+    attempts.push([`${settings.solitudeServerUrl.replace(/\/+$/,'')}${_proxyPath}`, {}]);
+  } else {
+    attempts.push([url, _directOpts]);
+    const srv = getCloudOrLocalUrl();   // 云端优先、本地兜底
+    // ⚠️ buildServerHeaders() 返回的是**头对象本身**，必须包成 { headers } 再给 fetch ——
+    //    直接当 init 传的话 {Authorization:…} 不是合法 init 键，会被静默忽略（云端 401）
+    if (srv) attempts.push([buildServerFetchUrl(srv, _proxyPath), { headers: buildServerHeaders(srv) }]);
+  }
+
+  let lastErr;
+  for (const [u, o] of attempts) {
+    try {
+      const models = await _parse(await fetch(u, o));
+      if (attempts.length > 1 && u !== url) console.log('[模型列表] 直连不通，已改走服务器代理拿到', models.length, '个模型');
+      return models;
+    } catch(e) {
+      lastErr = e;
+      if (attempts.length > 1) console.log(`[模型列表] 这条路没通(${e.message})：${u.slice(0, 70)}`);
+    }
+  }
+  throw lastErr;
 }
 
 // ======================== 识图 API 测试 ========================
