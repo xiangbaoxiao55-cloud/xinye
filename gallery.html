@@ -85,15 +85,16 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
   flex:1;overflow-y:auto;padding:6px 14px 80px;-webkit-overflow-scrolling:touch;
 }
 
-/* ===== Masonry grid (CSS columns) — responsive ===== */
-.masonry{column-count:2;column-gap:10px}
-@media(min-width:500px){.masonry{column-count:3}}
-@media(min-width:800px){.masonry{column-count:4}}
-@media(min-width:1100px){.masonry{column-count:5}}
+/* ===== Masonry grid (flex 列) — 列数由 JS 的 colCount() 决定 =====
+   ⚠️ 不许改回 CSS column-count：多列布局按"平衡列高"填充，内容一变就把已有卡片
+   在列间重新分配（实测追加一批图后十余张卡被搬家、最大位移 2600px 以上），
+   表现就是往下滚时"图变来变去"。flex 列只是往后追加，已有卡片永不移动。 */
+.masonry{display:flex;gap:10px;align-items:flex-start}
+.m-col{flex:1 1 0;min-width:0}
 
 /* ===== Gallery card ===== */
 .g-card{
-  break-inside:avoid;margin-bottom:10px;border-radius:var(--radius-sm);
+  margin-bottom:10px;border-radius:var(--radius-sm);
   overflow:hidden;background:var(--card);box-shadow:var(--shadow);
   cursor:pointer;transition:transform .15s,outline .15s;position:relative;
 }
@@ -239,8 +240,9 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .lb-act.danger{border-color:rgba(255,80,80,.3);color:#ff8a80}
 
 /* ===== Modal / overlay ===== */
+/* ⚠️ z-index 必须高过 .lightbox(9999)：否则在大图里点「标签」，浮板弹在大图底下 = 看不见 */
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;
   display:flex;align-items:flex-end;justify-content:center;
   opacity:0;pointer-events:none;transition:opacity .25s;
 }
@@ -305,7 +307,7 @@ html,body{height:100%;height:100svh;font-family:-apple-system,'PingFang SC','Hir
 .toast{
   position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
   background:rgba(60,30,20,.9);color:#fff;padding:10px 22px;border-radius:20px;
-  font-size:13px;font-weight:500;z-index:10000;
+  font-size:13px;font-weight:500;z-index:10002;
   opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -950,9 +952,68 @@ function switchTag(tagId) {
 // ================================
 //  UI: Masonry Grid
 // ================================
-function renderGrid() {
+// 列数断点（跟以前的 CSS column-count 媒体查询一一对应）
+const COL_BREAKS = [[1100,5],[800,4],[500,3],[0,2]];
+function colCount() {
+  const w = window.innerWidth;
+  for (const [min, n] of COL_BREAKS) if (w >= min) return n;
+  return 2;
+}
+let _colHeights = [];
+
+// 已加载图片的宽高比（id → 'w / h'）。两个用处：
+//  ① 图还没加载出来时卡片就占住正确高度，列分配一开始就是准的
+//  ② 图片滚远被回收清空 src 后，靠 inline aspect-ratio 撑住高度 —— 否则列高塌陷，下方的图会跳
+const _aspectCache = new Map();
+
+// 取（必要时重建）列容器；force=true 时清空重建
+function getColumns(force) {
   const masonry = document.getElementById('masonry');
-  const batch = _displayImages.slice(0, _shownCount + PAGE_SIZE);
+  const n = colCount();
+  if (force || masonry.children.length !== n) {
+    masonry.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('div');
+      c.className = 'm-col';
+      masonry.appendChild(c);
+    }
+    _colHeights = new Array(n).fill(0);
+  }
+  return [...masonry.children];
+}
+
+function syncColHeights() {
+  const masonry = document.getElementById('masonry');
+  [...masonry.children].forEach((c, i) => { _colHeights[i] = c.offsetHeight; });
+}
+
+// 追加一张卡到最矮的列 —— 已有卡片位置不动，这是不"乱跳"的关键
+function appendCard(item, idx, cols) {
+  const box = document.createElement('div');
+  box.innerHTML = cardHtml(item, idx);
+  const el = box.firstElementChild;
+  let ci = 0;
+  for (let i = 1; i < cols.length; i++) if ((_colHeights[i]||0) < (_colHeights[ci]||0)) ci = i;
+  cols[ci].appendChild(el);
+  _colHeights[ci] = (_colHeights[ci]||0) + el.offsetHeight + 10;
+
+  const im = el.querySelector('img');
+  if (im) im.addEventListener('load', () => {
+    if (im.naturalWidth && im.naturalHeight) {
+      const ar = im.naturalWidth + ' / ' + im.naturalHeight;
+      _aspectCache.set(item.id, ar);
+      im.style.aspectRatio = ar;
+    }
+    syncColHeights();
+  });
+  return el;
+}
+
+function renderGrid(keep) {
+  const masonry = document.getElementById('masonry');
+  // keep=true 用于窗口尺寸变化后重排：只重画已显示的，不再多要一批
+  const end = keep ? Math.max(_shownCount, PAGE_SIZE) : _shownCount + PAGE_SIZE;
+  const batch = _displayImages.slice(0, end);
   _shownCount = batch.length;
 
   if (batch.length === 0) {
@@ -962,7 +1023,9 @@ function renderGrid() {
       <div class="desc">${_searchQuery ? '换个关键词试试？' : '点右下角 ＋ 导入图片<br>画图台和聊天画的图也会自动出现'}</div>
     </div>`;
   } else {
-    masonry.innerHTML = batch.map((item, idx) => cardHtml(item, idx)).join('');
+    const cols = getColumns(true);
+    batch.forEach((item, idx) => appendCard(item, idx, cols));
+    syncColHeights();
   }
   document.getElementById('loadMore').style.display = _shownCount < _displayImages.length ? '' : 'none';
   lazyLoadThumbs();
@@ -975,9 +1038,10 @@ function cardHtml(item, idx) {
     : item.source === 'chat' ? '<span class="g-card-source chat">聊天</span>'
     : '<span class="g-card-source imported">导入</span>';
   const sel = _selected.has(item.id) ? ' selected' : '';
+  const ar = _aspectCache.get(item.id);
   return `<div class="g-card${sel}" data-idx="${idx}" data-id="${item.id}" onclick="onCardClick(${idx},event)">
     <div class="sel-check">${_selected.has(item.id)?'✓':''}</div>
-    <img data-id="${item.id}" data-source="${item.source}" loading="lazy" alt="">
+    <img data-id="${item.id}" data-source="${item.source}" loading="lazy" alt=""${ar?` style="aspect-ratio:${ar}"`:''}>
     <button class="g-card-fav ${item.favorite?'on':''}" onclick="event.stopPropagation();onCardFav(${idx})">♥</button>
     ${ps ? `<div class="g-card-info"><div class="g-card-prompt">${esc(ps)}</div><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${src}</div></div>`
     : `<div class="g-card-info"><div class="g-card-bottom"><span class="g-card-date">${fmtDate(item.createdAt)}</span>${src}</div></div>`}
@@ -985,15 +1049,13 @@ function cardHtml(item, idx) {
 }
 
 function loadNextPage() {
-  const masonry = document.getElementById('masonry');
   const start = _shownCount;
   const batch = _displayImages.slice(start, start + PAGE_SIZE);
+  if (!batch.length) return;
   _shownCount = start + batch.length;
-  batch.forEach((item, i) => {
-    const div = document.createElement('div');
-    div.innerHTML = cardHtml(item, start + i);
-    masonry.appendChild(div.firstElementChild);
-  });
+  const cols = getColumns(false);
+  batch.forEach((item, i) => appendCard(item, start + i, cols));
+  syncColHeights();
   document.getElementById('loadMore').style.display = _shownCount < _displayImages.length ? '' : 'none';
   lazyLoadThumbs();
 }
@@ -1490,6 +1552,15 @@ document.getElementById('gridWrap').addEventListener('scroll', function() {
   }
 });
 
+// 宽度变化导致列数变化时重排（只重画已显示的，卡片顺序不变）
+let _lastColCount = 0;
+window.addEventListener('resize', () => {
+  const n = colCount();
+  if (n === _lastColCount) return;
+  _lastColCount = n;
+  if (_displayImages.length) renderGrid(true);
+});
+
 // ================================
 //  Init
 // ================================
@@ -1498,6 +1569,7 @@ async function init() {
   await loadAllImages();
   buildMonthOptions();
   filterImages(); renderGrid(); await renderTagBar();
+  _lastColCount = colCount();
 }
 init();
 </script>
