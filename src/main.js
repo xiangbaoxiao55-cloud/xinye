@@ -80,6 +80,55 @@ if('serviceWorker' in navigator){
 
   window._vConsole = new VConsole({ theme: 'dark' });
   window._vConsole.setSwitchPosition(window.innerWidth / 2, 0);
+  if (!_vcCmdGuard()) setTimeout(_vcCmdGuard, 300);   // vConsole 的 DOM 是同步建的，没赶上就补一次
+
+// ============ vConsole 底部那两行输入框，别让「滑动路过」抢走焦点 ============
+// 兔宝 2026-09-24：「平时我滑动 vConsole 日志的时候，它也老弹键盘出来，每划一下就弹一下」
+// 根因：面板最底下那两行（command… / filter…）是 <textarea class="vc-cmd-input">，
+//      就落在屏幕底部、滑动日志时手指必经的那一带，划过去就会聚焦 → 键盘弹出来；
+//      而且它们一旦展开就一直挂着，之后每次滑动路过都再聚焦一次。
+// 规则：按下去几乎没动就抬起来 ＝ 点击（照常聚焦，命令行照常能用）；
+//      滑动路过 ＝ 什么都不做。两条路都要挡：① 滑动一开始就把已拿到的焦点交还
+//      ② touchend 的合成 click 掐掉（那一下才是聚焦的来源）。
+function _vcCmdGuard() {
+  const root = document.getElementById('__vconsole');
+  if (!root) return false;
+  if (root.__cmdGuard) return true;
+  root.__cmdGuard = true;
+
+  const MOVE = 10;                    // 超过这么多像素就算「滑动」，不算点击
+  let sx = 0, sy = 0, moved = false;
+
+  const inCmd = (el) => !!(el && el.closest && el.closest('.vc-cmd'));
+
+  root.addEventListener('touchstart', (e) => {
+    if (!inCmd(e.target)) return;
+    const t = e.touches[0];
+    if (!t) return;
+    sx = t.clientX; sy = t.clientY; moved = false;
+  }, true);
+
+  root.addEventListener('touchmove', (e) => {
+    if (!inCmd(e.target) || moved) return;
+    const t = e.touches[0];
+    if (!t) return;
+    if (Math.abs(t.clientX - sx) > MOVE || Math.abs(t.clientY - sy) > MOVE) {
+      moved = true;
+      const ae = document.activeElement;          // 上一次误触留下的焦点，立刻还回去
+      if (inCmd(ae)) ae.blur();
+    }
+  }, true);
+
+  root.addEventListener('touchend', (e) => {
+    if (!inCmd(e.target) || !moved) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const ae = document.activeElement;
+    if (inCmd(ae)) ae.blur();
+  }, true);
+
+  return true;
+}
 
 // ======================== 内存监控（诊断用，2026-09-15） ========================
 // 兔宝手机上"用一会儿就卡、最后闪退"，得看到 JS 堆的走势才能分清是「泄漏」（一直涨）
@@ -519,7 +568,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.23-2242';
+  if (_verEl) _verEl.textContent = 'v2026.09.24-1547';
 
   await openDB();
   await migrateFromLocalStorage();
