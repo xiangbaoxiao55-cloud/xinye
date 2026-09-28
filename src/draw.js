@@ -111,6 +111,15 @@ class DrawDB {
   }
 }
 
+// ── 版本号 ───────────────────────────────────────────────────
+// 🔴 这是「当前正在跑的这一份 draw.js 到底是哪一版」的唯一可信来源，显示在底栏角落。
+//    别改成去读 sw.js 的 CACHE_NAME 或 caches.keys() —— 那两个说的是「缓存里存了什么」，
+//    完全可能比正在执行的代码新，反过来骗人（这正是「推了新版、刷新还是老样子」的根源：
+//    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
+//    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
+//    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
+const DRAW_VER='v2026.09.28-1334';
+
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
 const S={
@@ -342,17 +351,25 @@ async function doDraw(){
   if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
   if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
   const n=Math.max(1,Math.min(20,parseInt(document.getElementById('param-count').value)||1));
-  const negPrompt=(document.getElementById('neg-prompt').value||'').trim();
   const size=document.getElementById('param-size').value||'1024x1024';
   const refs=getAllRefs(); // 快照参考图，重roll时复现
   const tplName=S.lastTemplateName;
   const styles=S.selStyles.map(s=>({id:s.style_id,name:s['中文风格名'],tokens:s['English prompt tokens']}));
   const styleRefName=getActiveStyleRef()?.name||null;
   S.lastTemplateName='';
-  _runDrawTask(prompt,negPrompt,size,n,refs,null,tplName,styles,styleRefName);
+  _runDrawTask(prompt,size,n,refs,null,tplName,styles,styleRefName);
 }
 
-async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,styles,styleRefName){
+// 🔴 2026-09-28 去掉负向 Prompt。
+//    它一直是当 `negative_prompt` 字段发出去的（generations 走 JSON、edits 走 FormData），
+//    那是 SD / ComfyUI 那套参数 —— **OpenAI 系的 gpt-image / DALL·E 根本没有**。
+//    对她的站子只有两种结局：被静默忽略（填了等于没填），或者被透传给 OpenAI 换来一个
+//    HTTP 400（画不出来，还看不出原因）。她自己也说从来没分开填过，负向词都写在正向末尾。
+//    → 整条链路拆掉：UI（工作台 / 模板弹窗 / 图库详情 / 任务卡重roll）、请求字段、
+//      以及 personas.defaultNeg（它唯一的用途就是自动填那个框）。
+//    ⚠️ 老的 gallery / tasks 记录里可能还留着 negPrompt 字段，读的时候一律当没有 ——
+//      不要把历史记录当成"这里应该有个值"。
+async function _runDrawTask(prompt,size,n,refs,insertAfter,tplName,styles,styleRefName){
   const res=document.getElementById('draw-results');
   const taskWrap=document.createElement('div');
   taskWrap.className='draw-task';
@@ -393,7 +410,6 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     editDiv.className='draw-task-edit';
     editDiv.innerHTML=`
       <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
-      <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${negPrompt||''}</textarea></div>
       <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
       <div class="dte-actions">
         <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${n}"></label>
@@ -406,7 +422,6 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     editDiv.querySelector('.dte-cancel').onclick=()=>editDiv.remove();
     editDiv.querySelector('.dte-confirm').onclick=()=>{
       const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
-      const newNeg=editDiv.querySelector('.dte-neg').value.trim();
       const newN=Math.max(1,Math.min(20,parseInt(editDiv.querySelector('.dte-count').value)||1));
       const newSrId=editDiv.querySelector('.dte-styleref').value;
       // 重新组合refs：原快照里去掉旧画风参考图，换上新选的
@@ -416,7 +431,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       const newRefs=newSr?[...baseRefs,...newSr.images]:baseRefs;
       const newSrName=newSr?.name||null;
       editDiv.remove();
-      _runDrawTask(newPrompt||prompt,newNeg,size,newN,newRefs,taskWrap,null,styles,newSrName);
+      _runDrawTask(newPrompt||prompt,size,newN,newRefs,taskWrap,null,styles,newSrName);
     };
     editDiv.querySelector('.dte-pos').focus();
   };
@@ -431,7 +446,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     await db.put('templates',{
       id:uid(),name:tname.trim(),personaId:S.curPersonaId||null,
       tokens:[...S.selTokens],styles:tplStyles,
-      prompt,negPrompt,size,createdAt:Date.now()
+      prompt,size,createdAt:Date.now()
     });
     toast(`模版"${tname.trim()}"已保存 ✨`);
   };
@@ -462,7 +477,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     const cancelled={value:false};
     const stopBtn=taskWrap.querySelector('.draw-task-stop');
     stopBtn.onclick=()=>{cancelled.value=true;stopBtn.textContent='已停止';stopBtn.disabled=true;};
-    const jobs=Array.from({length:n},()=>_doSingleDraw(fullPrompt,negPrompt,size,refs,cancelled));
+    const jobs=Array.from({length:n},()=>_doSingleDraw(fullPrompt,size,refs,cancelled));
     const body=taskWrap.querySelector('.draw-task-body');
     body.innerHTML='';
     let done=0;
@@ -480,7 +495,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
       acts.className='result-actions';
       const bSave=document.createElement('button');
       bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
-      bSave.onclick=()=>{saveToGallery(imgData,prompt,negPrompt,size,styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
+      bSave.onclick=()=>{saveToGallery(imgData,prompt,size,styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
       const bDl=document.createElement('button');
       bDl.className='btn-outline btn-sm';bDl.textContent='下载';
       bDl.onclick=()=>{dlImg(imgData);bDl.textContent='已下载 ✓';bDl.className='btn-sm btn-primary';bDl.style.pointerEvents='none'};
@@ -497,7 +512,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
     else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${results[0].reason?.message||'失败'}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
     const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
-    if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,negPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
+    if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
     taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${err.message}</div>`;
     setStatus('失败','err');
@@ -505,7 +520,7 @@ async function _runDrawTask(prompt,negPrompt,size,n,refs,insertAfter,tplName,sty
   }
 }
 
-async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
+async function _doSingleDraw(prompt,size,refs,cancelled){
   const presets=S.drawPresets;
   let startIdx=presets.findIndex(p=>p.id===S.curDrawId);
   if(startIdx<0) startIdx=0;
@@ -518,10 +533,10 @@ async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
       if(i>0) toast(`切备用"${preset.name}"...`,'warn');
       const _refs=refs||getAllRefs();
       let images;
-      if(_refs.length) images=await _callEdits(preset,prompt,negPrompt,size,_refs,1);
+      if(_refs.length) images=await _callEdits(preset,prompt,size,_refs,1);
       else if(preset.format==='nvidia') images=await _callNvidia(preset,prompt,size,1);
       else if(preset.format==='chat') images=await _callChat(preset,prompt,1);
-      else images=await _callGenerations(preset,prompt,negPrompt,size,1);
+      else images=await _callGenerations(preset,prompt,size,1);
       console.log(`[${ts()}] ✅ "${preset.name}" 出图`);
       return {img:images[0],presetName:preset.name};
     }catch(err){lastErr=err;if(presets.length>1) console.warn(`[${ts()}] 预设"${preset.name}"失败:`,err.message)}
@@ -529,13 +544,12 @@ async function _doSingleDraw(prompt,negPrompt,size,refs,cancelled){
   throw lastErr||new Error('所有预设均失败');
 }
 
-async function _callGenerations(preset,prompt,negPrompt,size,n){
+async function _callGenerations(preset,prompt,size,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
   const isAsync=!!preset.asyncMode;
   console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | async=${isAsync} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
-  if(negPrompt) body.negative_prompt=negPrompt;
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/generations`;
   const hdrs={'Content-Type':'application/json','Authorization':`Bearer ${key}`};
@@ -668,7 +682,7 @@ async function _callNvidia(preset,prompt,size,n){
   return results;
 }
 
-async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
+async function _callEdits(preset,prompt,size,refB64s,n){
   const {key,url,model}=preset;
   if(!key||!url) throw new Error(`预设"${preset.name}"未配置Key或URL`);
   const isAsync=!!preset.asyncMode;
@@ -696,7 +710,6 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   }
   fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
-  if(negPrompt) fd.append('negative_prompt',negPrompt);
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/edits`;
   const hdrs={'Authorization':`Bearer ${key}`};
@@ -739,7 +752,7 @@ async function _callEdits(preset,prompt,negPrompt,size,refB64s,n){
   throw new Error('edits API返回格式异常');
 }
 
-async function saveToGallery(imageData,prompt,negPrompt,size,styles){
+async function saveToGallery(imageData,prompt,size,styles){
   const p=S.personas.find(x=>x.id===S.curPersonaId);
   // 入库前先瘦身。原图一张 1536×2048 有 5 MB，一千张就是 5 GB ——
   // 库大到导不出、备不了份，上一次误删就是这么全灭的。
@@ -748,7 +761,7 @@ async function saveToGallery(imageData,prompt,negPrompt,size,styles){
   const thumb=await _makeThumb(imageData,192,0.7)||null;
   await db.put('gallery',{
     id:uid(),personaId:S.curPersonaId||null,personaName:p?.name||null,
-    imageData:big,thumb,prompt,negPrompt,params:{size},rating:0,tags:[],
+    imageData:big,thumb,prompt,params:{size},rating:0,tags:[],
     styles:styles&&styles.length?styles:undefined,
     createdAt:Date.now()
   });
@@ -773,7 +786,7 @@ async function confirmGalleryImport(){
     const thumb=await _makeThumb(raw,192,0.7)||null;
     await db.put('gallery',{
       id:uid(),personaId:null,personaName:source||'外部导入',
-      imageData,thumb,prompt,negPrompt:'',params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
+      imageData,thumb,prompt,params:{size:'—'},rating:0,tags:[],createdAt:Date.now()
     });
   }
   closeModal('modal-gallery-import');
@@ -1501,10 +1514,6 @@ async function generatePromptWithAI(){
     ];
     const result=await callMaster(msgs);
     ta.value=result.trim();
-    if(template?.defaultNeg){
-      const neg=document.getElementById('neg-prompt');
-      if(!neg.value) neg.value=template.defaultNeg;
-    }
     toast('Prompt已生成 ✨');
   }catch(e){
     toast('生成失败：'+e.message,'error');
@@ -2190,10 +2199,6 @@ function selectPersona(id){
   const p=S.personas.find(x=>x.id===id);
   document.getElementById('current-persona-name').textContent=p?.name||'未选择模板';
   document.getElementById('persona-base-prompt').textContent=p?.basePrompt||'（暂无生成指导）';
-  if(p?.defaultNeg){
-    const neg=document.getElementById('neg-prompt');
-    if(!neg.value) neg.value=p.defaultNeg;
-  }
   const qBtn=document.getElementById('btn-edit-persona-quick');
   qBtn.style.display=id?'':'none';
 }
@@ -2220,7 +2225,6 @@ function openPersonaModal(id=null){
   document.getElementById('persona-name-input').value=p?.name||'';
   document.getElementById('persona-icon-input').value=p?.icon||'';
   document.getElementById('persona-base-input').value=p?.basePrompt||'';
-  document.getElementById('persona-neg-input').value=p?.defaultNeg||'';
   document.getElementById('persona-notes-input').value=p?.notes||'';
   document.getElementById('btn-delete-persona').style.display=id?'':'none';
   document.getElementById('modal-persona').style.display='flex';
@@ -2230,11 +2234,13 @@ async function savePersona(){
   const name=document.getElementById('persona-name-input').value.trim();
   if(!name){toast('请输入模板名称','warn');return}
   const existing=editingPid?S.personas.find(p=>p.id===editingPid):null;
+  // {...existing} 是为了**保住历史字段**（比如已废弃的 defaultNeg）——
+  // 用展开而不是逐字段重建，就不会在保存时把老记录里读不出来的东西悄悄抹掉。
   const obj={
+    ...(existing||{}),
     id:editingPid||uid(),name,
     icon:document.getElementById('persona-icon-input').value.trim()||'🎨',
     basePrompt:document.getElementById('persona-base-input').value.trim(),
-    defaultNeg:document.getElementById('persona-neg-input').value.trim(),
     notes:document.getElementById('persona-notes-input').value.trim(),
     createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now()
   };
@@ -2279,7 +2285,6 @@ async function saveTemplate(){
     id:uid(),name:name.trim(),personaId:S.curPersonaId,
     tokens:[...S.selTokens],styles:[...S.selStyles],
     prompt:document.getElementById('final-prompt-edit').value||'',
-    negPrompt:document.getElementById('neg-prompt').value||'',
     size:document.getElementById('param-size').value||'1024x1024',
     createdAt:Date.now()
   });
@@ -2305,7 +2310,6 @@ async function openTemplates(){
         S.selTokens=t.tokens?[...t.tokens]:[];
         S.selStyles=t.styles?[...t.styles]:[];
         if(t.prompt) document.getElementById('final-prompt-edit').value=t.prompt;
-        if(t.negPrompt) document.getElementById('neg-prompt').value=t.negPrompt;
         if(t.size) document.getElementById('param-size').value=t.size;
         if(t.personaId) selectPersona(t.personaId);
         renderSelectedTokens();renderSelectedStyles();
@@ -2339,7 +2343,6 @@ async function openDetail(item){
   document.getElementById('detail-persona').textContent=full.personaName||'无模板';
   document.getElementById('detail-date').textContent=fmt(full.createdAt);
   document.getElementById('detail-prompt').value=full.prompt||'';
-  document.getElementById('detail-neg').value=full.negPrompt||'';
   document.getElementById('detail-params').textContent=`尺寸：${full.params?.size||'—'}`;
   document.getElementById('btn-save-detail-prompt').style.display='none';
   renderStars(full.rating||0);
@@ -2392,7 +2395,6 @@ async function deleteDetail(){
 async function saveDetailPrompt(){
   if(!S.curDetail) return;
   S.curDetail.prompt=document.getElementById('detail-prompt').value.trim();
-  S.curDetail.negPrompt=document.getElementById('detail-neg').value.trim();
   await db.put('gallery',S.curDetail);
   document.getElementById('btn-save-detail-prompt').style.display='none';
   toast('已保存 ✓');
@@ -2400,10 +2402,8 @@ async function saveDetailPrompt(){
 function useDetailPrompt(){
   if(!S.curDetail) return;
   S.curDetail.prompt=document.getElementById('detail-prompt').value.trim();
-  S.curDetail.negPrompt=document.getElementById('detail-neg').value.trim();
   switchTab('studio');
   document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
-  document.getElementById('neg-prompt').value=S.curDetail.negPrompt||'';
   S.selTokens=[];
   if(S.curDetail.styles&&S.curDetail.styles.length){
     S.selStyles=S.curDetail.styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens}));
@@ -3236,6 +3236,10 @@ async function deleteStyle(){
 }
 
 function bindEvents(){
+  // 底栏角落显示当前这份代码的版本号。看到它没变 = 浏览器还在吃旧缓存，
+  // 不是「推了没生效」—— 见文件顶部 DRAW_VER 的注释。
+  const _verEl=document.getElementById('draw-version');
+  if(_verEl) _verEl.textContent=DRAW_VER;
   document.querySelectorAll('.nav-tab').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
   document.getElementById('btn-new-persona').onclick=()=>openPersonaModal();
   document.getElementById('btn-edit-persona-quick').onclick=()=>openPersonaModal(S.curPersonaId);
@@ -3328,11 +3332,11 @@ function bindEvents(){
   document.getElementById('btn-download-detail').onclick=()=>{if(S.curDetail) dlImg(S.curDetail.imageData)};
   document.getElementById('btn-delete-image').onclick=deleteDetail;
   document.getElementById('btn-save-detail-prompt').onclick=saveDetailPrompt;
-  ['detail-prompt','detail-neg'].forEach(id=>{
-    document.getElementById(id).oninput=()=>{
-      document.getElementById('btn-save-detail-prompt').style.display='';
-    };
-  });
+  // 只绑正向（负向那一栏 2026-09-28 已删；写死成数组遍历的话，
+  // getElementById 会返回 null，.oninput 直接抛，后面的绑定全不执行）
+  document.getElementById('detail-prompt').oninput=()=>{
+    document.getElementById('btn-save-detail-prompt').style.display='';
+  };
   document.getElementById('btn-style-ref-manage').onclick=openStyleRefModal;
   document.getElementById('btn-style-ref-clear').onclick=()=>{
     S.curStyleRefId=null;renderStyleRefStrip();
@@ -3486,7 +3490,7 @@ async function restoreTaskCards(){
       img.onclick=()=>openLightbox(imgData);
       const acts=document.createElement('div');acts.className='result-actions';
       const bSave=document.createElement('button');bSave.className='btn-primary btn-sm';bSave.textContent='存图库';
-      bSave.onclick=()=>{saveToGallery(imgData,t.prompt,t.negPrompt,t.size,t.styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
+      bSave.onclick=()=>{saveToGallery(imgData,t.prompt,t.size,t.styles);bSave.textContent='已存 ✓';bSave.style.pointerEvents='none'};
       const bDl=document.createElement('button');bDl.className='btn-sm btn-primary';bDl.textContent='已下载 ✓';bDl.style.pointerEvents='none';
       acts.append(bSave,bDl);wrap.append(img,acts);body.appendChild(wrap);
     }
@@ -3504,7 +3508,6 @@ async function restoreTaskCards(){
       editDiv.className='draw-task-edit';
       editDiv.innerHTML=`
         <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${t.prompt}</textarea></div>
-        <div class="dte-row"><label>负向</label><textarea class="dte-neg" rows="2">${t.negPrompt||''}</textarea></div>
         <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
         <div class="dte-actions">
           <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${t.n}"></label>
@@ -3516,7 +3519,6 @@ async function restoreTaskCards(){
       editDiv.querySelector('.dte-cancel').onclick=()=>editDiv.remove();
       editDiv.querySelector('.dte-confirm').onclick=()=>{
         const newPrompt=editDiv.querySelector('.dte-pos').value.trim();
-        const newNeg=editDiv.querySelector('.dte-neg').value.trim();
         const newN=Math.max(1,Math.min(20,parseInt(editDiv.querySelector('.dte-count').value)||1));
         const newSrId=editDiv.querySelector('.dte-styleref').value;
         const oldSrImages=(S.styleRefs.find(r=>r.name===t.styleRefName)?.images)||[];
@@ -3524,7 +3526,7 @@ async function restoreTaskCards(){
         const newSr=S.styleRefs.find(r=>r.id===newSrId);
         const newRefs=newSr?[...baseRefs,...newSr.images]:baseRefs;
         editDiv.remove();
-        _runDrawTask(newPrompt||t.prompt,newNeg,t.size,newN,newRefs,taskWrap,null,t.styles,newSr?.name||null);
+        _runDrawTask(newPrompt||t.prompt,t.size,newN,newRefs,taskWrap,null,t.styles,newSr?.name||null);
       };
       editDiv.querySelector('.dte-pos').focus();
     };

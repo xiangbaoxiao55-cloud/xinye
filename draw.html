@@ -66,11 +66,6 @@
         </div>
 
         <div class="prompt-section">
-          <div class="section-header"><span>负向 Prompt</span></div>
-          <textarea id="neg-prompt" placeholder="lowres, bad anatomy, watermark..." rows="2"></textarea>
-        </div>
-
-        <div class="prompt-section">
           <div class="section-header" id="tokens-toggle-hdr" style="cursor:pointer">
             <span>词条库（可选附加）</span>
             <button id="btn-add-token" class="btn-tiny" onclick="event.stopPropagation();openAddToken()">+ 添加</button>
@@ -168,7 +163,8 @@
           <button id="btn-save-template" class="btn-outline">存模版</button>
           <button id="btn-load-template" class="btn-outline">读模版</button>
         </div>
-        <div style="display:flex;justify-content:flex-end;padding:4px 0 2px">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:4px 0 2px">
+          <span id="draw-version" title="当前页面实际拿到的版本号。推了新版这里没变，就说明还吃的是缓存 —— 把这个站点的标签页全关掉再打开。" style="font-size:11px;color:var(--sub)"></span>
           <button id="btn-clear-tasks" class="btn-tiny" style="display:none">清空记录</button>
         </div>
       </div>
@@ -248,10 +244,6 @@
     <div class="form-group">
       <label>生成指导（告诉AI用什么风格写Prompt）</label>
       <textarea id="persona-base-input" placeholder="你是专业AI绘画prompt工程师，擅长写真实感人像。收到角色描述和用户想法后，写出高质量英文prompt，突出光影、构图、氛围..." rows="5" style="width:100%"></textarea>
-    </div>
-    <div class="form-group">
-      <label>默认负向 Prompt</label>
-      <textarea id="persona-neg-input" placeholder="lowres, bad anatomy..." rows="2" style="width:100%"></textarea>
     </div>
     <div class="form-group">
       <label>备注</label>
@@ -346,10 +338,6 @@
             <button id="btn-save-detail-prompt" class="btn-tiny" style="display:none">保存</button>
           </div>
           <textarea id="detail-prompt" rows="4" style="width:100%;font-size:12px;color:var(--text);line-height:1.6;resize:vertical"></textarea>
-        </div>
-        <div class="detail-row" style="flex-direction:column;gap:4px">
-          <span class="detail-label">负向</span>
-          <textarea id="detail-neg" rows="2" style="width:100%;font-size:12px;color:var(--text);line-height:1.6;resize:vertical"></textarea>
         </div>
         <div class="detail-row"><span class="detail-label">参数</span><div id="detail-params" class="detail-prompt-text"></div></div>
       </div>
