@@ -13,3 +13,11 @@ data/dashboard.zip
 debug.log
 # WorkBuddy 的工作日志 —— 里面写着用户私事，而 GitHub 仓库是 public（跟 CLAUDE.md / .claude/ 同理）
 .workbuddy-ai/
+
+# 服务端脚本 —— 平时在 D:\tmp\（仓库**外面**，git 本来就看不到），这几行是**防手滑**：
+# 万一哪天有人把它们复制进仓库目录，git 会直接拒绝提交。
+# 两份跑在不同机器上：xinye_server.js 在本机（8787/8788），xinye_cloud.js 在云端。详见 AGENTS.md「部署链」。
+xinye_server*.js
+xinye_cloud*.js
+xinye_monitor*.js
+proxy_token.txt

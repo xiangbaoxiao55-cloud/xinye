@@ -41,14 +41,24 @@
 | 日记 | `diary.html` + `src/modules/diary.js` + `src/diary-today.js` |
 | 炘也的「说说」 | `phone.html`（被 `index.html` / `choubao.html` 用 iframe 嵌进去，底栏文案「含笑花」） |
 | 覆盖层 | `overlay.html` + `src/overlay.js` |
-| 本地开发服务器 | `d:/tmp/xinye_server.js`（PM2 托管，端口 8787 / 8788）—— **不在本仓库** |
+| 本机服务端 | `d:/tmp/xinye_server.js`（PM2 托管，端口 8787 / 8788）—— **不在本仓库**。⚠️ 名字叫"本地"但**是画图链路的生产服务端**，不是玩具 —— 见「部署链」 |
 
 ⚠️ **模块数和文件行数一直在漂 —— 别信任何文档里的数字，现查**（`ls src/modules/`、`wc -l`）。
 
 ## 部署链（两条，别混）
 
 1. **网页（`index.html` / `src/*` / `*.html`）**：push 到 GitHub → 服务器上的定时任务拉取（约 10 分钟内生效）。另一条 Vercel 部署留作回退。
-2. **云端服务脚本**：**不在本仓库**，改完必须由所有者手动上传并重启进程 —— AI 工具通常连不上那台机器。
+2. **服务端脚本分两份，跑在两台不同的机器上 —— 改之前先确认改的是哪一份**（2026-09-28 补，之前有 AI 工具在这里搞混过）：
+
+   | 脚本 | 跑在哪 | 管什么 |
+   |---|---|---|
+   | `d:/tmp/xinye_server.js` | **所有者自己那台电脑**（PM2 进程名 `xinye-server`，端口 **8787** 局域网 / **8788** cpolar 隧道暴露到外网） | **画图相关全在这里**：`/api/proxy-image-generations`、`/api/proxy-image-edits`、`/api/tuzi-proxy/*`、`/api/img-proxy/*`；还有 read-link（微信公众号只有国内 IP 读得到） |
+   | `d:/tmp/xinye_cloud.js`（+ `xinye_monitor.js`） | **云端**（`xinyetb.cn`） | push / posts / llm-proxy / img-proxy / weread-proxy / heartbeat / proactive-messages。**没有画图路由** |
+
+   - 🔴 **别以为"云端还有一份 `xinye_server.js`"** —— 云端没有这个文件，它不在云端跑。
+   - ✅ **改画图相关的服务端代码：改 `d:/tmp/xinye_server.js` → `pm2 restart xinye-server` → 完成，不用上云**（画图链路不经过云端）。
+   - ⚠️ **要改云端那份**（push / posts / llm-proxy…）才需要**所有者手动上传 + 重启进程** —— AI 工具通常连不上那台机器。
+   - ⚠️ 两份**都不在本仓库、也不该进仓库**（本仓库是公开的）。`xinye_server.js` 在本机只有这一份，改它之前先确认有仓库外的备份。
 
 `.vercelignore` 同时是服务器 rsync 的排除清单（一份真相两处用，改它等于同时改两边）。
 
