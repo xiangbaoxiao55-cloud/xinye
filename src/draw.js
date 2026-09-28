@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1848';
+const DRAW_VER='v2026.09.28-1937';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -2499,6 +2499,8 @@ function _buildPresetCard(preset,isActive,type){
     </div>`:'' ;
   // 画质档位：留空=不传（上游默认）。只对 images / edits 两条通道有意义，
   // nvidia / chat 通道的请求体里根本没有 quality 这个字段。
+  // ⚠️ xhigh / max 只有 gpt-image-2.5 系（sunburst / flare）认，切回 gpt-image-2
+  //    或 dall-e-3 时要记得改回来，否则轻则被忽略、重则 400。
   const _qSel=v=>preset.quality===v?'selected':'';
   const qualityRow=type==='draw'?`
     <div class="preset-row"><label title="只对 images / edits 通道生效；留空=不传，由上游自己定">画质</label>
@@ -2509,6 +2511,10 @@ function _buildPresetCard(preset,isActive,type){
           <option value="low" ${_qSel('low')}>low</option>
           <option value="medium" ${_qSel('medium')}>medium</option>
           <option value="high" ${_qSel('high')}>high</option>
+        </optgroup>
+        <optgroup label="仅 2.5 系（sunburst / flare）">
+          <option value="xhigh" ${_qSel('xhigh')}>xhigh</option>
+          <option value="max" ${_qSel('max')}>max</option>
         </optgroup>
         <optgroup label="DALL·E 3">
           <option value="standard" ${_qSel('standard')}>standard</option>

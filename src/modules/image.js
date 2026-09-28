@@ -253,6 +253,11 @@ export async function generateImage(userDesc, opts = {}) {
       const raw = (_preset?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
       const imgModel = _preset?.model || settings.imageModel || 'gpt-image-1';
       const imgFmt = _preset?.apiFormat || settings.imageApiFormat || 'images';
+      // 画质档位（2026-09-28 加）：预设里选过才带，留空=完全不传，走上游服务端默认。
+      //   为什么做成可选而不是写死 high：各上游容忍度不一样 ——
+      //   gpt-image 系认 low/medium/high/auto（2.5 系另有 xhigh/max），dall-e-3 只认 standard/hd，
+      //   传错值轻则被静默忽略、重则直接 HTTP 400 把这张图废掉。
+      const _q = _preset?.quality ? { quality: _preset.quality } : {};
 
       try {
         let imgRes;
@@ -267,6 +272,7 @@ export async function generateImage(userDesc, opts = {}) {
             const f = new FormData();
             f.append('model', imgModel); f.append('prompt', prompt);
             f.append('n', '1'); f.append('size', _size);
+            if (_preset?.quality) f.append('quality', _preset.quality);
             if (_preset?.singleImage && refImgs.length > 1) {
               const _imgs = await Promise.all(refImgs.map(b => new Promise((res, rej) => {
                 const _i = new Image(); _i.onload = () => res(_i); _i.onerror = rej; _i.src = b;
@@ -325,13 +331,13 @@ export async function generateImage(userDesc, opts = {}) {
             try {
               imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
                 method: 'POST', headers: _genH,
-                body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: _size, response_format: 'url', api_format: imgFmt }),
+                body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: _size, response_format: 'url', api_format: imgFmt, ..._q }),
                 signal: ctrl.signal
               });
             } catch(proxyErr) {
               imgRes = await fetch(genEndpoint, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-                body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url' }),
+                body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url', ..._q }),
                 signal: ctrl.signal
               });
             }
@@ -339,7 +345,7 @@ export async function generateImage(userDesc, opts = {}) {
             imgRes = await fetch(genEndpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-              body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url' }),
+              body: JSON.stringify({ model: imgModel, prompt, n: 1, size: _size, response_format: 'url', ..._q }),
               signal: ctrl.signal
             });
           }
@@ -353,7 +359,7 @@ export async function generateImage(userDesc, opts = {}) {
             imgRes = await fetch(genEndpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-              body: JSON.stringify({ model: imgModel, prompt, n: 1 }),
+              body: JSON.stringify({ model: imgModel, prompt, n: 1, ..._q }),
               signal: ctrl.signal
             });
             if (!imgRes.ok) {
@@ -562,12 +568,14 @@ export async function generateImageQuiet(prompt, opts = {}) {
     const raw = (_preset?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
     const imgModel = _preset?.model || settings.imageModel || 'gpt-image-1';
     const imgFmt = _preset?.apiFormat || settings.imageApiFormat || 'images';
+    // 画质档位：预设里选过才带，留空=完全不传（同上，见 generateImage）
+    const _q = _preset?.quality ? { quality: _preset.quality } : {};
     const genEndpoint = /\/v\d+$/.test(raw) ? `${raw}/images/generations` : `${raw}/v1/images/generations`;
     const localUrl = (settings.imageProxyUrl || settings.solitudeServerUrl || '').trim();
     const _direct = () => fetch(genEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${imgKey}` },
-      body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url' }),
+      body: JSON.stringify({ model: imgModel, prompt, n: 1, size: settings.imageSize || '1024x1024', response_format: 'url', ..._q }),
       signal: AbortSignal.timeout(300000),
     });
     // 有参考图时走 /images/edits（multipart）。
@@ -580,6 +588,7 @@ export async function generateImageQuiet(prompt, opts = {}) {
         ? '\n\nArt style reference: match the artistic style of the style reference image provided.' : ''));
       _form.append('n', '1');
       _form.append('size', settings.imageSize || '1024x1024');
+      if (_preset?.quality) _form.append('quality', _preset.quality);
       if (_preset?.singleImage) {
         _form.append('image', await _oneRefBlob(_refs), 'ref.png');
       } else {
@@ -602,7 +611,7 @@ export async function generateImageQuiet(prompt, opts = {}) {
         try {
           imgRes = await fetch(`${localUrl}/api/proxy-image-generations`, {
             method: 'POST', headers: _genH,
-            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: imgFmt }),
+            body: JSON.stringify({ apiUrl: genEndpoint, apiKey: imgKey, model: imgModel, prompt, size: settings.imageSize || '1024x1024', response_format: 'url', api_format: imgFmt, ..._q }),
             signal: AbortSignal.timeout(300000),
           });
         } catch (_pe) {

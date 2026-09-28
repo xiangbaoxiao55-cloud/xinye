@@ -568,12 +568,16 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
 
   const meta = document.createElement('div');
   meta.style.cssText = 'padding:0 10px 6px;font-size:11px;color:var(--sub,#999)';
-  meta.textContent = `${(p.baseUrl || '未配置URL').replace(/^https?:\/\//, '').slice(0, 36)} · ${p.model || '未配置模型'}`;
+  meta.textContent = `${(p.baseUrl || '未配置URL').replace(/^https?:\/\//, '').slice(0, 36)} · ${p.model || '未配置模型'}${p.quality ? ` · 画质 ${p.quality}` : ''}`;
 
   const body = document.createElement('div');
   body.style.cssText = 'padding:8px 10px 4px;border-top:1px solid var(--border,#eee);flex-direction:column;gap:6px;display:none';
   const _selFmt = (v) => (opt) => (v || 'images') === opt ? 'selected' : '';
   const _sf = _selFmt(p.apiFormat);
+  // 画质档位（2026-09-28 加）：留空=不传（上游默认）。只对 images / edits 两条通道有意义，
+  // nvidia / chat 通道的请求体里根本没有 quality 这个字段。
+  // ⚠️ xhigh / max 只有 gpt-image-2.5 系（sunburst / flare）认。
+  const _q = (v) => (p.quality || '') === v ? 'selected' : '';
   body.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px">
       <label style="min-width:40px;font-size:12px">Key</label>
@@ -594,6 +598,26 @@ function _buildImagePresetCard(p, idx, isActive, cardBg, cardBorder) {
         <option value="images" ${_sf('images')}>images（标准）</option>
         <option value="chat" ${_sf('chat')}>chat（部分站子）</option>
         <option value="nvidia" ${_sf('nvidia')}>nvidia（NVIDIA NIM）</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="min-width:40px;font-size:12px" title="只对 images / edits 通道生效；留空=不传，由上游自己定">画质</label>
+      <select data-f="quality" style="flex:1;font-size:12px;padding:5px 8px">
+        <option value="" ${_q('')}>不传（上游默认）</option>
+        <optgroup label="gpt-image 系">
+          <option value="auto" ${_q('auto')}>auto</option>
+          <option value="low" ${_q('low')}>low</option>
+          <option value="medium" ${_q('medium')}>medium</option>
+          <option value="high" ${_q('high')}>high</option>
+        </optgroup>
+        <optgroup label="仅 2.5 系（sunburst / flare）">
+          <option value="xhigh" ${_q('xhigh')}>xhigh</option>
+          <option value="max" ${_q('max')}>max</option>
+        </optgroup>
+        <optgroup label="DALL·E 3">
+          <option value="standard" ${_q('standard')}>standard</option>
+          <option value="hd" ${_q('hd')}>hd</option>
+        </optgroup>
       </select>
     </div>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:2px 0">

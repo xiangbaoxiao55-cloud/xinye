@@ -2014,6 +2014,8 @@ export async function sendMessage() {
           const _imgRaw = (_pCfg?.baseUrl || settings.imageBaseUrl || settings.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
           const _imgModel = _pCfg?.model || settings.imageModel || 'gpt-image-1';
           const _imgFmt = _pCfg?.apiFormat || settings.imageApiFormat || 'images';
+          // 画质档位（2026-09-28 加）：预设里选过才带，留空=完全不传，走上游服务端默认。
+          const _imgQ = _pCfg?.quality ? { quality: _pCfg.quality } : {};
           const _genEp = _imgFmt === 'nvidia' ? _imgRaw : (/\/v\d+$/.test(_imgRaw) ? `${_imgRaw}/images/generations` : `${_imgRaw}/v1/images/generations`);
           const _editsUrl = (() => { const _b = /\/v\d+$/.test(_imgRaw) ? _imgRaw : `${_imgRaw}/v1`; return `${_b}/images/edits`; })();
           const _buildEditsForm = async (mdl) => {
@@ -2022,6 +2024,7 @@ export async function sendMessage() {
             _form.append('prompt', args.prompt);
             _form.append('n', '1');
             _form.append('size', args.size || settings.imageSize || '1024x1024');
+            if (_pCfg?.quality) _form.append('quality', _pCfg.quality);
             if (_pCfg?.singleImage && _compressedRefs.length > 1) {
               const _imgs = await Promise.all(_compressedRefs.map(b => new Promise((res, rej) => {
                 const _i = new Image(); _i.onload = () => res(_i); _i.onerror = rej; _i.src = b;
@@ -2100,14 +2103,14 @@ export async function sendMessage() {
                 try {
                   _imgRes = await fetch(`${_localGenUrl}/api/proxy-image-generations`, {
                     method: 'POST', headers: _gh,
-                    body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url', api_format: _imgFmt }),
+                    body: JSON.stringify({ apiUrl: _genEp, apiKey: _imgKey, model: _imgModel, prompt: args.prompt, size: args.size || settings.imageSize || '1024x1024', response_format: 'url', api_format: _imgFmt, ..._imgQ }),
                     signal: _ctrl.signal
                   });
                 } catch(proxyErr) {
                   _imgRes = await fetch(_genEp, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                    body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: args.size || settings.imageSize || '1024x1024' }),
+                    body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: args.size || settings.imageSize || '1024x1024', ..._imgQ }),
                     signal: _ctrl.signal
                   });
                 }
@@ -2115,7 +2118,7 @@ export async function sendMessage() {
                 _imgRes = await fetch(_genEp, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024' }),
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, size: settings.imageSize || '1024x1024', ..._imgQ }),
                   signal: _ctrl.signal
                 });
               }
@@ -2129,7 +2132,7 @@ export async function sendMessage() {
                 _imgRes = await fetch(_genEp, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_imgKey}` },
-                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1 }),
+                  body: JSON.stringify({ model: _imgModel, prompt: args.prompt, n: 1, ..._imgQ }),
                   signal: _ctrl.signal
                 });
                 if (!_imgRes.ok) {
