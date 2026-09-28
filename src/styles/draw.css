@@ -344,6 +344,12 @@ textarea:focus{border-color:var(--purple)}
 
 /* ── Char ref quick-select ── */
 #ref-char-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+/* 这两行的布局原本一半写在行内 style 里（#custom-ref-strip），那样 :empty 会被行内
+   display:flex 盖掉，所以统一收到这里。 */
+#custom-ref-strip{display:flex;flex-wrap:wrap;gap:6px}
+/* 空的时候不占位。2026-09-28：垫图挪进自己的区块后，没图时这两行空着会留一片空白
+   （.prompt-section 的 gap 对空 div 照样生效）。display:none 的元素不参与 flex gap。 */
+#ref-char-row:empty,#custom-ref-strip:empty{display:none}
 .ref-char-btn{
   display:flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;
   border-radius:20px;border:1px solid var(--border);background:var(--card2);

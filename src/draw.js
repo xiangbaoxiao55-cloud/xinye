@@ -103,12 +103,6 @@ class DrawDB {
   del(s,k){return this._p(this._tx(s,'readwrite').delete(k))}
   async getSetting(k,def=null){const r=await this.get('settings',k);return r?r.value:def}
   setSetting(k,v){return this.put('settings',{key:k,value:v})}
-  async tokensByCategory(){
-    const all=await this.all('tokens');
-    const m={};
-    for(const t of all){(m[t.category]=m[t.category]||[]).push(t)}
-    return m;
-  }
 }
 
 // ── 版本号 ───────────────────────────────────────────────────
@@ -118,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1334';
+const DRAW_VER='v2026.09.28-1405';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -127,7 +121,7 @@ const S={
   characters:[],selCharIds:[],
   aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
   seenScenes:new Set(),seenNsfwScenes:new Set(),
-  selTokens:[],selStyles:[],lastTemplateName:'',
+  selStyles:[],lastTemplateName:'',
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   gallerySelecting:false,gallerySelected:new Set(),
@@ -144,12 +138,6 @@ let _galObserver=null;
 // （一张几 MB，铺多了解码内存就爆）。她翻看老库的过程会把缩略图逐步补上，于是自动变大。
 const _galPageSize=()=>(_galItems[0]&&_galItems[0].thumb)?240:30;
 const GAL_PAGE=30;
-
-const CAT={
-  quality:'质量/风格',character:'人物外形',outfit:'服装',
-  scene:'场景',action:'动作/姿态',expression:'表情/情绪',
-  lighting:'光影',camera:'镜头/构图',effect:'特效',other:'其他'
-};
 
 const STYLE_CAT={
   '材质与表面质感':'M 材质','摄影工艺与影像缺陷':'P 摄影','电影、电视与影像类型':'C 电影',
@@ -170,46 +158,6 @@ const SUBJECT_GROUPS=[
   ['场景',['场景','城市','建筑','自然','风景','室内','房间','街','废墟','太空','海洋','旅行','地图','地点','户外','酒店','餐馆','办公室','酒吧','校园','城堡','遗迹','工地','泳池','仓库','展厅']],
   ['产品',['产品','包装','静物','物件','家具','灯具','汽车','车辆','鞋','香水','美妆','珠宝','首饰','雕塑','玩具','食品','饮料','科技','电子','手机','家电','乐器','文具','厨具','餐具','瓶','杯','服装','服饰','箱包','配饰','配件','礼盒','礼品','周边','医疗','金融']],
   ['平面',['海报','封面','图标','Logo','徽章','字体','卡片','贴纸','广告','视觉','品牌','社媒','菜单','票','邀请函','指南','教程','UI','App','标志','字标','数据','界面','组件','专辑','书']],
-];
-
-const INIT_TOKENS=[
-  {id:'q1',text:'masterpiece',category:'quality'},{id:'q2',text:'best quality',category:'quality'},
-  {id:'q3',text:'ultra-detailed',category:'quality'},{id:'q4',text:'8k',category:'quality'},
-  {id:'q5',text:'anime style',category:'quality'},{id:'q6',text:'illustration',category:'quality'},
-  {id:'q7',text:'digital art',category:'quality'},{id:'q8',text:'oil painting',category:'quality'},
-  {id:'q9',text:'watercolor',category:'quality'},{id:'q10',text:'lineart',category:'quality'},
-  {id:'q11',text:'chibi',category:'quality'},{id:'q12',text:'3D render',category:'quality'},
-  {id:'q13',text:'photorealistic',category:'quality'},{id:'q14',text:'soft focus',category:'quality'},
-  {id:'o1',text:'white dress',category:'outfit'},{id:'o2',text:'school uniform',category:'outfit'},
-  {id:'o3',text:'casual clothes',category:'outfit'},{id:'o4',text:'hoodie',category:'outfit'},
-  {id:'o5',text:'kimono',category:'outfit'},{id:'o6',text:'evening gown',category:'outfit'},
-  {id:'o7',text:'swimsuit',category:'outfit'},{id:'o8',text:'bare shoulders',category:'outfit'},
-  {id:'o9',text:'off-shoulder',category:'outfit'},{id:'o10',text:'pajamas',category:'outfit'},
-  {id:'s1',text:'outdoor',category:'scene'},{id:'s2',text:'indoor',category:'scene'},
-  {id:'s3',text:'forest',category:'scene'},{id:'s4',text:'beach',category:'scene'},
-  {id:'s5',text:'city street',category:'scene'},{id:'s6',text:'cafe',category:'scene'},
-  {id:'s7',text:'bedroom',category:'scene'},{id:'s8',text:'cherry blossoms',category:'scene'},
-  {id:'s9',text:'starry night',category:'scene'},{id:'s10',text:'rainy day',category:'scene'},
-  {id:'a1',text:'standing',category:'action'},{id:'a2',text:'sitting',category:'action'},
-  {id:'a3',text:'lying down',category:'action'},{id:'a4',text:'looking at viewer',category:'action'},
-  {id:'a5',text:'looking away',category:'action'},{id:'a6',text:'hand on hip',category:'action'},
-  {id:'a7',text:'arms crossed',category:'action'},{id:'a8',text:'hugging',category:'action'},
-  {id:'a9',text:'walking',category:'action'},{id:'a10',text:'sleeping',category:'action'},
-  {id:'e1',text:'smile',category:'expression'},{id:'e2',text:'shy',category:'expression'},
-  {id:'e3',text:'serious',category:'expression'},{id:'e4',text:'laughing',category:'expression'},
-  {id:'e5',text:'blush',category:'expression'},{id:'e6',text:'sleepy',category:'expression'},
-  {id:'e7',text:'crying',category:'expression'},{id:'e8',text:'surprised',category:'expression'},
-  {id:'l1',text:'soft lighting',category:'lighting'},{id:'l2',text:'golden hour',category:'lighting'},
-  {id:'l3',text:'dramatic lighting',category:'lighting'},{id:'l4',text:'rim light',category:'lighting'},
-  {id:'l5',text:'moonlight',category:'lighting'},{id:'l6',text:'neon light',category:'lighting'},
-  {id:'l7',text:'candlelight',category:'lighting'},{id:'l8',text:'backlight',category:'lighting'},
-  {id:'c1',text:'portrait',category:'camera'},{id:'c2',text:'full body',category:'camera'},
-  {id:'c3',text:'close-up',category:'camera'},{id:'c4',text:'upper body',category:'camera'},
-  {id:'c5',text:'from above',category:'camera'},{id:'c6',text:'from below',category:'camera'},
-  {id:'c7',text:'dynamic angle',category:'camera'},{id:'c8',text:'wide shot',category:'camera'},
-  {id:'f1',text:'bokeh',category:'effect'},{id:'f2',text:'sparkles',category:'effect'},
-  {id:'f3',text:'petals',category:'effect'},{id:'f4',text:'glitter',category:'effect'},
-  {id:'f5',text:'blur background',category:'effect'},{id:'f6',text:'lens flare',category:'effect'},
 ];
 
 // ── Utils ─────────────────────────────────────────────────────
@@ -262,15 +210,15 @@ function saveBlobBrowser(blob,filename){
 
 function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
-  const tokenPart=S.selTokens.map(t=>t.text).join(', ');
   const stylePart=S.selStyles.map(s=>s['English prompt tokens']).join(', ');
-  // 🔴 2026-09-28 调序：原来是 [主体][词条][风格]。
+  // 2026-09-28 调序：原来是 [主体][词条][风格]。
   //    CLIP 系模型（SD1.5/SDXL）只有 77 token 窗口，超出部分**静默丢弃**，
   //    而词条库里的 masterpiece / best quality / 8k 是最通用、最该被丢的，
   //    却排在风格前面 —— 一旦超长，先丢的恰恰是风格。
   //    改成 [主体][风格][词条]：主体最重要放最前，风格次之，通用质量词殿后。
   //    （对 Seedream/Nano Banana/Flux 这类大窗口模型，顺序本来就无所谓。）
-  return [base,stylePart,tokenPart].filter(Boolean).join(', ');
+  // 2026-09-28 二次：词条库整块删掉（她从来没用过），所以现在只剩 [主体][风格]。
+  return [base,stylePart].filter(Boolean).join(', ');
 }
 
 // 估算 CLIP token（粗略，只用来判断量级，不是精确值）：
@@ -445,7 +393,7 @@ async function _runDrawTask(prompt,size,n,refs,insertAfter,tplName,styles,styleR
     const tplStyles=styles?styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens})):[];
     await db.put('templates',{
       id:uid(),name:tname.trim(),personaId:S.curPersonaId||null,
-      tokens:[...S.selTokens],styles:tplStyles,
+      styles:tplStyles,
       prompt,size,createdAt:Date.now()
     });
     toast(`模版"${tname.trim()}"已保存 ✨`);
@@ -793,12 +741,6 @@ async function confirmGalleryImport(){
   toast(files.length>1?`已存入 ${files.length} 张图片 ✨`:'图片已存入图库 ✨');
   _refreshPendingCount();
   if(document.getElementById('tab-gallery').classList.contains('active')) renderGallery();
-}
-
-function clearTokens(){
-  S.selTokens=[];
-  document.querySelectorAll('.token-tag.selected').forEach(el=>el.classList.remove('selected'));
-  renderSelectedTokens();
 }
 
 async function _refreshPendingCount(){
@@ -1941,55 +1883,6 @@ function renderSidebar(){
   }
 }
 
-async function renderTokens(filter=''){
-  const cats=await db.tokensByCategory();
-  const container=document.getElementById('tokens-categories');
-  container.innerHTML='';
-  const order=['quality','character','outfit','scene','action','expression','lighting','camera','effect','other'];
-  for(const cat of order){
-    let tokens=(cats[cat]||[]);
-    if(filter) tokens=tokens.filter(t=>t.text.toLowerCase().includes(filter.toLowerCase()));
-    if(!tokens.length) continue;
-    tokens.sort((a,b)=>(b.useCount||0)-(a.useCount||0));
-    const sec=document.createElement('div');
-    sec.className='token-section';
-    const hdr=document.createElement('div');
-    hdr.className='token-section-header';
-    hdr.innerHTML=`<span>${CAT[cat]||cat}</span><span class="token-count">${tokens.length}</span>`;
-    hdr.onclick=()=>sec.classList.toggle('collapsed');
-    const grid=document.createElement('div');
-    grid.className='tokens-grid';
-    for(const t of tokens){
-      const tag=document.createElement('span');
-      const sel=S.selTokens.some(s=>s.id===t.id);
-      tag.className='token-tag'+(sel?' selected':'');
-      tag.textContent=t.text;tag.dataset.id=t.id;
-      tag.title=`点击添加 | 已用${t.useCount||0}次 | 右键删除`;
-      tag.addEventListener('click',()=>toggleToken(t));
-      tag.addEventListener('contextmenu',e=>{e.preventDefault();if(confirm(`删除"${t.text}"？`)){db.del('tokens',t.id).then(()=>{S.selTokens=S.selTokens.filter(s=>s.id!==t.id);renderSelectedTokens();renderTokens(document.getElementById('token-search-input').value)})}});
-      grid.appendChild(tag);
-    }
-    sec.append(hdr,grid);container.appendChild(sec);
-  }
-}
-
-function renderSelectedTokens(){
-  const area=document.getElementById('selected-tokens');
-  area.innerHTML='';
-  for(const t of S.selTokens){
-    const chip=document.createElement('span');
-    chip.className='selected-chip';
-    chip.innerHTML=`${t.text}<button class="chip-remove" data-id="${t.id}">×</button>`;
-    chip.querySelector('.chip-remove').addEventListener('click',()=>{
-      S.selTokens=S.selTokens.filter(s=>s.id!==t.id);
-      document.querySelectorAll(`.token-tag[data-id="${t.id}"]`).forEach(el=>el.classList.remove('selected'));
-      renderSelectedTokens();
-    });
-    area.appendChild(chip);
-  }
-  updateFinalPrompt();
-}
-
 // 原本是个空函数（预留给「正向 Prompt 变化后要做什么」）。
 // 2026-09-28 填上：显示拼出来的 prompt 的长度。
 // 2026-09-28 二次修正：不再无条件按 CLIP 的 77 token 报警 —— 那对 gpt-image / DALL·E 用户是假警报。
@@ -2203,19 +2096,6 @@ function selectPersona(id){
   qBtn.style.display=id?'':'none';
 }
 
-function toggleToken(token){
-  const idx=S.selTokens.findIndex(s=>s.id===token.id);
-  if(idx>=0){
-    S.selTokens.splice(idx,1);
-    document.querySelectorAll(`.token-tag[data-id="${token.id}"]`).forEach(el=>el.classList.remove('selected'));
-  }else{
-    S.selTokens.push({id:token.id,text:token.text});
-    document.querySelectorAll(`.token-tag[data-id="${token.id}"]`).forEach(el=>el.classList.add('selected'));
-    db.get('tokens',token.id).then(t=>{if(t){t.useCount=(t.useCount||0)+1;db.put('tokens',t)}});
-  }
-  renderSelectedTokens();
-}
-
 // ── Persona Modal ─────────────────────────────────────────────
 let editingPid=null;
 function openPersonaModal(id=null){
@@ -2261,29 +2141,13 @@ async function deletePersona(){
   toast('模板已删除');
 }
 
-// ── Token Modal ───────────────────────────────────────────────
-function openAddToken(){
-  document.getElementById('token-text-input').value='';
-  document.getElementById('modal-token').style.display='flex';
-  setTimeout(()=>document.getElementById('token-text-input').focus(),100);
-}
-async function saveToken(){
-  const text=document.getElementById('token-text-input').value.trim();
-  if(!text){toast('请输入词条内容','warn');return}
-  const cat=document.getElementById('token-category-select').value;
-  await db.put('tokens',{id:uid(),text,category:cat,useCount:0,createdAt:Date.now()});
-  renderTokens(document.getElementById('token-search-input').value);
-  closeModal('modal-token');
-  toast('词条已添加 ✨');
-}
-
 // ── Template ──────────────────────────────────────────────────
 async function saveTemplate(){
   const name=prompt('模版名称：');
   if(!name?.trim()) return;
   await db.put('templates',{
     id:uid(),name:name.trim(),personaId:S.curPersonaId,
-    tokens:[...S.selTokens],styles:[...S.selStyles],
+    styles:[...S.selStyles],
     prompt:document.getElementById('final-prompt-edit').value||'',
     size:document.getElementById('param-size').value||'1024x1024',
     createdAt:Date.now()
@@ -2300,20 +2164,20 @@ async function openTemplates(){
       const el=document.createElement('div');
       el.className='template-item';
       const styleNames=(t.styles||[]).map(s=>s['中文风格名']||s.name).filter(Boolean);
-      const metaParts=[`${t.tokens?.length||0}个词条`];
+      // 词条库 2026-09-28 整块删掉。老模版里可能还存着 tokens 字段，一律当没有 ——
+      // 不要把历史记录当成"这里应该有个值"。
+      const metaParts=[];
       if(styleNames.length) metaParts.push(styleNames.map(n=>'<i class="ic ic-palette"></i>'+n).join(' '));
       metaParts.push(fmt(t.createdAt));
       el.innerHTML=`<div class="template-name">${t.name}</div><div class="template-meta">${metaParts.join(' · ')}</div><div class="template-actions"></div>`;
       const bLoad=document.createElement('button');
       bLoad.className='btn-primary btn-sm';bLoad.textContent='载入';
       bLoad.onclick=()=>{
-        S.selTokens=t.tokens?[...t.tokens]:[];
         S.selStyles=t.styles?[...t.styles]:[];
         if(t.prompt) document.getElementById('final-prompt-edit').value=t.prompt;
         if(t.size) document.getElementById('param-size').value=t.size;
         if(t.personaId) selectPersona(t.personaId);
-        renderSelectedTokens();renderSelectedStyles();
-        document.querySelectorAll('.token-tag:not(.style-tag)').forEach(el=>el.classList.toggle('selected',S.selTokens.some(s=>s.id===el.dataset.id)));
+        renderSelectedStyles();
         document.querySelectorAll('.style-tag').forEach(el=>el.classList.toggle('selected',S.selStyles.some(s=>s.style_id===el.dataset.sid)));
         closeModal('modal-templates');toast('模版已载入 ✨');
         S.lastTemplateName=t.name;
@@ -2404,11 +2268,10 @@ function useDetailPrompt(){
   S.curDetail.prompt=document.getElementById('detail-prompt').value.trim();
   switchTab('studio');
   document.getElementById('final-prompt-edit').value=S.curDetail.prompt||'';
-  S.selTokens=[];
   if(S.curDetail.styles&&S.curDetail.styles.length){
     S.selStyles=S.curDetail.styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens}));
   }else{S.selStyles=[]}
-  renderSelectedTokens();renderSelectedStyles();renderStyles();
+  renderSelectedStyles();renderStyles();
   closeModal('modal-detail');toast('Prompt已载入工作台'+(S.selStyles.length?' · 风格已恢复':''));
 }
 
@@ -2672,10 +2535,7 @@ function importFromApp(){
 
 async function exportConfig(){
   const personas=await db.all('personas');
-  const allTokens=await db.all('tokens');
   const templates=await db.all('templates');
-  const defaultIds=new Set(INIT_TOKENS.map(t=>t.id));
-  const customTokens=allTokens.filter(t=>!defaultIds.has(t.id));
   const allStyles=await db.all('styles');
   const customStyles=allStyles.filter(s=>s.custom);
   const cfg={
@@ -2683,11 +2543,11 @@ async function exportConfig(){
     drawPresets:S.drawPresets,curDrawId:S.curDrawId,
     masterPresets:S.masterPresets,curMasterId:S.curMasterId,
     personas,curPersonaId:S.curPersonaId,
-    customTokens,templates,customStyles,
+    templates,customStyles,
   };
   const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
   saveBlob(blob,`draw_config_${new Date().toISOString().slice(0,10)}.json`);
-  toast('配置已导出 ✓（包含预设/人设/词条/模版，不含图库）');
+  toast('配置已导出 ✓（包含预设/人设/模版，不含图库和词条）');
 }
 
 async function importConfig(file){
@@ -2698,13 +2558,11 @@ async function importConfig(file){
     if(cfg.drawPresets?.length){S.drawPresets=cfg.drawPresets;S.curDrawId=cfg.curDrawId||cfg.drawPresets[0]?.id}
     if(cfg.masterPresets?.length){S.masterPresets=cfg.masterPresets;S.curMasterId=cfg.curMasterId||cfg.masterPresets[0]?.id}
     if(cfg.personas?.length) for(const p of cfg.personas) await db.put('personas',p);
-    if(cfg.customTokens?.length) for(const t of cfg.customTokens) await db.put('tokens',t);
     if(cfg.customStyles?.length) for(const s of cfg.customStyles) await db.put('styles',s);
     if(cfg.templates?.length) for(const t of cfg.templates) await db.put('templates',t);
     savePresetsToLS();
     loadCfg();
     await loadPersonas();
-    await renderTokens();
     renderDrawPresets();renderMasterPresets();
     toast(`配置已导入 ✓（${cfg._date||''}）`);
   }catch(e){toast('导入失败：'+e.message,'error')}
@@ -2834,7 +2692,6 @@ async function importFullDB(file){
     savePresetsToLS();
     loadCfg();
     await loadPersonas();
-    await renderTokens();
     renderDrawPresets();renderMasterPresets();
     showProgress('');
     if(statusEl) statusEl.style.display='none';
@@ -2870,10 +2727,6 @@ async function loadPersonas(){
   if(S.curPersonaId&&!S.personas.find(p=>p.id===S.curPersonaId)) S.curPersonaId=null;
   if(!S.curPersonaId&&S.personas.length) selectPersona(S.personas[0].id);
   else if(S.curPersonaId) selectPersona(S.curPersonaId);
-}
-async function seedTokens(){
-  const ex=await db.all('tokens');
-  if(!ex.length) for(const t of INIT_TOKENS) await db.put('tokens',{...t,useCount:0,createdAt:Date.now()});
 }
 
 // ── Style Explorer ───────────────────────────────────────────
@@ -3271,18 +3124,6 @@ function bindEvents(){
   document.getElementById('btn-ai-gen').onclick=generatePromptWithAI;
   // 手改正向 Prompt 时也要刷新长度提示（不然只有勾风格才会更新）
   document.getElementById('final-prompt-edit').addEventListener('input',updateFinalPrompt);
-  document.getElementById('tokens-toggle-hdr').onclick=()=>{
-    const col=document.getElementById('tokens-collapsible');
-    const icon=document.getElementById('tokens-toggle-icon');
-    const open=col.style.display==='none';
-    col.style.display=open?'':'none';
-    icon.textContent=open?'▼':'▶';
-    if(open) renderTokens(document.getElementById('token-search-input').value);
-  };
-  document.getElementById('btn-save-token').onclick=saveToken;
-  document.getElementById('btn-cancel-token').onclick=()=>closeModal('modal-token');
-  document.getElementById('token-search-input').oninput=e=>renderTokens(e.target.value);
-  document.getElementById('token-text-input').onkeydown=e=>{if(e.key==='Enter') saveToken()};
   document.getElementById('styles-toggle-hdr').onclick=async()=>{
     const col=document.getElementById('styles-collapsible');
     const icon=document.getElementById('styles-toggle-icon');
@@ -3559,7 +3400,6 @@ async function init(){
     db.open(),
     new Promise((_,rej)=>setTimeout(()=>rej(new Error('打开数据库超时')),6000))
   ]));
-  await step('seedTokens',()=>seedTokens());
   await step('loadCfg',()=>loadCfg());
   await step('loadPersonas',()=>loadPersonas());
   await step('loadCharacters',()=>loadCharacters());
