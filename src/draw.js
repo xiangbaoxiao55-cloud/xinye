@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1503';
+const DRAW_VER='v2026.09.28-1610';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -122,6 +122,11 @@ const S={
   aestheticProfile:'',lastAnalyzedIds:[],allAnalyzedIds:new Set(),
   seenScenes:new Set(),seenNsfwScenes:new Set(),
   selStyles:[],lastTemplateName:'',
+  // 2026-09-28：AI 生成 prompt 时被「糅进 base 文本里」的那批风格 id。
+  //   buildPrompt 不再重复追加它们的原始 tokens —— 否则等于把 4 套互相打架的风格词
+  //   又硬拼到一条已经融合好的 prompt 后面，白糅。
+  //   只在内存里，刷新页面就清空（base 文本本来也不持久化，语义一致）。
+  mergedStyleIds:[],
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   gallerySelecting:false,gallerySelected:new Set(),
@@ -210,7 +215,11 @@ function saveBlobBrowser(blob,filename){
 
 function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
-  const stylePart=S.selStyles.map(s=>s['English prompt tokens']).join(', ');
+  // 2026-09-28：AI 生成时已经糅进 base 的那批风格，这里跳过 —— 不再重复追加原始 tokens。
+  //   理由见 S.mergedStyleIds 的注释。手动勾的风格（没走过 AI 生成）照旧全部拼上。
+  const stylePart=S.selStyles
+    .filter(s=>!S.mergedStyleIds.includes(s.style_id))
+    .map(s=>s['English prompt tokens']).join(', ');
   // 2026-09-28 调序：原来是 [主体][词条][风格]。
   //    CLIP 系模型（SD1.5/SDXL）只有 77 token 窗口，超出部分**静默丢弃**，
   //    而词条库里的 masterpiece / best quality / 8k 是最通用、最该被丢的，
@@ -357,7 +366,7 @@ async function _runDrawTask(prompt,size,n,refs,insertAfter,tplName,styles,styleR
     const editDiv=document.createElement('div');
     editDiv.className='draw-task-edit';
     editDiv.innerHTML=`
-      <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
+      <div class="dte-row"><label>Prompt</label><textarea class="dte-pos" rows="3">${prompt}</textarea></div>
       <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
       <div class="dte-actions">
         <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${n}"></label>
@@ -1435,12 +1444,25 @@ async function generatePromptWithAI(){
   const parts=[];
   if(charDesc) parts.push('角色描述：\n'+charDesc);
   if(S.aestheticProfile) parts.push('用户审美档案：\n'+S.aestheticProfile);
-  // 🔴 2026-09-28 修断链：以前这里只喂「角色 + 审美 + 想画的内容」，**看不到已选风格**，
-  //    于是大师写的 prompt 和她在风格面板勾的画风各写各的（例：prompt 写「油画质感」、
-  //    风格勾「赛璐璐动画」），到出图时才在 buildPrompt() 里硬拼到一起。
+  // 🔴 2026-09-28 二次修断链：原先这里只写了「必须与它们一致」，**没说「合成一条」**。
+  //    AI 看到 N 条风格就理解成「你要 N 张图」，于是每条各写一段，还自己加上
+  //    "Here are the prompts:" 这种前言 —— 出图模型读到「这里有 4 个 prompt」就画了个四宫格。
+  //    现在明确要求糅合成一条，并给出媒介打架时的取舍规则（否则 4 套冲突的画法词堆在一起，
+  //    出图还是散）。
   if(S.selStyles.length){
-    parts.push('【已选定的画风】写 prompt 时必须与它们一致，不要写出冲突的画法/材质/媒介：\n'
-      +S.selStyles.map(s=>`- ${s['中文风格名']}：${s['English prompt tokens']||''}`).join('\n'));
+    const names=S.selStyles.map(s=>s['中文风格名']);
+    let seg='【已选定的画风】下面这些画风要**同时体现在同一张画**里。'
+      +'你必须把它们糅合成**一条**完整的 prompt，而不是一个风格写一条。\n'
+      +S.selStyles.map(s=>`- ${s['中文风格名']}：${s['English prompt tokens']||''}`).join('\n');
+    if(S.selStyles.length>1){
+      seg+='\n\n糅合规则：\n'
+        +'1. 每个风格的核心视觉特征（媒介、材质、色调、光线、质感）都要落到这一条 prompt 里，一个都不能漏。\n'
+        +'2. 如果其中有互相打架的（典型：水墨 / 油画这类「绘画媒介」和 3D 渲染 / 摄影这类「写实媒介」无法并存），'
+        +'以第一条「'+names[0]+'」为主画法，其余风格只借用它们的色调、光线和氛围，'
+        +'不要把冲突的媒介词并列写出来。\n'
+        +'3. 从头到尾只描述同一幅画面、同一个瞬间，不要出现「第一张 / 第二张」这种分张写法。';
+    }
+    parts.push(seg);
   }
   const _sr=getActiveStyleRef();
   if(_sr){
@@ -1449,6 +1471,10 @@ async function generatePromptWithAI(){
       +'\n出图时会一并带上这套参考图，写 prompt 时请配合这个画风，不要指定冲突的画法。');
   }
   parts.push('用户想要画的内容：'+userDesc);
+  // 兜底：就算模板的 basePrompt 写得很随意，这一段也把「一条、别分条、别加前言」钉死。
+  parts.push('输出要求：只输出一条英文 prompt 正文。'
+    +'不要标题、不要编号、不要「Prompt 1 / 2」、不要「Here are the prompts」这类前言，'
+    +'不要解释、不要 markdown 代码块、不要分段换行。');
 
   S.aiGenBusy=true;
   const btn=document.getElementById('btn-ai-gen');
@@ -1463,6 +1489,9 @@ async function generatePromptWithAI(){
     ];
     const result=await callMaster(msgs);
     ta.value=result.trim();
+    // 这批风格已经糅进 base 文本了，记下来让 buildPrompt 别再重复追加它们的 tokens。
+    // （没选风格时这里就是空数组，顺手把上一轮的残留清掉。）
+    S.mergedStyleIds=S.selStyles.map(s=>s.style_id).filter(Boolean);
     toast('Prompt已生成 ✨');
   }catch(e){
     toast('生成失败：'+e.message,'error');
@@ -1890,7 +1919,7 @@ function renderSidebar(){
   }
 }
 
-// 原本是个空函数（预留给「正向 Prompt 变化后要做什么」）。
+// 原本是个空函数（预留给「画图 Prompt 变化后要做什么」）。
 // 2026-09-28 填上：显示拼出来的 prompt 的长度。
 // 2026-09-28 二次修正：不再无条件按 CLIP 的 77 token 报警 —— 那对 gpt-image / DALL·E 用户是假警报。
 //   改成先看当前预设的模型：CLIP 系才按 token 报硬上限；字符系按字符算；
@@ -1904,7 +1933,9 @@ function updateFinalPrompt(){
   const lim=_promptLimit(model);
   const chars=full.length;
   const n=_estTokens(full);
-  const styleN=_estTokens(S.selStyles.map(s=>s['English prompt tokens']).join(', '));
+  // 跟 buildPrompt 保持一致：已经糅进 base 的风格不再重复追加，长度提示里也不该算它们。
+  const styleN=_estTokens(S.selStyles.filter(s=>!S.mergedStyleIds.includes(s.style_id))
+    .map(s=>s['English prompt tokens']).join(', '));
 
   if(lim.unit==='token'){
     // CLIP 系：token 是硬上限，超了真掉词
@@ -2181,6 +2212,7 @@ async function openTemplates(){
       bLoad.className='btn-primary btn-sm';bLoad.textContent='载入';
       bLoad.onclick=()=>{
         S.selStyles=t.styles?[...t.styles]:[];
+        S.mergedStyleIds=[];   // base 整个换了，上一轮的「已糅合」标记跟着作废
         if(t.prompt) document.getElementById('final-prompt-edit').value=t.prompt;
         if(t.size) document.getElementById('param-size').value=t.size;
         if(t.personaId) selectPersona(t.personaId);
@@ -2278,6 +2310,7 @@ function useDetailPrompt(){
   if(S.curDetail.styles&&S.curDetail.styles.length){
     S.selStyles=S.curDetail.styles.map(s=>({style_id:s.id,'中文风格名':s.name,'English prompt tokens':s.tokens}));
   }else{S.selStyles=[]}
+  S.mergedStyleIds=[];   // 换了一份 prompt + 一套风格，融合标记作废
   renderSelectedStyles();renderStyles();
   closeModal('modal-detail');toast('Prompt已载入工作台'+(S.selStyles.length?' · 风格已恢复':''));
 }
@@ -2909,6 +2942,7 @@ function renderSelectedStyles(){
 
 function clearStyles(){
   S.selStyles=[];
+  S.mergedStyleIds=[];   // 风格清空了，上一轮的「已糅合」标记作废
   document.querySelectorAll('.style-tag.selected').forEach(el=>el.classList.remove('selected'));
   renderSelectedStyles();
 }
@@ -3129,7 +3163,7 @@ function bindEvents(){
   };
   document.getElementById('btn-close-chars').onclick=()=>closeModal('modal-chars');
   document.getElementById('btn-ai-gen').onclick=generatePromptWithAI;
-  // 手改正向 Prompt 时也要刷新长度提示（不然只有勾风格才会更新）
+  // 手改画图 Prompt 时也要刷新长度提示（不然只有勾风格才会更新）
   document.getElementById('final-prompt-edit').addEventListener('input',updateFinalPrompt);
   document.getElementById('styles-toggle-hdr').onclick=async()=>{
     const col=document.getElementById('styles-collapsible');
@@ -3379,7 +3413,7 @@ async function restoreTaskCards(){
       const editDiv=document.createElement('div');
       editDiv.className='draw-task-edit';
       editDiv.innerHTML=`
-        <div class="dte-row"><label>正向</label><textarea class="dte-pos" rows="3">${t.prompt}</textarea></div>
+        <div class="dte-row"><label>Prompt</label><textarea class="dte-pos" rows="3">${t.prompt}</textarea></div>
         <div class="dte-row"><label>画风参考</label><select class="dte-styleref"><option value="">无</option>${srOpts}</select></div>
         <div class="dte-actions">
           <label class="dte-count-label">张数<input class="dte-count" type="number" min="1" max="20" value="${t.n}"></label>

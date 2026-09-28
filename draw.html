@@ -41,14 +41,6 @@
         </div>
 
         <div class="prompt-section">
-          <div class="section-header"><span>想画什么？</span></div>
-          <textarea id="user-desc" placeholder="一句话描述你想要的画面..." rows="2"></textarea>
-          <div style="margin-top:8px">
-            <button id="btn-ai-gen" class="btn-primary"><i class="ic ic-sparkles"></i> AI 生成 Prompt</button>
-          </div>
-        </div>
-
-        <div class="prompt-section">
           <div class="section-header">
             <span>角色</span>
             <button id="btn-manage-chars" class="btn-tiny">管理角色</button>
@@ -110,12 +102,23 @@
           <div id="style-ref-strip" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div>
         </div>
 
-        <!-- 正向 Prompt 挪到这一屏的后面：它是「拼装结果」——
+        <!-- 「想画什么」+「AI 生成 Prompt」放在画图 Prompt 正上方：
+             这两块是一对 —— 上面写想法，AI 生成的结果直接落在下面那个框里，
+             一眼就能看到「我说的话 → 生成的 prompt」的对应关系。 -->
+        <div class="prompt-section">
+          <div class="section-header"><span>想画什么？</span></div>
+          <textarea id="user-desc" placeholder="一句话描述你想要的画面..." rows="2"></textarea>
+          <div style="margin-top:8px">
+            <button id="btn-ai-gen" class="btn-primary"><i class="ic ic-sparkles"></i> AI 生成 Prompt</button>
+          </div>
+        </div>
+
+        <!-- 画图 Prompt 放在最后：它是「拼装结果」——
              上面选的角色/风格/画风参考/模板最终都会拼进这里，
              所以顺序跟实际拼接顺序一致（buildPrompt 就是 base → 风格）。 -->
         <div class="prompt-section">
           <div class="section-header">
-            <span>正向 Prompt</span>
+            <span>画图 Prompt</span>
             <button id="btn-copy-prompt" class="btn-tiny">复制</button>
           </div>
           <textarea id="final-prompt-edit" placeholder="AI生成的Prompt会出现在这里，也可以直接编辑..." rows="4"></textarea>
