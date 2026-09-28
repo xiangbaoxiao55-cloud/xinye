@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-2254';
+const DRAW_VER='v2026.09.28-2306';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -156,6 +156,50 @@ const STYLE_CAT={
   '时装、亚文化与人物造型':'F 时装','玩具、产品与收藏品呈现':'T 产品'
 };
 const STYLE_LIB_VER=1;
+
+// ── 「写实」风格（2026-09-28 补）───────────────────────────────
+// 🔴 她问「风格里是不是缺少一个"写实"选项？AI 帮我选里没有写实可选」—— 是的，缺。
+//    上游 handraw-style 专门有这一张牌（build_tutorial_gallery.py 里的 REALISTIC_ITEM，
+//    id:'realistic'，配图 images/realistic.webp）。它的定位很特殊：
+//      · 是**名称风格**，不走编号展开（上游 SKILL.md 第 78 行：「若写名称则按用户的来，如：写实」）；
+//      · 主要用途是**跟手绘风格配出最大反差**（上游 SKILL.md 开头：「支持融合两套不同手绘风格编号，
+//        或融合**手绘风格编号与写实风格**」）。
+//    我们库里 620 条全是编号风格（M/P/C/A/G/R/D/S/F/T + 数字），所以「AI 帮我选」怎么筛都筛不到它。
+//
+// ⚠️ 为什么单独一个种子函数、不走 seedStyles()：
+//    seedStyles() 的闸门是 `styles_lib_version >= STYLE_LIB_VER` —— **一次性版本闸门**。
+//    她机器上早就种过了（ver 已是 1），往 JSON 里再加数据它**永远不会重跑**。
+//    所以这里做成**幂等**的：每次 init 都 put 一遍。
+//    （keyPath 是 style_id，重复 put 是覆盖不是新增，不会堆积。）
+// ⚠️ `类别` 必须是 STYLE_CAT 的键 —— renderStyles() 只遍历 Object.keys(STYLE_CAT) 分组，
+//    键不在表里的条目会**静默不显示**（看着像没加成功）。这里用「摄影工艺与影像缺陷」→ P 摄影组。
+const REALISTIC_STYLE={
+  style_id:'RT001',
+  中文风格名:'写实',
+  类别:'摄影工艺与影像缺陷',
+  'English prompt tokens':'Realistic photography / Cinematic photorealism',
+  参考:'写实摄影 / 真实电影质感摄影',
+  '适合主体':'人像、情侣、旅拍、写真、纪实、产品实拍 —— 任何要真实质感的场景',
+  '视觉DNA / 关键词':'真实皮肤与毛发质感、自然光、浅景深、胶片颗粒、纪实抓拍感',
+  '材质/色彩/光线':'真实材质、自然光或现场光、低饱和或胶片色',
+  '建议强度':'与手绘风格融合时当【场景视觉语言】，反差不做中间调和',
+  '组合角色':'手绘 / 插画风格当【角色视觉语言】（反差越大越好）',
+  容易翻车:'单独使用时画面容易平淡，得靠构图和主题撑',
+  补救提示:'加「自然光、浅景深、纪实抓拍」这类词',
+  示例短语:'写实摄影，情侣旅拍，自然光',
+  isRealistic:true,        // ← _buildFusionPrompt().expand() 靠这个标记走「名称风格」分支
+  builtin:true,            // ← 带这个标记的条目 UI 里不给删（见 removeStyle）
+  custom:false,
+  来源:'handraw-style 的 REALISTIC_ITEM（名称风格）',
+  导入于:'2026-09-28'
+};
+
+// 幂等写入。用户若自己改了同 id 的条目会被覆盖回来 —— 但 RT001 是 builtin，
+// UI 里本来就不给删不给改，所以不存在"覆盖掉她的手改"这回事。
+async function seedRealisticStyle(){
+  try{ await db.put('styles',REALISTIC_STYLE) }
+  catch(e){ console.warn('[styles] 写实风格写入失败:',e.message) }
+}
 
 // ── 风格融合（2026-09-28 加）──────────────────────────────────
 // 数据源：上游仓库 handraw-style 的 skills/style-fusion-prompter/SKILL.md。
@@ -310,11 +354,21 @@ function buildPrompt(){
 //   特征词用 `English prompt tokens` 而不是 `中文特征` —— 前者是给模型看的紧凑视觉词，
 //   后者是给她看的中文说明（里面还有"避免统一的可爱微笑"这类**给提示词工程师的建议**，
 //   塞进生图 prompt 会被模型当成画面要求，反而添乱）。
-function _fusionTheme(){
-  const d=(document.getElementById('user-desc')?.value||'').trim();
-  if(d) return d;
-  // 「想画什么」空着时退到画图 Prompt 框里的内容 —— 她有时直接把主题写在那儿
+// 🔴 2026-09-28 改（她指出后）：融合 prompt **必须带上「画图 Prompt」框里的内容**。
+//   改前这里把那个框整个丢了（只当【主题】兜底），但她的习惯恰恰是把画面描述写在那框里、
+//   「想画什么」只写一句话 —— 结果那段描述白写了，出图和她的预期对不上。
+//   现在跟非融合模式位置一致：**原样放在最前面**，作为画面主体描述。
+function _fusionBase(){
   return (document.getElementById('final-prompt-edit')?.value||'').trim();
+}
+// 【主题】只取「想画什么」。上游对【主题】的要求是"克制、忠实，严禁扩写成长篇剧情动作"，
+//   所以那段长描述走上面的 base，不进【主题】。
+function _fusionTheme(){
+  return (document.getElementById('user-desc')?.value||'').trim();
+}
+// 融合 prompt 有没有东西可拼：画面描述（画图 Prompt 框）或主题，有一个就行。
+function _fusionHasContent(){
+  return !!(S.fusionMode && S.selStyles.length>=2 && (_fusionBase()||_fusionTheme()));
 }
 
 // 从尺寸下拉框反推画幅比例（1536x2048 → 3:4）。上游模板里【画幅比例】是必填槽位，
@@ -336,8 +390,9 @@ function _buildFusionPrompt(){
   // 让 doDraw 去报错，而不是拼一条只有半边的 prompt 出去。
   if(S.selStyles.length<2) return '';
   const [charStyle,sceneStyle]=S.selStyles;
+  const base=_fusionBase();
   const theme=_fusionTheme();
-  if(!theme) return '';
+  if(!base && !theme) return '';
 
   // 单个风格 → 「生图方式」展开（上游第 4 条：填编号时完整展开，不许压缩）
   const expand=s=>{
@@ -345,6 +400,21 @@ function _buildFusionPrompt(){
     const name=String(s['中文风格名']||'').replace(/^#\d+\s*/,'');
     const ref=s['原作者']||name;
     const traits=s['English prompt tokens']||'';
+    // 🔴「写实」是上游特意做成「名称风格」的特例：**不走编号展开，直接写名字**。
+    //   上游 SKILL.md 第 78 行原文（槽位行模板）：
+    //     「{若写名称则按用户的来，如：写实；若填编号则按生图方式展开：
+    //       #{number} {generation_name}。参考作者/风格名称：{reference}。核心风格特征：{traits}。}」
+    //   —— 「。参考作者…。核心风格特征：…。」这一串是**编号分支**的，名称分支就是光秃秃一个名字。
+    //   还有一条：「严禁擅自添枝加叶，严禁扩写任何具体环境场景、景深光影或镜头描述」。
+    //   所以这里只给名字，不加 `#NNN`、不加「参考作者」、不加「核心风格特征」。
+    //   ⚠️ 但也不该只写「写实」两个字 —— 他们英文模板（第 108 行）给的例子是
+    //      "Realistic photography / Cinematic photorealism"，中文侧对应 REALISTIC_ITEM.ref
+    //      的「写实摄影 / 真实电影质感摄影」。用这串既没扩写场景/光影/镜头，又是他们的原话。
+    if(s.isRealistic){
+      return zh
+        ? (s['参考']||'写实摄影 / 真实电影质感摄影')
+        : (s['English prompt tokens']||'Realistic photography / Cinematic photorealism');
+    }
     return zh
       ? `#${num} ${name}。参考作者/风格名称：${ref}。核心风格特征：${traits}。`
       : `#${num} ${name}. Reference author/style: ${ref}. Core style traits: ${traits}.`;
@@ -360,30 +430,27 @@ function _buildFusionPrompt(){
   const wsText=zh?wsRow[2]:wsRow[3];
   const ratio=_aspectRatioOf(document.getElementById('param-size')?.value);
 
-  const lines=zh
-    ? [
-        `生成一幅“角色视觉语言 × 场景视觉语言”共存的跨媒介融合画面。`,
-        `- 【角色视觉语言】：${expand(charStyle)}`,
-        `- 【场景视觉语言】：${expand(sceneStyle)}`,
-        `- 【主题】：${theme}`,
-      ]
-    : [
-        `Generate a cross-media fusion artwork where "Character Visual Language × Scene Visual Language" coexist.`,
-        `- [Character Visual Language]: ${expand(charStyle)}`,
-        `- [Scene Visual Language]: ${expand(sceneStyle)}`,
-        `- [Theme]: ${theme}`,
-      ];
+  const lines=[];
+  // ① 画面主体描述（「画图 Prompt」框里的内容）放最前面 —— 跟非融合模式位置一致
+  if(base) lines.push(base);
+  // ② 融合结构行
+  lines.push(zh
+    ? `生成一幅“角色视觉语言 × 场景视觉语言”共存的跨媒介融合画面。`
+    : `Generate a cross-media fusion artwork where "Character Visual Language × Scene Visual Language" coexist.`);
+  lines.push(zh?`- 【角色视觉语言】：${expand(charStyle)}`:`- [Character Visual Language]: ${expand(charStyle)}`);
+  lines.push(zh?`- 【场景视觉语言】：${expand(sceneStyle)}`:`- [Scene Visual Language]: ${expand(sceneStyle)}`);
+  if(theme) lines.push(zh?`- 【主题】：${theme}`:`- [Theme]: ${theme}`);
   if(moodNames.length) lines.push(zh?`- 【情绪】：${moodNames.join(' / ')}`:`- [Mood]: ${moodNames.join(' / ')}`);
   if(ratio) lines.push(zh?`- 【画幅比例】：${ratio}`:`- [Aspect Ratio]: ${ratio}`);
   if(wsText) lines.push(wsText);
 
+  // ③ 逐字附上固定的「共存契约」尾段
   return lines.join('\n')+'\n\n'+(zh?_FUSION_CONTRACT_ZH:_FUSION_CONTRACT_EN);
 }
 
 // 给融合面板显示「现在会拼成什么」的摘要（不是完整 prompt，完整 prompt 在画图 Prompt 框里）。
 function _fusionSummary(){
-  const desc=(document.getElementById('user-desc')?.value||'').trim();
-  const box=(document.getElementById('final-prompt-edit')?.value||'').trim();
+  const base=_fusionBase();
   const theme=_fusionTheme();
   const ratio=_aspectRatioOf(document.getElementById('param-size')?.value);
   const parts=[];
@@ -393,23 +460,25 @@ function _fusionSummary(){
   if(S.selStyles.length>2) parts.push(`<span style="color:var(--warn)">（还有 ${S.selStyles.length-2} 个没用上，融合只用前 2 个）</span>`);
   const line1=parts.join(' &nbsp;·&nbsp; ');
   const line2=[];
-  if(!theme){
-    line2.push('主题：<span style="color:var(--warn)">还没写 —— 去上面「想画什么」里写一句</span>');
-  }else if(desc){
-    line2.push(`主题：${escHtml(theme)}`);
-  }else{
-    // 兜底来源要说清楚，否则她会以为"我明明写在画图 Prompt 里了怎么没生效"
-    line2.push(`主题（取自「画图 Prompt」框）：${escHtml(theme)}`);
-  }
+  // 主题是可选的（上游里它是"核心灵魂"，但我们已经把画面描述走 base 那条路了，
+  // 所以只写一句话主题也行、不写也行）
+  line2.push(theme
+    ? `主题：${escHtml(theme)}`
+    : '主题：<span style="color:var(--sub)">（没写，可去「想画什么」补一句）</span>');
   if(S.fusionMoods.length) line2.push(`情绪：${escHtml(S.fusionMoods.join(' / '))}`);
   line2.push(`留白：${FUSION_WS_LABEL[S.fusionWhitespace]||'正常'}`);
   if(ratio) line2.push(`画幅：${ratio}`);
   const line3=[];
-  // 🔴 融合模式下画图 Prompt 框**只当主题兜底**，不会整段拼进去。
-  //    她要是往那儿粘了一大段（比如从图库载入的 prompt），必须明说没被用上，
-  //    不能让她以为"点了没反应"。
-  if(desc && box){
-    line3.push('<span style="color:var(--warn)">注意：「画图 Prompt」框里那段这次不会拼进去（融合只用「想画什么」当主题）</span>');
+  // 画面描述来自哪、有没有 —— 说清楚，别让她猜"我写的东西到底用上了没"。
+  // ⚠️ 三种情况要分开说：有 / 只有主题 / 两边都空。
+  //    以前只有「有」和「空」两档，两边都空时还会说"可以只靠上面那句主题出图"——
+  //    可那时主题也是空的，等于在骗她。
+  if(base){
+    line3.push(`<span style="color:var(--sub)">画面描述：「画图 Prompt」框那段（${base.length} 字符）会拼在最前面</span>`);
+  }else if(theme){
+    line3.push('<span style="color:var(--warn)">画面描述：空 —— 「画图 Prompt」框里还没内容（这次会只靠上面那句主题出图）</span>');
+  }else{
+    line3.push('<span style="color:var(--warn)">画面描述：空 —— 「画图 Prompt」和「想画什么」都还是空的，先写一个</span>');
   }
   return line1+'<br>'+line2.join(' &nbsp;·&nbsp; ')+(line3.length?'<br>'+line3.join('<br>'):'');
 }
@@ -507,7 +576,10 @@ async function doDraw(){
   // 她看到的是「先在工作台生成或填写Prompt」，完全指不到点上。
   if(S.fusionMode){
     if(S.selStyles.length<2){toast('风格融合要先勾 2 个风格：第 1 个当角色、第 2 个当场景','warn');return}
-    if(!_fusionTheme()){toast('风格融合要先写【主题】—— 在「想画什么」里写一句','warn');return}
+    // 2026-09-28 改：以前这里只认【主题】（「想画什么」）。
+    //   但她的习惯是把画面描述写在「画图 Prompt」框里（或先点「AI 生成 Prompt」让它写进去），
+    //   「想画什么」只留一句话 —— 结果那段描述被无视了。现在两个有**任意一个**就放行。
+    if(!_fusionHasContent()){toast('风格融合还缺画面内容 —— 「想画什么」或「画图 Prompt」里写一句都行','warn');return}
   }
   const prompt=buildPrompt();
   if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
@@ -1662,19 +1734,40 @@ async function generatePromptWithAI(){
   //    现在明确要求糅合成一条，并给出媒介打架时的取舍规则（否则 4 套冲突的画法词堆在一起，
   //    出图还是散）。
   if(S.selStyles.length){
-    const names=S.selStyles.map(s=>s['中文风格名']);
-    let seg='【已选定的画风】下面这些画风要**同时体现在同一张画**里。'
-      +'你必须把它们糅合成**一条**完整的 prompt，而不是一个风格写一条。\n'
-      +S.selStyles.map(s=>`- ${s['中文风格名']}：${s['English prompt tokens']||''}`).join('\n');
-    if(S.selStyles.length>1){
-      seg+='\n\n糅合规则：\n'
-        +'1. 每个风格的核心视觉特征（媒介、材质、色调、光线、质感）都要落到这一条 prompt 里，一个都不能漏。\n'
-        +'2. 如果其中有互相打架的（典型：水墨 / 油画这类「绘画媒介」和 3D 渲染 / 摄影这类「写实媒介」无法并存），'
-        +'以第一条「'+names[0]+'」为主画法，其余风格只借用它们的色调、光线和氛围，'
-        +'不要把冲突的媒介词并列写出来。\n'
-        +'3. 从头到尾只描述同一幅画面、同一个瞬间，不要出现「第一张 / 第二张」这种分张写法。';
+    if(S.fusionMode){
+      // 🔴 2026-09-28：融合模式**不能**走下面那套「糅合成一条」的规则 —— 两者的目标正好相反。
+      //    非融合：N 个风格 → 糅成一种中间画法（冲突时以第一条为主，其余只借色调）。
+      //    融合　：2 个风格 → **两套视觉语言解耦共存**（① 用在角色上、② 用在场景上）。
+      //    如果这里还按"糅合"去要求，AI 写出来的描述会和后面槽位行的「共存」要求打架。
+      //    另外这里**不要**让 AI 把画风词写进描述里：画风由 _buildFusionPrompt 另外拼成槽位行，
+      //    写进来就重复了。AI 只负责写画面本身（有什么、在做什么、怎么构图）。
+      const [c0,s0]=S.selStyles;
+      let seg='【风格融合 · 两套视觉语言】这次做的是「角色视觉语言 × 场景视觉语言」的跨媒介融合，'
+        +'两种画风要在同一张画面里**同时清晰可辨地共存**。\n'
+        +'⚠️ 注意：这不是"把两者糅成一种中间画法"，而是**各管各的** —— '
+        +'一套用在人物/主体上，另一套用在环境/背景上。\n'
+        +`- ① 角色视觉语言（人物/主体）：${c0['中文风格名']}｜${c0['English prompt tokens']||''}\n`;
+      if(s0) seg+=`- ② 场景视觉语言（环境/背景）：${s0['中文风格名']}｜${s0['English prompt tokens']||''}\n`;
+      if(S.selStyles.length>2) seg+=`（另外还勾了 ${S.selStyles.length-2} 个，融合只用前 2 个，请忽略）\n`;
+      seg+='\n你这次**只写画面描述**：画面里有什么、人物在做什么、环境长什么样、什么构图和视角。'
+        +'**不要在描述里出现画风、媒介、笔触、材质、渲染方式这类词** —— '
+        +'两套画风会由系统接在描述后面另外拼上，你写进来会重复，还可能跟「共存」的要求冲突。';
+      parts.push(seg);
+    } else {
+      const names=S.selStyles.map(s=>s['中文风格名']);
+      let seg='【已选定的画风】下面这些画风要**同时体现在同一张画**里。'
+        +'你必须把它们糅合成**一条**完整的 prompt，而不是一个风格写一条。\n'
+        +S.selStyles.map(s=>`- ${s['中文风格名']}：${s['English prompt tokens']||''}`).join('\n');
+      if(S.selStyles.length>1){
+        seg+='\n\n糅合规则：\n'
+          +'1. 每个风格的核心视觉特征（媒介、材质、色调、光线、质感）都要落到这一条 prompt 里，一个都不能漏。\n'
+          +'2. 如果其中有互相打架的（典型：水墨 / 油画这类「绘画媒介」和 3D 渲染 / 摄影这类「写实媒介」无法并存），'
+          +'以第一条「'+names[0]+'」为主画法，其余风格只借用它们的色调、光线和氛围，'
+          +'不要把冲突的媒介词并列写出来。\n'
+          +'3. 从头到尾只描述同一幅画面、同一个瞬间，不要出现「第一张 / 第二张」这种分张写法。';
+      }
+      parts.push(seg);
     }
-    parts.push(seg);
   }
   const _sr=getActiveStyleRef();
   if(_sr){
@@ -1770,10 +1863,16 @@ function _fmtStyleForMaster(s){
   const L=[`- ${s.style_id}｜${s['中文风格名']}${s['类别']?'（'+s['类别']+'）':''}`];
   if(s['English prompt tokens']) L.push(`  tokens: ${s['English prompt tokens']}`);
   if(s['视觉DNA / 关键词'])     L.push(`  视觉DNA: ${s['视觉DNA / 关键词']}`);
+  // 2026-09-28 补：从 HD 配置导入的风格（draw_config_handraw279.json）字段集不一样 ——
+  //   它们没有「视觉DNA / 关键词」，但有「中文特征」。不补这一行，大师看到的就是
+  //   「编号 + 名字 + tokens」，缺了最能说明"这风格长什么样"的那段中文描述。
+  if(s['中文特征'])             L.push(`  中文特征: ${s['中文特征']}`);
   if(s['材质/色彩/光线'])       L.push(`  材质/色彩/光线: ${s['材质/色彩/光线']}`);
   if(s['适合主体'])             L.push(`  适合主体: ${s['适合主体']}`);
   if(s['组合角色'])             L.push(`  组合角色: ${s['组合角色']}`);
   if(s['建议强度'])             L.push(`  建议强度: ${s['建议强度']}`);
+  // 「写实」是名称风格，展开方式和编号风格不一样 —— 不告诉她，大师会硬编一个编号出来。
+  if(s.isRealistic)             L.push('  ⚠️ 这是「名称风格」：直接用名字（写实摄影 / 真实电影质感摄影），不要编编号、不要展开');
   return L.join('\n');
 }
 
@@ -2227,11 +2326,11 @@ function updateFinalPrompt(){
   if(!full){
     el.textContent='';
     el.removeAttribute('title');
-    // 融合模式下空 prompt 基本只有一个原因：还没勾满 2 个风格 / 还没写主题。
+    // 融合模式下空 prompt 只有两个原因：没勾满 2 个风格 / 画面内容和主题都没写。
     // 在长度提示那一行直接说清楚，省得她去猜。
     if(S.fusionMode){
       if(S.selStyles.length<2){ el.textContent='融合还需要再勾 '+(2-S.selStyles.length)+' 个风格'; el.style.color='var(--warn)'; }
-      else { el.textContent='融合还缺【主题】—— 去上面「想画什么」里写一句'; el.style.color='var(--warn)'; }
+      else { el.textContent='融合还缺画面内容 —— 「想画什么」或「画图 Prompt」写一句'; el.style.color='var(--warn)'; }
     }
     return;
   }
@@ -3915,6 +4014,9 @@ async function init(){
   await step('bindEvents',()=>bindEvents());
   // 风格融合面板：把上次记住的开关/情绪/留白/语言恢复成 UI（loadCfg 只读了内存态）
   await step('renderFusionPanel',()=>renderFusionPanel());
+  // 幂等补种「写实」风格 —— 必须**独立于** seedStyles() 的版本闸门，理由见 REALISTIC_STYLE 注释。
+  // 放在 renderFusionPanel 之后：它只写库，不渲染，所以顺序上不影响任何面板。
+  await step('seedRealisticStyle',()=>seedRealisticStyle());
   await step('renderStyleRefStrip',()=>renderStyleRefStrip());
   await step('restoreTaskCards',()=>restoreTaskCards());
   await step('restoreNotice',()=>showDrawRestoreNotice());
