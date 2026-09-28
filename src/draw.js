@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1610';
+const DRAW_VER='v2026.09.28-1704';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -1502,11 +1502,89 @@ async function generatePromptWithAI(){
   }
 }
 
+// ── 大师对话：按需把「她点名的风格」从本地风格库捞出来 ──────────────
+// 🔴 2026-09-28：大师原先看不到风格库（system 里只有人设 + 审美偏好 + 当前角色名），
+//    她想「用 HD083 号风格写一张」时大师只能凭空编 —— 而风格库明明是本地的、就在手边。
+//    620 条全量注入要十几万字符，太贵也没必要 —— 改成**本地按需检索**：
+//    她消息里点到风格编号或风格名时，才把那几条捞出来塞进上下文，通常 1~8 条。
+const STYLE_HIT_MAX=8;
+
+async function _stylesFromText(text){
+  const msg=(text||'').trim();
+  if(!msg) return [];
+  let all=[];
+  try{ all=await db.all('styles') }catch(e){ return [] }
+  if(!all?.length){
+    // 风格库的种子挂在「展开风格面板」那一步；她可能从没展开过就直接来大师页问。
+    try{ await seedStyles(); all=await db.all('styles') }catch(e){ all=[] }
+  }
+  if(!all?.length) return [];
+
+  const hits=new Map();   // style_id -> {s,score}
+  const bump=(s,sc)=>{ const cur=hits.get(s.style_id); if(!cur||sc>cur.score) hits.set(s.style_id,{s,score:sc}) };
+
+  // ① 编号。style_id 是 M001 / C019 / HD083 这种。
+  //    她可能写全 id（HD083），也可能只写数字（「086 号」）—— 后者比对 id 的数字部分。
+  //    ⚠️ 数字要卡「前后都不是字母数字」，否则 HD083 里的 083 会被当成裸编号重复命中。
+  const fullIds=msg.toUpperCase().match(/[A-Z]{1,3}\d{2,4}/g)||[];
+  const bareNums=[...new Set((msg.match(/(^|[^A-Za-z0-9])\d{2,4}(?![0-9])/g)||[])
+    .map(x=>x.replace(/[^0-9]/g,'')))];
+  for(const s of all){
+    const id=(s.style_id||'').toUpperCase();
+    const num=(id.match(/\d+/g)||[]).join('');
+    if(fullIds.includes(id)) bump(s,100);
+    else if(num && bareNums.includes(num)) bump(s,60);
+  }
+
+  // ② 风格名。她更常说的是名字片段（「液态铬金属那种」）。
+  //    两个方向都试：整名被消息包含（强）+ 名字包含消息里的中文片段（弱）。
+  //    🔴 片段**至少 3 字**，别放到 2 字：实测库里风格名最短也有 4 字，
+  //    而 2 字片段噪音极大 —— 「今天天气不错随便聊聊」里的「天气」会命中
+  //    「天气频道动态图」，等于把无关风格硬塞给大师。3 字就没有这个误伤面了。
+  const frags=[...new Set((msg.match(/[\u4e00-\u9fa5]{3,}/g)||[])
+    .flatMap(seg=>{ const out=[]; for(let i=0;i+3<=seg.length;i++) out.push(seg.slice(i,i+3)); return out; }))];
+  for(const s of all){
+    const name=(s['中文风格名']||'').trim();
+    if(!name) continue;
+    if(msg.includes(name)){ bump(s,50); continue }
+    for(const f of frags){ if(name.includes(f)){ bump(s,10+f.length); break } }
+  }
+
+  return [...hits.values()].sort((a,b)=>b.score-a.score).slice(0,STYLE_HIT_MAX).map(x=>x.s);
+}
+
+// 只给大师「写 prompt 用得上」的字段，省掉「适合做 / 容易翻车 / 补救提示 / 示例短语」那几栏。
+function _fmtStyleForMaster(s){
+  const L=[`- ${s.style_id}｜${s['中文风格名']}${s['类别']?'（'+s['类别']+'）':''}`];
+  if(s['English prompt tokens']) L.push(`  tokens: ${s['English prompt tokens']}`);
+  if(s['视觉DNA / 关键词'])     L.push(`  视觉DNA: ${s['视觉DNA / 关键词']}`);
+  if(s['材质/色彩/光线'])       L.push(`  材质/色彩/光线: ${s['材质/色彩/光线']}`);
+  if(s['适合主体'])             L.push(`  适合主体: ${s['适合主体']}`);
+  if(s['组合角色'])             L.push(`  组合角色: ${s['组合角色']}`);
+  if(s['建议强度'])             L.push(`  建议强度: ${s['建议强度']}`);
+  return L.join('\n');
+}
+
 async function masterSuggest(userInput){
   const ctx=[];
   if(S.aestheticProfile) ctx.push('【用户审美偏好】\n'+S.aestheticProfile);
   const charDesc=S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean).map(c=>c.name).join('、');
   if(charDesc) ctx.push('【当前选中角色】'+charDesc);
+
+  // 她这条消息里点到的风格 —— 没点到就一条都不加（不增加日常对话的开销）。
+  const hitStyles=await _stylesFromText(userInput);
+  if(hitStyles.length){
+    ctx.push('【她这条消息点到的风格】共 '+hitStyles.length+' 条，来自本地风格库：\n'
+      +hitStyles.map(_fmtStyleForMaster).join('\n')
+      +'\n\n写 prompt 时直接采用上面的 tokens 和视觉特征；回她时用编号称呼（如 '+hitStyles[0].style_id+'）。'
+      +'如果她点到的几条在媒介上互相打架（例：水墨 vs 3D 渲染 vs 摄影），以第一条为主画法，'
+      +'其余只借色调/光线/氛围，并**主动提醒她**这个冲突。');
+  }
+  // 工作台已经勾上的风格也告诉她，免得大师的建议和她在工作台的选择各写各的。
+  if(S.selStyles.length){
+    ctx.push('【工作台当前已选风格】'+S.selStyles.map(s=>`${s.style_id}｜${s['中文风格名']}`).join('、')
+      +'\n（她已经在工作台勾了这些，你写的建议不要和它们打架。）');
+  }
 
   const _baseSys='根据用户想法和偏好给出精炼prompt建议。格式：①核心prompt（英文，可直接用）②可选加强词③一句创意建议';
   const systemContent=ctx.length>0
@@ -2977,7 +3055,13 @@ async function pickStylesWithAI(){
   if(!desc){toast('先在上面「想画什么」里写一句','warn');return}
 
   // 候选池 = 当前筛选（类别 / 主体 / 搜索）后的结果；没筛选就是全库
-  const all=await db.all('styles');
+  let all=await db.all('styles');
+  // 🔴 2026-09-28：这个按钮挪出折叠区后，可以「面板从没展开过」就直接点 ——
+  //    而风格库的种子逻辑原先挂在展开面板那一步，没展开过库里就是空的，
+  //    一点就报「当前筛选下没有风格」，看着像按钮坏了。这里补一次种子。
+  if(!all?.length){
+    try{ await seedStyles(); all=await db.all('styles') }catch(e){ all=[] }
+  }
   let pool=all;
   if(_styleFilter) pool=pool.filter(s=>s['类别']===_styleFilter);
   if(_styleSubject) pool=pool.filter(_subjectHit);

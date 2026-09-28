@@ -72,11 +72,16 @@
             <button class="btn-tiny" onclick="event.stopPropagation();clearStyles()">清空</button>
             <span id="styles-toggle-icon" style="color:var(--sub);font-size:11px;margin-left:2px">▶</span>
           </div>
+          <!-- 🔴 2026-09-28：「AI 帮我选风格」从折叠区里挪出来，常驻可见。
+               它在折叠区里时，每次用它都得先展开面板（展开还会顺带跑 seedStyles、
+               渲染几百个风格标签），纯粹是白等。
+               没塞进上面那行 header 是因为 375px 下那行已经挤满
+               （标题 + 已选 chips + 自定义/随机/清空 + 折叠箭头）。 -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button id="btn-pick-styles-ai" class="btn-tiny" onclick="pickStylesWithAI()"><i class="ic ic-sparkles"></i> AI 帮我选风格</button>
+            <span style="font-size:11px;color:var(--sub)">按「想画什么」挑 2~4 个，可展开微调</span>
+          </div>
           <div id="styles-collapsible" style="display:none">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
-              <button id="btn-pick-styles-ai" class="btn-tiny" onclick="pickStylesWithAI()"><i class="ic ic-sparkles"></i> AI 帮我选风格</button>
-              <span style="font-size:11px;color:var(--sub)">按「想画什么」+ 下面的筛选，挑 2~4 个</span>
-            </div>
             <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
               <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">类别</span>
               <div id="style-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
@@ -221,7 +226,7 @@
       <input type="file" id="master-img-input" accept="image/*" multiple style="display:none">
       <div id="master-input-area">
         <button id="btn-master-img" class="btn-outline" title="上传图片给大师看"><i class="ic ic-image"></i></button>
-        <textarea id="master-input" placeholder="跟大师说说你现在想画什么..." rows="2"></textarea>
+        <textarea id="master-input" placeholder="跟大师说说想画什么，也可以直接点名风格（如 HD083）..." rows="2"></textarea>
         <button id="btn-master-send" class="btn-primary">获取建议</button>
         <button id="btn-inspire" class="btn-outline"><i class="ic ic-dice"></i> 骰子灵感</button>
         <button id="btn-inspire-nsfw" class="btn-outline btn-nsfw-toggle" title="切换春宫模式"><i class="ic ic-lock"></i></button>
