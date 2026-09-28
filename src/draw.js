@@ -274,6 +274,33 @@ function _estTokens(text){
   return Math.round(words*1.3+punct+cjk*1.5);
 }
 
+// ── prompt 长度上限：两套完全不同的体系，别混为一谈 ──────────────
+// ① CLIP 系（SD1.5 / SDXL / NovelAI…）：77 **token** 窗口，超出部分**静默丢弃** —— 真的会掉词。
+// ② gpt-image / DALL·E 系：按**字符**算，gpt-image 32000、dall-e-3 4000、dall-e-2 1000 —— 基本撞不到。
+// 所以这里按「当前激活的画图预设」的模型名判类型，只在真会出事的那条线上报警。
+// （2026-09-28：原先无条件按 77 token 报警，对 gpt-image 用户是纯吓人，改掉。）
+// 注意：不能用 \b 收边 —— 模型名里下划线是「词字符」，`\bsd\b` 匹配不到 `sd_xl_base_1.0`。
+// 用 [^a-z0-9] 当边界，下划线、连字符、点、斜杠都算分隔符。
+const CLIP_MODEL_RE=/(^|[^a-z0-9])(sd|sdxl|sd15|sd21|sd35|sd3|novelai|nai|pony|stable|dreamshaper|kolors|chilloutmix|majicmix|meinamix|anything)([^a-z0-9]|$)/i;
+
+function _activeDrawModel(){
+  const p=S.drawPresets.find(x=>x.id===S.curDrawId)||S.drawPresets[0];
+  return (p?.model||'').trim();
+}
+
+// 返回 {unit:'token'|'char', limit:Number, label:String}
+// limit=0 表示「认不出的模型」—— 只显示计数，不报警
+function _promptLimit(model){
+  const m=(model||'').toLowerCase();
+  if(/dall-e-2/.test(m)) return {unit:'char',limit:1000,label:'DALL·E 2'};
+  if(/dall-e-3/.test(m)) return {unit:'char',limit:4000,label:'DALL·E 3'};
+  if(/dall-e/.test(m))   return {unit:'char',limit:4000,label:'DALL·E'};
+  if(/gpt-image|gpt-4o-image|gpt-4\.1-image|image-1/.test(m)) return {unit:'char',limit:32000,label:'gpt-image'};
+  if(CLIP_MODEL_RE.test(m)) return {unit:'token',limit:77,label:'CLIP 系（SD / SDXL）'};
+  if(!m) return {unit:'char',limit:0,label:''};
+  return {unit:'char',limit:0,label:m};
+}
+
 // ── API Config ────────────────────────────────────────────────
 // 本地存的预设可能是「半个 JSON」—— 清理工具/站点数据清理中途删过 LocalStorage 就会这样。
 // loadCfg 是同步调用，JSON.parse 一抛错会同步打断 init，后面的 bindEvents() 就永远轮不到，
@@ -1955,24 +1982,45 @@ function renderSelectedTokens(){
 }
 
 // 原本是个空函数（预留给「正向 Prompt 变化后要做什么」）。
-// 2026-09-28 填上：显示拼出来的 prompt 的估算长度，超 77（CLIP 系硬上限）时提醒。
+// 2026-09-28 填上：显示拼出来的 prompt 的长度。
+// 2026-09-28 二次修正：不再无条件按 CLIP 的 77 token 报警 —— 那对 gpt-image / DALL·E 用户是假警报。
+//   改成先看当前预设的模型：CLIP 系才按 token 报硬上限；字符系按字符算；
+//   认不出的模型只显示计数。大窗口模型额外给一条「太长会摊薄注意力」的软提示（黄）。
 function updateFinalPrompt(){
   const el=document.getElementById('prompt-len-hint');
   if(!el) return;
   const full=buildPrompt();
+  if(!full){ el.textContent=''; el.removeAttribute('title'); return; }
+  const model=_activeDrawModel();
+  const lim=_promptLimit(model);
+  const chars=full.length;
   const n=_estTokens(full);
   const styleN=_estTokens(S.selStyles.map(s=>s['English prompt tokens']).join(', '));
-  if(n<=75){
-    el.style.color='var(--sub)';
-    el.textContent=full?`约 ${n} token`:'';
-    el.removeAttribute('title');
-  }else{
+
+  if(lim.unit==='token'){
+    // CLIP 系：token 是硬上限，超了真掉词
+    el.textContent = n<=75
+      ? `约 ${n} token（${lim.label} 上限 77）`
+      : `约 ${n} token — 超出 ${lim.label} 的 77 上限，排在后面的会被丢弃（当前风格占约 ${styleN}）`;
+    el.style.color = n<=75 ? 'var(--sub)' : 'var(--err)';
+  }else if(lim.limit&&chars>lim.limit){
+    // 字符系真的超了（几乎只有 dall-e-2/3 会撞到）
+    el.textContent = `${chars} 字符 — 超出 ${lim.label} 的 ${lim.limit} 字符上限，会被截断`;
     el.style.color='var(--err)';
-    el.textContent=`约 ${n} token — 超出 CLIP 的 77 上限，排在后面的词条（当前风格占约 ${styleN}）可能被丢弃`;
-    el.title='SD1.5 / SDXL 这类 CLIP 系模型只有 77 token 窗口，超出的部分会被静默丢掉。\n'
-      +'Seedream / Nano Banana / Flux / GPT-image 等窗口大得多，基本不受影响。\n'
-      +'想降下来：减少风格数量（HD 风格一条约 24 token，内置一条约 9）。';
+  }else{
+    // 大窗口模型：撞不到上限，但太长会摊薄注意力 —— 给软提示，不吓人
+    const base = lim.limit
+      ? `${chars} 字符 / 约 ${n} token（${lim.label} 上限 ${lim.limit} 字符）`
+      : `${chars} 字符 / 约 ${n} token`;
+    el.textContent = chars>1200 ? `${base} — 偏长，模型注意力会被摊薄，建议精简` : base;
+    el.style.color = chars>1200 ? 'var(--warn)' : 'var(--sub)';
   }
+
+  el.title='不同画图模型的 prompt 上限是两套体系：\n'
+    +'· gpt-image / DALL·E 系按字符算（gpt-image 32000、dall-e-3 4000、dall-e-2 1000），一般撞不到。\n'
+    +'· SD1.5 / SDXL 这类 CLIP 系只有 77 token 窗口，超出的部分会被静默丢掉。\n'
+    +`当前预设：${model||'未配置模型'}（${lim.label||'认不出的模型，只显示计数'}）。\n`
+    +'注：就算没到上限，prompt 太长也会摊薄模型注意力 —— 主体 + 2~4 个风格通常最稳。';
 }
 
 async function renderGallery(){
@@ -2498,6 +2546,7 @@ function _buildPresetCard(preset,isActive,type){
       else preset[el.dataset.f]=el.value.trim();
     });
     savePresetsToLS();renderDrawPresets();renderMasterPresets();toast('预设已保存 ✓');
+    if(type==='draw') updateFinalPrompt();   // 模型名变了，上限类型跟着变
   };
   body.querySelector('[data-a="save"]').onclick=doSave;
   body.querySelector('[data-a="use"]').onclick=()=>{doSave();_setActive(preset,type)};
@@ -2512,6 +2561,7 @@ function _setActive(preset,type){
   else S.curMasterId=preset.id;
   savePresetsToLS();
   renderDrawPresets();renderMasterPresets();
+  if(type==='draw') updateFinalPrompt();   // 换预设=换模型，长度提示要跟着换口径
   toast(`已切换到"${preset.name}" ✓`);
 }
 
