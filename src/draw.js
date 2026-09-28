@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1704';
+const DRAW_VER='v2026.09.28-1848';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -514,6 +514,12 @@ async function _callGenerations(preset,prompt,size,n){
   const isAsync=!!preset.asyncMode;
   console.log(`[${ts()}] → generations | ${preset.name} | ${size} | n=${n} | async=${isAsync} | ${url}/images/generations\n         prompt: ${prompt.slice(0,80)}`);
   const body={model:model||'dall-e-3',prompt,n,size,response_format:'b64_json'};
+  // 2026-09-28 新增画质档位：预设里选过才带，没选=完全不传，走上游服务端默认。
+  //   为什么做成可选而不是写死 high：各上游容忍度不一样 ——
+  //   gpt-image 系认 low/medium/high/auto，dall-e-3 只认 standard/hd，
+  //   传错值轻则被静默忽略、重则直接 HTTP 400 把这张图废掉。
+  //   默认不传，就不会把现有能跑的预设弄挂。
+  if(preset.quality) body.quality=preset.quality;
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/generations`;
   const hdrs={'Content-Type':'application/json','Authorization':`Bearer ${key}`};
@@ -674,6 +680,7 @@ async function _callEdits(preset,prompt,size,refB64s,n){
   }
   fd.append('model',model||'dall-e-3');
   fd.append('prompt',prompt);fd.append('n',n);fd.append('size',size);
+  if(preset.quality) fd.append('quality',preset.quality);   // 同上：预设里选了才带
   const _ac=new AbortController();const _at=setTimeout(()=>_ac.abort(),1500000);
   const targetUrl=`${url}/images/edits`;
   const hdrs={'Authorization':`Bearer ${key}`};
@@ -2477,7 +2484,7 @@ function _buildPresetCard(preset,isActive,type){
 
   const meta=document.createElement('div');
   meta.className='preset-meta';
-  meta.textContent=`${(preset.url||'未配置URL').replace(/^https?:\/\//,'').slice(0,34)} · ${preset.model||'未配置模型'}`;
+  meta.textContent=`${(preset.url||'未配置URL').replace(/^https?:\/\//,'').slice(0,34)} · ${preset.model||'未配置模型'}${type==='draw'&&preset.quality?` · 画质 ${preset.quality}`:''}`;
 
   const body=document.createElement('div');
   body.className='preset-body';
@@ -2490,11 +2497,30 @@ function _buildPresetCard(preset,isActive,type){
         <option value="nvidia" ${_dfSel(preset.format,'nvidia')}>nvidia（NVIDIA NIM）</option>
       </select>
     </div>`:'' ;
+  // 画质档位：留空=不传（上游默认）。只对 images / edits 两条通道有意义，
+  // nvidia / chat 通道的请求体里根本没有 quality 这个字段。
+  const _qSel=v=>preset.quality===v?'selected':'';
+  const qualityRow=type==='draw'?`
+    <div class="preset-row"><label title="只对 images / edits 通道生效；留空=不传，由上游自己定">画质</label>
+      <select data-f="quality">
+        <option value="">不传（上游默认）</option>
+        <optgroup label="gpt-image 系">
+          <option value="auto" ${_qSel('auto')}>auto</option>
+          <option value="low" ${_qSel('low')}>low</option>
+          <option value="medium" ${_qSel('medium')}>medium</option>
+          <option value="high" ${_qSel('high')}>high</option>
+        </optgroup>
+        <optgroup label="DALL·E 3">
+          <option value="standard" ${_qSel('standard')}>standard</option>
+          <option value="hd" ${_qSel('hd')}>hd</option>
+        </optgroup>
+      </select>
+    </div>`:'';
   body.innerHTML=`
     <div class="preset-row"><label>Key</label><input type="password" data-f="key" value="${preset.key||''}" placeholder="sk-..."></div>
     <div class="preset-row"><label>URL</label><input type="text" data-f="url" value="${preset.url||''}" placeholder="https://api.xxx.com/v1"></div>
     <div class="preset-row"><label>模型</label><input type="text" data-f="model" value="${preset.model||''}" placeholder="${type==='draw'?'dall-e-3':'claude-opus-4-7'}"><button class="btn-tiny" data-a="fetch-models" title="用上面的 URL + Key 拉取可用模型列表" style="flex:none">获取</button></div>
-    ${fmtRow}
+    ${fmtRow}${qualityRow}
     <div class="preset-row" style="gap:8px;align-items:center">
       <label style="min-width:40px;text-align:right">备用</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
