@@ -81,6 +81,31 @@
             <button id="btn-pick-styles-ai" class="btn-tiny" onclick="pickStylesWithAI()"><i class="ic ic-sparkles"></i> AI 帮我选风格</button>
             <span style="font-size:11px;color:var(--sub)">按「想画什么」挑 2~4 个，可展开微调</span>
           </div>
+          <!-- 风格融合（2026-09-28 加）——搬自上游 handraw-style 的「提示词拼接器 · 风格融合」。
+               🔴 默认关：关着的时候画图台的行为和以前**一模一样**，不动她任何现有习惯。
+               开了以后：勾中的风格按顺序取前 2 个 —— 第 1 个当【角色视觉语言】、第 2 个当【场景视觉语言】。 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text);user-select:none">
+              <input type="checkbox" id="fusion-toggle" style="width:15px;height:15px;accent-color:var(--purple);cursor:pointer;margin:0">
+              <span>风格融合</span>
+            </label>
+            <span style="font-size:11px;color:var(--sub)">两种风格共存 · 第 1 个当角色、第 2 个当场景</span>
+          </div>
+          <div id="fusion-panel" style="display:none;margin-top:7px;padding:8px 10px;border-radius:var(--rs);background:var(--card2);border:1px solid var(--border)">
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">情绪</span>
+              <div id="fusion-mood-row" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">留白</span>
+              <div id="fusion-ws-row" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:6px">
+              <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">语言</span>
+              <div id="fusion-lang-row" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div>
+            </div>
+            <div id="fusion-slots" style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6"></div>
+          </div>
           <div id="styles-collapsible" style="display:none">
             <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
               <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">类别</span>

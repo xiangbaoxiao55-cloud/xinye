@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1937';
+const DRAW_VER='v2026.09.28-2237';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -127,6 +127,11 @@ const S={
   //   又硬拼到一条已经融合好的 prompt 后面，白糅。
   //   只在内存里，刷新页面就清空（base 文本本来也不持久化，语义一致）。
   mergedStyleIds:[],
+  // 2026-09-28：风格融合（搬自上游 handraw-style 的「提示词拼接器 · 风格融合」）。
+  //   开启后，勾中的风格按顺序取前 2 个 —— 第 1 个当【角色视觉语言】、第 2 个当【场景视觉语言】，
+  //   再拼上情绪 / 留白 / 画幅比例，最后附上他们那段固定的「共存契约」。
+  //   🔴 默认 false —— 关着的时候 buildPrompt 走老分支，行为和以前完全一致。
+  fusionMode:false,fusionMoods:[],fusionWhitespace:'normal',fusionLang:'zh',
   selRefCharIds:[],customRefB64s:[],
   curDetail:null,masterHistory:[],
   gallerySelecting:false,gallerySelected:new Set(),
@@ -151,6 +156,67 @@ const STYLE_CAT={
   '时装、亚文化与人物造型':'F 时装','玩具、产品与收藏品呈现':'T 产品'
 };
 const STYLE_LIB_VER=1;
+
+// ── 风格融合（2026-09-28 加）──────────────────────────────────
+// 数据源：上游仓库 handraw-style 的 skills/style-fusion-prompter/SKILL.md。
+//
+// 🔴 下面两段「共存契约」是从他们仓库里**逐字抄**下来的，一个字都不要改、不要精简、
+//    不要"顺手润色"。他们在那份 SKILL.md 里用 [!IMPORTANT] 明确写了：
+//    这段是让生图模型（GPT Image / Midjourney / Flux…）理解「两套视觉语言解耦共存」
+//    的底层契约，每次输出必须一字不差完整复制。
+//    以后上游升级时，先 diff 这两段，再决定要不要同步过来。
+//
+// 结构：`_FUSION_HEAD_*` 是要我们填槽的模板头（【角色视觉语言】【主题】【情绪】…），
+//       `_FUSION_CONTRACT_*` 是固定尾段（"画面中必须同时存在两套清晰可辨的视觉语言" 那一段）。
+const _FUSION_CONTRACT_ZH=
+`画面中必须同时存在两套清晰可辨的视觉语言。
+不要把两者平均磨成普通的混合风格插画。
+角色部分使用【角色视觉语言】表现，场景部分使用【场景视觉语言】表现。这里的“场景”包括环境空间、地形、建筑、植物、天空、水面、天气、地面、道具以及整体空间氛围。
+【角色视觉语言】与【场景视觉语言】都必须忠实保留各自的核心特征，包括但不限于：造型逻辑、比例系统、线条方式、笔触特征、体块组织、几何倾向、材质表达、表面肌理、色彩体系、明暗方式、细节密度、空间处理方式、平面化或立体化程度以及各自独有的媒介感。不要额外强行加入与原风格无关的统一化修饰。
+两种视觉语言必须保持明显差异，但共享同一个空间、光源、色温、天气、空气、构图和叙事时刻。
+视觉统一应通过遮挡关系、接触关系、投影关系、地面关系、前后空间关系、局部反光、环境综合色和空气透视来完成，而不是把两种视觉语言磨成同一种质感。
+角色必须真正存在于场景中，与场景形成自然互动，不能像贴纸一样浮在画面上。角色与场景之间需要有清楚可信的接触、站立、受光、投影、遮挡和空间关系。重点不是“一个角色站在另一个风格的背景前”，而是让角色真正进入并生活在这个场景世界中。
+画面必须围绕【主题】形成一个明确的叙事瞬间，优先保证“谁、在哪里、正在做什么”清楚可读。不要为了展示风格而加入大量与主题无关的装饰元素。
+如果画面中存在明显动作，如跑、跳、扑、拉、推、攀爬、追逐、搏斗、搬运或其他动态行为，需要保证发力点、重心、支撑关系、接触位置、受力方向、物体运动方向、遮挡和透视合理，动作逻辑优先于单纯夸张效果。
+不要生硬拼贴，不要左右分栏，不要上下分区，不要贴纸叠加，不要主体悬浮，不要错误遮挡，不要不同光源互相冲突，不要让角色风格被完全同化成场景风格，也不要让场景风格被完全同化成角色风格。
+最终效果应呈现：
+- 两种不同视觉语言自然存在于同一个世界中
+- 角色风格与场景风格差异清晰
+- 空间与光线逻辑统一
+- 角色与场景互动自然
+- 主题事件明确可读`;
+
+const _FUSION_CONTRACT_EN=
+`Two clearly distinguishable visual languages must coexist in the image simultaneously.
+Do NOT average or blend the two into a generic hybrid illustration.
+The character elements must be rendered strictly in [Character Visual Language], while the scene elements must be rendered strictly in [Scene Visual Language]. Here, "scene" includes environmental space, terrain, architecture, vegetation, sky, water, weather, ground, props, and overall spatial ambiance.
+Both [Character Visual Language] and [Scene Visual Language] must faithfully retain their respective core characteristics, including but not limited to: modeling logic, proportional systems, linework methods, brushstroke traits, volume organization, geometric tendencies, material expressions, surface textures, color systems, shading/lighting techniques, detail density, spatial treatment, degree of flatness vs. three-dimensionality, and their distinct tactile media sensations. Do NOT artificially force any uniform stylistic modifications irrelevant to each original style.
+The two visual languages must maintain noticeable contrast, yet share the exact same space, light source, color temperature, weather, atmosphere, composition, and narrative moment.
+Visual unity must be achieved through occlusions, physical contact, contact shadows, ground contact, fore/background depth, subtle bounce light, environmental ambient color, and aerial perspective, rather than blending the two visual languages into an identical material texture.
+The character must truly exist and naturally interact within the scene world, rather than floating like a detached sticker. There must be credible physical contact, grounded posture, lighting, cast shadows, occlusions, and depth relationships between the character and the environment. The focus is NOT "a character simply standing in front of a different-styled background", but rather having the character truly inhabit and live within this environment.
+The image must center around [Theme] to form a distinct narrative moment, prioritizing clarity of "who, where, and what they are doing". Do NOT introduce clutter or irrelevant decorative elements merely to exhibit the styles.
+If dynamic actions are present (e.g., running, jumping, leaping, pulling, pushing, climbing, chasing, wrestling, carrying, or dynamic movements), ensure the center of gravity, support points, contact points, force vectors, motion trajectory, occlusion, and perspective are physically convincing; dynamic logic takes priority over superficial exaggeration.
+Do NOT create awkward collages, do NOT split left-right or top-bottom columns, do NOT layer like stickers, do NOT let subjects float, avoid erroneous occlusions and conflicting light sources, do NOT assimilate the character style into the scene style, and do NOT assimilate the scene style into the character style.
+The final result should achieve:
+- Two distinct visual languages coexisting harmoniously in the same world
+- Clear differentiation between character style and scene style
+- Unified spatial, perspective, and lighting logic
+- Natural, believable physical interaction between character and scene
+- Clear, legible thematic narrative event`;
+
+// 15 种标准情绪（上游固定预设，[中文, English]）。不给自由填 —— 上游明确禁止自造情绪词。
+const FUSION_MOODS=[
+  ['治愈','Healing'],['童趣','Childlike'],['松弛','Relaxed'],['幽默','Humorous'],['诗意','Poetic'],
+  ['浪漫','Romantic'],['活力','Vibrant'],['微丧','Melancholy'],['孤寂','Solitary'],['紧张','Tense'],
+  ['庄严','Solemn'],['荒诞','Absurd'],['恐怖','Eerie'],['神秘','Mysterious'],['激烈','Intense'],
+];
+// 留白三档。[键, 中文名, 中文提示词, 英文提示词]。'normal' 不往 prompt 里加任何东西。
+const FUSION_WS=[
+  ['normal','正常','',''],
+  ['moderate','适中','【大量留白】','[Generous negative space]'],
+  ['high','多','【大量留白，场景只显示必要部分，不要显示全】','[Generous negative space, scene shows only essential parts, do not show in full]'],
+];
+const FUSION_WS_LABEL={normal:'正常',moderate:'适中',high:'多'};
 
 // ── 主体筛选（2026-09-28 加）──────────────────────────────────
 // 「适合主体」字段在库里有多达 600+ 种取值（产品/海报/角色/人像/香水/微缩场景…），
@@ -215,6 +281,10 @@ function saveBlobBrowser(blob,filename){
 
 function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
+  // 2026-09-28：风格融合模式走单独一条分支 —— 输出的是完整成品 prompt，不再是「base + 风格词」。
+  //   注意：这条分支**不看** S.mergedStyleIds。融合 prompt 是从风格对象现拼的，
+  //   base 只可能被当成【主题】用，所以不存在"重复追加 tokens"的问题。
+  if(S.fusionMode) return _buildFusionPrompt();
   // 2026-09-28：AI 生成时已经糅进 base 的那批风格，这里跳过 —— 不再重复追加原始 tokens。
   //   理由见 S.mergedStyleIds 的注释。手动勾的风格（没走过 AI 生成）照旧全部拼上。
   const stylePart=S.selStyles
@@ -228,6 +298,120 @@ function buildPrompt(){
   //    （对 Seedream/Nano Banana/Flux 这类大窗口模型，顺序本来就无所谓。）
   // 2026-09-28 二次：词条库整块删掉（她从来没用过），所以现在只剩 [主体][风格]。
   return [base,stylePart].filter(Boolean).join(', ');
+}
+
+// ── 风格融合 prompt 拼装（2026-09-28 加）────────────────────────
+// 严格照上游 style-fusion-prompter 的格式来：
+//   ① 槽位行：角色视觉语言 / 场景视觉语言 / 主题 / 情绪 / 画幅比例
+//   ② 再逐字附上固定的「共存契约」尾段（_FUSION_CONTRACT_*）
+// 上游的 {traits} 规则：填编号时按「生图方式」完整展开，不许压缩。
+//   我们库里的风格全是编号（HD###），所以一律展开成：
+//     `#279 极简手绘。参考作者/风格名称：极简手绘。核心风格特征：<English prompt tokens>。`
+//   特征词用 `English prompt tokens` 而不是 `中文特征` —— 前者是给模型看的紧凑视觉词，
+//   后者是给她看的中文说明（里面还有"避免统一的可爱微笑"这类**给提示词工程师的建议**，
+//   塞进生图 prompt 会被模型当成画面要求，反而添乱）。
+function _fusionTheme(){
+  const d=(document.getElementById('user-desc')?.value||'').trim();
+  if(d) return d;
+  // 「想画什么」空着时退到画图 Prompt 框里的内容 —— 她有时直接把主题写在那儿
+  return (document.getElementById('final-prompt-edit')?.value||'').trim();
+}
+
+// 从尺寸下拉框反推画幅比例（1536x2048 → 3:4）。上游模板里【画幅比例】是必填槽位，
+// 但画图台已经有「尺寸」这个真参数了，不再多做一个重复的输入框 —— 这里只是把
+// 同一个信息翻译成模型看得懂的写法，真正生效的还是 API 的 size 参数。
+function _aspectRatioOf(sizeStr){
+  const m=/^(\d+)\s*x\s*(\d+)$/i.exec(String(sizeStr||''));
+  if(!m) return '';
+  let w=parseInt(m[1],10),h=parseInt(m[2],10);
+  if(!w||!h) return '';
+  const gcd=(a,b)=>{while(b){const t=a%b;a=b;b=t}return a};
+  const d=gcd(w,h)||1;
+  return `${w/d}:${h/d}`;
+}
+
+function _buildFusionPrompt(){
+  const zh=S.fusionLang!=='en';
+  // 融合只用前 2 个（第 1 个角色、第 2 个场景）。不足 2 个直接返回空 ——
+  // 让 doDraw 去报错，而不是拼一条只有半边的 prompt 出去。
+  if(S.selStyles.length<2) return '';
+  const [charStyle,sceneStyle]=S.selStyles;
+  const theme=_fusionTheme();
+  if(!theme) return '';
+
+  // 单个风格 → 「生图方式」展开（上游第 4 条：填编号时完整展开，不许压缩）
+  const expand=s=>{
+    const num=String(s.style_id||'').replace(/^[A-Za-z]+/,'');
+    const name=String(s['中文风格名']||'').replace(/^#\d+\s*/,'');
+    const ref=s['原作者']||name;
+    const traits=s['English prompt tokens']||'';
+    return zh
+      ? `#${num} ${name}。参考作者/风格名称：${ref}。核心风格特征：${traits}。`
+      : `#${num} ${name}. Reference author/style: ${ref}. Core style traits: ${traits}.`;
+  };
+
+  const moodNames=S.fusionMoods
+    .map(zhName=>{
+      const hit=FUSION_MOODS.find(m=>m[0]===zhName);
+      if(!hit) return zhName;             // 老数据兜底
+      return zh?hit[0]:hit[1];
+    });
+  const wsRow=FUSION_WS.find(w=>w[0]===S.fusionWhitespace)||FUSION_WS[0];
+  const wsText=zh?wsRow[2]:wsRow[3];
+  const ratio=_aspectRatioOf(document.getElementById('param-size')?.value);
+
+  const lines=zh
+    ? [
+        `生成一幅“角色视觉语言 × 场景视觉语言”共存的跨媒介融合画面。`,
+        `- 【角色视觉语言】：${expand(charStyle)}`,
+        `- 【场景视觉语言】：${expand(sceneStyle)}`,
+        `- 【主题】：${theme}`,
+      ]
+    : [
+        `Generate a cross-media fusion artwork where "Character Visual Language × Scene Visual Language" coexist.`,
+        `- [Character Visual Language]: ${expand(charStyle)}`,
+        `- [Scene Visual Language]: ${expand(sceneStyle)}`,
+        `- [Theme]: ${theme}`,
+      ];
+  if(moodNames.length) lines.push(zh?`- 【情绪】：${moodNames.join(' / ')}`:`- [Mood]: ${moodNames.join(' / ')}`);
+  if(ratio) lines.push(zh?`- 【画幅比例】：${ratio}`:`- [Aspect Ratio]: ${ratio}`);
+  if(wsText) lines.push(wsText);
+
+  return lines.join('\n')+'\n\n'+(zh?_FUSION_CONTRACT_ZH:_FUSION_CONTRACT_EN);
+}
+
+// 给融合面板显示「现在会拼成什么」的摘要（不是完整 prompt，完整 prompt 在画图 Prompt 框里）。
+function _fusionSummary(){
+  const desc=(document.getElementById('user-desc')?.value||'').trim();
+  const box=(document.getElementById('final-prompt-edit')?.value||'').trim();
+  const theme=_fusionTheme();
+  const ratio=_aspectRatioOf(document.getElementById('param-size')?.value);
+  const parts=[];
+  const [c,s]=S.selStyles;
+  parts.push(`① 角色 = ${c?escHtml(c['中文风格名']):'<span style="color:var(--warn)">未选</span>'}`);
+  parts.push(`② 场景 = ${s?escHtml(s['中文风格名']):'<span style="color:var(--warn)">未选</span>'}`);
+  if(S.selStyles.length>2) parts.push(`<span style="color:var(--warn)">（还有 ${S.selStyles.length-2} 个没用上，融合只用前 2 个）</span>`);
+  const line1=parts.join(' &nbsp;·&nbsp; ');
+  const line2=[];
+  if(!theme){
+    line2.push('主题：<span style="color:var(--warn)">还没写 —— 去上面「想画什么」里写一句</span>');
+  }else if(desc){
+    line2.push(`主题：${escHtml(theme)}`);
+  }else{
+    // 兜底来源要说清楚，否则她会以为"我明明写在画图 Prompt 里了怎么没生效"
+    line2.push(`主题（取自「画图 Prompt」框）：${escHtml(theme)}`);
+  }
+  if(S.fusionMoods.length) line2.push(`情绪：${escHtml(S.fusionMoods.join(' / '))}`);
+  line2.push(`留白：${FUSION_WS_LABEL[S.fusionWhitespace]||'正常'}`);
+  if(ratio) line2.push(`画幅：${ratio}`);
+  const line3=[];
+  // 🔴 融合模式下画图 Prompt 框**只当主题兜底**，不会整段拼进去。
+  //    她要是往那儿粘了一大段（比如从图库载入的 prompt），必须明说没被用上，
+  //    不能让她以为"点了没反应"。
+  if(desc && box){
+    line3.push('<span style="color:var(--warn)">注意：「画图 Prompt」框里那段这次不会拼进去（融合只用「想画什么」当主题）</span>');
+  }
+  return line1+'<br>'+line2.join(' &nbsp;·&nbsp; ')+(line3.length?'<br>'+line3.join('<br>'):'');
 }
 
 // 估算 CLIP token（粗略，只用来判断量级，不是精确值）：
@@ -287,6 +471,15 @@ function loadCfg(){
   S.curMasterId=localStorage.getItem('draw_curMasterId')||S.masterPresets[0]?.id||null;
   S.localServer=localStorage.getItem('draw_localServer')||'';
   S.masterPersona=localStorage.getItem('draw_masterPersona')||'';
+  // 风格融合（2026-09-28）：开关/情绪/留白/语言都记着，下次打开还是她上次的样子。
+  // 情绪值要拿 FUSION_MOODS 校验一遍 —— 万一以后预设改了，老数据里的名字会变成
+  // 永远选不中的幽灵项（chip 全灰但值还在，prompt 里也会拼出来）。
+  S.fusionMode=localStorage.getItem('draw_fusionMode')==='1';
+  S.fusionLang=localStorage.getItem('draw_fusionLang')==='en'?'en':'zh';
+  S.fusionWhitespace=FUSION_WS.some(w=>w[0]===localStorage.getItem('draw_fusionWs'))
+    ?localStorage.getItem('draw_fusionWs'):'normal';
+  S.fusionMoods=_safeArr(localStorage.getItem('draw_fusionMoods'))
+    .filter(m=>FUSION_MOODS.some(x=>x[0]===m));
   const dp=S.drawPresets.find(p=>p.id===S.curDrawId)||S.drawPresets[0];
   const mp=S.masterPresets.find(p=>p.id===S.curMasterId)||S.masterPresets[0];
   S.cfg={
@@ -301,9 +494,21 @@ function savePresetsToLS(){
   localStorage.setItem('draw_curMasterId',S.curMasterId||'');
   loadCfg();
 }
+function saveFusionLS(){
+  localStorage.setItem('draw_fusionMode',S.fusionMode?'1':'0');
+  localStorage.setItem('draw_fusionLang',S.fusionLang||'zh');
+  localStorage.setItem('draw_fusionWs',S.fusionWhitespace||'normal');
+  localStorage.setItem('draw_fusionMoods',JSON.stringify(S.fusionMoods||[]));
+}
 
 // ── Draw API ──────────────────────────────────────────────────
 async function doDraw(){
+  // 风格融合的两个前置条件先说清楚 —— 不然 buildPrompt() 只会返回空串，
+  // 她看到的是「先在工作台生成或填写Prompt」，完全指不到点上。
+  if(S.fusionMode){
+    if(S.selStyles.length<2){toast('风格融合要先勾 2 个风格：第 1 个当角色、第 2 个当场景','warn');return}
+    if(!_fusionTheme()){toast('风格融合要先写【主题】—— 在「想画什么」里写一句','warn');return}
+  }
   const prompt=buildPrompt();
   if(!prompt){toast('先在工作台生成或填写Prompt','warn');return}
   if(!S.drawPresets.length){toast('先在设置里添加画图API预设','warn');return}
@@ -2013,7 +2218,34 @@ function updateFinalPrompt(){
   const el=document.getElementById('prompt-len-hint');
   if(!el) return;
   const full=buildPrompt();
-  if(!full){ el.textContent=''; el.removeAttribute('title'); return; }
+  // 融合模式顺手刷新槽位摘要（主题取自「想画什么」、画幅取自「尺寸」，
+  // 这两处一变摘要就该跟着变，否则她看到的是上一次的槽位）
+  if(S.fusionMode){
+    const slots=document.getElementById('fusion-slots');
+    if(slots) slots.innerHTML=_fusionSummary();
+  }
+  if(!full){
+    el.textContent='';
+    el.removeAttribute('title');
+    // 融合模式下空 prompt 基本只有一个原因：还没勾满 2 个风格 / 还没写主题。
+    // 在长度提示那一行直接说清楚，省得她去猜。
+    if(S.fusionMode){
+      if(S.selStyles.length<2){ el.textContent='融合还需要再勾 '+(2-S.selStyles.length)+' 个风格'; el.style.color='var(--warn)'; }
+      else { el.textContent='融合还缺【主题】—— 去上面「想画什么」里写一句'; el.style.color='var(--warn)'; }
+    }
+    return;
+  }
+  // 融合 prompt 天生就长（固定的共存契约尾段约 900 字符），别按普通 prompt 那套
+  // 「超 1200 字符就报黄」去吓她 —— 那是上游要求逐字附上的，不是她写多了。
+  if(S.fusionMode){
+    const n=_estTokens(full);
+    el.textContent=`${full.length} 字符 / 约 ${n} token — 风格融合模式（含固定的「共存契约」尾段，偏长是正常的）`;
+    el.style.color='var(--sub)';
+    el.title='风格融合会在 prompt 末尾附上上游 handraw-style 的固定「共存契约」段落（约 900 字符）。\n'
+      +'那段是他们要求逐字复制的，作用是让模型理解「两套视觉语言要解耦共存」，不建议删。\n'
+      +'真正影响出图的是前半部分的槽位行（角色/场景/主题/情绪/画幅）。';
+    return;
+  }
   const model=_activeDrawModel();
   const lim=_promptLimit(model);
   const chars=full.length;
@@ -3010,29 +3242,37 @@ function renderSelectedStyles(){
   const area=document.getElementById('selected-styles');
   if(area){
     area.innerHTML='';
-    for(const s of S.selStyles){
+    S.selStyles.forEach((s,i)=>{
       const chip=document.createElement('span');
       chip.className='selected-chip';
-      chip.innerHTML=`${s['中文风格名']}<button class="chip-remove" data-sid="${s.style_id}">×</button>`;
+      // 风格融合开着时，把「第几个 = 什么角色」直接写在 chip 上 ——
+      // 否则她得自己数「哪个是第 1 个」，而顺序就是角色/场景的分配依据。
+      let badge='';
+      if(S.fusionMode){
+        if(i===0) badge='<b style="font-weight:700">①角色 </b>';
+        else if(i===1) badge='<b style="font-weight:700">②场景 </b>';
+        else badge=`<span style="opacity:.6">${i+1}·不用 </span>`;
+      }
+      chip.innerHTML=`${badge}${s['中文风格名']}<button class="chip-remove" data-sid="${s.style_id}">×</button>`;
       chip.querySelector('.chip-remove').onclick=()=>{
         S.selStyles=S.selStyles.filter(x=>x.style_id!==s.style_id);
         document.querySelectorAll(`.style-tag[data-sid="${s.style_id}"]`).forEach(el=>el.classList.remove('selected'));
         renderSelectedStyles();
       };
       area.appendChild(chip);
-    }
+    });
   }
   // 折叠时也能看见已选风格（header 小预览，可单个点 × 删除）
   const preview=document.getElementById('styles-selected-preview');
   if(preview){
     preview.innerHTML='';
     if(S.selStyles.length){
-      for(const s of S.selStyles){
+      S.selStyles.forEach((s,i)=>{
         const tag=document.createElement('span');
         tag.style.cssText='display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:1px 5px 1px 6px;border-radius:10px;background:var(--purple);color:#fff;white-space:nowrap;max-width:90px';
         const name=document.createElement('span');
         name.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-        name.textContent=s['中文风格名'];
+        name.textContent=(S.fusionMode&&i<2?(i===0?'①':'②'):'')+s['中文风格名'];
         const x=document.createElement('span');
         x.textContent='×';
         x.style.cssText='cursor:pointer;opacity:.7;flex-shrink:0;font-size:11px';
@@ -3044,10 +3284,68 @@ function renderSelectedStyles(){
         };
         tag.append(name,x);
         preview.appendChild(tag);
-      }
+      });
     }
   }
   updateFinalPrompt();
+  renderFusionPanel();
+}
+
+// ── 风格融合面板渲染（2026-09-28 加）──────────────────────────
+// 三行 chip（情绪 / 留白 / 语言）+ 一行槽位摘要。
+// chip 复用画图台现成的 .token-tag / .selected 样式，不新增 CSS。
+function renderFusionPanel(){
+  const panel=document.getElementById('fusion-panel');
+  if(!panel) return;
+  const tog=document.getElementById('fusion-toggle');
+  if(tog) tog.checked=!!S.fusionMode;
+  panel.style.display=S.fusionMode?'':'none';
+  if(!S.fusionMode) return;
+
+  const chip=(text,active,onClick,title)=>{
+    const el=document.createElement('span');
+    el.className='token-tag'+(active?' selected':'');
+    el.textContent=text;
+    if(title) el.title=title;
+    el.onclick=onClick;
+    return el;
+  };
+
+  // 情绪（15 选 N，可多选、可全不选）
+  const mrow=document.getElementById('fusion-mood-row');
+  if(mrow){
+    mrow.innerHTML='';
+    for(const [zhName,enName] of FUSION_MOODS){
+      const on=S.fusionMoods.includes(zhName);
+      mrow.appendChild(chip(zhName,on,()=>{
+        S.fusionMoods=on?S.fusionMoods.filter(x=>x!==zhName):[...S.fusionMoods,zhName];
+        saveFusionLS();renderFusionPanel();updateFinalPrompt();
+      },enName));
+    }
+  }
+  // 留白（单选，永远有一档选中；默认「正常」= 什么都不加）
+  const wrow=document.getElementById('fusion-ws-row');
+  if(wrow){
+    wrow.innerHTML='';
+    for(const [key,label,zhPrompt] of FUSION_WS){
+      wrow.appendChild(chip(label,S.fusionWhitespace===key,()=>{
+        S.fusionWhitespace=key;saveFusionLS();renderFusionPanel();updateFinalPrompt();
+      },zhPrompt||'不加留白提示词'));
+    }
+  }
+  // 语言（结构行 + 共存契约走中文还是英文；风格特征词两种语言下都是英文 tokens）
+  const lrow=document.getElementById('fusion-lang-row');
+  if(lrow){
+    lrow.innerHTML='';
+    lrow.appendChild(chip('中文',S.fusionLang!=='en',()=>{
+      S.fusionLang='zh';saveFusionLS();renderFusionPanel();updateFinalPrompt();
+    },'结构行 + 共存契约用中文'));
+    lrow.appendChild(chip('English',S.fusionLang==='en',()=>{
+      S.fusionLang='en';saveFusionLS();renderFusionPanel();updateFinalPrompt();
+    },'结构行 + 共存契约用英文（风格特征词本来就是英文）'));
+  }
+  const slots=document.getElementById('fusion-slots');
+  if(slots) slots.innerHTML=_fusionSummary();
 }
 
 function clearStyles(){
@@ -3132,8 +3430,15 @@ async function pickStylesWithAI(){
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ic ic-sparkles"></i> 挑选中...'}
   try{
     const list=cand.map(s=>`${s.style_id} | ${s['中文风格名']} | 适合：${s['适合主体']||'—'} | ${(s['English prompt tokens']||'').slice(0,90)}`).join('\n');
+    // 2026-09-28：融合模式下大师的角色变了 —— 不是"挑 2~4 个不冲突的"，
+    //   而是"挑一对反差大的搭档"：第 1 个当角色视觉语言、第 2 个当场景视觉语言。
+    //   上游风格融合的看点正是**两套视觉语言保持鲜明反差**，所以这里要主动要反差。
+    const fusion=S.fusionMode;
     const sys='你是绘画风格顾问。用户会给出想画的内容和一份候选风格清单。'
-      +'从中挑 2~4 个最合适、且彼此不冲突的风格（冲突的例子：一个要厚涂一个要平涂、一个写实一个极简）。'
+      +(fusion
+        ?'这次要做「风格融合」：请挑**恰好 2 个**风格，且**顺序有意义** —— 第 1 个会用作角色视觉语言、第 2 个用作场景视觉语言。'
+          +'两者要反差鲜明（例如一个简笔涂鸦 × 一个写实质感），但放进同一个画面里不违和。'
+        :'从中挑 2~4 个最合适、且彼此不冲突的风格（冲突的例子：一个要厚涂一个要平涂、一个写实一个极简）。')
       +'只输出一个 JSON 数组，元素必须来自候选清单里的 style_id，不要解释、不要 markdown 代码块。'
       +'例：["HD032","M012"]';
     const user='想画的内容：'+desc
@@ -3142,15 +3447,24 @@ async function pickStylesWithAI(){
     const reply=await callMaster([{role:'system',content:sys},{role:'user',content:user}]);
     const ids=reply.match(/[A-Z]{1,3}\d{2,4}/g)||[];
     const picked=[];
+    const cap=fusion?2:Infinity;
     for(const id of ids){
       const s=cand.find(x=>x.style_id===id);
-      if(s&&!picked.some(x=>x.style_id===id)) picked.push(s);
+      if(s&&!picked.some(x=>x.style_id===id)){
+        picked.push(s);
+        if(picked.length>=cap) break;
+      }
     }
     if(!picked.length){toast('大师没挑出有效风格，再试一次？','warn');return}
+    if(fusion&&picked.length<2){toast(`大师只挑出 ${picked.length} 个，融合需要 2 个 —— 再点一次或手动补一个`,'warn')}
     clearStyles();
     for(const s of picked) toggleStyle(s);
     renderStyles(document.getElementById('style-search-input')?.value||'');
-    toast(`✦ AI 选了 ${picked.length} 个：${picked.map(s=>s['中文风格名']).join('、')}`);
+    if(fusion){
+      toast(`✦ 融合搭档：①角色 ${picked[0]['中文风格名']}${picked[1]?' × ②场景 '+picked[1]['中文风格名']:''}`);
+    }else{
+      toast(`✦ AI 选了 ${picked.length} 个：${picked.map(s=>s['中文风格名']).join('、')}`);
+    }
   }catch(e){
     console.error('[AI选风格]',e);
     toast('AI 选风格失败：'+e.message,'error');
@@ -3290,6 +3604,18 @@ function bindEvents(){
     if(open){await seedStyles();renderStyleFilters();renderStyles(document.getElementById('style-search-input')?.value||'')}
   };
   document.getElementById('style-search-input').oninput=e=>renderStyles(e.target.value);
+  // 风格融合（2026-09-28）：开关一拨就立刻重算 prompt 与面板。
+  // 关掉时 renderFusionPanel 会把面板藏起来，buildPrompt 也回到老分支。
+  document.getElementById('fusion-toggle').onchange=e=>{
+    S.fusionMode=e.target.checked;
+    saveFusionLS();
+    renderFusionPanel();
+    renderSelectedStyles();   // 重画 chips（角色/场景标记要跟着开关走）
+    updateFinalPrompt();
+  };
+  // 主题/画幅变了，融合槽位摘要要跟着变
+  document.getElementById('user-desc').addEventListener('input',()=>{if(S.fusionMode) updateFinalPrompt()});
+  document.getElementById('param-size').addEventListener('change',()=>{if(S.fusionMode) updateFinalPrompt()});
   document.getElementById('btn-save-style').onclick=saveStyle;
   document.getElementById('btn-delete-style').onclick=deleteStyle;
   document.getElementById('btn-cancel-style').onclick=()=>closeModal('modal-style');
@@ -3587,6 +3913,8 @@ async function init(){
   await step('loadAestheticProfile',()=>loadAestheticProfile());
   await step('loadStyleRefs',()=>loadStyleRefs());
   await step('bindEvents',()=>bindEvents());
+  // 风格融合面板：把上次记住的开关/情绪/留白/语言恢复成 UI（loadCfg 只读了内存态）
+  await step('renderFusionPanel',()=>renderFusionPanel());
   await step('renderStyleRefStrip',()=>renderStyleRefStrip());
   await step('restoreTaskCards',()=>restoreTaskCards());
   await step('restoreNotice',()=>showDrawRestoreNotice());
