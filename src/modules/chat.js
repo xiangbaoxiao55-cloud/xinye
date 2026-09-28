@@ -775,6 +775,34 @@ $('#btnConfirmEdit').onclick = async () => {
 // ======================== Markdown + 链接渲染 ========================
 if (typeof marked !== 'undefined') {
   marked.setOptions({ breaks: true, gfm: true });
+  // 🔴 中文里 **粗体** 会渲染失败，原样吐出星号 —— 这是 CommonMark 的「分隔符侧翼规则」：
+  // 收尾的 ** 前面是标点（。！？…）、后面紧跟汉字时，它既不算左翼也不算右翼，
+  // 于是整对星号被当成普通文本。例：`不是那里。**是这里。**你嘴底下` —— 中文最常见的写法。
+  // （英文 `**bold** text` 有空格，所以从没暴露过这个问题。）
+  // 这里补两个 inline 扩展，把「不跨行、内部不含星号」的 **x** / *x* 直接吃掉。
+  // 代码跨 `…` 和围栏代码块先于行内解析被消费，不受影响。
+  marked.use({
+    extensions: [
+      {
+        name: 'cjkStrong', level: 'inline',
+        start(src) { const i = src.indexOf('**'); return i < 0 ? undefined : i; },
+        tokenizer(src) {
+          const m = /^\*\*(?=\S)([^*\n]+?)\*\*(?!\*)/.exec(src);
+          if (m) return { type: 'cjkStrong', raw: m[0], tokens: this.lexer.inlineTokens(m[1]) };
+        },
+        renderer(t) { return `<strong>${this.parser.parseInline(t.tokens)}</strong>`; },
+      },
+      {
+        name: 'cjkEm', level: 'inline',
+        start(src) { const i = src.indexOf('*'); return i < 0 ? undefined : i; },
+        tokenizer(src) {
+          const m = /^\*(?=\S)([^*\n]+?)\*(?!\*)/.exec(src);
+          if (m) return { type: 'cjkEm', raw: m[0], tokens: this.lexer.inlineTokens(m[1]) };
+        },
+        renderer(t) { return `<em>${this.parser.parseInline(t.tokens)}</em>`; },
+      },
+    ],
+  });
 }
 
 export function renderMdHtml(text) {
