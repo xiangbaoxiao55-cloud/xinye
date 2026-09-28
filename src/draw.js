@@ -255,7 +255,23 @@ function buildPrompt(){
   const base=(document.getElementById('final-prompt-edit')?.value||'').trim();
   const tokenPart=S.selTokens.map(t=>t.text).join(', ');
   const stylePart=S.selStyles.map(s=>s['English prompt tokens']).join(', ');
-  return [base,tokenPart,stylePart].filter(Boolean).join(', ');
+  // 🔴 2026-09-28 调序：原来是 [主体][词条][风格]。
+  //    CLIP 系模型（SD1.5/SDXL）只有 77 token 窗口，超出部分**静默丢弃**，
+  //    而词条库里的 masterpiece / best quality / 8k 是最通用、最该被丢的，
+  //    却排在风格前面 —— 一旦超长，先丢的恰恰是风格。
+  //    改成 [主体][风格][词条]：主体最重要放最前，风格次之，通用质量词殿后。
+  //    （对 Seedream/Nano Banana/Flux 这类大窗口模型，顺序本来就无所谓。）
+  return [base,stylePart,tokenPart].filter(Boolean).join(', ');
+}
+
+// 估算 CLIP token（粗略，只用来判断量级，不是精确值）：
+// 英文词 ~1.3、标点各 1、中文字 ~1.5
+function _estTokens(text){
+  if(!text) return 0;
+  const cjk=(text.match(/[\u4e00-\u9fa5]/g)||[]).length;
+  const words=(text.match(/[A-Za-z0-9'’-]+/g)||[]).length;
+  const punct=(text.match(/[,;:.]/g)||[]).length;
+  return Math.round(words*1.3+punct+cjk*1.5);
 }
 
 // ── API Config ────────────────────────────────────────────────
@@ -1072,9 +1088,94 @@ function renderStyleRefList(){
       renderStyleRefStrip();renderStyleRefList();
       toast('已删除');
     };
-    el.append(thumbs,info,useBtn,editBtn,delBtn);
+    // 「存进风格库」—— 画风参考是**图片**驱动的，一次只能激活一套；
+    // 转成风格库条目后就能多选叠加、不挑模型（纯文本，generations 端点也能跑）、
+    // 还能被「AI 帮我选风格」和主体筛选选中。参考图本身转不过去（风格库没有图片字段）。
+    const toLibBtn=document.createElement('button');
+    toLibBtn.className='btn-tiny';
+    toLibBtn.id='sref2lib-'+sr.id;
+    toLibBtn.innerHTML='<i class="ic ic-sparkles"></i> 存库';
+    const _hasDesc=!!(sr.description||'').trim();
+    toLibBtn.title=_hasDesc
+      ? '把这个画风参考转成风格库条目（之后可多选叠加、不挑模型、能被 AI 选风格选中）'
+      : '这套没填「风格描述」，转不了 —— 先点铅笔补一句';
+    // ⚠️ 刻意**不用 disabled**：手机上点 disabled 按钮是「完全没反应也不解释」，
+    //    比点下去弹一句原因差得多。所以只调透明度表示不可用。
+    if(!_hasDesc) toLibBtn.style.opacity='.45';
+    toLibBtn.onclick=()=>{
+      if(!_hasDesc){toast('这套画风参考没填「风格描述」，转不了 —— 先点铅笔补一句','warn');return}
+      saveStyleRefToLibrary(sr.id);
+    };
+    el.append(thumbs,info,toLibBtn,useBtn,editBtn,delBtn);
     list.appendChild(el);
   });
+}
+
+// 画风参考 → 风格库条目（2026-09-28 加）
+// 风格库的 English prompt tokens 会**直接拼进出图 prompt**，混中文对 CLIP 系模型不友好，
+// 所以优先让大师把中文描述翻成英文词条，顺带推断「适合主体」和「类别」。
+// 没配大师 API 就退回原文（中文），并明确告诉她。
+async function saveStyleRefToLibrary(srId){
+  const sr=S.styleRefs.find(r=>r.id===srId);
+  if(!sr) return;
+  const desc=(sr.description||'').trim();
+  if(!desc){toast('这套画风参考没填「风格描述」，转不成文字风格','warn');return}
+
+  const all=await db.all('styles');
+  const exist=all.find(s=>s.custom&&s['中文风格名']===sr.name);
+
+  const btn=document.getElementById('sref2lib-'+srId);
+  const oldHtml=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='…'}
+  try{
+    let tokens=desc,subjects='',category='动画、漫画与插画亚种',usedAI=false;
+    if(S.masterPresets.length){
+      const sys='你是绘画风格词条编辑。用户给一段中文画风描述，你输出一个 JSON 对象，三个字段：\n'
+        +'tokens：把描述转成**精简英文风格词条**，6~14 个词、逗号分隔。'
+        +'只描述「怎么画」（线条/媒介/技法/色彩处理/质感/简化程度/构图倾向/情绪基调），'
+        +'**绝对不要**写具体主体、姿态、服装、道具、场景。\n'
+        +'subjects：这段描述适合画什么。只能从这个词表里挑，顿号分隔，最多 3 个：'
+        +'人物、角色、场景、城市、静物、动物、产品、字体、服饰、自然、建筑、封面、图标、海报、玩具。\n'
+        +'category：从下面这些里选**一个**最贴近的，原样输出：\n'+Object.keys(STYLE_CAT).join('\n')+'\n'
+        +'只输出 JSON，不要解释、不要 markdown 代码块。';
+      const reply=await callMaster([{role:'system',content:sys},
+        {role:'user',content:'画风名称：'+sr.name+'\n画风描述：'+desc}]);
+      const m=reply.match(/\{[\s\S]*\}/);
+      if(m){
+        try{
+          const j=JSON.parse(m[0]);
+          if(j.tokens&&String(j.tokens).trim()) tokens=String(j.tokens).trim();
+          if(j.subjects) subjects=String(j.subjects).trim();
+          if(j.category&&STYLE_CAT[j.category]) category=j.category;
+          usedAI=true;
+        }catch(e){console.warn('[画风参考→风格库] 大师返回的 JSON 没解析出来，退回原文：',e,reply.slice(0,120))}
+      }
+    }else{
+      toast('没配大师 API，直接存原文（中文）—— 想要英文词条请先在设置里加大师预设','warn');
+    }
+
+    const obj={
+      style_id:exist?exist.style_id:('custom_'+uid()),
+      '中文风格名':sr.name,
+      'English prompt tokens':tokens,
+      '类别':category,
+      '适合主体':subjects,
+      '容易翻车':'','补救提示':'',
+      builtin:false,custom:true,createdAt:Date.now(),
+      '来源':'画风参考「'+sr.name+'」',
+    };
+    await db.put('styles',obj);
+    const i=S.selStyles.findIndex(s=>s.style_id===obj.style_id);
+    if(i>=0) S.selStyles[i]=obj;
+    renderStyles(document.getElementById('style-search-input')?.value||'');
+    renderSelectedStyles();
+    toast((exist?'已更新':'已存入')+`风格库：「${sr.name}」${usedAI?'':'（原文）'} → ${tokens.slice(0,36)}${tokens.length>36?'…':''}`);
+  }catch(e){
+    console.error('[画风参考→风格库]',e);
+    toast('转换失败：'+e.message,'error');
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML=oldHtml}
+  }
 }
 
 function renderRefArea(){
@@ -1853,7 +1954,26 @@ function renderSelectedTokens(){
   updateFinalPrompt();
 }
 
-function updateFinalPrompt(){}
+// 原本是个空函数（预留给「正向 Prompt 变化后要做什么」）。
+// 2026-09-28 填上：显示拼出来的 prompt 的估算长度，超 77（CLIP 系硬上限）时提醒。
+function updateFinalPrompt(){
+  const el=document.getElementById('prompt-len-hint');
+  if(!el) return;
+  const full=buildPrompt();
+  const n=_estTokens(full);
+  const styleN=_estTokens(S.selStyles.map(s=>s['English prompt tokens']).join(', '));
+  if(n<=75){
+    el.style.color='var(--sub)';
+    el.textContent=full?`约 ${n} token`:'';
+    el.removeAttribute('title');
+  }else{
+    el.style.color='var(--err)';
+    el.textContent=`约 ${n} token — 超出 CLIP 的 77 上限，排在后面的词条（当前风格占约 ${styleN}）可能被丢弃`;
+    el.title='SD1.5 / SDXL 这类 CLIP 系模型只有 77 token 窗口，超出的部分会被静默丢掉。\n'
+      +'Seedream / Nano Banana / Flux / GPT-image 等窗口大得多，基本不受影响。\n'
+      +'想降下来：减少风格数量（HD 风格一条约 24 token，内置一条约 9）。';
+  }
+}
 
 async function renderGallery(){
   const grid=document.getElementById('gallery-grid');
@@ -2710,11 +2830,14 @@ async function seedTokens(){
 let _styleFilter='',_styleSubject='',_styleCatCollapsed={},_styleSeeded=false,_editingStyleId=null,_aiPickBusy=false;
 
 // 「适合主体」宽类命中判断（_styleSubject 为空 = 不限）
+// ⚠️ 没标主体的**保守显示**，不藏：内置 620 + HD 278 全都标了主体，
+//    没标的只有她自己手加的自定义风格。因为缺个字段就让它「消失」太吓人。
 function _subjectHit(s){
   if(!_styleSubject) return true;
   const g=SUBJECT_GROUPS.find(x=>x[0]===_styleSubject);
   if(!g) return true;
-  const v=s['适合主体']||'';
+  const v=(s['适合主体']||'').trim();
+  if(!v) return true;
   return g[1].some(k=>v.includes(k));
 }
 
@@ -2871,6 +2994,7 @@ function renderSelectedStyles(){
       }
     }
   }
+  updateFinalPrompt();
 }
 
 function clearStyles(){
@@ -3006,6 +3130,7 @@ function openAddStyle(){
   document.getElementById('style-name-input').value='';
   document.getElementById('style-tokens-input').value='';
   document.getElementById('style-category-select').value='材质与表面质感';
+  document.getElementById('style-subject-input').value='';
   document.getElementById('style-risk-input').value='';
   document.getElementById('style-rescue-input').value='';
   document.getElementById('btn-delete-style').style.display='none';
@@ -3020,6 +3145,7 @@ async function openEditStyle(styleId){
   document.getElementById('style-name-input').value=s['中文风格名']||'';
   document.getElementById('style-tokens-input').value=s['English prompt tokens']||'';
   document.getElementById('style-category-select').value=s['类别']||'材质与表面质感';
+  document.getElementById('style-subject-input').value=s['适合主体']||'';
   document.getElementById('style-risk-input').value=s['容易翻车']||'';
   document.getElementById('style-rescue-input').value=s['补救提示']||'';
   document.getElementById('btn-delete-style').style.display='';
@@ -3034,6 +3160,7 @@ async function saveStyle(){
     style_id:_editingStyleId||'custom_'+uid(),
     '中文风格名':name,'English prompt tokens':tokens,
     '类别':document.getElementById('style-category-select').value,
+    '适合主体':document.getElementById('style-subject-input').value.trim(),
     '容易翻车':document.getElementById('style-risk-input').value.trim(),
     '补救提示':document.getElementById('style-rescue-input').value.trim(),
     builtin:false,custom:true,createdAt:Date.now()
@@ -3088,6 +3215,8 @@ function bindEvents(){
   };
   document.getElementById('btn-close-chars').onclick=()=>closeModal('modal-chars');
   document.getElementById('btn-ai-gen').onclick=generatePromptWithAI;
+  // 手改正向 Prompt 时也要刷新长度提示（不然只有勾风格才会更新）
+  document.getElementById('final-prompt-edit').addEventListener('input',updateFinalPrompt);
   document.getElementById('tokens-toggle-hdr').onclick=()=>{
     const col=document.getElementById('tokens-collapsible');
     const icon=document.getElementById('tokens-toggle-icon');

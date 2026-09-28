@@ -62,6 +62,7 @@
             <button id="btn-copy-prompt" class="btn-tiny">复制</button>
           </div>
           <textarea id="final-prompt-edit" placeholder="AI生成的Prompt会出现在这里，也可以直接编辑..." rows="4"></textarea>
+          <div id="prompt-len-hint" style="font-size:11px;color:var(--sub);margin-top:4px"></div>
         </div>
 
         <div class="prompt-section">
@@ -472,6 +473,7 @@
         <option value="玩具、产品与收藏品呈现">T 产品</option>
       </select>
     </div>
+    <div class="form-group"><label>适合主体（可选，顿号分隔）</label><input type="text" id="style-subject-input" placeholder="例：人物、角色、场景、动物、产品"></div>
     <div class="form-group"><label>风险提示（可选）</label><input type="text" id="style-risk-input" placeholder="常见翻车情况..."></div>
     <div class="form-group"><label>补救提示（可选）</label><input type="text" id="style-rescue-input" placeholder="加上什么可以补救..."></div>
     <div class="modal-actions">
