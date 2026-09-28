@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-1405';
+const DRAW_VER='v2026.09.28-1503';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -456,13 +456,20 @@ async function _runDrawTask(prompt,size,n,refs,insertAfter,tplName,styles,styleR
     const ok=results.filter(r=>r.status==='fulfilled').length;
     const fail=results.filter(r=>r.status==='rejected').length;
     if(ok>0 && fail===0) setStatus(`✓ ${ok}张完成`);
-    else if(ok>0) setStatus(`✓ ${ok}张 / ✗ ${fail}张失败`);
-    else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${results[0].reason?.message||'失败'}</div>`}
+    // ⚠️ 必须和 restoreTaskCards 里那套文案**逐字一致**（刷新前/后看到的不该是两个说法），
+    //    而且必须短 —— 原来这里是 `✓ ${ok}张 / ✗ ${fail}张失败`，375px 下会被压成 14 行竖排。
+    else if(ok>0) setStatus(`${fail}张失败`,'err');
+    else{setStatus('全部失败','err');body.innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${escHtml(results[0].reason?.message||'失败')}</div>`}
     if(ok>0) toast(`生成了 ${ok} 张 ✨`);
     const imgs=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
-    if(imgs.length) db.put('tasks',{id:taskId,prompt,fullPrompt,size,n,tplName,styles,styleRefName,images:imgs,createdAt:Date.now()}).then(_updateClearBtn);
+    // 2026-09-28：这里原来是 `if(imgs.length) db.put(...)` —— 一张都没成功时卡片**根本不入库**，
+    //   刷新后整张消失，连失败原因和 prompt 都留不下，想重试只能重新输一遍。
+    //   改成无论如何都存：失败卡片存 images:[] + error，刷新后仍在列表里、可点「重roll」。
+    //   顺带记下 failCount，恢复时「部分失败」能显示成 "1张失败"（文案见 restoreTaskCards）。
+    const errMsg=imgs.length?null:(results[0]?.reason?.message||'生成失败');
+    db.put('tasks',{id:taskId,prompt,fullPrompt,size,n,tplName,styles,styleRefName,images:imgs,failCount:fail,error:errMsg,createdAt:Date.now()}).then(_updateClearBtn);
   }catch(err){
-    taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${err.message}</div>`;
+    taskWrap.querySelector('.draw-task-body').innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${escHtml(err.message)}</div>`;
     setStatus('失败','err');
     toast(err.message,'error');
   }
@@ -3298,6 +3305,10 @@ function _updateClearBtn(){
   btn.style.display=hasTasks?'':'none';
 }
 
+// 把字符串安全地塞进 innerHTML。只用于「从 DB 读回来、每次开页面都会重新注入」的文本（如失败原因）——
+// 它跟 `_runDrawTask` 里那条一次性的错误提示不同：那条只在当前页面存活，这条会长期留在库里反复渲染。
+const escHtml=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
 async function restoreTaskCards(){
   const tasks=await db.all('tasks');
   if(!tasks.length) return;
@@ -3311,11 +3322,26 @@ async function restoreTaskCards(){
     const labelText=t.tplName?`<i class="ic ic-file-text"></i> ${t.tplName} · ${t.n}张 · ${t.size}`:`<i class="ic ic-palette"></i> ${t.n}张 · ${t.size}`;
     const styleLabel=t.styles&&t.styles.length?`<span class="draw-task-styles">${t.styles.map(s=>'<i class="ic ic-palette"></i>'+s.name).join(' ')}</span>`:'';
     const styleRefLabel=t.styleRefName?`<span class="draw-task-styles"><i class="ic ic-image"></i> ${t.styleRefName}</span>`:'';
+    // 2026-09-28：失败卡片现在也会入库（images 为空 + error），恢复时要能显示出来。
+    //   ⚠️ t.images 必须用 (t.images||[]) 兜底：旧记录 / 脏记录缺这个字段时，
+    //   原来的 `t.images.length` 会直接抛，一抛整个 restoreTaskCards 就中断 ——
+    //   结果是「所有任务卡一起消失」，而不是只少一张。
+    const imgList=(t.images||[]).filter(Boolean);
+    const failCount=t.failCount||0;
+    // ⚠️ 状态文案必须**短**、且和 `_runDrawTask` 里实时那套**逐字一致**。
+    //    `.draw-task-status` 是 `flex:1`（flex-basis:0），375px 下头部那行挤满时它会被压到约
+    //    一字符宽、逐字竖排 —— 这是改前就有的老毛病（"2张完成"同样被压成 5 行）。
+    //    所以这里刻意不写 "✓2张 / ✗1张失败" 那种长句（那会到 14 行），只留同量级的短文案。
+    const statusHtml=imgList.length
+      ? (failCount>0
+          ? `<span class="draw-task-status" style="color:var(--err)">${failCount}张失败</span>`
+          : `<span class="draw-task-status"><i class="ic ic-check"></i> ${imgList.length}张完成</span>`)
+      : `<span class="draw-task-status" style="color:var(--err)">全部失败</span>`;
     taskWrap.innerHTML=`<div class="draw-task-header">
       <div class="draw-task-top">
         <span class="draw-task-label">${labelText}</span>
         ${styleLabel}${styleRefLabel}
-        <span class="draw-task-status"><i class="ic ic-check"></i> ${t.images.length}张完成</span>
+        ${statusHtml}
         <div class="draw-task-btns">
           <button class="draw-task-reroll" title="用同样的prompt重roll"><i class="ic ic-refresh"></i> 重roll</button>
           <button class="draw-task-copy" title="复制完整prompt"><i class="ic ic-clipboard"></i></button>
@@ -3325,7 +3351,12 @@ async function restoreTaskCards(){
       <div class="draw-task-prompt" title="点击展开完整 prompt">${promptShort}</div>
     </div><div class="draw-task-body"></div>`;
     const body=taskWrap.querySelector('.draw-task-body');
-    for(const imgData of (t.images||[]).filter(Boolean)){
+    // 一张图都没有 = 上次全失败。把失败原因显示出来（escHtml：这是从 DB 读回来、
+    // 每次开页面都会重新注入 innerHTML 的内容，不能当纯文本塞）。
+    if(!imgList.length){
+      body.innerHTML=`<div class="error-msg"><i class="ic ic-x-circle"></i> ${escHtml(t.error||'上次没画出来，可点「重roll」再试')}</div>`;
+    }
+    for(const imgData of imgList){
       const wrap=document.createElement('div');wrap.className='result-image-wrapper';
       const img=document.createElement('img');img.src=imgData;img.className='result-image';img.style.cursor='zoom-in';
       img.onclick=()=>openLightbox(imgData);
