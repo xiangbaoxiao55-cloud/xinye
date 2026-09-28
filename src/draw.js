@@ -208,11 +208,11 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const fmt=ts=>{const d=new Date(ts);return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
 const p2=n=>String(n).padStart(2,'0');
 const ts=()=>new Date().toTimeString().slice(0,8);
-function toast(msg,type='info'){
+function toast(msg,type='info',ms=3000){
   console.log(`[toast:${type}] ${msg}`);
   const el=document.getElementById('toast');
   el.textContent=msg;el.className=`show${type==='error'?' toast-error':type==='warn'?' toast-warn':''}`;
-  clearTimeout(el._t);el._t=setTimeout(()=>el.className='',3000);
+  clearTimeout(el._t);el._t=setTimeout(()=>el.className='',ms);
 }
 const f2b=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(f)});
 
@@ -3533,6 +3533,22 @@ async function restoreTaskCards(){
   _updateClearBtn();
 }
 
+// 主 APP 从备份恢复时，会把画图台的数据一起补回来（backup.js 的 restoreDrawData）。
+// 那边导完紧接着 location.reload()，toast 留不住，所以走 localStorage 捎过来，在这里弹一次。
+// 2026-09-28：在这之前画图台的数据是**只进备份、出不来**的，这个提示是配套的交代 ——
+// 不弹的话她会以为「图库回来了但缩略图全空 = 坏了」，其实是图片本来就不在自动备份里。
+function showDrawRestoreNotice(){
+  let raw=null;
+  try{ raw=localStorage.getItem('drawRestoreNotice'); }catch{ return; }
+  if(!raw) return;
+  // 先删再弹：万一 toast 本身抛了，也不会变成一个每次开页面都弹的提示
+  try{ localStorage.removeItem('drawRestoreNotice'); }catch{}
+  let n=null; try{ n=JSON.parse(raw); }catch{}
+  if(!n||!Array.isArray(n.parts)||!n.parts.length) return;
+  if(n.at&&Date.now()-n.at>2*86400000) return;   // 放太久的陈年提示就别突然冒出来了
+  toast('从备份恢复：'+n.parts.join('；'),'warn',7000);
+}
+
 async function init(){
   // 每一步独立容错：本地数据坏一格（比如昨天清 Edge 缓存留下的半个 IndexedDB/LocalStorage），
   // 不该让整页变成空白 + 点不动。bindEvents 一定要跑到，那是"点得动"的前提。
@@ -3550,5 +3566,6 @@ async function init(){
   await step('bindEvents',()=>bindEvents());
   await step('renderStyleRefStrip',()=>renderStyleRefStrip());
   await step('restoreTaskCards',()=>restoreTaskCards());
+  await step('restoreNotice',()=>showDrawRestoreNotice());
 }
 init().catch(console.error);

@@ -87,12 +87,35 @@ async function getDrawBackupData() {
     try {
       out.styleRefs = (await getAll('styleRefs')).map(r => ({ name: r.name, description: r.description || '' }));
     } catch (e) { console.warn('[backup] DrawDB styleRefs:', e); }
+    // ⚠️ 不能用 getAll('gallery')：每条记录都挂着 imageData（768px，几百 KB），
+    //    一千条就是几百 MB —— 而这是**手机后台每 20 分钟跑一次**的任务，
+    //    一次性全铺到 JS 堆上，正是她以前那种「切后台就闪退」的形状。
+    //    改成游标逐条读、读一条剥一条，堆里只留元信息（同 draw.js 的 galleryMeta）。
+    //    顺带修掉 getAll 的另一个毛病：库里只要有一条 irrecoverable 的记录，
+    //    整个 getAll 就失败（图库元信息一条都进不了备份）—— 逐条读 + 逐条 try 不会。
     try {
-      out.gallery = (await getAll('gallery')).map(g => ({
-        id: g.id, personaId: g.personaId, personaName: g.personaName,
-        prompt: g.prompt, negPrompt: g.negPrompt, params: g.params,
-        rating: g.rating, tags: g.tags, styles: g.styles, createdAt: g.createdAt,
-      }));
+      out.gallery = await new Promise((res, rej) => {
+        const rows = [];
+        try {
+          const req = d.transaction('gallery', 'readonly').objectStore('gallery').openCursor();
+          req.onsuccess = e => {
+            const c = e.target.result;
+            if (!c) return res(rows);
+            try {
+              const g = c.value || {};
+              rows.push({
+                id: g.id, personaId: g.personaId, personaName: g.personaName,
+                prompt: g.prompt, negPrompt: g.negPrompt, params: g.params,
+                rating: g.rating, tags: g.tags, styles: g.styles, createdAt: g.createdAt,
+              });
+            } catch (err) {
+              console.warn('[backup] gallery 有一条读不出来，已跳过：', c.key, err?.message || err);
+            }
+            c.continue();
+          };
+          req.onerror = () => rej(req.error);
+        } catch (e) { rej(e); }
+      });
     } catch (e) { console.warn('[backup] DrawDB gallery:', e); }
     try { d.close(); } catch {}
     return out;
@@ -100,6 +123,128 @@ async function getDrawBackupData() {
     console.warn('[backup] 画图台数据读取失败（不影响主备份）:', e);
     return null;
   }
+}
+
+/**
+ * 画图台数据的**还原**。
+ *
+ * 🔴 2026-09-28 之前 getDrawBackupData 是**只写不读**的：画图台的东西进了备份文件，
+ *    却没有任何路径能放回来 —— 备份看着齐全，真出事时一千条 prompt 还是捞不回来。
+ *
+ * 因为备份是「纯文字快照」，这里一律**只补不覆盖**：本地已有的，一个字都不动。
+ *   · gallery 的 imageData **不在备份里** —— 直接 put 上去会把本地的图抹掉，
+ *     所以只补本地没有的 id，已有的整条跳过（宁可少补，绝不能毁）。
+ *   · 审美档案 / 角色同理：本地有就跳过（本地的只会更新，不会更旧）。
+ *   · 画风参考的参考图是 base64 大图，也不在自动备份里 → 还原出来只有名字 + 描述。
+ *     ⚠️ images 必须给**空数组**：draw.js 里 `active.images.forEach`（renderStyleRefStrip）
+ *     和 `sr.images.length`（列表）都没有兜底，undefined 会当场抛。
+ *     （已确认 images:[] 是安全的：getAllRefs 用 `sr?.images?.length` 挡住，
+ *       不会给 /images/edits 送空参考图，出图走正常 /generations。）
+ *
+ * @returns {Promise<{gallery:number,gallerySkip:number,profile:number,characters:number,styleRefs:number,styleRefsSkip:number}>}
+ */
+async function restoreDrawData(drawObj) {
+  const st = { gallery: 0, gallerySkip: 0, profile: 0, characters: 0, styleRefs: 0, styleRefsSkip: 0 };
+  if (!drawObj || typeof drawObj !== 'object') return st;
+
+  let d;
+  try { d = await _openDrawDB(); }
+  catch (e) { console.warn('[backup] 还原画图台：打不开 DrawDB', e); return st; }
+
+  const _get = (store, key) => new Promise((res, rej) => {
+    try {
+      const req = d.transaction(store, 'readonly').objectStore(store).get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    } catch (e) { rej(e); }
+  });
+  const _put = (store, val) => new Promise((res, rej) => {
+    try {
+      const tx = d.transaction(store, 'readwrite');
+      tx.objectStore(store).put(val);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('事务被中止'));
+    } catch (e) { rej(e); }
+  });
+  // 只要 key，不要 value —— gallery 的 value 里挂着大图
+  const _keys = store => new Promise((res, rej) => {
+    const out = [];
+    try {
+      const req = d.transaction(store, 'readonly').objectStore(store).openKeyCursor();
+      req.onsuccess = e => {
+        const c = e.target.result;
+        if (c) { out.push(c.key); c.continue(); } else res(out);
+      };
+      req.onerror = () => rej(req.error);
+    } catch (e) { rej(e); }
+  });
+
+  // ① 图库元数据（prompt / 评分 / 标签 / 风格）—— 只补本地没有的 id
+  try {
+    const have = new Set(await _keys('gallery'));
+    for (const g of (Array.isArray(drawObj.gallery) ? drawObj.gallery : [])) {
+      if (!g || !g.id) continue;
+      if (have.has(g.id)) { st.gallerySkip++; continue; }
+      try { await _put('gallery', g); st.gallery++; }
+      catch (e) { console.warn('[backup] 还原图库条目失败:', g.id, e); }
+    }
+  } catch (e) { console.warn('[backup] 还原图库:', e); }
+
+  // ② 审美档案（大师对她的理解 —— 全项目最贵的那几百字节）+ ③ 角色
+  try {
+    if (drawObj.settings?.aestheticProfile && !await _get('settings', 'aestheticProfile')) {
+      await _put('settings', { key: 'aestheticProfile', value: drawObj.settings.aestheticProfile });
+      st.profile = 1;
+    }
+    const chars = Array.isArray(drawObj.settings?.characters) ? drawObj.settings.characters : [];
+    if (chars.length) {
+      const curRow = await _get('settings', 'characters');
+      const curChars = Array.isArray(curRow?.value) ? curRow.value : [];
+      const ids = new Set(curChars.map(c => c && c.id).filter(Boolean));
+      const add = chars.filter(c => c && c.id && !ids.has(c.id));
+      if (add.length) {
+        await _put('settings', { key: 'characters', value: [...curChars, ...add] });
+        st.characters = add.length;
+      }
+    }
+  } catch (e) { console.warn('[backup] 还原审美档案/角色:', e); }
+
+  // ④ 画风参考 —— 只有名字 + 描述，参考图不在自动备份里（见函数头注释）
+  try {
+    const refs = Array.isArray(drawObj.styleRefs) ? drawObj.styleRefs : [];
+    if (refs.length) {
+      // 只取名字做去重（记录里挂着 base64 参考图，不要整条读进来）
+      const names = new Set(await new Promise((res, rej) => {
+        const out = [];
+        try {
+          const req = d.transaction('styleRefs', 'readonly').objectStore('styleRefs').openCursor();
+          req.onsuccess = e => {
+            const c = e.target.result;
+            if (c) { out.push(c.value?.name); c.continue(); } else res(out.filter(Boolean));
+          };
+          req.onerror = () => rej(req.error);
+        } catch (e) { rej(e); }
+      }));
+      for (const r of refs) {
+        if (!r || !r.name) continue;
+        if (names.has(r.name)) { st.styleRefsSkip++; continue; }
+        try {
+          await _put('styleRefs', {
+            id: 'restored_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+            name: r.name,
+            description: r.description || '',
+            images: [],                    // ⚠️ 必须是数组，draw.js 那边没有兜底
+            createdAt: Date.now(),
+          });
+          names.add(r.name); st.styleRefs++;
+        } catch (e) { console.warn('[backup] 还原画风参考失败:', r.name, e); }
+      }
+    }
+  } catch (e) { console.warn('[backup] 还原画风参考:', e); }
+
+  try { d.close(); } catch {}
+  return st;
 }
 
 async function restoreDiaryData(diaryObj) {
@@ -736,6 +881,25 @@ export async function doImport(jsonText) {
 
   if (data.diary && typeof data.diary === 'object') {
     await restoreDiaryData(data.diary);
+  }
+
+  // 画图台的数据在**另一个库**（DrawDB），而且画图台是**另一个页面**（draw.html）。
+  // 这里导完紧接着就 location.reload()，toast 会当场被冲掉 —— 所以把结果存进
+  // localStorage，等她在画图台里打开时再弹（见 draw.js 的 showDrawRestoreNotice）。
+  // 不 await 之外的失败都不能带崩主导入：整段包 try。
+  if (data.draw && typeof data.draw === 'object') {
+    try {
+      const st = await restoreDrawData(data.draw);
+      console.log('[导入] 画图台数据还原：', st);
+      const parts = [];
+      if (st.gallery) parts.push(`图库 ${st.gallery} 条（只有文字，图片不在自动备份里）`);
+      if (st.profile) parts.push('审美档案');
+      if (st.characters) parts.push(`角色 ${st.characters} 个`);
+      if (st.styleRefs) parts.push(`画风参考 ${st.styleRefs} 条（只有名字和描述，参考图要重传）`);
+      if (parts.length) {
+        localStorage.setItem('drawRestoreNotice', JSON.stringify({ parts, at: Date.now() }));
+      }
+    } catch (e) { console.warn('[导入] 画图台数据还原失败（不影响其它数据）:', e); }
   }
 
   if (data.reading && (data.reading.books?.length || data.reading.chapters?.length || data.reading.annotations?.length)) {
