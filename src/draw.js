@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-2321';
+const DRAW_VER='v2026.09.28-2338';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3315,17 +3315,31 @@ async function seedStyles(){
   }catch(e){console.warn('[styles] 风格库加载失败:',e.message)}
 }
 
+// 风格搜索的匹配规则 —— renderStyles() 和 pickStylesWithAI() 共用，**别再各写一份**。
+// 🔴 2026-09-28 补 `style_id`：她在大师页被告知「记得手动勾选 —— HD239、RT001」，
+//    但这里原先只搜 `中文风格名` / `English prompt tokens` / `适合主体` 三个字段 ——
+//    **编号根本搜不到**。搜「239」能出纯属侥幸：HD239 的中文名是
+//    「#239 80s赛博朋克OVA赛璐璐」，里面恰好带着 239；而 RT001 的名字是光秃秃的
+//    「写实」，所以连「001」都搜不到它。**大师让你按编号去勾，工作台却搜不到编号 —— 死链。**
+//    现在：id 直接参与匹配；纯数字再比一次 id 里的数字部分。
+function _styleSearchHit(s,q){
+  if(!q) return true;
+  const name=(s['中文风格名']||'').toLowerCase();
+  if(name.includes(q)) return true;
+  if((s['English prompt tokens']||'').toLowerCase().includes(q)) return true;
+  if((s['适合主体']||'').toLowerCase().includes(q)) return true;
+  const id=String(s.style_id||'').toLowerCase();
+  if(id.includes(q)) return true;
+  if(/^\d+$/.test(q) && (id.match(/\d+/g)||[]).some(n=>n.includes(q))) return true;
+  return false;
+}
+
 async function renderStyles(search=''){
   const all=await db.all('styles');
   let items=all;
   if(_styleFilter) items=items.filter(s=>s['类别']===_styleFilter);
   if(_styleSubject) items=items.filter(_subjectHit);
-  if(search){
-    const q=search.toLowerCase();
-    items=items.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)
-      ||(s['English prompt tokens']||'').toLowerCase().includes(q)
-      ||(s['适合主体']||'').toLowerCase().includes(q));
-  }
+  if(search) items=items.filter(s=>_styleSearchHit(s,String(search).trim().toLowerCase()));
   const groups={};
   for(const s of items)(groups[s['类别']]=groups[s['类别']]||[]).push(s);
   const container=document.getElementById('styles-categories');
@@ -3566,9 +3580,7 @@ async function pickStylesWithAI(){
   if(_styleFilter) pool=pool.filter(s=>s['类别']===_styleFilter);
   if(_styleSubject) pool=pool.filter(_subjectHit);
   const q=(document.getElementById('style-search-input')?.value||'').trim().toLowerCase();
-  if(q) pool=pool.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)
-    ||(s['English prompt tokens']||'').toLowerCase().includes(q)
-    ||(s['适合主体']||'').toLowerCase().includes(q));
+  if(q) pool=pool.filter(s=>_styleSearchHit(s,q));
   if(!pool.length){toast('当前筛选下没有风格','warn');return}
 
   // 本地粗筛：按用户描述里的字，命中「中文风格名 / 适合主体 / 中文特征」的多少排序。
@@ -3765,15 +3777,37 @@ function bindEvents(){
   document.getElementById('btn-ai-gen').onclick=generatePromptWithAI;
   // 手改画图 Prompt 时也要刷新长度提示（不然只有勾风格才会更新）
   document.getElementById('final-prompt-edit').addEventListener('input',updateFinalPrompt);
-  document.getElementById('styles-toggle-hdr').onclick=async()=>{
+  // 折叠/展开风格面板 —— 抽成函数，因为「搜索框常驻」之后有两个入口要复用它
+  // （点标题展开 + 一敲字就自动展开）。
+  const _setStylesOpen=async(open)=>{
     const col=document.getElementById('styles-collapsible');
     const icon=document.getElementById('styles-toggle-icon');
-    const open=col.style.display==='none';
     col.style.display=open?'':'none';
     icon.textContent=open?'▼':'▶';
-    if(open){await seedStyles();renderStyleFilters();renderStyles(document.getElementById('style-search-input')?.value||'')}
+    if(open){
+      // seedStyles() 的闸门是版本号，_styleSeeded 之后会直接 return，重复调是安全的
+      try{ await seedStyles() }catch(e){}
+      renderStyleFilters();
+      renderStyles(document.getElementById('style-search-input')?.value||'');
+    }
   };
-  document.getElementById('style-search-input').oninput=e=>renderStyles(e.target.value);
+  document.getElementById('styles-toggle-hdr').onclick=async()=>{
+    await _setStylesOpen(document.getElementById('styles-collapsible').style.display==='none');
+  };
+  // 🔴 2026-09-28：搜索框挪到折叠区**外面**常驻（她：「每次都要先点开折叠块才能看见」）。
+  //    代价是"折叠着敲字"这件事现在存在了 —— 而结果渲染在折叠块里，
+  //    她敲了字会什么都看不见。所以：**有输入就自动展开**。
+  //    另外她可能从没展开过面板，这时库里还是空的（seedStyles 原本只挂在展开那一步），
+  //    所以这里也补一次种子兜底。
+  document.getElementById('style-search-input').oninput=async e=>{
+    const q=e.target.value;
+    if(!_styleSeeded){ try{ await seedStyles() }catch(_){} }
+    if(q.trim() && document.getElementById('styles-collapsible').style.display==='none'){
+      await _setStylesOpen(true);
+      return;   // _setStylesOpen(true) 里已经带着当前关键词渲染过了，不用再渲染一次
+    }
+    renderStyles(q);
+  };
   // 风格融合（2026-09-28）：开关一拨就立刻重算 prompt 与面板。
   // 关掉时 renderFusionPanel 会把面板藏起来，buildPrompt 也回到老分支。
   document.getElementById('fusion-toggle').onchange=e=>{

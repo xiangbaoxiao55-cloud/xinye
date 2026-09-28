@@ -88,6 +88,14 @@ body{
 }
 .token-section.collapsed .tokens-grid{display:none}
 .tokens-grid{display:flex;flex-wrap:wrap;gap:4px;padding:4px 2px 6px}
+/* 🔴 2026-09-28：展开后 900 条风格会全渲染进 #styles-categories ——
+   不限高的话页面被撑成几千像素（她的反馈：「点开那个折叠块的时候是好长一大片的」）。
+   改成**内部滚动**：内容一条不少，但不再把下面的区块顶走。
+   52vh 是按 375×812 的手机算的（≈420px，约 3~4 行类别可见）。 */
+#styles-categories{
+  max-height:52vh;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding-right:2px;
+}
 .token-tag{
   padding:3px 8px;border-radius:20px;font-size:12px;cursor:pointer;
   background:var(--card2);border:1px solid var(--border);color:var(--sub);

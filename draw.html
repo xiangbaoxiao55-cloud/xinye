@@ -106,7 +106,14 @@
             </div>
             <div id="fusion-slots" style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6"></div>
           </div>
-          <div id="styles-collapsible" style="display:none">
+          <!-- 🔴 2026-09-28：搜索框从折叠区里**挪出来**、常驻可见。
+               她反馈「工作台的风格搜索界面的搜索框，每次都要先点开折叠块才能看见，
+               点开那个折叠块的时候是好长一大片的」—— 而展开一次要渲染 900 条风格，白等。
+               配套改了两处（见 src/draw.js 的 bindEvents）：
+                 ① 折叠着敲字会自动展开 —— 否则结果渲染在折叠块里，她敲了字什么都看不见；
+                 ② #styles-categories 加了 max-height 内部滚动，不再把页面撑成一大片。 -->
+          <input type="text" id="style-search-input" placeholder="搜索风格：名字 / 编号(如 HD239) / 英文 / 适合主体..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-top:7px">
+          <div id="styles-collapsible" style="display:none;margin-top:6px">
             <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
               <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">类别</span>
               <div id="style-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
@@ -115,7 +122,6 @@
               <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">主体</span>
               <div id="style-subject-row" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
             </div>
-            <input type="text" id="style-search-input" placeholder="搜索风格（中文/英文/适合主体）..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-bottom:6px">
             <div id="styles-categories"></div>
             <div id="selected-styles" class="selected-tokens-area" style="margin-top:6px"></div>
           </div>
