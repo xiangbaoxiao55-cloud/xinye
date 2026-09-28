@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.28-2306';
+const DRAW_VER='v2026.09.28-2321';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -1814,7 +1814,17 @@ async function generatePromptWithAI(){
 //    她消息里点到风格编号或风格名时，才把那几条捞出来塞进上下文，通常 1~8 条。
 const STYLE_HIT_MAX=8;
 
+// 上一次 _stylesFromText() 遇到的「裸编号歧义」说明（没歧义就是 null）。
+// 🔴 2026-09-28 踩到：她写「001 号风格」，命中 **8 条** —— A001 / C001 / D001 / F001 /
+//    G001 / HD001 / M001 / P001 的数字部分**都是 001**，而 STYLE_HIT_MAX 正好是 8，
+//    于是 8 条全被塞给大师，还按「以第一条为主画法」把 A001（八十年代OVA）当成了主角。
+//    她明明说的是 HD001。**这就是"点名风格"最容易被静默搞错的地方。**
+//    现在：**歧义的裸编号一律不采用**（宁可捞不到，也不能捞错），
+//    并把候选 id 记在这里，让 masterSuggest 明确告诉她"说全 id"。
+let _lastStyleAmbiguity=null;
+
 async function _stylesFromText(text){
+  _lastStyleAmbiguity=null;
   const msg=(text||'').trim();
   if(!msg) return [];
   let all=[];
@@ -1834,11 +1844,34 @@ async function _stylesFromText(text){
   const fullIds=msg.toUpperCase().match(/[A-Z]{1,3}\d{2,4}/g)||[];
   const bareNums=[...new Set((msg.match(/(^|[^A-Za-z0-9])\d{2,4}(?![0-9])/g)||[])
     .map(x=>x.replace(/[^0-9]/g,'')))];
+  // 先把「裸编号 → 候选 style_id 列表」建出来，好判歧义。
+  // 前缀 ≤1 位的那批（M/P/C/A/G/R/D/S/F/T）都是 001 起，HD 那批也从 001 起 ——
+  // 所以 **001~054 这种小数字必然撞号**，越大的数字越可能唯一。
+  const bareMap=new Map();
+  for(const s of all){
+    const id=(s.style_id||'').toUpperCase();
+    const num=(id.match(/\d+/g)||[]).join('');
+    if(!num||!bareNums.includes(num)) continue;
+    if(!bareMap.has(num)) bareMap.set(num,[]);
+    bareMap.get(num).push(id);
+  }
+  const ambiguous=[];
+  for(const [num,ids] of bareMap){
+    if(ids.length===1) continue;
+    // 歧义：这个数字对应的风格不止一条。只在**没有**写成全 id 的时候才算歧义
+    //（她写 HD001 时 fullIds 命中，走的是 100 分那条路，不受影响）。
+    if(ids.some(id=>fullIds.includes(id))) continue;
+    ambiguous.push(`${num}（${ids.length} 条：${ids.slice(0,6).join('/')}${ids.length>6?'…':''}）`);
+  }
+  const ambiguousNums=new Set([...bareMap.entries()].filter(([num,ids])=>
+    ids.length>1 && !ids.some(id=>fullIds.includes(id))).map(([num])=>num));
+  if(ambiguous.length) _lastStyleAmbiguity=ambiguous;
+
   for(const s of all){
     const id=(s.style_id||'').toUpperCase();
     const num=(id.match(/\d+/g)||[]).join('');
     if(fullIds.includes(id)) bump(s,100);
-    else if(num && bareNums.includes(num)) bump(s,60);
+    else if(num && bareNums.includes(num) && !ambiguousNums.has(num)) bump(s,60);
   }
 
   // ② 风格名。她更常说的是名字片段（「液态铬金属那种」）。
@@ -1885,11 +1918,49 @@ async function masterSuggest(userInput){
   // 她这条消息里点到的风格 —— 没点到就一条都不加（不增加日常对话的开销）。
   const hitStyles=await _stylesFromText(userInput);
   if(hitStyles.length){
-    ctx.push('【她这条消息点到的风格】共 '+hitStyles.length+' 条，来自本地风格库：\n'
+    // 🔴 2026-09-28 改：这里原来不管融不融合，都发**非融合**那套
+    //    「以第一条为主画法，其余只借色调/光线/氛围」—— 跟融合的
+    //    「两套视觉语言解耦共存」正好相反。她在大师页说「角色用 X、场景用 Y」时，
+    //    大师会按"糅合"去写，跟工作台出图时追加的槽位行打架。
+    //    （这是「移植功能要检查邻居」这条教训的第二处 —— 第一处是 generatePromptWithAI。）
+    const seg='【她这条消息点到的风格】共 '+hitStyles.length+' 条，来自本地风格库：\n'
       +hitStyles.map(_fmtStyleForMaster).join('\n')
-      +'\n\n写 prompt 时直接采用上面的 tokens 和视觉特征；回她时用编号称呼（如 '+hitStyles[0].style_id+'）。'
-      +'如果她点到的几条在媒介上互相打架（例：水墨 vs 3D 渲染 vs 摄影），以第一条为主画法，'
-      +'其余只借色调/光线/氛围，并**主动提醒她**这个冲突。');
+      +'\n\n写 prompt 时直接采用上面的 tokens 和视觉特征；回她时用编号称呼（如 '+hitStyles[0].style_id+'）。';
+    if(S.fusionMode && hitStyles.length>=2){
+      ctx.push(seg
+        +'\n\n⚠️ 工作台的「风格融合」是**开着**的，所以这次是「角色视觉语言 × 场景视觉语言」的融合：'
+        +'两套风格要**同时清晰可辨地共存**在一张画面里 —— 注意：**不是**把两者糅成一种中间画法，'
+        +'也**不要**让第一条压过第二条。'
+        +'\n- 她如果说清了「角色用 X、场景用 Y」，就照她的分配来；没说就按上面列出的顺序，'
+        +'第 1 条当角色/主体语言、第 2 条当场景/环境语言。'
+        +'\n- 🔴 **你只写画面描述**（画面里有什么、在做什么、环境什么样、什么构图和视角），'
+        +'**不要把画风、媒介、笔触、材质、渲染方式这类词写进那段描述里** ——'
+        +'两套画风由工作台在出图时另外拼成槽位行，你写进来会重复，还可能跟「共存」的要求冲突。'
+        +'\n- 也就是说 ① 那一段请写成**纯画面描述（英文）**，不要写成"某某风格 + 某某风格"的混合体。'
+        +'\n- ⚠️ 最后提醒她：工作台那边**要手动勾上这两个风格**（第 1 个当角色、第 2 个当场景），'
+        +'融合才会生效 —— 光在聊天里说，工作台不会自动勾。');
+    } else {
+      ctx.push(seg
+        +'\n\n如果她点到的几条在媒介上互相打架（例：水墨 vs 3D 渲染 vs 摄影），以第一条为主画法，'
+        +'其余只借色调/光线/氛围，并**主动提醒她**这个冲突。');
+      // 她一次点了 2 条以上、但工作台的融合开关是关着的 —— 很可能她其实想做融合，
+      // 只是忘了开开关（或者不知道该开）。让大师点她一句，别让她白忙一场。
+      if(hitStyles.length>=2){
+        ctx.push('（补充：工作台的「风格融合」开关**现在是关着的**。'
+          +'如果她其实想要「角色用 X、场景用 Y」那种跨风格融合，请提醒她：'
+          +'先去工作台勾上「风格融合」、再勾 2 个风格（第 1 个当角色、第 2 个当场景），'
+          +'然后回来按融合的写法重问一次。）');
+      }
+    }
+  }
+  // 裸编号撞号了（「001 号」在 A001/C001/…/HD001 里都存在）—— 必须说清楚，
+  // 否则她会以为大师"没听懂"，其实是我们**故意没采用**那个歧义编号。
+  if(_lastStyleAmbiguity){
+    ctx.push('【⚠️ 她写的编号有歧义，本次没有采用】'
+      +_lastStyleAmbiguity.join('；')
+      +'\n同一个数字在多个风格里都存在（风格 id 形如 A001 / C001 / HD001，前缀不同）。'
+      +'\n**请先回她一句**，说明这个编号对应好几条风格、需要说全 id（例如 HD001），'
+      +'再按你判断最贴近她意图的那一条给建议 —— 但要标明你猜的是哪条。');
   }
   // 工作台已经勾上的风格也告诉她，免得大师的建议和她在工作台的选择各写各的。
   if(S.selStyles.length){
