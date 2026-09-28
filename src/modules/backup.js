@@ -80,6 +80,13 @@ async function getDrawBackupData() {
         }
       }
     } catch (e) { console.warn('[backup] DrawDB settings:', e); }
+    // 画风参考：只留名字 + 描述。参考图是 base64 大图（每张好几 MB），
+    // 遵守「自动备份纯文字」的原则一律不带 —— 图片只存在于画图台的
+    // 「导出备份 / 一键备份到手机」里（那边 FULL_STORES 含 styleRefs，带图）。
+    // 2026-09-28 补：以前这里连名字都不进，画风参考在自动备份里等于完全不存在。
+    try {
+      out.styleRefs = (await getAll('styleRefs')).map(r => ({ name: r.name, description: r.description || '' }));
+    } catch (e) { console.warn('[backup] DrawDB styleRefs:', e); }
     try {
       out.gallery = (await getAll('gallery')).map(g => ({
         id: g.id, personaId: g.personaId, personaName: g.personaName,

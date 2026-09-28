@@ -150,6 +150,19 @@ const STYLE_CAT={
 };
 const STYLE_LIB_VER=1;
 
+// ── 主体筛选（2026-09-28 加）──────────────────────────────────
+// 「适合主体」字段在库里有多达 600+ 种取值（产品/海报/角色/人像/香水/微缩场景…），
+// 穷举不现实，所以按**关键词包含匹配**归成 5 个宽类。
+// 内置 620 条实测命中：产品 467 / 人物 394 / 平面 332 / 场景 206 / 动物 108
+// （一个风格可同时属于多类，所以加起来 > 620，这是有意的 —— 她点「人物」要看到全部能画人的）。
+const SUBJECT_GROUPS=[
+  ['人物',['人物','人像','角色','群像','IP','英雄','怪物','怪兽','机器人','机甲','人鱼','人偶','玩偶','手办','潮玩','虚拟偶像','模特','演员','学生','科学家','工程师','侦探','牛仔','运动员','音乐人','主持人']],
+  ['动物',['动物','宠物','猫','鱼','昆虫','神兽','恐龙','海洋生物','植物','花','树','蘑菇','生物']],
+  ['场景',['场景','城市','建筑','自然','风景','室内','房间','街','废墟','太空','海洋','旅行','地图','地点','户外','酒店','餐馆','办公室','酒吧','校园','城堡','遗迹','工地','泳池','仓库','展厅']],
+  ['产品',['产品','包装','静物','物件','家具','灯具','汽车','车辆','鞋','香水','美妆','珠宝','首饰','雕塑','玩具','食品','饮料','科技','电子','手机','家电','乐器','文具','厨具','餐具','瓶','杯','服装','服饰','箱包','配饰','配件','礼盒','礼品','周边','医疗','金融']],
+  ['平面',['海报','封面','图标','Logo','徽章','字体','卡片','贴纸','广告','视觉','品牌','社媒','菜单','票','邀请函','指南','教程','UI','App','标志','字标','数据','界面','组件','专辑','书']],
+];
+
 const INIT_TOKENS=[
   {id:'q1',text:'masterpiece',category:'quality'},{id:'q2',text:'best quality',category:'quality'},
   {id:'q3',text:'ultra-detailed',category:'quality'},{id:'q4',text:'8k',category:'quality'},
@@ -1332,6 +1345,19 @@ async function generatePromptWithAI(){
   const parts=[];
   if(charDesc) parts.push('角色描述：\n'+charDesc);
   if(S.aestheticProfile) parts.push('用户审美档案：\n'+S.aestheticProfile);
+  // 🔴 2026-09-28 修断链：以前这里只喂「角色 + 审美 + 想画的内容」，**看不到已选风格**，
+  //    于是大师写的 prompt 和她在风格面板勾的画风各写各的（例：prompt 写「油画质感」、
+  //    风格勾「赛璐璐动画」），到出图时才在 buildPrompt() 里硬拼到一起。
+  if(S.selStyles.length){
+    parts.push('【已选定的画风】写 prompt 时必须与它们一致，不要写出冲突的画法/材质/媒介：\n'
+      +S.selStyles.map(s=>`- ${s['中文风格名']}：${s['English prompt tokens']||''}`).join('\n'));
+  }
+  const _sr=getActiveStyleRef();
+  if(_sr){
+    parts.push('【已激活的画风参考图】"'+_sr.name+'"'
+      +(_sr.description?`（${_sr.description}）`:'')
+      +'\n出图时会一并带上这套参考图，写 prompt 时请配合这个画风，不要指定冲突的画法。');
+  }
   parts.push('用户想要画的内容：'+userDesc);
 
   S.aiGenBusy=true;
@@ -2681,7 +2707,16 @@ async function seedTokens(){
 }
 
 // ── Style Explorer ───────────────────────────────────────────
-let _styleFilter='',_styleCatCollapsed={},_styleSeeded=false,_editingStyleId=null;
+let _styleFilter='',_styleSubject='',_styleCatCollapsed={},_styleSeeded=false,_editingStyleId=null,_aiPickBusy=false;
+
+// 「适合主体」宽类命中判断（_styleSubject 为空 = 不限）
+function _subjectHit(s){
+  if(!_styleSubject) return true;
+  const g=SUBJECT_GROUPS.find(x=>x[0]===_styleSubject);
+  if(!g) return true;
+  const v=s['适合主体']||'';
+  return g[1].some(k=>v.includes(k));
+}
 
 async function seedStyles(){
   if(_styleSeeded) return;
@@ -2706,9 +2741,12 @@ async function renderStyles(search=''){
   const all=await db.all('styles');
   let items=all;
   if(_styleFilter) items=items.filter(s=>s['类别']===_styleFilter);
+  if(_styleSubject) items=items.filter(_subjectHit);
   if(search){
     const q=search.toLowerCase();
-    items=items.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)||(s['English prompt tokens']||'').toLowerCase().includes(q));
+    items=items.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)
+      ||(s['English prompt tokens']||'').toLowerCase().includes(q)
+      ||(s['适合主体']||'').toLowerCase().includes(q));
   }
   const groups={};
   for(const s of items)(groups[s['类别']]=groups[s['类别']]||[]).push(s);
@@ -2742,21 +2780,42 @@ async function renderStyles(search=''){
     sec.append(hdr,grid);
     container.appendChild(sec);
   }
-  if(!container.children.length) container.innerHTML='<div style="color:var(--sub);font-size:12px;padding:8px 0">风格库为空，点击上方 + 自定义 添加</div>';
+  if(!container.children.length){
+    const why=[_styleFilter?'类别':null,_styleSubject?'主体':null,search?'搜索':null].filter(Boolean).join(' + ');
+    container.innerHTML=why
+      ? `<div style="color:var(--sub);font-size:12px;padding:8px 0">当前${why}筛选下没有风格，换个条件或点「全部」</div>`
+      : '<div style="color:var(--sub);font-size:12px;padding:8px 0">风格库为空，点击上方 + 自定义 添加</div>';
+  }
 }
 
 function renderStyleFilters(){
+  const _redraw=()=>renderStyles(document.getElementById('style-search-input')?.value||'');
   const row=document.getElementById('style-filter-row');
   row.innerHTML='';
   const mk=(label,cat)=>{
     const btn=document.createElement('span');
     btn.className='token-tag'+(_styleFilter===cat?' selected':'');
     btn.textContent=label;
-    btn.onclick=()=>{_styleFilter=(_styleFilter===cat?'':cat);renderStyleFilters();renderStyles(document.getElementById('style-search-input')?.value||'')};
+    btn.onclick=()=>{_styleFilter=(_styleFilter===cat?'':cat);renderStyleFilters();_redraw()};
     row.appendChild(btn);
   };
   mk('全部','');
   for(const [cat,label] of Object.entries(STYLE_CAT)) mk(label,cat);
+
+  // 主体筛选行（2026-09-28 加）。和「类别」是正交的两个维度，可叠加。
+  const srow=document.getElementById('style-subject-row');
+  if(!srow) return;
+  srow.innerHTML='';
+  const mkS=(label,sub,tip)=>{
+    const btn=document.createElement('span');
+    btn.className='token-tag'+(_styleSubject===sub?' selected':'');
+    btn.textContent=label;
+    if(tip) btn.title=tip;
+    btn.onclick=()=>{_styleSubject=(_styleSubject===sub?'':sub);renderStyleFilters();_redraw()};
+    srow.appendChild(btn);
+  };
+  mkS('全部','','不限主体');
+  for(const [label,keys] of SUBJECT_GROUPS) mkS(label,label,`只看适合「${label}」的风格（${keys.slice(0,8).join('、')}…）`);
 }
 
 function toggleStyle(style){
@@ -2823,17 +2882,98 @@ function clearStyles(){
 async function randomStyles(){
   const all=await db.all('styles');
   if(!all.length){toast('风格库未加载','warn');return}
-  // 在当前筛选分类内随机，没有筛选则全部范围
-  const pool=_styleFilter?all.filter(s=>s['类别']===_styleFilter):all;
-  if(!pool.length){toast('当前分类没有风格','warn');return}
+  // 在当前筛选（类别 + 主体）内随机，没有筛选则全部范围
+  let pool=all;
+  if(_styleFilter) pool=pool.filter(s=>s['类别']===_styleFilter);
+  if(_styleSubject) pool=pool.filter(_subjectHit);
+  if(!pool.length){toast('当前筛选下没有风格','warn');return}
   clearStyles();
   const count=1+Math.floor(Math.random()*3);
   const shuffled=[...pool].sort(()=>Math.random()-0.5);
   for(let i=0;i<Math.min(count,shuffled.length);i++) S.selStyles.push(shuffled[i]);
   renderSelectedStyles();
   renderStyles(document.getElementById('style-search-input')?.value||'');
-  const scope=_styleFilter?(STYLE_CAT[_styleFilter]||_styleFilter):'全部';
+  const scope=[_styleFilter?(STYLE_CAT[_styleFilter]||_styleFilter):'全部',_styleSubject||null].filter(Boolean).join(' · ');
   toast(`🎲 [${scope}] 随机选了 ${S.selStyles.length} 个`);
+}
+
+// ── AI 选风格（2026-09-28 加）─────────────────────────────────
+// 设计约定（和兔宝确认过）：
+//   ① 只「勾风格」，**不改 prompt、不自动出图** —— 出图还是她自己按
+//   ② 风格清单**带中文名 + 适合主体 + 特征词摘要**，否则大师光看名字会瞎选
+//   ③ 全库 898 条全塞给大师太贵 → 先本地粗筛到 ~60 条，再让大师挑
+async function pickStylesWithAI(){
+  if(_aiPickBusy) return;
+  if(!S.masterPresets.length){toast('请先在设置里添加大师API预设','warn');return}
+  const desc=(document.getElementById('user-desc')?.value||'').trim();
+  if(!desc){toast('先在上面「想画什么」里写一句','warn');return}
+
+  // 候选池 = 当前筛选（类别 / 主体 / 搜索）后的结果；没筛选就是全库
+  const all=await db.all('styles');
+  let pool=all;
+  if(_styleFilter) pool=pool.filter(s=>s['类别']===_styleFilter);
+  if(_styleSubject) pool=pool.filter(_subjectHit);
+  const q=(document.getElementById('style-search-input')?.value||'').trim().toLowerCase();
+  if(q) pool=pool.filter(s=>(s['中文风格名']||'').toLowerCase().includes(q)
+    ||(s['English prompt tokens']||'').toLowerCase().includes(q)
+    ||(s['适合主体']||'').toLowerCase().includes(q));
+  if(!pool.length){toast('当前筛选下没有风格','warn');return}
+
+  // 本地粗筛：按用户描述里的字，命中「中文风格名 / 适合主体 / 中文特征」的多少排序。
+  // 权重刻意不等：名字命中 > 主体命中 > 特征词命中。
+  // （理由：中文特征是一大段长文本，等权的话它靠「的/一/个」这种通用字就能刷高分，
+  //   把真正相关的短名字挤下去。）
+  const LIMIT=120;
+  let cand=pool;
+  if(pool.length>LIMIT){
+    const chars=[...new Set(desc.replace(/[，。、,.!！?？:：\s]/g,'').split(''))].filter(Boolean);
+    const score=s=>{
+      const name=(s['中文风格名']||'').toLowerCase();
+      const subj=(s['适合主体']||'').toLowerCase();
+      const feat=(s['中文特征']||'').toLowerCase();
+      let n=0;
+      for(const ch of chars){
+        if(name.includes(ch)) n+=3;
+        else if(subj.includes(ch)) n+=2;
+        else if(feat.includes(ch)) n+=1;
+      }
+      return n;
+    };
+    cand=[...pool].map(s=>({s,n:score(s)})).sort((a,b)=>b.n-a.n).slice(0,LIMIT).map(x=>x.s);
+  }
+
+  _aiPickBusy=true;
+  const btn=document.getElementById('btn-pick-styles-ai');
+  const oldHtml=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ic ic-sparkles"></i> 挑选中...'}
+  try{
+    const list=cand.map(s=>`${s.style_id} | ${s['中文风格名']} | 适合：${s['适合主体']||'—'} | ${(s['English prompt tokens']||'').slice(0,90)}`).join('\n');
+    const sys='你是绘画风格顾问。用户会给出想画的内容和一份候选风格清单。'
+      +'从中挑 2~4 个最合适、且彼此不冲突的风格（冲突的例子：一个要厚涂一个要平涂、一个写实一个极简）。'
+      +'只输出一个 JSON 数组，元素必须来自候选清单里的 style_id，不要解释、不要 markdown 代码块。'
+      +'例：["HD032","M012"]';
+    const user='想画的内容：'+desc
+      +(S.aestheticProfile?'\n\n用户审美偏好：\n'+S.aestheticProfile:'')
+      +'\n\n候选风格（共 '+cand.length+' 条）：\n'+list;
+    const reply=await callMaster([{role:'system',content:sys},{role:'user',content:user}]);
+    const ids=reply.match(/[A-Z]{1,3}\d{2,4}/g)||[];
+    const picked=[];
+    for(const id of ids){
+      const s=cand.find(x=>x.style_id===id);
+      if(s&&!picked.some(x=>x.style_id===id)) picked.push(s);
+    }
+    if(!picked.length){toast('大师没挑出有效风格，再试一次？','warn');return}
+    clearStyles();
+    for(const s of picked) toggleStyle(s);
+    renderStyles(document.getElementById('style-search-input')?.value||'');
+    toast(`✦ AI 选了 ${picked.length} 个：${picked.map(s=>s['中文风格名']).join('、')}`);
+  }catch(e){
+    console.error('[AI选风格]',e);
+    toast('AI 选风格失败：'+e.message,'error');
+  }finally{
+    _aiPickBusy=false;
+    if(btn){btn.disabled=false;btn.innerHTML=oldHtml}
+  }
 }
 
 function showStyleTip(style,event){

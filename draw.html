@@ -93,8 +93,19 @@
             <span id="styles-toggle-icon" style="color:var(--sub);font-size:11px;margin-left:2px">▶</span>
           </div>
           <div id="styles-collapsible" style="display:none">
-            <div id="style-filter-row" style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap"></div>
-            <input type="text" id="style-search-input" placeholder="搜索风格（中文/英文）..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+              <button id="btn-pick-styles-ai" class="btn-tiny" onclick="pickStylesWithAI()"><i class="ic ic-sparkles"></i> AI 帮我选风格</button>
+              <span style="font-size:11px;color:var(--sub)">按「想画什么」+ 下面的筛选，挑 2~4 个</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">类别</span>
+              <div id="style-filter-row" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px">
+              <span style="font-size:11px;color:var(--sub);flex-shrink:0;padding-top:5px">主体</span>
+              <div id="style-subject-row" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+            </div>
+            <input type="text" id="style-search-input" placeholder="搜索风格（中文/英文/适合主体）..." style="width:100%;padding:6px 10px;border-radius:var(--rs);border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:13px;outline:none;margin-bottom:6px">
             <div id="styles-categories"></div>
             <div id="selected-styles" class="selected-tokens-area" style="margin-top:6px"></div>
           </div>
