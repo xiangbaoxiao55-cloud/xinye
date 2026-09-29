@@ -103,3 +103,56 @@
 }
 .mon-hist .mon-hist-item { display: flex; gap: 6px; }
 .mon-hist .mon-hist-item span:first-child { flex: none; opacity: .7; }
+
+/* ── 「看一眼」：看屏幕（2026-09-29） ──────────────────────────
+   只有 APK 里有（网页版没有那个原生插件，整块不显示）。
+   ⚠️ 这块**不依赖云端账本** —— 它是纯本地能力（系统投屏权限），
+      所以云端连不上时它照样在。 */
+.mon-screen {
+  padding: 10px 12px; margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg); border: 1px solid var(--border);
+}
+.mon-screen-top {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--text);
+}
+.mon-screen-sub {
+  font-size: 11px; color: var(--text-light); line-height: 1.5; margin-top: 5px;
+}
+.mon-screen-sub.on { color: #c65a5a; }
+.mon-screen-btn {
+  margin-top: 9px; width: 100%; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: none; color: var(--text);
+  font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.mon-screen-btn:active { background: var(--pink-light); }
+.mon-screen-btn:disabled { opacity: .45; cursor: default; }
+.mon-screen-prev {
+  margin-top: 9px; border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--border);
+}
+.mon-screen-prev img { display: block; width: 100%; height: auto; }
+
+/* 开关 */
+.mon-sw {
+  margin-left: auto; flex: none;
+  position: relative; width: 42px; height: 24px;
+}
+.mon-sw input {
+  position: absolute; inset: 0; z-index: 1;
+  width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer;
+}
+.mon-sw span {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: var(--border); transition: background .2s ease;
+}
+.mon-sw span::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18);
+  transition: transform .2s ease;
+}
+.mon-sw input:checked + span { background: #e57373; }
+.mon-sw input:checked + span::after { transform: translateX(18px); }

@@ -125,12 +125,14 @@ function _render(d) {
 
   if (!d || !d.ok) {
     box.innerHTML = `<div class="mon-empty">读不到数据${d && d.error ? '：' + escHtml(d.error) : ''}</div>`;
+    _renderScreen();   // 本地能力，跟云端账本无关，照样显示
     return;
   }
 
   if (d.empty) {
     box.innerHTML = `<div class="mon-empty">${escHtml(d.reason || '还没有数据')}<br>
       手机上的炘也正在跑，等它下一次上报（90 秒一次）</div>`;
+    _renderScreen();
     return;
   }
 
@@ -165,6 +167,7 @@ function _render(d) {
   if (ab) ab.onclick = _askAdjust;
 
   _renderAlive();
+  _renderScreen();
 }
 
 // ── 「兔宝，我在呢」活着没 ────────────────────────────────────────────────
@@ -194,6 +197,100 @@ async function _renderAlive() {
   el.innerHTML = alive
     ? `<span class="mon-dot"></span><span><b>兔宝，我在呢</b> —— 关掉 APP 也收得到消息</span>`
     : `<span class="mon-dot stale"></span><span>「守着你」没在跑。去 <b>手机管家 → 应用启动管理 → 炘也 → 手动管理</b>，把自启动和后台运行都打开，再打开一次炘也</span>`;
+}
+
+// ── 「看一眼」：看屏幕 ────────────────────────────────────────────────────
+//
+// 2026-09-29 加。为什么要有这块：
+//   无障碍只能知道「她在用哪个 APP」，读不到屏幕上的内容 —— 微信整个 APP
+//   返回一棵空树（腾讯反无障碍，2026-09-11 实测走死）。要看画面只能走
+//   **系统投屏权限**，而那是「一次授权、长期有效」的东西，
+//   所以得有个地方让她开/关、以及**自己先试一下**。
+//
+// 🔴 三条设计底线（她当面定的）：
+//   ① **默认关**。她不开，炘也一张都看不到 —— 刹车永远在她手里。
+//   ② **这块不依赖云端**。纯本地能力，云端连不上时照样显示。所以它是独立函数，
+//      且 _render 的**每个出口**都要补一次（_render 会整个 innerHTML 重画，会把它擦掉）。
+//   ③ 截出来的图**先只给她自己看**，并标清楚「还没传出去」——
+//      上传是下一步的事，她得先确认这东西真能截到东西。
+
+async function _renderScreen() {
+  const box = $('#monitorBody');
+  if (!box) return;
+  const P = window.Capacitor?.Plugins?.ScreenCapture;
+  if (!P) return; // 网页版：没有这个原生插件，整块不显示
+
+  let el = document.getElementById('monScreen');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'monScreen';
+    box.insertBefore(el, box.firstChild);
+  }
+
+  let st = { ready: false };
+  try { st = (await P.status()) || st; } catch (_) { /* 查不到就当没开 */ }
+
+  const on = !!st.ready;
+  el.className = 'mon-screen';
+  el.innerHTML = `
+    <div class="mon-screen-top">
+      <span>炘也看屏幕</span>
+      <label class="mon-sw"><input type="checkbox" id="monScreenToggle"${on ? ' checked' : ''}><span></span></label>
+    </div>
+    <div class="mon-screen-sub${on ? ' on' : ''}">${on
+      ? '开着 —— 他能看到你的屏幕。关掉就立刻看不到。'
+      : '关着 —— 他什么都看不到。打开要授权一次。'}</div>
+    <button class="mon-screen-btn" id="monScreenShot"${on ? '' : ' disabled'}>现在截一张试试</button>
+    <div id="monScreenPrev"></div>`;
+
+  // 🔴 事件绑在**当前这个 el** 上，并用 dataset 标记 —— 不能用模块级的布尔量。
+  //    因为 _render() 会 `box.innerHTML = html` 把整个 #monScreen **换成新元素**，
+  //    旧元素连同它身上的监听器一起被丢掉；这时如果用 `if (_screenBound) return`，
+  //    新元素就永远绑不上监听器 —— 症状是「开关点不动、按钮没反应」，且控制台零报错。
+  //    （2026-09-29 第一版就是这么错的，验证脚本第 8 条直接抓出来了。）
+  if (el.dataset.screenBound === '1') return;
+  el.dataset.screenBound = '1';
+
+  // 开关：打开 = 弹系统授权；关掉 = 服务销毁、授权作废
+  el.addEventListener('change', async e => {
+    const cb = e.target.closest('#monScreenToggle');
+    if (!cb) return;
+    if (cb.checked) {
+      try {
+        const r = await P.requestPermission();
+        if (!r || !r.granted) toast('你没允许，炘也就看不到了');
+      } catch (err) {
+        toast('授权失败：' + (err && err.message ? err.message : err));
+      }
+    } else {
+      try { await P.stop(); } catch (_) {}
+      toast('关掉了，他看不到了');
+    }
+    setTimeout(_renderScreen, 300);
+  });
+
+  // 「现在截一张」—— 只在本地显示，不传任何地方
+  el.addEventListener('click', async e => {
+    const btn = e.target.closest('#monScreenShot');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = '正在截…';
+    try {
+      const r = await P.capture({ maxWidth: 720, quality: 70 });
+      const prev = document.getElementById('monScreenPrev');
+      if (prev && r && r.base64) {
+        prev.innerHTML = `<div class="mon-screen-prev"><img src="data:image/jpeg;base64,${r.base64}" alt="截图"></div>
+          <div class="mon-screen-sub">${Math.round((r.bytes || 0) / 1024)} KB · 这张只在手机上，还没传出去</div>`;
+      } else {
+        toast('截屏没返回画面');
+      }
+    } catch (err) {
+      toast('截屏失败：' + (err && err.message ? err.message : err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '现在截一张试试';
+    }
+  });
 }
 
 // ── 「想调整」→ 进聊天 ────────────────────────────────────────────────────
@@ -295,6 +392,9 @@ window.addEventListener('message', e => {
 
 export function renderMonitorPanel() {
   loadUsage(false);
+  // ⚠️ 单独调一次，不等账本：这块是纯本地的（系统投屏权限），
+  //    云端读不到数据时它也该在。loadUsage 回来重画时会再补一次。
+  _renderScreen();
   const btn = document.getElementById('monPreviewBtn');
   if (btn && !btn._bound) {
     btn._bound = true;
