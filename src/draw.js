@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.29-1556';
+const DRAW_VER='v2026.09.29-1613';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -845,9 +845,20 @@ async function _callGenerations(preset,prompt,size,n){
 
 async function _fetchWithProxy(url){
   if(S.localServer){
-    const r=await fetch(`${S.localServer}/api/proxy-fetch?url=${encodeURIComponent(url)}`);
-    if(r.ok) return r;
-    console.warn(`[${ts()}] proxy-fetch失败(${r.status})，直接获取: ${url}`);
+    // 🔴 2026-09-29：这里以前**没有 catch** —— 别的代理调用点（generations / edits /
+    //    模型列表）都是「连不上就降级直连」，只有这里会让 fetch 的 reject 直接冒出去，
+    //    一路把整个出图流程打断。
+    //    后果：只要「本地服务器地址」填了个连不上的值（比如手机上填 localhost:8787
+    //    —— localhost 在手机上指手机自己，而 8787 跑在她电脑上），
+    //    一旦上游返回的是【图片 URL】而不是 b64，出图就必失败。
+    //    补上 catch 之后，填错最多慢一点，不会再坏。
+    try{
+      const r=await fetch(`${S.localServer}/api/proxy-fetch?url=${encodeURIComponent(url)}`);
+      if(r.ok) return r;
+      console.warn(`[${ts()}] proxy-fetch失败(${r.status})，直接获取: ${url}`);
+    }catch(e){
+      console.log(`[${ts()}] proxy-fetch 不可达(${e.message})，直接获取: ${url}`);
+    }
   }
   return fetch(url);
 }
