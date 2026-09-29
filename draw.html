@@ -142,7 +142,7 @@
              这两块是一对 —— 上面写想法，AI 生成的结果直接落在下面那个框里，
              一眼就能看到「我说的话 → 生成的 prompt」的对应关系。 -->
         <div class="prompt-section">
-          <div class="section-header"><span>想画什么？</span></div>
+          <div class="section-header"><span>想画什么？</span><button id="btn-clear-desc" class="btn-tiny">清空</button></div>
           <textarea id="user-desc" placeholder="一句话描述你想要的画面..." rows="2"></textarea>
           <div style="margin-top:8px">
             <button id="btn-ai-gen" class="btn-primary"><i class="ic ic-sparkles"></i> AI 生成 Prompt</button>
@@ -156,6 +156,7 @@
           <div class="section-header">
             <span>画图 Prompt</span>
             <button id="btn-copy-prompt" class="btn-tiny">复制</button>
+            <button id="btn-clear-prompt" class="btn-tiny">清空</button>
           </div>
           <textarea id="final-prompt-edit" placeholder="AI生成的Prompt会出现在这里，也可以直接编辑..." rows="4"></textarea>
           <div id="prompt-len-hint" style="font-size:11px;color:var(--sub);margin-top:4px"></div>

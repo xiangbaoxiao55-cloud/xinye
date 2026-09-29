@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.29-1545';
+const DRAW_VER='v2026.09.29-1556';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3857,6 +3857,28 @@ function bindEvents(){
   document.getElementById('btn-delete-style').onclick=deleteStyle;
   document.getElementById('btn-cancel-style').onclick=()=>closeModal('modal-style');
   document.getElementById('btn-copy-prompt').onclick=()=>navigator.clipboard.writeText(buildPrompt()).then(()=>toast('已复制'));
+  // 「清空」按钮（2026-09-29 加）—— 画图 Prompt 里常常是一整段 AI 生成的长 prompt，
+  //   重新生成要再花一次额度，所以**有内容时先确认**；本来就是空的点了什么都不做。
+  //   ⚠️ 清空时必须一并作废 S.mergedStyleIds：那份 base 已经没了，
+  //      再跳过这批风格的 tokens 就是错的（跟 clearStyles() / 载入模板 / 图库详情载入同一道理）。
+  document.getElementById('btn-clear-prompt').onclick=()=>{
+    const ta=document.getElementById('final-prompt-edit');
+    if(!ta.value.trim()) return;
+    if(!confirm('清空「画图 Prompt」？里面的内容会删掉（AI 生成的那段要重新生成才有）。')) return;
+    ta.value='';
+    S.mergedStyleIds=[];
+    updateFinalPrompt();
+    toast('已清空画图 Prompt');
+  };
+  // 「想画什么」是她自己写的一句话，清掉不心疼，不弹确认；
+  //   重算条件跟上面那个 input 监听器保持一致（只有融合模式才需要）。
+  document.getElementById('btn-clear-desc').onclick=()=>{
+    const ta=document.getElementById('user-desc');
+    if(!ta.value) return;
+    ta.value='';
+    if(S.fusionMode) updateFinalPrompt();
+    toast('已清空');
+  };
   document.getElementById('btn-save-template').onclick=saveTemplate;
   document.getElementById('btn-load-template').onclick=openTemplates;
   document.getElementById('btn-close-templates').onclick=()=>closeModal('modal-templates');
