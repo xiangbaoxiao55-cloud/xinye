@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.29-1458';
+const DRAW_VER='v2026.09.29-1519';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3202,9 +3202,15 @@ async function importFullDB(file){
       const si=buf.indexOf(storeStart);
       if(si<0) continue;
       buf=buf.slice(si+storeStart.length);
-      let n=0,depth=0,inStr=false,esc=false,objStart=-1;
+      let n=0,depth=0,inStr=false,esc=false,objStart=-1,closed=false;
       const processBuffer=async()=>{
         let i=0;
+        // 🔴 2026-09-29：**每次重扫前必须把解析状态归零**。
+        //    buf 每次都从「未完成记录的起点」开始（见下面收尾逻辑），所以从头扫是安全的；
+        //    不归零的话，重扫一遍就多加一次 `{` —— depth 跨 chunk 重复累加、永远回不到 0，
+        //    一条记录都解析不出来，buf 还会一路涨到 V8 的字符串上限。
+        //    症状：572MB 的备份导入报 `Invalid string length`（手机导出正常、导入必失败）。
+        depth=0;inStr=false;esc=false;objStart=-1;closed=false;
         while(i<buf.length){
           const c=buf[i];
           if(esc){esc=false;i++;continue}
@@ -3226,16 +3232,23 @@ async function importFullDB(file){
             }
             i++;continue;
           }
-          if(c===']'&&depth===0){buf=buf.slice(i+1);break}
+          if(c===']'&&depth===0){buf=buf.slice(i+1);closed=true;break}
           i++;
         }
-        if(depth>0&&objStart>=0) buf=buf.slice(objStart);
-        else if(depth===0) buf='';
+        // 收尾：切到「未完成记录的起点」。
+        // ⚠️ 数组结束(`]`)时**不能清空 buf** —— `]` 后面可能还跟着下一个 store 的数据，
+        //    那些字节已经从流里读出来了，清掉就永久丢失（下一个 store 的 `,"xxx":[`
+        //    再也找不到 → 一路读到 EOF → buf 又爆）。
+        if(closed){ /* 保留 buf，里面是下一个 store 的开头 */ }
+        else if(depth>0&&objStart>=0) buf=buf.slice(objStart);
+        else buf='';
       };
       await processBuffer();
-      while(depth>0||(!buf.includes(']')&&depth===0)){
+      let guard=0;
+      while(!closed&&(depth>0||!buf.includes(']'))){
         if(!await readChunk())break;
         await processBuffer();
+        if(++guard>2000000) throw new Error(`${store} 解析卡住，文件可能已损坏`);
       }
       if(n) counts.push(`${store}(${n})`);
       showProgress(`✅ ${store}(${n}) 完成`);
