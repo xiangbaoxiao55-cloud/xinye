@@ -129,6 +129,26 @@
 }
 .mon-screen-btn:active { background: var(--pink-light); }
 .mon-screen-btn:disabled { opacity: .45; cursor: default; }
+.mon-screen-btn.ghost { border-style: dashed; }
+/* 「一天最多看几次」（2026-09-30）：她自己填，0 = 今天不许看 */
+.mon-screen-limit {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; font-size: 12px; color: var(--text);
+}
+.mon-screen-limit input {
+  width: 52px; padding: 5px 8px; text-align: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card, var(--bg)); color: var(--text);
+  font-family: inherit; font-size: 12px;
+}
+.mon-screen-save {
+  margin-left: auto; flex: none; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: none; color: var(--text);
+  font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.mon-screen-save:active { background: var(--pink-light); }
+.mon-screen-save:disabled { opacity: .45; cursor: default; }
 .mon-screen-prev {
   margin-top: 9px; border-radius: var(--radius-sm);
   overflow: hidden; border: 1px solid var(--border);

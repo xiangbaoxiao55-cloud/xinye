@@ -230,7 +230,17 @@ async function _renderScreen() {
   let st = { ready: false };
   try { st = (await P.status()) || st; } catch (_) { /* 查不到就当没开 */ }
 
+  // 云端那半：她填的「一天最多看几次」+ 今天看了几次。
+  // ⚠️ 读不到（没配云服务器 / 断网）就**整段不显示**，但开关和「截一张试试」照旧 ——
+  //    那两样是纯本地的，跟云端没关系。
+  let cfg = null;
+  try { cfg = await _screenCfg(); } catch (_) { cfg = null; }
+
   const on = !!st.ready;
+  const limit = cfg ? (parseInt(cfg.todayLimit) || 0) : 0;
+  const used = cfg ? (parseInt(cfg.todayCount) || 0) : 0;
+  const left = Math.max(0, limit - used);
+
   el.className = 'mon-screen';
   el.innerHTML = `
     <div class="mon-screen-top">
@@ -241,6 +251,19 @@ async function _renderScreen() {
       ? '开着 —— 他能看到你的屏幕。关掉就立刻看不到。'
       : '关着 —— 他什么都看不到。打开要授权一次。'}</div>
     <button class="mon-screen-btn" id="monScreenShot"${on ? '' : ' disabled'}>现在截一张试试</button>
+    ${cfg ? `
+    <div class="mon-screen-limit">
+      <span>一天最多让他看</span>
+      <input type="number" id="monScreenLimit" min="0" max="50" inputmode="numeric" value="${limit}">
+      <span>次</span>
+      <button class="mon-screen-save" id="monScreenSave">保存</button>
+    </div>
+    <div class="mon-screen-sub">${limit > 0
+      ? `今天他已经看了 <b>${used}</b> 次，还能看 ${left} 次。填 0 = 今天一次都不许看。`
+      : '现在是 <b>0</b> —— 他一次都不会看。想让他能看，填个数字再点保存。'}</div>
+    ${cfg.lastNote ? `<div class="mon-screen-sub">他最近一次看到的是：${escHtml(cfg.lastNote)}</div>` : ''}
+    <button class="mon-screen-btn ghost" id="monScreenPeek"${(on && left > 0) ? '' : ' disabled'}>让他现在看一眼</button>
+    ` : ''}
     <div id="monScreenPrev"></div>`;
 
   // 🔴 事件绑在**当前这个 el** 上，并用 dataset 标记 —— 不能用模块级的布尔量。
@@ -291,6 +314,81 @@ async function _renderScreen() {
       btn.textContent = '现在截一张试试';
     }
   });
+
+  // 「保存」—— 把「一天最多看几次」写到云端。
+  // 🔴 这个数**必须她自己填**（她 2026-09-29 亲口说「不是说可以让我填吗」）。
+  //    从"她点按钮"到"他自主截"是质变，频率得她定；0 = 今天一次都不许看。
+  el.addEventListener('click', async e => {
+    const save = e.target.closest('#monScreenSave');
+    if (!save) return;
+    const inp = document.getElementById('monScreenLimit');
+    const v = Math.max(0, Math.min(50, parseInt(inp && inp.value) || 0));
+    save.disabled = true;
+    save.textContent = '保存中…';
+    try {
+      const d = await _screenCfgSave(v);
+      if (d && d.ok) toast(v > 0 ? `好，今天最多让他看 ${v} 次` : '好，今天一次都不让他看');
+      else toast('没存上，再试一次');
+    } catch (err) {
+      toast('存不上：' + (err && err.message ? err.message : err));
+    }
+    save.disabled = false;
+    save.textContent = '保存';
+    _renderScreen();
+  });
+
+  // 「让他现在看一眼」—— 走云端下发，手机最多 3 分钟后截到。
+  // ⚠️ 绕开"他自己想不想看"，但**绕不开次数上限** —— 次数是 0 时这个按钮是灰的。
+  el.addEventListener('click', async e => {
+    const peek = e.target.closest('#monScreenPeek');
+    if (!peek) return;
+    peek.disabled = true;
+    peek.textContent = '跟他说了…';
+    try {
+      const d = await _screenPeek();
+      if (d && d.ok) toast('跟他说了 —— 最多 3 分钟他就会看一眼');
+      else toast((d && d.why) || '这次没发出去');
+    } catch (err) {
+      toast('发不出去：' + (err && err.message ? err.message : err));
+    }
+    peek.disabled = false;
+    peek.textContent = '让他现在看一眼';
+    _renderScreen();
+  });
+}
+
+// ── 「看一眼」跟云端说话（2026-09-30）────────────────────────────────────
+// 读不到云端（没配地址 / 断网）一律返回 null，调用方整段不显示 —— 不能因为
+// 云端不通就把本地那个开关也藏了（那是纯本地能力）。
+async function _screenCfg() {
+  const srv = getCloudOrLocalUrl();
+  if (!srv) return null;
+  const r = await fetch(buildServerFetchUrl(srv, '/api/screen-config'), { headers: buildServerHeaders(srv, {}) });
+  const d = await r.json().catch(() => null);
+  if (!r.ok || !d || !d.ok) return null;
+  return d;
+}
+
+async function _screenCfgSave(v) {
+  const srv = getCloudOrLocalUrl();
+  if (!srv) { toast('还没填云服务器地址（API 页里填）'); return null; }
+  const r = await fetch(buildServerFetchUrl(srv, '/api/screen-config'), {
+    method: 'POST',
+    headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ todayLimit: v }),
+  });
+  return await r.json().catch(() => null);
+}
+
+async function _screenPeek() {
+  const srv = getCloudOrLocalUrl();
+  if (!srv) { toast('还没填云服务器地址（API 页里填）'); return null; }
+  const r = await fetch(buildServerFetchUrl(srv, '/api/screen-peek'), {
+    method: 'POST',
+    headers: buildServerHeaders(srv, { 'Content-Type': 'application/json' }),
+    body: '{}',
+  });
+  return await r.json().catch(() => null);
 }
 
 // ── 「想调整」→ 进聊天 ────────────────────────────────────────────────────
