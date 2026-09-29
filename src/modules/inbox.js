@@ -380,7 +380,10 @@ async function _consumePushInbox(opts = {}) {
       if (_seen.has(_sig(m.content, m.time))) { if (m._key != null) _inboxDrop.push(m._key); continue; }
       _seen.add(_sig(m.content, m.time));
       // id 带着走 —— 下面万一写不进库，要靠它判定"这一批没全成"（见循环之后那段）
-      allMessages.push({ id: pid || '', _key: m._key, content: m.content, time: m.time });
+      // presetName（2026-09-29）：SW 收件箱透传下来的「这条是哪个预设生成的」，
+      // 落库时交给 addMessage 的第 5 参，气泡底部才有标签（老 SW 写的记录没这字段 → ''）
+      allMessages.push({ id: pid || '', _key: m._key, content: m.content, time: m.time,
+        presetName: m.presetName || '' });
     }
     for (const m of cloudMsgs) {
       if (m.id && consumedSet.has(m.id)) continue;
@@ -388,8 +391,11 @@ async function _consumePushInbox(opts = {}) {
       if (_seen.has(_sig(m.content, m.time))) continue;
       _seen.add(_sig(m.content, m.time));
       // image 是**画图提示词**、refChars 是**垫谁**（都来自云端，画在她手机这边 —— 见 _drawProactiveImage）
+      // presetName：云端 _heartbeatGenerate 记下的「生成这条的那条预设」（2026-09-29 加）。
+      // ⚠️ 是**主预设**（mainPresets）—— 云端心跳是「判断走副、生成走主」，她专门确认过。
       allMessages.push({ id: m.id || '', content: m.content, time: m.time,
-        image: m.image || '', refChars: m.ref_characters || 'none' });
+        image: m.image || '', refChars: m.ref_characters || 'none',
+        presetName: m.presetName || '' });
     }
 
     if (!allMessages.length) return _savedRows;
@@ -417,7 +423,9 @@ async function _consumePushInbox(opts = {}) {
     for (const msg of allMessages) {
       let _saved = null;
       try {
-        _saved = await addMessage('assistant', msg.content, null, msg.time);
+        // 第 5 参 = 预设名（2026-09-29）：云端/推送带来的「这条是谁生成的」，
+        // 不传的话云端主动消息就是聊天里唯一没有标签的那种（她报的第二件事）
+        _saved = await addMessage('assistant', msg.content, null, msg.time, msg.presetName || '');
       } catch (e) {
         // 一条写不进去**别把整批带停** —— 记下它，继续写后面的
         console.warn('[Push] 这条写进聊天失败，稍后撤回它的已消费标记:', e && e.message);

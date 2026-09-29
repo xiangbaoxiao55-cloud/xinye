@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20260929-1156';
+const CACHE_NAME = 'xinye-20260929-1240';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -188,7 +188,10 @@ async function _handlePush(data) {
         const tx = db.transaction('inbox', 'readwrite');
         // 必须带上 proactiveId：前端靠它和云端拉取的同一消息去重，缺了就重复上屏
         // appId：收件箱是炘也/臭宝共用的全局DB，不带这个前端没法分辨该谁上屏
-        tx.objectStore('inbox').add({ role: 'assistant', content: data.content, time: data.time || Date.now(), proactiveId: data.proactiveId, appId: data.appId || 'xinye' });
+        // presetName（2026-09-29）：生成这条的 API 预设名，气泡底部那个标签用。
+        // ⚠️ 这里是**逐字段挑**，不是整个 payload 存进来 —— 云端 payload 加了字段、这里不接，
+        //    就会出现「同一条消息走 push 进来没标签、走云端拉取进来有标签」的不一致。
+        tx.objectStore('inbox').add({ role: 'assistant', content: data.content, time: data.time || Date.now(), proactiveId: data.proactiveId, appId: data.appId || 'xinye', presetName: data.presetName || '' });
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = reject;
       };
@@ -242,7 +245,8 @@ async function _pullAndNotify() {
           req.onsuccess = () => {
             const db = req.result;
             const tx = db.transaction('inbox', 'readwrite');
-            tx.objectStore('inbox').add({ role: 'assistant', content: m.content, time: m.time, id: m.id, appId: 'xinye' });
+            // presetName（2026-09-29）：和上面 _handlePush 同理，云端拉来的也要带过去
+            tx.objectStore('inbox').add({ role: 'assistant', content: m.content, time: m.time, id: m.id, appId: 'xinye', presetName: m.presetName || '' });
             tx.oncomplete = () => { db.close(); resolve(); };
             tx.onerror = reject;
           };
