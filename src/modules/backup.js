@@ -54,6 +54,15 @@ function _openDrawDB() {
   return new Promise((res, rej) => {
     let done = false;
     const req = indexedDB.open('DrawDB');          // 不带版本，跟随当前
+    // 🔴 2026-09-29：库**不存在**时，open 会静默建出一个 v1 空库（一个 store 都没有）——
+    //    于是 settings/styleRefs/gallery 三个全抛 NotFoundError，还在 origin 里
+    //    留下一个假的 DrawDB@v1，而且每次自动备份都重复一遍。
+    //    在 upgradeneeded 里 abort：库不存在就干净失败、不留空库；
+    //    库正常（v4）时版本相同、不触发 upgrade，照常打开。
+    //    （gallery.html 的 openDrawDBReadOnly 一直是这么写的。）
+    //    ⚠️ 反过来绝不能写 open('DrawDB', 4)：库不存在时会建出**没有 store 的 v4**，
+    //       之后 draw.html 版本相同不再升级 → 画图台永久坏掉。
+    req.onupgradeneeded = e => { try { e.target.transaction.abort(); } catch (_) {} };
     req.onsuccess = e => { if (!done) { done = true; res(e.target.result); } };
     req.onerror = e => { if (!done) { done = true; rej(e.target.error); } };
     setTimeout(() => { if (!done) { done = true; rej(new Error('打开 DrawDB 超时')); } }, 3000);
@@ -61,8 +70,22 @@ function _openDrawDB() {
 }
 
 async function getDrawBackupData() {
+  let d;
+  try { d = await _openDrawDB(); }
+  catch (e) {
+    // AbortError = 这个 origin 下还没建过 DrawDB（从没打开过 draw.html）——
+    // 这是**正常情况**（主 APP 在一个域名、画图台在另一个域名时就是这样）。
+    // 安静跳过：既不报错也不刷 warn，更不能顺手建一个空库出来。
+    if (e && e.name === 'AbortError') return null;
+    console.warn('[backup] 画图台数据读取失败（不影响主备份）:', e);
+    return null;
+  }
+  // 库在、但缺 store（早期被 open() 不带版本建出来的空库）→ 同样安静跳过
+  if (!['settings', 'styleRefs', 'gallery'].every(s => d.objectStoreNames.contains(s))) {
+    try { d.close(); } catch {}
+    return null;
+  }
   try {
-    const d = await _openDrawDB();
     const getAll = store => new Promise((res, rej) => {
       try {
         const req = d.transaction(store, 'readonly').objectStore(store).getAll();
@@ -149,7 +172,12 @@ async function restoreDrawData(drawObj) {
 
   let d;
   try { d = await _openDrawDB(); }
-  catch (e) { console.warn('[backup] 还原画图台：打不开 DrawDB', e); return st; }
+  catch (e) {
+    // 库不存在 = 她还没在这个 origin 下打开过画图台（DrawDB 只在 draw.html 里建）。
+    // 等她在画图台打开一次，再导入这份备份就行。
+    console.warn('[backup] 还原画图台：DrawDB 还没建（先在画图台打开一次再恢复）', e);
+    return st;
+  }
 
   const _get = (store, key) => new Promise((res, rej) => {
     try {
