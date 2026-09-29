@@ -20,6 +20,7 @@ import { _startEarlyInboxFetch, _discardEarlyInboxFetch, _consumePushInbox, _con
 import { initRp } from './modules/rp.js';
 import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
 import { initInputDraft } from './modules/draft.js';
+import { archiveCrashLogs, dumpCrashLogs } from './modules/crashlog.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
   switchTab, openBookmarksPanel,
@@ -150,6 +151,8 @@ if (performance.memory) {
 {
   const _VC_KEY = 'vconsole_logs';
   const _VC_MAX = 200;
+  // 「上一轮页面自己收摊了吗」的凭据。存档那段靠它分辨「上次正常退出」和「上次被系统掐」。
+  const _VC_EXIT_KEY = 'vconsole_exit_at';
   const _origLog = console.log, _origWarn = console.warn, _origError = console.error;
   let _vcBuf = null;      // 日志先攒在内存里
   let _vcTimer = 0;
@@ -159,9 +162,14 @@ if (performance.memory) {
     if (!_vcBuf) return;
     try { localStorage.setItem(_VC_KEY, JSON.stringify(_vcBuf)); } catch {}
   };
+  // 收摊（切后台 / 关页面）时落盘，**顺手记一个时间戳** —— 见下面存档那段的判据。
+  function _vcFlushAndMark() {
+    _vcFlush();
+    try { localStorage.setItem(_VC_EXIT_KEY, String(Date.now())); } catch {}
+  }
   // 切后台 / 关页面时立刻落盘，别等那一秒的定时器
-  window.addEventListener('pagehide', _vcFlush);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) _vcFlush(); });
+  window.addEventListener('pagehide', () => _vcFlushAndMark());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _vcFlushAndMark(); });
 
   function _vcSave(level, args) {
     try {
@@ -202,6 +210,20 @@ if (performance.memory) {
     //    sessionStorage（空的），等于上一轮崩溃前的日志一条都没恢复出来，白存了。
     const prev = JSON.parse(localStorage.getItem(_VC_KEY) || '[]');
     if (prev.length > 0) {
+      // 🔴 先把这一批抄进存档，再显示（2026-09-29，见 modules/crashlog.js 开头）。
+      //    这个键只留最后 200 条，新日志一写就把上一轮挤掉了 ——
+      //    而「崩了几次、每次崩之前最后一屏是什么」正是定位闪退最要紧的证据。
+      //    判据：收摊标记（切后台/关页面时写）如果**早于**最后一条日志，
+      //    说明标记之后页面还在打日志 → 最后是被系统掐的，不是她自己退的。
+      const _exitAt = parseInt(localStorage.getItem(_VC_EXIT_KEY) || '0', 10) || 0;
+      const _lastTs = prev[prev.length - 1].ts || 0;
+      const _crashed = _lastTs > _exitAt;
+      archiveCrashLogs(prev, { crashed: _crashed }).then(r => {
+        if (!r) return;
+        _origLog.call(console,
+          `🗂 上一轮日志已存档（${_crashed ? '疑似崩溃' : '正常退出'}）· 现存 ${r.kept} 份 · 敲 dumpCrashLogs() 可导出`);
+      }).catch(() => {});
+
       const tag = `📦 恢复 ${prev.length} 条日志 (${new Date(prev[0].ts).toLocaleTimeString()}~${new Date(prev[prev.length-1].ts).toLocaleTimeString()})`;
       _origLog.call(console, tag);
       for (const e of prev) {
@@ -212,6 +234,9 @@ if (performance.memory) {
     }
   } catch {}
 }
+
+// vConsole 命令行里敲 dumpCrashLogs()，就能把存档的崩溃日志导出成 txt（落到手机下载目录）
+window.dumpCrashLogs = dumpCrashLogs;
 
 // ======================== 默认 Emoji 头像 ========================
 
@@ -568,7 +593,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.29-1638';
+  if (_verEl) _verEl.textContent = 'v2026.09.29-2022';
 
   await openDB();
   await migrateFromLocalStorage();
