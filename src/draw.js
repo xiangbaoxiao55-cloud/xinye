@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.29-1543';
+const DRAW_VER='v2026.09.29-1545';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3118,6 +3118,9 @@ async function importConfig(file){
     loadCfg();
     await loadPersonas();
     renderDrawPresets();renderMasterPresets();
+    // 同上：loadCfg() 已经读回 S.masterPersona，但设置面板是开着的，输入框得跟着变
+    const mpElCfg=document.getElementById('input-master-persona');
+    if(mpElCfg) mpElCfg.value=S.masterPersona||'';
     toast(`配置已导入 ✓（${cfg._date||''}）`);
   }catch(e){toast('导入失败：'+e.message,'error')}
 }
