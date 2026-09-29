@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.29-1519';
+const DRAW_VER='v2026.09.29-1543';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3096,6 +3096,7 @@ async function exportConfig(){
     masterPresets:S.masterPresets,curMasterId:S.curMasterId,
     personas,curPersonaId:S.curPersonaId,
     templates,customStyles,
+    masterPersona:S.masterPersona||'',   // 同上：它在 localStorage 里，不塞进来就带不走
   };
   const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
   saveBlob(blob,`draw_config_${new Date().toISOString().slice(0,10)}.json`);
@@ -3112,6 +3113,7 @@ async function importConfig(file){
     if(cfg.personas?.length) for(const p of cfg.personas) await db.put('personas',p);
     if(cfg.customStyles?.length) for(const s of cfg.customStyles) await db.put('styles',s);
     if(cfg.templates?.length) for(const t of cfg.templates) await db.put('templates',t);
+    if(typeof cfg.masterPersona==='string') localStorage.setItem('draw_masterPersona',cfg.masterPersona);
     savePresetsToLS();
     loadCfg();
     await loadPersonas();
@@ -3131,6 +3133,9 @@ async function exportFullDB(){
       drawPresets:S.drawPresets,curDrawId:S.curDrawId,
       masterPresets:S.masterPresets,curMasterId:S.curMasterId,
       curPersonaId:S.curPersonaId,
+      // ⚠️ 大师人设住在 **localStorage**（`draw_masterPersona`），**不在任何 IndexedDB store 里**
+      //    —— 所以必须显式塞进 meta，否则「导出全部数据」带不走它（2026-09-29 补）。
+      masterPersona:S.masterPersona||'',
     };
     // 用 Blob 数组 + cursor 逐条刷入，避免 getAll() 把整个 gallery 一次性加载到 JS 堆 OOM
     const blobs=[new Blob([JSON.stringify(meta).slice(0,-1)])];
@@ -3195,6 +3200,8 @@ async function importFullDB(file){
     if(metaObj.drawPresets?.length){S.drawPresets=metaObj.drawPresets;S.curDrawId=metaObj.curDrawId||metaObj.drawPresets[0]?.id}
     if(metaObj.masterPresets?.length){S.masterPresets=metaObj.masterPresets;S.curMasterId=metaObj.curMasterId||metaObj.masterPresets[0]?.id}
     if(metaObj.curPersonaId) S.curPersonaId=metaObj.curPersonaId;
+    // 大师人设住在 localStorage 里（见 exportFullDB 的注释）；老备份文件没有这个字段，跳过即可
+    if(typeof metaObj.masterPersona==='string'){ localStorage.setItem('draw_masterPersona',metaObj.masterPersona);S.masterPersona=metaObj.masterPersona }
     showProgress('⏳ 预设已读取，开始导入数据…');
     for(const store of FULL_STORES){
       const storeStart=`,"${store}":[`;
@@ -3258,6 +3265,16 @@ async function importFullDB(file){
     loadCfg();
     await loadPersonas();
     renderDrawPresets();renderMasterPresets();
+    // 🔴 2026-09-29：画风参考和审美档案以前**没有在这里重新加载** ——
+    //    数据明明已经进库了，界面上却还是空的，她会以为"根本没导进来"（其实刷新一下就有）。
+    S.styleRefs=await db.allSafe('styleRefs',true);
+    renderStyleRefList();
+    await loadAestheticProfile();
+    // 🔴 2026-09-29：大师人设住在 localStorage，导入时已经写进 S.masterPersona 了，
+    //    但输入框的 value 是另一回事 —— 不写回去，她打开设置面板会看到空的（以为没导进来）。
+    //    跟 openSettings() 里那两行保持同一写法。
+    const mpEl=document.getElementById('input-master-persona');
+    if(mpEl) mpEl.value=S.masterPersona||'';
     showProgress('');
     if(statusEl) statusEl.style.display='none';
     toast(`全部数据已导入 ✓（${metaObj._date||''}）\n${counts.join('、')}`);
