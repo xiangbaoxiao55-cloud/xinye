@@ -263,6 +263,8 @@ async function _renderScreen() {
       : '现在是 <b>0</b> —— 他一次都不会看。想让他能看，填个数字再点保存。'}</div>
     ${cfg.lastNote ? `<div class="mon-screen-sub">他最近一次看到的是：${escHtml(cfg.lastNote)}</div>` : ''}
     <button class="mon-screen-btn ghost" id="monScreenPeek"${(on && left > 0) ? '' : ' disabled'}>让他现在看一眼</button>
+    ${(on && cfg.pending) ? `<div class="mon-screen-sub on">他还没看到 —— 你现在开着炘也，他看不到这一页。
+      <b>退出炘也</b>（回桌面、或者打开别的 APP）等一会儿就行，15 分钟内都算数。这次不扣次数。</div>` : ''}
     ` : ''}
     <div id="monScreenPrev"></div>`;
 
@@ -346,7 +348,7 @@ async function _renderScreen() {
     peek.textContent = '跟他说了…';
     try {
       const d = await _screenPeek();
-      if (d && d.ok) toast('跟他说了 —— 最多 3 分钟他就会看一眼');
+      if (d && d.ok) toast('跟他说了 —— 现在退出炘也，最多 3 分钟他就会看一眼');
       else toast((d && d.why) || '这次没发出去');
     } catch (err) {
       toast('发不出去：' + (err && err.message ? err.message : err));
