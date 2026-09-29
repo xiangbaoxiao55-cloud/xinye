@@ -207,7 +207,9 @@ export function checkMorningWalk() {
 async function _fireReminder(todo) {
   const userName = settings.userName || '兔宝';
   const instruction = `[系统：你之前帮${userName}记了这件事：「${todo.content}」，现在时间到了。下次她发消息时，请在回复她之前，先自然地提醒她这件事，用你自己的语气，就像随口说起一样，不超过60字。]`;
-  const reminder = await triggerProactiveReply(instruction, 150);
+  // 2026-09-29：triggerProactiveReply 现在返回 { text, presetName }（这里只用 text，
+  // 提醒是先存 localStorage、下次她发消息时才由模型带出来，不单独落一条消息）
+  const { text: reminder } = await triggerProactiveReply(instruction, 150);
   if (reminder && reminder.trim()) {
     // 提醒单独存（跟新闻分开）：它不过期、也不受安静时间限制——
     // 该吃药了这种事，凌晨说也得说；而且不说就等于没提醒，todo 会每分钟重复触发

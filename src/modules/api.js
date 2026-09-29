@@ -45,10 +45,32 @@ export function getSubApiCfg() {
   };
 }
 
+/**
+ * 按「配置三要素」反查这条配置对应预设列表里的哪一条 —— 气泡底部那个预设名标签用。
+ *
+ * 2026-09-29：原来这段反查在 chat.js 里写了两份（`_apiFetch` 一份、
+ * `regenerateLastAI` 一份），而后者干脆**不用它**、直接写死"当前主预设"，
+ * 于是切到备用预设后气泡还挂着主预设名（她报的「实际走了 passion、气泡写 AIPM」）。
+ * 抽出来一份，三处（主/副/重生成）共用。
+ *
+ * 找不到就退回模型名 —— 空标签比一个模型名更没用（她要的就是"这条是谁生成的"）。
+ */
+export function presetNameFor(cfg) {
+  const { apiKey, baseUrl, model } = cfg || {};
+  const hit = getApiPresets().find(p => p.apiKey === apiKey && p.baseUrl === baseUrl && p.model === model);
+  return hit?.name || model || '';
+}
+
 export async function mainApiFetch(bodyWithoutModel) {
   const _fbPresets = (settings.fallbackPresetNames || [])
     .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
   const _allCfgs = [null, ..._fbPresets];
+  // 主配置（_allCfgs[0]）本身没有名字，反查它对应预设列表里的哪一条。
+  // 2026-09-29：返回时挂在 res.__usedPresetName 上 —— 调用方要拿它写气泡底部那个标签，
+  // 不能再自己猜"当前主预设"（那样切到备用后标签还是错的）。
+  const _mainPresetName = presetNameFor({ apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model });
+  // ⚠️ 备用预设没填名字时退回它自己的 model —— 绝不能掉进主预设名（那正是这个 bug 的成因）
+  const _usedName = (pi) => pi > 0 ? (_allCfgs[pi]?.name || _allCfgs[pi]?.model || '') : _mainPresetName;
   function _buildCfg(preset) {
     if (preset) {
       const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
@@ -117,10 +139,11 @@ export async function mainApiFetch(bodyWithoutModel) {
           }
           if (pi > 0) toast(`🔄 主API已切换到备用${pi}「${_fbPresets[pi-1].name}」`);
           _res.__apiFormat = cfg.apiFormat;
+          _res.__usedPresetName = _usedName(pi);
           if (cfg.apiFormat === 'anthropic' && bodyWithoutModel.stream === false) {
             const _origJson = await _res.json();
             const _converted = anthropicToOpenAIResponse(_origJson);
-            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic' };
+            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic', __usedPresetName: _usedName(pi) };
           }
           return _res;
         }
@@ -136,6 +159,9 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
   const _subFbPresets = (settings.subFallbackPresetNames || [])
     .map(n => getApiPresets().find(p => p.name === n)).filter(Boolean);
   const _subAllCfgs = [null, ..._subFbPresets];
+  // 同 mainApiFetch：副 API 也有自己的主配置 + 备用列表，气泡标签要用**实际生效**那条。
+  const _subMainName = presetNameFor({ apiKey: sub.apiKey, baseUrl: sub.baseUrl, model: sub.model || defaultModel });
+  const _subUsedName = (pi) => pi > 0 ? (_subAllCfgs[pi]?.name || '') : _subMainName;
   function _buildSubCfg(preset) {
     if (preset) {
       const raw = (preset.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
@@ -191,10 +217,11 @@ export async function subApiFetch(bodyWithoutModel, defaultModel = 'gpt-4o') {
           }
           if (pi > 0) toast(`🔄 副API已切换到备用${pi}「${_subFbPresets[pi-1].name}」`);
           _res.__apiFormat = cfg.apiFormat;
+          _res.__usedPresetName = _subUsedName(pi);
           if (cfg.apiFormat === 'anthropic' && bodyWithoutModel.stream === false) {
             const _origJson = await _res.json();
             const _converted = anthropicToOpenAIResponse(_origJson);
-            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic' };
+            _res = { ok: true, status: 200, json: async () => _converted, __apiFormat: 'anthropic', __usedPresetName: _subUsedName(pi) };
           }
           return _res;
         }

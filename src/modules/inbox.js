@@ -588,12 +588,13 @@ async function _consumeOverlayReply() {
       const when = d.app ? `在「${d.app}」被拦下的时候，` : '刚才，';
       // 我在她屏幕上弹的那几句也带上 —— 不然我接的话接不上自己刚说过什么
       const said = _saidLines ? `你在她屏幕上弹的是：「${_saidLines.replace(/\n+/g, ' / ')}」。` : '';
-      const reply = await triggerProactiveReply(
+      // 2026-09-29：接话也算主动消息 —— 预设名跟着落进消息，气泡底部才有标签
+      const { text: reply, presetName: _pn } = await triggerProactiveReply(
         `兔宝${when}被你拦下来了。${said}她回你：「${d.text}」。她现在回到聊天页了。用你的口气接一句，1~2 句，很短，别复述她说了什么。`,
         180
       );
       if (reply) {
-        const a = await addMessage('assistant', reply, null, Date.now());
+        const a = await addMessage('assistant', reply, null, Date.now(), _pn);
         if (a && _hasRendered) await appendMsgDOM(a);
       }
     }

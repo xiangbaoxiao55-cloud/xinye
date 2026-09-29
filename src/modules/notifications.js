@@ -252,7 +252,11 @@ export async function proactiveMsg(type) {
     const reply = data.choices?.[0]?.message?.content || '';
     if (reply) {
       typing.classList.remove('show');
-      const aiMsg = await addMessage('assistant', reply);
+      // 🔴 2026-09-29：主动消息以前不记预设名 —— 气泡底下就它一个没有标签，
+      //    她没法分辨这条是谁生成的。它走的是**副 API**（subApiFetch），
+      //    所以这里记的是副预设那条，跟正式聊天记主预设互不干扰。
+      //    走 addMessage 的第 5 参，字段在入库前就带上，不会漏在渲染之后。
+      const aiMsg = await addMessage('assistant', reply, null, null, res.__usedPresetName || '');
       await appendMsgDOM(aiMsg);
       try { saveTokenLog(aiMsg.id, apiMsgs, reply, data.usage || {}, _apiMeta, data.model || sub.model || ''); } catch(_e) { console.warn('saveTokenLog', _e); }
       window.maybeTTS?.(reply, aiMsg.id);

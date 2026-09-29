@@ -2,7 +2,7 @@ import { toast, fallbackCopy, escHtml, fmtTime, nowStr, saveFile, setStatus, $ }
 const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { db, dbPut, dbGet, dbDelete, dbGetAllKeys, dbGetBefore } from './db.js';
 import { settings, messages, saveSettings } from './state.js';
-import { getApiPresets, getImagePresets, getImageCurPresetIdx, mainApiFetch } from './api.js';
+import { getApiPresets, getImagePresets, getImageCurPresetIdx, mainApiFetch, presetNameFor } from './api.js';
 import { convertRequestBody, buildEndpointUrl, parseAnthropicEvent, buildAnthropicHeaders, anthropicToOpenAIResponse } from './anthropic.js';
 import { getMemoryContextBlocks, parseAndSaveSelfMemories, rememberLatestExchange, autoDigestMemory, updateMoodState } from './memory.js';
 import { stripForTTS, playTTS, downloadTTS, regenTTS, showVoiceBar, fetchWithTimeout } from './tts.js';
@@ -384,9 +384,16 @@ export async function getUserAvatar() { return (await dbGet('images','userAvatar
 // ======================== 消息存储 ========================
 export function activeStore() { return window._rpActive ? 'rpMessages' : 'messages'; }
 
-export async function addMessage(role, content, images, timestamp) {
+/**
+ * @param presetName 2026-09-29 加：气泡底部那个「· 预设名」标签。
+ *   之前只有正式聊天会写它，主动消息（副 API）和覆盖层接话一律没有 ——
+ *   她分不清哪条是谁生成的。加在第 5 位是**追加**，老调用点全部不受影响；
+ *   而且字段在 store.add() 之前就带上，不会像"先入库再补写"那样漏在渲染之后。
+ */
+export async function addMessage(role, content, images, timestamp, presetName) {
   const msg = { role, content, time: timestamp || Date.now() };
   if (images && images.length) msg.images = images;
+  if (presetName) msg.presetName = presetName;
   const storeName = activeStore();
   const tx = db.transaction(storeName, 'readwrite');
   const store = tx.objectStore(storeName);
@@ -2269,6 +2276,8 @@ export async function sendMessage() {
     const _fallbackPresets = (settings.fallbackPresetNames || [])
       .map(n => _fbPresetList.find(p => p.name === n)).filter(Boolean);
     const _allCfgs = [null, ..._fallbackPresets];
+    // 2026-09-29：主配置反查出的预设名（气泡底部标签用）。见 _apiFetch 返回处。
+    const _mainPresetName = presetNameFor({ apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model });
     if (_stickyPresetIdx > 0 && Date.now() - _stickyFallbackTs > 300000) {
       _stickyPresetIdx = 0;
       console.warn('[Preset] 5分钟已过，重新尝试主预设');
@@ -2447,7 +2456,10 @@ export async function sendMessage() {
                   _res = new Response(_text, { status: _res.status, statusText: _res.statusText, headers: _res.headers });
                 }
               }
-              return { response: _res, usedModel: cfg.model, usedPresetName: _allCfgs[pi]?.name || _fbPresetList.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model)?.name || '' };
+              // 2026-09-29：pi>0 时**必须**只认备用预设自己的名字 —— 原来写成
+              // `_allCfgs[pi]?.name || <按主配置反查>`，备用预设没填名字时会掉进后半截，
+              // 于是实际走了备用、气泡却挂着主预设名（跟 regenerateLastAI 同一个毛病）。
+              return { response: _res, usedModel: cfg.model, usedPresetName: pi > 0 ? (_allCfgs[pi]?.name || _allCfgs[pi]?.model || '') : _mainPresetName };
             }
           } catch(fe) {
             if (fe.name === 'AbortError') { toast('请求超时…'); _res = null; }
@@ -3223,9 +3235,11 @@ export async function regenerateLastAI() {
     }
     apiMsgs.push({ role: 'system', content: `[系统时间: ${nowStr()}]` });
 
-    const presets = getApiPresets();
-    const _curMatch = presets.find(p => p.apiKey === settings.apiKey && p.baseUrl === settings.baseUrl && p.model === settings.model);
-    const presetName = _curMatch?.name || settings.model || '';
+    // 🔴 2026-09-29：这里以前是 `_curMatch?.name`（当前**主**预设的名字）写死在下面 push 的
+    //    版本上 —— 可 mainApiFetch 内部会 failover 到备用预设，实际生成的那条根本不是它。
+    //    她就是这么看到的：「日志说已切到备用2 passion，气泡下面还写着主预设 AIPM」。
+    //    现在主预设名只当**兜底**，真值从 res.__usedPresetName 取（见下面 push 处）。
+    const presetName = presetNameFor({ apiKey: settings.apiKey, baseUrl: settings.baseUrl, model: settings.model });
 
     const bubbleEl = chatArea.querySelector(`.msg-row.ai:last-child .msg-bubble`) ||
       [...chatArea.querySelectorAll('.msg-row.ai')].pop()?.querySelector('.msg-bubble');
@@ -3283,7 +3297,10 @@ export async function regenerateLastAI() {
     if (thinkText) fullText = `<thinking>${thinkText}</thinking>\n${fullText}`;
     if (!fullText.trim()) fullText = '（没有收到回复）';
 
-    aiMsg.versions.push({ content: fullText, time: Date.now(), presetName });
+    // 🔴 用**实际生效**的预设名（mainApiFetch 切过备用就写备用那条）。
+    //    `res.__usedPresetName` 缺失时才退回主预设名 —— 老版本服务端/异常路径的兜底。
+    const _usedPreset = res.__usedPresetName || presetName;
+    aiMsg.versions.push({ content: fullText, time: Date.now(), presetName: _usedPreset });
     aiMsg.activeVersion = aiMsg.versions.length - 1;
     aiMsg.content = fullText;
     await dbPut(activeStore(), null, aiMsg);
@@ -3346,8 +3363,18 @@ export function switchVersion(msgId, direction) {
   if (_slot) _slot.innerHTML = _versionSwitcherHtml(msg, isLast);
 }
 
+/**
+ * 炘也自己开口说一句（覆盖层拦下她之后接话、待办到点提醒）。
+ *
+ * 🔴 2026-09-29：返回值从「纯字符串」改成 `{ text, presetName }`。
+ *    原来调用方只拿到文本，落库时自然没有预设名 → 这类主动消息气泡底下**永远没有标签**。
+ *    两个调用方（inbox.js 覆盖层接话 / walk.js 提醒）已同步改。
+ */
 export async function triggerProactiveReply(instruction, maxTokens = 200) {
-  if (window.isRequesting) return null;
+  // 提前返回也走同一个形状，调用方不用分两种情况判
+  let _presetName = '';
+  const _ret = (t) => ({ text: (t || '').trim() || null, presetName: _presetName });
+  if (window.isRequesting) return _ret('');
   const typing = document.querySelector('#typingIndicator');
   const _btnSend = document.querySelector('#btnSend');
   window.isRequesting = true;
@@ -3389,9 +3416,10 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
       res = await mainApiFetch({ stream: true, max_tokens: maxTokens, messages: apiMsgs });
     } catch (fetchErr) {
       console.error('[主动消息] fetch异常', fetchErr.message || fetchErr);
-      return null;
+      return _ret('');
     }
-    if (!res?.ok) { console.error('[主动消息] API失败', res?.status); return null; }
+    if (!res?.ok) { console.error('[主动消息] API失败', res?.status); return _ret(''); }
+    _presetName = res.__usedPresetName || '';
     const _proFmt = res.__apiFormat || 'openai';
     if (!res.body) {
       try {
@@ -3400,8 +3428,8 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
         const msg = j.choices?.[0]?.message;
         let txt = msg?.content || j.content?.find(b => b.type === 'text')?.text || '';
         if (!txt) txt = (msg?.reasoning_content || j.content?.find(b => b.type === 'thinking')?.thinking || '').slice(0, 500);
-        return txt.trim() || null;
-      } catch (_) { return null; }
+        return _ret(txt);
+      } catch (_) { return _ret(''); }
     }
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -3433,7 +3461,7 @@ export async function triggerProactiveReply(instruction, maxTokens = 200) {
     } catch (_) {}
     if (!text && think) text = think.slice(0, 500);
     console.log('[主动消息] 回复：', text.slice(0, 100) || '(空)');
-    return text.trim() || null;
+    return _ret(text);
   } finally {
     window.isRequesting = false;
     if (_btnSend) _btnSend.disabled = (document.querySelector('#userInput')?.value || '') === '';
