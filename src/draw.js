@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.30-0039';
+const DRAW_VER='v2026.09.30-1252';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -439,7 +439,15 @@ function _buildFusionPrompt(){
     : `Generate a cross-media fusion artwork where "Character Visual Language × Scene Visual Language" coexist.`);
   lines.push(zh?`- 【角色视觉语言】：${expand(charStyle)}`:`- [Character Visual Language]: ${expand(charStyle)}`);
   lines.push(zh?`- 【场景视觉语言】：${expand(sceneStyle)}`:`- [Scene Visual Language]: ${expand(sceneStyle)}`);
-  if(theme) lines.push(zh?`- 【主题】：${theme}`:`- [Theme]: ${theme}`);
+  // 🔴 2026-09-30 改（她报「出图人物还是别人」）：**有画面描述时，【主题】槽位行不再输出**。
+  //   改前这里无条件把「想画什么」的原文拼进来 —— 她贴了别人分享的整段 prompt（含别人外貌）
+  //   +「改成我们的版本」，那段就**逐字**进了生图 prompt，和前面 base 里 AI 写好的
+  //   「炘也 + 兔宝」正面打架 → 出图人物变成别人。**AI 改写干净了也没用，这段原文照样进。**
+  //   base 已经在最前面把"画什么"说清楚了，再拼一遍 user-desc 是重复；而且那一栏里可能是
+  //   未加工的素材（别人的 prompt、口语指令），本来就不该直接喂给模型。
+  //   注意：**不能简单改成 `- 【主题】：${base}`** —— 那样同一段会在 prompt 里出现两次。
+  //   base 为空时（没点「AI 生成 Prompt」、也没自己写）才用「想画什么」兜底，那条路照旧能出图。
+  if(!base && theme) lines.push(zh?`- 【主题】：${theme}`:`- [Theme]: ${theme}`);
   if(moodNames.length) lines.push(zh?`- 【情绪】：${moodNames.join(' / ')}`:`- [Mood]: ${moodNames.join(' / ')}`);
   if(ratio) lines.push(zh?`- 【画幅比例】：${ratio}`:`- [Aspect Ratio]: ${ratio}`);
   if(wsText) lines.push(wsText);
@@ -462,9 +470,17 @@ function _fusionSummary(){
   const line2=[];
   // 主题是可选的（上游里它是"核心灵魂"，但我们已经把画面描述走 base 那条路了，
   // 所以只写一句话主题也行、不写也行）
-  line2.push(theme
-    ? `主题：${escHtml(theme)}`
-    : '主题：<span style="color:var(--sub)">（没写，可去「想画什么」补一句）</span>');
+  // 🔴 2026-09-30：有画面描述时【主题】槽位行**不再输出**（见 _buildFusionPrompt）——
+  //    摘要也必须跟着说清，否则她看到"主题：XXX"会以为它进了 prompt。
+  if(base){
+    line2.push(theme
+      ? '主题：<span style="color:var(--sub)">已并入画面描述，不单独拼</span>'
+      : '主题：<span style="color:var(--sub)">（没写，画面描述里已经说清了）</span>');
+  }else{
+    line2.push(theme
+      ? `主题：${escHtml(theme)}`
+      : '主题：<span style="color:var(--sub)">（没写，可去「想画什么」补一句）</span>');
+  }
   if(S.fusionMoods.length) line2.push(`情绪：${escHtml(S.fusionMoods.join(' / '))}`);
   line2.push(`留白：${FUSION_WS_LABEL[S.fusionWhitespace]||'正常'}`);
   if(ratio) line2.push(`画幅：${ratio}`);
@@ -474,7 +490,7 @@ function _fusionSummary(){
   //    以前只有「有」和「空」两档，两边都空时还会说"可以只靠上面那句主题出图"——
   //    可那时主题也是空的，等于在骗她。
   if(base){
-    line3.push(`<span style="color:var(--sub)">画面描述：「画图 Prompt」框那段（${base.length} 字符）会拼在最前面</span>`);
+    line3.push(`<span style="color:var(--sub)">画面描述：「画图 Prompt」框那段（${base.length} 字符）会拼在最前面；「想画什么」那句不会再拼一遍（内容已并进这段）</span>`);
   }else if(theme){
     line3.push('<span style="color:var(--warn)">画面描述：空 —— 「画图 Prompt」框里还没内容（这次会只靠上面那句主题出图）</span>');
   }else{
