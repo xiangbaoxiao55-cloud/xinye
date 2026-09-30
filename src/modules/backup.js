@@ -436,12 +436,107 @@ export async function restoreFromServer(filename) {
  */
 let _lastAutoBackupTime = parseInt(localStorage.getItem(_PFX + 'autoBackupTs') || '0', 10) || 0;
 
+// 🔴 2026-09-30 削峰（一）：游标逐条读，当场只留 role/content/time。
+//    原来 dbGetAll('messages') 会把 3.3 万条**含 base64 图**的记录一次性结构化克隆进内存，
+//    而下面又把这些图全丢掉（自动备份本来就是「纯文字备份」，见下面那段注释）——
+//    等于白白扛了几十兆峰值。她 2026-09-30 18:11 / 19:02 两次闪退都停在这附近
+//    （读完 3.3 万条 → 建 13.4MB → 被掐，连一行「失败」都来不及写）。
+//    游标是「读一条、克隆一条、扔掉一条」，峰值 = 单条，不是全量。
+function _readStrippedMsgs(store) {
+  if (!db) return Promise.resolve([]);
+  return new Promise((resolve, reject) => {
+    let tx;
+    try { tx = db.transaction(store, 'readonly'); } catch (e) { reject(e); return; }
+    const out = [];
+    const req = tx.objectStore(store).openCursor();
+    req.onsuccess = (e) => {
+      const cur = e.target.result;
+      if (!cur) { out.sort((a, b) => a.time - b.time); resolve(out); return; }
+      const m = cur.value || {};
+      // 只取三个字段：image / images / genImageData 一律不碰（不碰 = 不克隆进内存）
+      out.push({ role: m.role, content: m.content, time: m.time });
+      cur.continue();
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// 🔴 2026-09-30 削峰（二）：分块 stringify → Blob 当 body。
+//    原来 JSON.stringify(整个 payload) 会额外分配一个 13.4MB 的**连续字符串**
+//    （JS 字符串是 UTF-16，实际占 26.8MB），紧接着 fetch 还要再编码一份 UTF-8 ——
+//    三份同时在内存里，就是她手机上「扛到门口断掉」的那一下。
+//    现在大数组按块切、每块单独 stringify，body 直接给 Blob（浏览器在 JS 堆之外拼装），
+//    全程没有「一整坨」。
+const _BIG_KEYS = new Set(['messages', 'rpMessages']);
+function _chunkedJsonParts(obj, chunkSize = 1000) {
+  const parts = ['{'];
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i++) {
+    if (i) parts.push(',');
+    const k = keys[i];
+    parts.push(JSON.stringify(k), ':');
+    const v = obj[k];
+    if (_BIG_KEYS.has(k) && Array.isArray(v) && v.length > chunkSize) {
+      parts.push('[');
+      for (let s = 0; s < v.length; s += chunkSize) {
+        if (s) parts.push(',');
+        // 🔴 必须切掉 JSON.stringify 自带的 `[` `]` —— 否则会拼成 [[...],[...]] 嵌套数组，
+        //    服务端存下来的是「数组套数组」，恢复时整段聊天都读不出来。
+        //    （2026-09-30 验证脚本抓到的：40 条走 else 分支没事，2500 条一跨分块就露馅。）
+        const _seg = JSON.stringify(v.slice(s, s + chunkSize));
+        parts.push(_seg.slice(1, -1));
+      }
+      parts.push(']');
+    } else {
+      parts.push(JSON.stringify(v));
+    }
+  }
+  parts.push('}');
+  return parts;
+}
+
+// 🔴 2026-09-30 降频（三）：别做无用功。
+//    她 19:02 那次崩，距上一次**成功**备份（18:32 的备份文件）只有 30 分钟，
+//    中间只多了 12 条消息，却照样把 13.4MB 重传一遍 —— 纯浪费，还白搭一次崩溃风险。
+//    规则：新增不足 20 条就攒着不传；实在没聊，隔 3 小时也强制传一次兜底
+//    （因为设置 / 日记 / 画图台图库文字这些「不是消息」的东西也在备份里）。
+const _MIN_NEW_MSGS = 20;
+const _FORCE_MS = 3 * 60 * 60 * 1000;
+
+function _countStore(store) {
+  if (!db) return Promise.resolve(-1);
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(-1);
+    } catch (_) { resolve(-1); }
+  });
+}
+
 export async function autoBackupToServer() {
   const serverUrl = (settings.solitudeServerUrl || '').trim();
   if (!serverUrl || !_isLocalOnline()) return;
-  // 20 分钟一次（原来 5 分钟：她切后台太频繁，等于一直在传十几兆）
-  const _GAP = 20 * 60 * 1000;
-  if (Date.now() - _lastAutoBackupTime < _GAP) return;
+  // 60 分钟一次（原 20 分钟；再往前是 5 分钟 —— 她切后台太频繁，等于一直在传十几兆）
+  const _GAP = 60 * 60 * 1000;
+  const _prevTs = _lastAutoBackupTime;
+  if (Date.now() - _prevTs < _GAP) return;
+
+  // 「没怎么变就不传」—— 放在所有重活之前，只查一个 count，几乎零成本。
+  // ⚠️ 跳过时**故意不更新** _lastAutoBackupTime：这样她随时多聊几句、够 20 条了，
+  //    下一次回前台就能立刻补上，不用再干等一小时。
+  try {
+    const _cnt = await _countStore('messages');
+    const _lastCnt = parseInt(localStorage.getItem(_PFX + 'autoBackupCount') || '-1', 10);
+    if (_cnt >= 0 && _lastCnt >= 0 && (_cnt - _lastCnt) < _MIN_NEW_MSGS
+        && (Date.now() - _prevTs) < _FORCE_MS) {
+      console.log('[自动备份] 跳过 · 距上次只多了', Math.max(0, _cnt - _lastCnt),
+        '条消息（不足', _MIN_NEW_MSGS, '条），攒着下次一起传');
+      return;
+    }
+  } catch (_) { /* 查不动就照常备份：宁可多传，不能漏传 */ }
+
   _lastAutoBackupTime = Date.now();
   try { localStorage.setItem(_PFX + 'autoBackupTs', String(_lastAutoBackupTime)); } catch (_) {}
 
@@ -466,11 +561,11 @@ export async function autoBackupToServer() {
     //    「没有日志」只能靠推理、不能当证据（MEMORY.md 里那条推断就是这么来的）。
     //    现在读之前先落一行：**看到「开始读取」、看不到「读取完成」= 就是崩在这一步。**
     //    （main.js 里 [自动备份] 开头的日志是「立刻落盘」的，不会被定时器吞掉。）
+    //    ✅ 2026-09-30 晚：读取已改成游标逐条剥图（`_readStrippedMsgs`），
+    //       这两行日志留着 —— 削峰后如果还崩，靠它一眼看出是不是又崩在读取里。
     console.log('[自动备份] 开始读取聊天记录（有这行、没有下一行 = 崩在读里）…');
-    const allMsgs = await dbGetAll('messages');
-    allMsgs.sort((a, b) => a.time - b.time);
-    const allRpMsgs = await dbGetAll('rpMessages');
-    allRpMsgs.sort((a, b) => a.time - b.time);
+    const allMsgs = await _readStrippedMsgs('messages');
+    const allRpMsgs = await _readStrippedMsgs('rpMessages');
     console.log('[自动备份] 读取完成 · 聊天', allMsgs.length, '条 / RP', allRpMsgs.length, '条');
 
     const diaryData = await getDiaryBackupData();
@@ -529,8 +624,9 @@ export async function autoBackupToServer() {
         styleRef_3:    await dbGet('images', 'styleRef_3')    || null,
         styleRef_4:    await dbGet('images', 'styleRef_4')    || null,
       },
-      messages: allMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; if (m.images && m.time && m.time > Date.now() - 30*86400000) r.images = m.images; return r; }),
-      rpMessages: allRpMsgs.map(m => { const r = { role: m.role, content: m.content, time: m.time }; if (m.image) r.image = m.image; return r; }),
+      // 已经是 {role, content, time} 的精简数组了（见 _readStrippedMsgs）
+      messages: allMsgs,
+      rpMessages: allRpMsgs,
       rpData: { rp_prompt: localStorage.getItem(_PFX + 'rp_prompt') || '', rp_presets: localStorage.getItem(_PFX + 'rp_presets') || '[]', rp_char_name: localStorage.getItem(_PFX + 'rp_char_name') || '', rp_char_avatar: localStorage.getItem(_PFX + 'rp_char_avatar') || '', rp_active: localStorage.getItem(_PFX + 'rp_active') || '0' },
       stickers: getDecoStickers(), chatStickers: getChatStickers(),
       styleRefs: await dbGet('settings', 'styleRefs').catch(() => null) || [],
@@ -552,12 +648,16 @@ export async function autoBackupToServer() {
     //      ← 这一条必须当面跟她讲清楚，不然她哪天「从电脑恢复」会以为图片丢了。
     _payloadObj.chatStickers = [];
     _payloadObj.images = {};
-    _payloadObj.messages = (_payloadObj.messages || []).map(m => ({ role: m.role, content: m.content, time: m.time }));
-    _payloadObj.rpMessages = (_payloadObj.rpMessages || []).map(m => ({ role: m.role, content: m.content, time: m.time }));
+    // （messages / rpMessages 在 _readStrippedMsgs 里就已经是纯文字了，这里不用再剥一遍）
 
-    const payload = JSON.stringify(_payloadObj);
-    // 让它自己报体积：剥掉向量和大件后如果还是很大，说明大头还在聊天图片那边
-    console.log('[自动备份] payload ≈', (payload.length / 1048576).toFixed(1), 'MB');
+    // 🔴 2026-09-30 削峰（二）：分块拼 + Blob 当 body，见 _chunkedJsonParts 上面那段注释。
+    //    ⚠️ 这里的数字是 **UTF-8 字节数**（Blob.size），比以前那个「字符串长度」大
+    //    （中文一个字占 3 字节）—— 别拿它跟历史日志里的 13.4MB 直接比。
+    const _parts = _chunkedJsonParts(_payloadObj);
+    const payload = new Blob(_parts, { type: 'application/json' });
+    console.log('[自动备份] payload ≈', (payload.size / 1048576).toFixed(1), 'MB（UTF-8 字节）');
+    // 拼完就把 JS 里的大数组放掉：Blob 自己已经持有一份了
+    try { _payloadObj.messages = null; _payloadObj.rpMessages = null; _parts.length = 0; } catch (_) {}
 
     const _appId = window.__APP_ID__ === 'choubao' ? 'choubao' : 'xinye';
     const _device = /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'pc';
@@ -566,6 +666,9 @@ export async function autoBackupToServer() {
     const backupTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
     console.log('[自动备份] 完成');
     localStorage.setItem(_PFX + 'lastAutoBackupTime', backupTime);
+    // 记下这次传了多少条 —— 下一轮靠它算「新增够不够 20 条」。
+    // ⚠️ 只在**成功之后**写：万一中途崩了条数不变，下一轮照常重试（fail-open）。
+    try { localStorage.setItem(_PFX + 'autoBackupCount', String(allMsgs.length)); } catch (_) {}
     toast('💾 已自动备份到电脑');
   } catch (e) {
     console.warn('[自动备份] 失败:', e.message);
