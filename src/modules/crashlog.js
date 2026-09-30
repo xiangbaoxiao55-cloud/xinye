@@ -100,6 +100,33 @@ function _stamp() {
 }
 
 /**
+ * 判「上一轮到底是怎么结束的」。**抽出来是为了能单测** —— 这段逻辑原来埋在 main.js 里，
+ * 只分「被掐 / 正常退出」两种，于是**「切后台之后被系统回收」被一律标成「正常退出」**，
+ * 2026-09-30 下午那次真崩就是这么从眼皮底下溜过去的。
+ *
+ * @param {number}  lastTs     上一轮最后一根日志的时间戳（0 = 没有）
+ * @param {number}  exitAt     上一轮最后一次「收摊」标记的时间戳（0 = 没有）
+ * @param {boolean} exitHidden 收摊那一刻页面是不是在后台
+ * @returns {'crashed'|'background'|'closed'}
+ *   crashed    = 日志**晚于**收摊标记 → 它连收摊都没来得及 → 前台被掐（真崩）
+ *   background = 收摊标记晚于日志、且收摊时在后台 → 切后台之后结束的
+ *                ⚠️ 「系统回收」和「她自己划掉」长得一模一样，只能记事实，别断言是哪一个
+ *   closed     = 收摊标记晚于日志、且收摊时在前台 → 关页面 / 刷新，正常退出
+ */
+export function classifyRunEnd(lastTs, exitAt, exitHidden) {
+  const t = lastTs || 0, e = exitAt || 0;
+  if (t > e) return 'crashed';
+  return exitHidden ? 'background' : 'closed';
+}
+
+/** 给导出文本用的人话标签 */
+export function endLabel(kind) {
+  return kind === 'crashed' ? '疑似崩溃（前台被掐）'
+    : kind === 'background' ? '切后台后结束（可能被系统回收）'
+    : '正常退出';
+}
+
+/**
  * 把一批日志存进存档区。`entries` 就是 `vconsole_logs` 那个数组，
  * 每条形如 `{ l: 'log'|'warn'|'error', t: '正文', ts: 时间戳 }`。
  *
@@ -131,6 +158,11 @@ async function _archiveOnce(list, opts) {
       to: list[list.length - 1].ts || 0,
       count: list.length,
       crashed: !!opts.crashed,
+      // 🔴 2026-09-30 加：光有 crashed 分不清「切后台之后被回收」（以前一律算正常退出）。
+      //    exitAt / exitHidden 是**当时**收摊的凭据，一起存下来，导出时摆出来自己看。
+      endKind: opts.endKind || (opts.crashed ? 'crashed' : 'closed'),
+      exitAt: opts.exitAt || 0,
+      exitHidden: !!opts.exitHidden,
       lines: list,
     };
     await _tx(db, 'readwrite', os => os.put(rec));
@@ -165,9 +197,31 @@ export async function crashLogsAsText() {
     out.push('共 ' + all.length + ' 份（每份最多 200 行，对应约 20 分钟）');
     out.push('');
     all.forEach((r, i) => {
-      const tag = r.crashed ? '疑似崩溃（被系统掐）' : '正常退出';
+      // 旧存档没有 endKind，按老判据回退（那批数据的「正常退出」里可能混着后台被回收的）
+      const kind = r.endKind || (r.crashed ? 'crashed' : 'closed');
       out.push('='.repeat(48));
-      out.push(`【第 ${i + 1} 份】${_fmtFull(r.from)} ~ ${_fmtFull(r.to)} · ${r.count} 行 · ${tag}`);
+      out.push(`【第 ${i + 1} 份】${_fmtFull(r.from)} ~ ${_fmtFull(r.to)} · ${r.count} 行 · ${endLabel(kind)}`);
+      // 🔴 光有标签不够 —— 把「最后一根日志」和「收摊标记」的先后摆出来，
+      //    判据成不成立一眼可查（谁先谁后、当时在不在后台）。
+      //    ⚠️ 2026-09-30 之前存的 10 份没有这些字段，只能照实说「没有」，别硬编一个结论。
+      if (!r.endKind) {
+        out.push('   · 旧存档：当时还没记收摊标记，上面的判定只有「被掐 / 正常退出」两种，别全信');
+      } else if (r.exitAt) {
+        const _gap = Math.round(((r.exitAt || 0) - (r.to || 0)) / 1000);
+        out.push(`   · 最后一根日志 ${_fmtTime(r.to)} → 收摊标记 ${_fmtTime(r.exitAt)}` +
+          `（${r.exitHidden ? '当时在后台' : '当时在前台'}，相差 ${_gap >= 0 ? '+' : ''}${_gap} 秒）`);
+        // 🔴 2026-09-30 补：**「收摊后马上又加载了」必须点出来**。
+        //    SW 更新时 `clients.claim()` → `controllerchange` → `location.reload()`（main.js:55），
+        //    那次 pagehide 一样会写「在后台」的收摊标记 —— 和「被系统回收」逐字相同。
+        //    区别在 rec.ts（= 下一次加载的时刻）：自己重载是几秒后，她发现重开了是几分钟后。
+        const _relaunch = r.ts && r.to ? Math.round((r.ts - r.to) / 1000) : -1;
+        if (_relaunch >= 0 && _relaunch < 15) {
+          out.push(`   · ⚠️ 收摊后 ${_relaunch} 秒就重新加载了 —— 更像页面自己重载` +
+            `（SW 更新 / 手动刷新），不像被系统回收`);
+        }
+      } else {
+        out.push('   · 没有收摊标记 → 上一轮连切后台都没记上（硬崩，或被系统直接掐掉）');
+      }
       out.push('='.repeat(48));
       for (const e of (r.lines || [])) {
         const lv = e.l === 'error' ? ' ERR' : e.l === 'warn' ? ' WARN' : '';

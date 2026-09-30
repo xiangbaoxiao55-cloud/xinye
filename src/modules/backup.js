@@ -460,10 +460,18 @@ export async function autoBackupToServer() {
       return false;
     };
 
+    // 🔴 2026-09-30：这一段原来是**全程静默**的 —— 一上来就 dbGetAll 把整张 messages
+    //    （含 base64 图，**没有剥**）读进内存，而 [自动备份] 的日志打在读完之后。
+    //    所以她那边「崩在读这一步」时我们连一行日志都看不到，
+    //    「没有日志」只能靠推理、不能当证据（MEMORY.md 里那条推断就是这么来的）。
+    //    现在读之前先落一行：**看到「开始读取」、看不到「读取完成」= 就是崩在这一步。**
+    //    （main.js 里 [自动备份] 开头的日志是「立刻落盘」的，不会被定时器吞掉。）
+    console.log('[自动备份] 开始读取聊天记录（有这行、没有下一行 = 崩在读里）…');
     const allMsgs = await dbGetAll('messages');
     allMsgs.sort((a, b) => a.time - b.time);
     const allRpMsgs = await dbGetAll('rpMessages');
     allRpMsgs.sort((a, b) => a.time - b.time);
+    console.log('[自动备份] 读取完成 · 聊天', allMsgs.length, '条 / RP', allRpMsgs.length, '条');
 
     const diaryData = await getDiaryBackupData();
 

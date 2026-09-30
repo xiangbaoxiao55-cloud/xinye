@@ -20,7 +20,7 @@ import { _startEarlyInboxFetch, _discardEarlyInboxFetch, _consumePushInbox, _con
 import { initRp } from './modules/rp.js';
 import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
 import { initInputDraft } from './modules/draft.js';
-import { archiveCrashLogs, dumpCrashLogs } from './modules/crashlog.js';
+import { archiveCrashLogs, dumpCrashLogs, classifyRunEnd, endLabel } from './modules/crashlog.js';
 // ── 立即暴露inline handler函数到window（函数声明已提升，放这里保证任何后续错误都不影响）──
 Object.assign(window, {
   switchTab, openBookmarksPanel,
@@ -153,6 +153,10 @@ if (performance.memory) {
   const _VC_MAX = 200;
   // 「上一轮页面自己收摊了吗」的凭据。存档那段靠它分辨「上次正常退出」和「上次被系统掐」。
   const _VC_EXIT_KEY = 'vconsole_exit_at';
+  // 🔴 2026-09-30 加：光有时间戳分不清「前台被掐」和「切后台之后被系统回收」——
+  //    后台被杀时收摊标记照样写得比最后一根日志晚，于是被判成「正常退出」，
+  //    她 09-30 下午那次真崩就这么从眼皮底下溜过去了。把「收摊那一刻在不在后台」一起记下来。
+  const _VC_EXIT_BG_KEY = 'vconsole_exit_hidden';
   const _origLog = console.log, _origWarn = console.warn, _origError = console.error;
   let _vcBuf = null;      // 日志先攒在内存里
   let _vcTimer = 0;
@@ -165,7 +169,10 @@ if (performance.memory) {
   // 收摊（切后台 / 关页面）时落盘，**顺手记一个时间戳** —— 见下面存档那段的判据。
   function _vcFlushAndMark() {
     _vcFlush();
-    try { localStorage.setItem(_VC_EXIT_KEY, String(Date.now())); } catch {}
+    try {
+      localStorage.setItem(_VC_EXIT_KEY, String(Date.now()));
+      localStorage.setItem(_VC_EXIT_BG_KEY, document.hidden ? '1' : '0');
+    } catch {}
   }
   // 切后台 / 关页面时立刻落盘，别等那一秒的定时器
   window.addEventListener('pagehide', () => _vcFlushAndMark());
@@ -195,7 +202,7 @@ if (performance.memory) {
       //    error 前后通常就是崩溃现场；[设置面板]/[内存]/[自动备份]/[覆盖层预览] 是她崩的时候
       //    我们最想看的那几行（尤其「开始」有、「出来了」没有 —— 那一对就是铁证）。
       //    频率都很低（打开面板两条、内存一分钟一条），立即落盘不构成负担。
-      if (level === 'error' || /^\[(设置面板|内存|自动备份|覆盖层预览)\]/.test(text)) { _vcFlush(); return; }
+      if (level === 'error' || /^\[(设置面板|内存|自动备份|覆盖层预览|前台)\]/.test(text)) { _vcFlush(); return; }
       if (!_vcTimer) _vcTimer = setTimeout(_vcFlush, 1000);
     } catch {}
   }
@@ -213,15 +220,29 @@ if (performance.memory) {
       // 🔴 先把这一批抄进存档，再显示（2026-09-29，见 modules/crashlog.js 开头）。
       //    这个键只留最后 200 条，新日志一写就把上一轮挤掉了 ——
       //    而「崩了几次、每次崩之前最后一屏是什么」正是定位闪退最要紧的证据。
-      //    判据：收摊标记（切后台/关页面时写）如果**早于**最后一条日志，
-      //    说明标记之后页面还在打日志 → 最后是被系统掐的，不是她自己退的。
-      const _exitAt = parseInt(localStorage.getItem(_VC_EXIT_KEY) || '0', 10) || 0;
+      //    判据抽在 crashlog.js 的 classifyRunEnd() 里（能单测）：
+      //    收摊标记**早于**最后一根日志 = 标记之后页面还在打日志 = 被系统掐的。
+      //    🔴 2026-09-30：再加一条「收摊时在不在后台」—— 不然「切后台之后被回收」
+      //       会被一律标成「正常退出」，那次真崩就是这么漏掉的。
+      const _exitAtRaw = localStorage.getItem(_VC_EXIT_KEY) || '';
+      const _exitBgRaw = localStorage.getItem(_VC_EXIT_BG_KEY) || '';
+      const _exitAt = parseInt(_exitAtRaw || '0', 10) || 0;
+      const _exitHidden = _exitBgRaw === '1';
       const _lastTs = prev[prev.length - 1].ts || 0;
       const _crashed = _lastTs > _exitAt;
-      archiveCrashLogs(prev, { crashed: _crashed }).then(r => {
+      const _endKind = classifyRunEnd(_lastTs, _exitAt, _exitHidden);
+      archiveCrashLogs(prev, {
+        crashed: _crashed, endKind: _endKind, exitAt: _exitAt, exitHidden: _exitHidden,
+      }).then(r => {
         if (!r) return;
+        // 凭据用过就清掉 —— 否则导出时会把上一轮的时间戳当成这一轮的，反而误导。
+        // （只在值没被新的一轮改写时才删，避免和「刚切后台」抢同一个键）
+        try {
+          if (localStorage.getItem(_VC_EXIT_KEY) === _exitAtRaw) localStorage.removeItem(_VC_EXIT_KEY);
+          if (localStorage.getItem(_VC_EXIT_BG_KEY) === _exitBgRaw) localStorage.removeItem(_VC_EXIT_BG_KEY);
+        } catch {}
         _origLog.call(console,
-          `🗂 上一轮日志已存档（${_crashed ? '疑似崩溃' : '正常退出'}）· 现存 ${r.kept} 份 · 敲 dumpCrashLogs() 可导出`);
+          `🗂 上一轮日志已存档（${endLabel(_endKind)}）· 现存 ${r.kept} 份 · 敲 dumpCrashLogs() 可导出`);
       }).catch(() => {});
 
       const tag = `📦 恢复 ${prev.length} 条日志 (${new Date(prev[0].ts).toLocaleTimeString()}~${new Date(prev[prev.length-1].ts).toLocaleTimeString()})`;
@@ -349,6 +370,16 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+// 🔴 2026-09-30：回到前台的时刻也记一行。
+//    她那边两次真崩都出现在「切后台一段 → 回前台 → 一两分钟内没了」这个形状里
+//    （9-29 20:40、9-30 15:37），但日志里原来看不到「几点回来的」，
+//    只能靠 60 秒内存行漏拍去猜。有了这行，「回来之后多久崩的」就是硬证据。
+function _logResume(src) {
+  const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
+  const mins = bgTime ? Math.round((Date.now() - bgTime) / 60000) : -1;
+  console.log('[前台] 回到前台（' + src + '）' + (mins >= 0 ? ' · 离开了 ' + mins + ' 分钟' : ''));
+}
+
 // 网页环境用 visibilitychange
 document.addEventListener('visibilitychange', async () => {
   if (window.Capacitor) return;
@@ -362,6 +393,7 @@ document.addEventListener('visibilitychange', async () => {
     clearTimeout(window._autoBackupTimer);
     window._autoBackupTimer = setTimeout(() => { autoBackupToServer(); }, 25000);
     if (settings.solitudeServerUrl) checkLocalServer();
+    _logResume('visibilitychange');
     const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
     if (bgTime) {
       localStorage.removeItem('fox_bg_time');
@@ -413,6 +445,7 @@ window.addEventListener('load', () => {
         // 回到前台、等内存稳下来（25 秒）再备份；backup.js 里还有 20 分钟节流兜着
         clearTimeout(window._autoBackupTimer);
         window._autoBackupTimer = setTimeout(() => { autoBackupToServer(); }, 25000);
+        _logResume('appStateChange');
         const bgTime = parseInt(localStorage.getItem('fox_bg_time') || '0');
         if (bgTime) {
           localStorage.removeItem('fox_bg_time');
@@ -593,7 +626,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.09.30-1256';
+  if (_verEl) _verEl.textContent = 'v2026.09.30-1730';
 
   await openDB();
   await migrateFromLocalStorage();
