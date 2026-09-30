@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.30-1252';
+const DRAW_VER='v2026.09.30-1256';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -371,6 +371,11 @@ function _fusionHasContent(){
   return !!(S.fusionMode && S.selStyles.length>=2 && (_fusionBase()||_fusionTheme()));
 }
 
+// 她勾中的角色卡（`S.selCharIds`）—— 2026-09-30 加【人物】槽位时抽出来的共用取值。
+function _fusionChars(){
+  return S.selCharIds.map(id=>S.characters.find(c=>c.id===id)).filter(Boolean);
+}
+
 // 从尺寸下拉框反推画幅比例（1536x2048 → 3:4）。上游模板里【画幅比例】是必填槽位，
 // 但画图台已经有「尺寸」这个真参数了，不再多做一个重复的输入框 —— 这里只是把
 // 同一个信息翻译成模型看得懂的写法，真正生效的还是 API 的 size 参数。
@@ -439,6 +444,19 @@ function _buildFusionPrompt(){
     : `Generate a cross-media fusion artwork where "Character Visual Language × Scene Visual Language" coexist.`);
   lines.push(zh?`- 【角色视觉语言】：${expand(charStyle)}`:`- [Character Visual Language]: ${expand(charStyle)}`);
   lines.push(zh?`- 【场景视觉语言】：${expand(sceneStyle)}`:`- [Scene Visual Language]: ${expand(sceneStyle)}`);
+  // 🔴 2026-09-30 加：【人物】槽位 —— 只在**没有画面描述**时才拼角色卡。
+  //   为什么加：角色卡以前**从来没进过最终 prompt**，只在点「AI 生成 Prompt」时当"给 AI 看的参考"
+  //   （AI 可以照做也可以不照做）→ 不点 AI 生成时，角色卡等于白选。
+  //   为什么加 `!base` 这个条件：有 base 说明 AI 已经按角色卡把人物写进画面描述了（她实测确认过）。
+  //   再拼一遍就是同一套特征出现两次 —— 万一 AI 写的和角色卡有出入，反而变成"两套说法"打架。
+  //   所以规则和【主题】一致：**base 有内容 = 素材已经被 AI 消化过，不再单独重复拼**。
+  if(!base){
+    const chars=_fusionChars();
+    if(chars.length){
+      const desc=chars.map(c=>c.prompt?`${c.name}（${c.prompt}）`:c.name).join(zh?'；':' / ');
+      lines.push(zh?`- 【人物】：${desc}`:`- [Characters]: ${desc}`);
+    }
+  }
   // 🔴 2026-09-30 改（她报「出图人物还是别人」）：**有画面描述时，【主题】槽位行不再输出**。
   //   改前这里无条件把「想画什么」的原文拼进来 —— 她贴了别人分享的整段 prompt（含别人外貌）
   //   +「改成我们的版本」，那段就**逐字**进了生图 prompt，和前面 base 里 AI 写好的
@@ -495,6 +513,14 @@ function _fusionSummary(){
     line3.push('<span style="color:var(--warn)">画面描述：空 —— 「画图 Prompt」框里还没内容（这次会只靠上面那句主题出图）</span>');
   }else{
     line3.push('<span style="color:var(--warn)">画面描述：空 —— 「画图 Prompt」和「想画什么」都还是空的，先写一个</span>');
+  }
+  // 🔴 2026-09-30：【人物】槽位只在**没有画面描述**时才拼（有 base 时 AI 已经写进去了）——
+  //    摘要里说清，别让她以为"我选了角色卡怎么没反应"。
+  if(!base){
+    const chars=_fusionChars();
+    if(chars.length){
+      line3.push(`<span style="color:var(--sub)">角色卡 ${chars.length} 个（${chars.map(c=>escHtml(c.name)).join('、')}）→ 会拼成【人物】行</span>`);
+    }
   }
   return line1+'<br>'+line2.join(' &nbsp;·&nbsp; ')+(line3.length?'<br>'+line3.join('<br>'):'');
 }
