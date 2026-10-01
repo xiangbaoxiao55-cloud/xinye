@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.09.30-1953';
+const DRAW_VER='v2026.10.01-2033';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -420,9 +420,16 @@ function _buildFusionPrompt(){
         ? (s['参考']||'写实摄影 / 真实电影质感摄影')
         : (s['English prompt tokens']||'Realistic photography / Cinematic photorealism');
     }
+    // 🔴 2026-10-01 改（她实测：光改 tokens 不够，名字和作者也往里灌题材）：
+    //   改前输出 `#190 敦煌飞天新插画。参考作者/风格名称：敦煌新插画。核心风格特征：<tokens>。`
+    //   —— `敦煌飞天` 四个字比 tokens 里的技法词更强，模型见到就往敦煌=飞天/菩萨/藻井上联想。
+    //   现在只输出 `#编号。核心风格特征：<tokens>。`
+    //   名字和作者留在 UI 上（她认得出是哪条），不进 prompt。
+    //   而且作者名和风格名**本来就已经写在 tokens 里了**（HD001: `Gemma Correll style, ...`），
+    //   再拼一遍中文名 = 重复，重复的还偏偏是题材最重的那部分。
     return zh
-      ? `#${num} ${name}。参考作者/风格名称：${ref}。核心风格特征：${traits}。`
-      : `#${num} ${name}. Reference author/style: ${ref}. Core style traits: ${traits}.`;
+      ? `#${num}。核心风格特征：${traits}。`
+      : `#${num}. Core style traits: ${traits}.`;
   };
 
   const moodNames=S.fusionMoods
