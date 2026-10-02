@@ -972,6 +972,41 @@ export function renderTokenLog(msgId) {
   panel.style.display = 'block';
 }
 
+// ======================== 健康数据请求 ========================
+/**
+ * 组装健康数据的请求（URL + headers）。chat.js 和 notifications.js **必须都用它** ——
+ * 这两条链路以前各写各的，改一处漏一处会出静默失败。
+ *
+ * 🔴 2026-10-02 新增中转模式。背景：健康数据原来是**前端直连 Cloudflare Worker**
+ *    （`xxx.workers.dev`）—— **这是整个前端唯一一条直连境外、要挂梯子的链路**。
+ *    兔宝实测：梯子一抖，健康数据就 `Failed to fetch` 时有时无；而聊天不受影响，
+ *    因为聊天走的是她自己的服务器。所以让**服务器（首尔，无墙）**替前端转一手。
+ *
+ * 两种模式：
+ *   ① **中转**（推荐）：`healthWorkerUpstream` 配了真 Worker 地址 →
+ *      打 `/api/health-proxy?upstream=<worker>&days=N`，**同源、不用梯子**。
+ *   ② **直连**（兼容旧配置）：`healthWorkerUpstream` 空 → 直接用 `healthWorkerUrl`。
+ *      ⚠️ 保留是为了「她改设置改到一半」不会坏，不是推荐路径。
+ *
+ * ⚠️ 中转模式下 token 走 **`X-Health-Token` 头**（不是 Authorization）——
+ *    因为 Authorization 要留给服务器自己的鉴权（`/api/health-proxy` 在 checkAuth 后面）。
+ */
+export function buildHealthRequest(days) {
+  const upstream = (settings.healthWorkerUpstream || '').trim();
+  const legacy = (settings.healthWorkerUrl || '').trim();
+  if (!upstream) {
+    // ② 直连（老行为）
+    return { url: legacy, headers: settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {} };
+  }
+  // ① 中转：同源路径，走服务器的 /api/health-proxy
+  const q = new URLSearchParams();
+  q.set('upstream', upstream);
+  if (days) q.set('days', String(days));
+  const h = {};
+  if (settings.healthWorkerToken) h['X-Health-Token'] = settings.healthWorkerToken;
+  return { url: `/api/health-proxy?${q.toString()}`, headers: h };
+}
+
 // ======================== 发消息 ========================
 export async function sendMessage() {
   const text = userInput.value.trim();
@@ -1239,13 +1274,12 @@ export async function sendMessage() {
     // 「怎么没有了」才来问的。所以失败要能被她看见（见下面的 toast）。
     let _healthState = 'none';
     try {
-      const _hwUrl = settings.healthWorkerUrl;
-      if (_hwUrl) {
+      if (settings.healthWorkerUrl) {
         _healthState = 'fail';
-        const _hwHeaders = settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {};
+        const { url: _hUrl, headers: _hHeaders } = buildHealthRequest();
         const _hwCtrl = new AbortController();
-        setTimeout(() => _hwCtrl.abort(), 5000);
-        const healthRes = await fetch(_hwUrl, { headers: _hwHeaders, signal: _hwCtrl.signal });
+        setTimeout(() => _hwCtrl.abort(), 8000);
+        const healthRes = await fetch(_hUrl, { headers: _hHeaders, signal: _hwCtrl.signal });
         if (healthRes.ok) {
           const healthData = await healthRes.json();
           const h = healthData[0];

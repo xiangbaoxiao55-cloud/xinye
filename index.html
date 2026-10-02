@@ -936,13 +936,20 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
 
     <div class="setting-group-row">
       <div class="setting-group">
-        <label>健康数据 Worker 地址</label>
+        <label>健康数据 Worker 地址（上游）</label>
         <input type="text" id="setHealthWorkerUrl" placeholder="https://xxx.workers.dev/">
       </div>
       <div class="setting-group">
         <label>访问 Token</label>
         <input type="password" id="setHealthWorkerToken" placeholder="留空则不验证">
       </div>
+    </div>
+    <div class="setting-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="setHealthViaProxy" style="width:auto;margin:0">
+        <span>通过我的服务器中转（<b>不用挂梯子</b>，推荐）</span>
+      </label>
+      <div class="hint">勾上：APP 先请求你自己的服务器，由它去取 Worker 数据 —— 国内直连即可，梯子抖动也不受影响。<br>不勾：APP 直接连 Worker（<b>workers.dev 国内要挂梯子</b>，梯子一抖数据就会时有时无）。</div>
     </div>
     <div class="setting-group">
       <button class="btn-secondary" id="btnHealthDebug" style="width:100%"><i class="ic ic-activity"></i> 健康数据体检（看 Worker 到底给了什么）</button>

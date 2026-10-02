@@ -34,7 +34,7 @@ export const settings = {
   forumProxy: '',
   solitudeServerUrl: '',
   cloudServerUrl: '', cloudServerToken: '',
-  healthWorkerUrl: '', healthWorkerToken: '',
+  healthWorkerUrl: '', healthWorkerToken: '', healthWorkerUpstream: '',
   moodState: null,
   memoryBank: null,
   bookmarks: [],

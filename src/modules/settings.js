@@ -322,6 +322,11 @@ export async function openSettings(ev) {
   $('#setDreamSleepHours').value = settings.dreamSleepHours || 6;
   if ($('#setHealthWorkerUrl')) $('#setHealthWorkerUrl').value = settings.healthWorkerUrl || '';
   if ($('#setHealthWorkerToken')) $('#setHealthWorkerToken').value = settings.healthWorkerToken || '';
+  // 🆕 2026-10-02 中转开关。**默认勾上**（`!== false`）—— 她只要填了 Worker 地址，
+  // 就该走中转（国内直连、不依赖梯子）。只有明确取消勾选才回退直连。
+  // ⚠️ 这里不能写 `!!settings.healthWorkerUpstream` —— 老用户那个字段是空字符串，
+  //    会变成"没勾"，正好把最该受益的人挡在外面。
+  if ($('#setHealthViaProxy')) $('#setHealthViaProxy').checked = settings.healthViaProxy !== false;
   const _hbEl = $('#setHeartbeatEnabled'); if (_hbEl) _hbEl.checked = !!settings.heartbeatEnabled;
   const _qsEl = $('#setQuietHoursStart'); if (_qsEl) _qsEl.value = settings.quietHoursStart ?? 0;
   const _qeEl = $('#setQuietHoursEnd'); if (_qeEl) _qeEl.value = settings.quietHoursEnd ?? 8;
@@ -1553,6 +1558,12 @@ export function initSettings() {
     settings.dreamSleepHours = parseFloat($('#setDreamSleepHours').value) || 6;
     if ($('#setHealthWorkerUrl')) settings.healthWorkerUrl = $('#setHealthWorkerUrl').value.trim();
     if ($('#setHealthWorkerToken')) settings.healthWorkerToken = $('#setHealthWorkerToken').value.trim();
+    // 🆕 中转开关：勾上时把 upstream = 她填的地址（真 Worker），走服务器中转；
+    // 不勾则清空 upstream，回退「直连 Worker」的老行为（buildHealthRequest 里判）。
+    if ($('#setHealthViaProxy')) {
+      settings.healthViaProxy = $('#setHealthViaProxy').checked;
+      settings.healthWorkerUpstream = settings.healthViaProxy ? settings.healthWorkerUrl : '';
+    }
     settings.heartbeatEnabled = !!($('#setHeartbeatEnabled')?.checked);
     settings.quietHoursStart = parseInt($('#setQuietHoursStart')?.value) || 0;
     settings.quietHoursEnd = parseInt($('#setQuietHoursEnd')?.value) || 8;

@@ -3,7 +3,7 @@ const _PFX = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
 import { settings, messages } from './state.js';
 import { subApiFetch, getSubApiCfg } from './api.js';
 import { getMemoryContextBlocks } from './memory.js';
-import { addMessage, appendMsgDOM, saveTokenLog } from './chat.js';
+import { addMessage, appendMsgDOM, saveTokenLog, buildHealthRequest } from './chat.js';
 
 // ======================== 主动讲话 & 定时提醒 ========================
 let _idleTimer = null, _waterTimer = null, _standTimer = null;
@@ -215,10 +215,14 @@ export async function proactiveMsg(type) {
   _apiMeta.push({ label: 'system · 渲染能力' });
 
   try {
-    const _hwUrl = settings.healthWorkerUrl;
-    if (_hwUrl) {
-      const _hwHeaders = settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {};
-      const healthRes = await fetch(_hwUrl, { headers: _hwHeaders });
+    if (settings.healthWorkerUrl) {
+      // 🔴 2026-10-02：跟 chat.js 共用 buildHealthRequest()（中转 or 直连）——
+      // 这两条链路以前各写各的，改一处漏一处会出静默失败。
+      const { url: _hUrl, headers: _hHeaders } = buildHealthRequest();
+      const _hCtrl = new AbortController();
+      const _hTimer = setTimeout(() => _hCtrl.abort(), 8000);   // 🆕 补超时（原来这条没超时，可能把主动消息卡住）
+      const healthRes = await fetch(_hUrl, { headers: _hHeaders, signal: _hCtrl.signal });
+      clearTimeout(_hTimer);
       if (healthRes.ok) {
         const healthData = await healthRes.json();
         const h = healthData[0];
