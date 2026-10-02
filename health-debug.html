@@ -256,15 +256,30 @@ async function pull(){
   $('#go').textContent = '拉取中…';
   $('#out').innerHTML = '';
   const t0 = Date.now();
-  try{
+  const _tok = CFG.healthWorkerToken ? { Authorization:'Bearer '+CFG.healthWorkerToken } : {};
+  // 🔴 2026-10-02：这里原来只试「Worker地址 + ?days=N」一种写法。但**聊天链路
+  // （chat.js）是不带参数直接请求的** —— 两者一旦不一致，"体检页报错但聊天好的"
+  // 这种自相矛盾的现象就出现了，很容易误判成 Worker 挂了。
+  // 所以现在：先试带参数（能看多天），失败**自动退回不带参数**（= 聊天的写法）。
+  // 这样报错信息里能直接看出「到底哪种写法通」，而不是笼统的 Failed to fetch。
+  let r = null, usedUrl = '', err = null;
+  try {
     const sep = CFG.healthWorkerUrl.includes('?') ? '&' : '?';
-    const r = await fetch(CFG.healthWorkerUrl + sep + 'days=' + DAYS, {
-      headers: CFG.healthWorkerToken ? { Authorization:'Bearer '+CFG.healthWorkerToken } : {}
-    });
+    const urlWithDays = CFG.healthWorkerUrl + sep + 'days=' + DAYS;
+    try {
+      r = await fetch(urlWithDays, { headers: _tok });
+      usedUrl = urlWithDays + '（带 ?days=' + DAYS + '）';
+    } catch (e1) {
+      // 带参数被拦（CORS / Worker 不认参数）→ 退回聊天的同款写法再试
+      err = e1;
+      r = await fetch(CFG.healthWorkerUrl, { headers: _tok });
+      usedUrl = CFG.healthWorkerUrl + '（不带参数，跟聊天同款）';
+    }
     const ms = Date.now() - t0;
     if (!r.ok){
       $('#out').innerHTML = `<div class="card"><span class="pill bad">HTTP ${r.status}</span><div class="note" style="margin-top:8px">`+
-        (r.status===401 ? 'Token 不对，或者 Cloudflare 里的 HEALTH_TOKEN 换过了。' : '请求失败。')+'</div></div>';
+        (r.status===401 ? 'Token 不对，或者 Cloudflare 里的 HEALTH_TOKEN 换过了。' : '请求失败。')+
+        `<br><br>请求的是：${usedUrl}</div></div>`;
       return;
     }
     const data = await r.json();
@@ -278,8 +293,16 @@ async function pull(){
       .filter(x => x.date)
       .sort((a,b) => a.date < b.date ? -1 : 1);
 
+    // 退回成功时说明「带参数」那条路有问题 —— 顶个提示，免得以后又踩
+    if (err) {
+      $('#out').innerHTML = `<div class="card"><span class="pill warn">带 ?days 的写法失败了，已退回聊天的同款写法</span>
+        <div class="note" style="margin-top:8px">报错：${err.message}。<br>
+        说明 Worker 对「带查询参数」的请求处理有问题（CORS 或没实现 days）。
+        <b>这不影响聊天</b> —— 聊天本来就不带参数。</div></div>`;
+    }
+
     if (!rows.length){
-      $('#out').innerHTML = '<div class="card"><span class="pill warn">返回空数组</span><div class="note" style="margin-top:8px">接口通了，但这段时间没有 wellness 记录。</div></div>';
+      $('#out').innerHTML += '<div class="card"><span class="pill warn">返回空数组</span><div class="note" style="margin-top:8px">接口通了，但这段时间没有 wellness 记录。</div></div>';
       return;
     }
 
@@ -287,7 +310,13 @@ async function pull(){
       ? renderSingle(rows[0].r, ms)
       : renderMulti(rows, ms, DAYS);
   }catch(e){
-    $('#out').innerHTML = `<div class="card"><span class="pill bad">出错了</span><div class="note" style="margin-top:8px">${e.message}<br><br>多半是网络或者 CORS。</div></div>`;
+    // 走到这儿 = 带参数和不带参数**两种写法都失败了** → 那就不是参数问题，
+    // 是 Worker 真的连不上（挂了 / 域名解析不了 / 手机网络到不了 Cloudflare）。
+    $('#out').innerHTML = `<div class="card"><span class="pill bad">两种写法都失败了</span>
+      <div class="note" style="margin-top:8px">${e.message}<br><br>
+      <b>带 ?days 和不带参数都连不上</b> —— 那基本不是参数问题，是 Worker 那头的事
+      （挂了 / 域名解析不了 / 手机到不了 Cloudflare）。<br><br>
+      下一步：手机上直接浏览器打开 <code>${CFG.healthWorkerUrl}</code> 看能不能出东西。</div></div>`;
   }finally{
     $('#go').disabled = false;
     $('#go').textContent = '再 拉 一 次';
