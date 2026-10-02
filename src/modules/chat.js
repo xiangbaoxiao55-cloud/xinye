@@ -1233,9 +1233,15 @@ export async function sendMessage() {
     const _injectLastImg = !imgs.length && !!window.chatLastUserImage && _hasImgInRecent5;
 
     let healthStr = null;
+    // 健康数据拉取结果：'none'(没配) / 'ok' / 'empty'(通了但没数据) / 'fail'(连不上或报错)
+    // 为什么要记这个：这条链路整段包在 try/catch 里，Worker 挂掉或 intervals.icu 断更
+    // 都只会「那条 system 消息不出现」——一声不吭。她 2026-10-02 就是靠肉眼发现
+    // 「怎么没有了」才来问的。所以失败要能被她看见（见下面的 toast）。
+    let _healthState = 'none';
     try {
       const _hwUrl = settings.healthWorkerUrl;
       if (_hwUrl) {
+        _healthState = 'fail';
         const _hwHeaders = settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {};
         const _hwCtrl = new AbortController();
         setTimeout(() => _hwCtrl.abort(), 5000);
@@ -1253,10 +1259,26 @@ export async function sendMessage() {
               h.menstrualPhase ? `月经周期：${_P[h.menstrualPhase] || h.menstrualPhase}` : null,
               h.weight ? `体重${h.weight}kg` : null,
             ].filter(Boolean).join('，');
+            if (!healthStr) _healthState = 'empty'; else _healthState = 'ok';
+          } else {
+            _healthState = 'empty';   // 通了，但一条记录都没有（intervals.icu 断更的典型症状）
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { /* 保持 'fail' */ }
+    // 失败提示：同一天只吵一次，且必须她真的配了地址（没配是「没用这功能」，不是故障）
+    if (_healthState === 'fail' || _healthState === 'empty') {
+      try {
+        const _hDay = new Date().toISOString().slice(0, 10);
+        const _hKey = 'xinye_health_warn_day';
+        if (localStorage.getItem(_hKey) !== _hDay) {
+          localStorage.setItem(_hKey, _hDay);
+          toast(_healthState === 'empty'
+            ? '📊 健康数据：Worker 通了，但没拿到数据（intervals.icu 那头可能断更了）'
+            : '📊 健康数据：连不上 Worker，这次的对话里不带健康信息了');
+        }
+      } catch (_e) {}
+    }
 
     for (let i = 0; i < recent.length; i++) {
       const m = recent[i];
