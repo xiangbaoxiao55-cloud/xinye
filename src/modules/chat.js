@@ -988,8 +988,11 @@ export function renderTokenLog(msgId) {
  *   ② **直连**（兼容旧配置）：`healthWorkerUpstream` 空 → 直接用 `healthWorkerUrl`。
  *      ⚠️ 保留是为了「她改设置改到一半」不会坏，不是推荐路径。
  *
- * ⚠️ 中转模式下 token 走 **`X-Health-Token` 头**（不是 Authorization）——
- *    因为 Authorization 要留给服务器自己的鉴权（`/api/health-proxy` 在 checkAuth 后面）。
+ * ⚠️ 中转模式下**必须带云端鉴权头**（`/api/health-proxy` 在 checkAuth 后面）。
+ *    所以这里复用 `getCloudOrLocalUrl` + `buildServerHeaders` —— 跟聊天主链路同一个
+ *    服务器、同一个 token，别自己拍头部（拍漏了就是 401）。
+ *    Worker 自己的 token（`healthWorkerToken`）另走 `X-Health-Token` 头往上传，
+ *    服务器再把它转成 `Authorization` 发给 Worker —— 两层 token 各归各。
  */
 export function buildHealthRequest(days) {
   const upstream = (settings.healthWorkerUpstream || '').trim();
@@ -998,13 +1001,22 @@ export function buildHealthRequest(days) {
     // ② 直连（老行为）
     return { url: legacy, headers: settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {} };
   }
-  // ① 中转：同源路径，走服务器的 /api/health-proxy
+  // ① 中转：走**同一台云端服务器**的 /api/health-proxy（跟聊天同源、同 token）
+  const srv = getCloudOrLocalUrl();
+  if (!srv || !srv.url) {
+    // 没配云服务器 → 退回直连，别把健康数据搞没了
+    return { url: legacy, headers: settings.healthWorkerToken ? { Authorization: `Bearer ${settings.healthWorkerToken}` } : {} };
+  }
   const q = new URLSearchParams();
   q.set('upstream', upstream);
   if (days) q.set('days', String(days));
-  const h = {};
-  if (settings.healthWorkerToken) h['X-Health-Token'] = settings.healthWorkerToken;
-  return { url: `/api/health-proxy?${q.toString()}`, headers: h };
+  const extra = {};
+  if (settings.healthWorkerToken) extra['X-Health-Token'] = settings.healthWorkerToken;
+  const base = buildServerFetchUrl(srv, '/api/health-proxy');
+  return {
+    url: base + (base.includes('?') ? '&' : '?') + q.toString(),
+    headers: buildServerHeaders(srv, extra),
+  };
 }
 
 // ======================== 发消息 ========================
