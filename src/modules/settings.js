@@ -1975,6 +1975,18 @@ export function initSettings() {
   };
   if (_btnRefreshHB) _btnRefreshHB.onclick = _refreshHeartbeatStatus;
 
+  // 健康数据体检 —— 直接跳体检页（health-debug.html）
+  // 为什么要有这个按钮：体检页是个孤儿页面，APP 里没有任何入口，她根本进不去。
+  // 发消息时那条「[兔宝今日健康数据：…]」系统消息没出现时，先来这里实测 Worker 到底给了什么。
+  // ⚠️ 必须用 location.href 跳转（同 origin 内），不能用 window.open —— APK 壳里 window.open
+  //    会走系统浏览器，那是**另一套存储**，体检页会报「没读到」误导人。
+  const _btnHealthDebug = $('#btnHealthDebug');
+  if (_btnHealthDebug) {
+    _btnHealthDebug.onclick = () => {
+      location.href = 'health-debug.html';
+    };
+  }
+
   // 从电脑恢复
   const _restoreToggle = $('#btnServerRestoreToggle');
   const _restorePanel  = $('#serverRestorePanel');

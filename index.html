@@ -944,6 +944,10 @@ try{var _fd=localStorage.getItem('fox_dark');if(_fd!==null?_fd==='1':matchMedia(
         <input type="password" id="setHealthWorkerToken" placeholder="留空则不验证">
       </div>
     </div>
+    <div class="setting-group">
+      <button class="btn-secondary" id="btnHealthDebug" style="width:100%"><i class="ic ic-activity"></i> 健康数据体检（看 Worker 到底给了什么）</button>
+      <div class="hint">打开体检页：能读到地址、Token，并真实拉一次数据。发消息时那条「健康数据」系统消息没出现，先用它查。</div>
+    </div>
 
     <!-- 显示条数限制 -->
     <div class="setting-divider"><i class="ic ic-phone"></i> 手机性能优化</div>
