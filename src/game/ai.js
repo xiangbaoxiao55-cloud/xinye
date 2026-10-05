@@ -135,6 +135,26 @@ async function _cfgs() {
   return out.filter(c => { const k = c.url + '|' + c.model; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
+/**
+ * 把一条 message 拆成「正文」和「思考」两条通道。
+ * 🔴 2026-10-05：思考型模型（deepseek-r1 / 带 reasoning 的那些）会把正文塞在
+ *    `reasoning_content` 里，而 `content` 是**空串** —— 只读 content 就会当成"他一个字没回"。
+ *    原来这里用 `content || reasoning_content` 混成一条，结果是"思考 + 正文"粘在一起，
+ *    `_parseJSON` 取第一个 `{` 到最后一个 `}` 很容易取到一段拼坏的 JSON。
+ *    现在**分开返回**，由 askAI 分别试解析。
+ */
+function _split(m) {
+  return {
+    text: String(m?.content ?? '').trim(),
+    thinking: String(m?.reasoning_content ?? m?.reasoning ?? m?.thinking ?? '').trim(),
+  };
+}
+
+/** 页面上/重问时要展示的"他到底回了什么"—— 两条通道谁有就用谁 */
+function _body(r) {
+  return String((r && (r.text || r.thinking)) || '');
+}
+
 async function _once(cfg, messages, maxTokens) {
   const body = cfg.apiFormat === 'anthropic'
     ? convertRequestBody({ model: cfg.model, max_tokens: maxTokens, messages, stream: false })
@@ -154,36 +174,34 @@ async function _once(cfg, messages, maxTokens) {
   try { j = JSON.parse(text); } catch (_) {}
 
   if (j) {
-    if (cfg.apiFormat === 'anthropic') {
-      const ch = anthropicToOpenAIResponse(j).choices?.[0];
-      const m = ch?.message;
-      // 思考模型会把正文塞在 reasoning_content 里，取不到 content 时退一步（踩过的坑）
-      return { text: m?.content || m?.reasoning_content || '', finish: ch?.finish_reason || '' };
-    }
-    const ch = j.choices?.[0];
-    const m = ch?.message;
-    return {
-      text: m?.content || m?.reasoning_content || m?.thinking || '',
-      finish: ch?.finish_reason || '',
-    };
+    const ch = cfg.apiFormat === 'anthropic'
+      ? anthropicToOpenAIResponse(j).choices?.[0]
+      : j.choices?.[0];
+    const { text: t, thinking } = _split(ch?.message);
+    return { text: t, thinking, finish: ch?.finish_reason || '' };
   }
 
   // 有的站子不认 stream:false，照样吐 SSE —— 兜一手
-  let out = '';
+  let out = '', think = '';
   for (const line of text.split('\n')) {
     const t = line.trim();
     if (!t.startsWith('data: ') || t === 'data: [DONE]') continue;
     try {
       const d = JSON.parse(t.slice(6));
-      out += d.choices?.[0]?.delta?.content || d.delta?.text
+      const dl = d.choices?.[0]?.delta || {};
+      out += dl.content || d.delta?.text
         || (d.type === 'content_block_delta' ? d.delta?.text : '') || '';
+      // 🔴 这一行原来是缺的：SSE 分支只读 content，思考型模型的正文永远收不到 →
+      //    正文空 → 解不出 JSON → 判非法 → 重问 → 还是空 → 「他卡住了」。踩过。
+      think += dl.reasoning_content || dl.reasoning || '';
     } catch (_) {}
   }
-  return { text: out, finish: '' };
+  return { text: out.trim(), thinking: think.trim(), finish: '' };
 }
 
 /**
- * 按顺序试各个配置，返回 `{ text, finish }`（finish === 'length' = 被截断）。
+ * 按顺序试各个配置，返回 `{ text, thinking, finish }`
+ * （`finish === 'length'` = 被截断；`thinking` = 思考通道，正文取不到时的退路）。
  * 每个配置最多试 2 次。
  */
 async function callAI(messages, maxTokens) {
@@ -263,12 +281,57 @@ function buildAsk({ rule, state, talk, note, mustMove, hint }) {
 
 // ── 解析（要宽容，说明书 §5.3）──────────────────────────────────────────
 
-function _parseJSON(raw) {
-  let t = String(raw || '').trim();
-  t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  const i = t.indexOf('{'), j = t.lastIndexOf('}');
-  if (i >= 0 && j > i) t = t.slice(i, j + 1);
-  try { return JSON.parse(t); } catch (_) { return null; }
+function _tryParse(s) {
+  try { const o = JSON.parse(s); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : null; } catch (_) { return null; }
+}
+
+const _JSON_KEYS = ['move', 'action', 'position', '落子', '坐标', 'say', 'speech', 'text', '说', '台词', 'note', 'memo', '备忘'];
+
+/**
+ * 从模型回复里挖出那个 JSON 对象。
+ * 🔴 2026-10-05 加固：原来只做「第一个 `{` 到最后一个 `}`」——
+ *    思考型模型的 reasoning 里常常**不止一个** `{`（它会把格式示例也复述一遍），
+ *    那样切出来是一段拼坏的字符串，`JSON.parse` 必失败 → 判成"没给出 move" → 「他卡住了」。
+ *    现在三层兜底：① 整体试 → ② 首尾切片试 → ③ 扫出所有**配对完整**的 `{...}`，
+ *    从后往前取（答案通常在思考的最后），优先要带 move/say 这类字段的那个。
+ * 导出是为了能单测（`main.js` 用不到）。
+ */
+export function _parseJSON(raw) {
+  const src = String(raw || '').trim();
+  if (!src) return null;
+  const s = src.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+
+  let o = _tryParse(s);
+  if (o) return o;
+
+  const i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if (i >= 0 && j > i) { o = _tryParse(s.slice(i, j + 1)); if (o) return o; }
+
+  // 扫出所有配对完整的顶层 {...}（要正确跳过字符串里的花括号）
+  const cands = [];
+  for (let a = 0; a < s.length; a++) {
+    if (s[a] !== '{') continue;
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let b = a; b < s.length; b++) {
+      const ch = s[b];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = b; break; } }
+    }
+    if (end > a) { cands.push(s.slice(a, end + 1)); a = end; }
+  }
+
+  const parsed = cands.map(_tryParse).filter(Boolean);
+  for (let k = parsed.length - 1; k >= 0; k--) {
+    if (_JSON_KEYS.some(key => parsed[k][key] !== undefined)) return parsed[k];
+  }
+  return parsed.length ? parsed[parsed.length - 1] : null;
 }
 
 function _normMove(m) {
@@ -320,8 +383,19 @@ export async function askAI({ rule, state, talk = [], note = '', mustMove = true
   //    而「再问他一次」发的是**一模一样的请求**，所以永远是同一个结果 —— 她感觉"玩不下去了"。
   //    ⚠️ max_tokens 只是**上限**、不是计费量：没用到就不会消耗，调大基本不花钱。
   const BUDGET = 2400;
+
+  /**
+   * 两条通道（正文 / 思考）都试一遍，优先挑「move 合法」的那个。
+   * 🔴 不能只看正文：思考型模型正文空、答案在 reasoning_content 里，只看正文就永远判"没给 move"。
+   */
+  const pick = (r) => {
+    const cands = [_parseJSON(r.text), _parseJSON(r.thinking)]
+      .filter(Boolean).map(_shape).filter(Boolean);
+    return cands.find(x => x.move && rule.isLegal(state, x.move)) || cands[0] || null;
+  };
+
   let r = await callAI(messages, BUDGET);
-  let out = _shape(_parseJSON(r.text));
+  let out = pick(r);
 
   // 🔴 非法就带着原因**重新问一次**（说明书 §5.4 第 1 条）
   if (mustMove && (!out || !out.move || !rule.isLegal(state, out.move))) {
@@ -331,27 +405,41 @@ export async function askAI({ rule, state, talk = [], note = '', mustMove = true
     // 🔑 重问时**把空位直接摊开给他**：不是替他选，只是把"哪些格子还是空的"这个事实说明白
     //    （他可能把上一手的 ◆/◇ 看成了空位，或者把行列看串了）。**走哪一步仍然他自己定。**
     const empties = rule.legalMoves ? rule.legalMoves(state) : [];
+    // ⚠️ 上一轮空回复时**不能塞一条 content 为空的 assistant 消息** ——
+    //    Anthropic 系的接口会直接 400，OpenAI 系有的也不收。用一句占位保住"一问一答"的交替。
+    const prev = _body(r).slice(0, 400) || '（上一轮你没有输出任何内容）';
     const retry = messages.concat([
-      { role: 'assistant', content: String(r.text || '').slice(0, 400) },
+      { role: 'assistant', content: prev },
       {
         role: 'user',
-        content: `${why}\n\n【现在还能下的空位】（从这里挑一个，别的格子都已经被占了）\n`
-          + `${empties.join(' ')}\n\n重新想一步，只回那个 JSON。`,
+        content: `${why}\n\n【现在还能下的空位】（共 ${empties.length} 个，从这里挑一个，别的格子都已经被占了）\n`
+          + `${empties.join(' ')}\n\n重新想一步。只回那个 JSON，不要写任何解释、不要写思考过程。`,
       },
     ]);
     r = await callAI(retry, BUDGET);
-    out = _shape(_parseJSON(r.text));
+    out = pick(r);
   }
 
   // 🔴 第二次还不行：**不许由代码替他走**，抛出去让页面问他（说明书 §5.4 第 2 条）
   if (mustMove && (!out || !out.move || !rule.isLegal(state, out.move))) {
+    const body = _body(r);
     const e = new Error('他卡住了');
     e.code = 'NOT_LEGAL';
-    e.raw = String(r.text || '').slice(0, 300);   // 把原始回复带出去，页面上能看到、能截图
+    e.raw = body.slice(0, 300);   // 把原始回复带出去，页面上能看到、能截图
     e.finish = r.finish || '';
+    e.why = _whyStuck(rule, out, body);
     throw e;
   }
   return out || { move: null, say: '', note: '' };
+}
+
+/** 卡住时告诉页面「到底卡在哪一步」—— 她截图发过来我才查得动（原来只有一句"想不出位置"） */
+function _whyStuck(rule, out, body) {
+  if (!body) return '他一个字都没回（正文和思考都是空的）';
+  if (!out) return '他回了话，但里面没有能解析出来的 JSON';
+  if (!out.move) return '他给了 JSON，但 move 是空的';
+  if (rule.parseMove && !rule.parseMove(out.move)) return `他给的坐标「${out.move}」看不懂（要 A1~O15 这样）`;
+  return `他给的「${out.move}」那一格已经有子了`;
 }
 
 // ── 对外：结算总结（说明书 §3）──────────────────────────────────────────
@@ -387,7 +475,8 @@ export async function summarizeGame({ rule, state, talk, result }) {
     { role: 'system', content: buildSystem(s) + '\n\n' + rule.PROMPT_RULES },
     { role: 'user', content: L.join('\n') },
   ], 1200);
-  return String(r.text || '').trim().slice(0, 300);
+  // 正文空就退回思考通道（思考型模型常见）—— 跟 askAI 一个道理
+  return _body(r).trim().slice(0, 300);
 }
 
 // ── 假 AI（说明书 §11.2）────────────────────────────────────────────────

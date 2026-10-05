@@ -371,14 +371,15 @@ function showStuck(msg, err) {
   const log = $('talkLog');
   const el = document.createElement('div');
   el.className = 'stuck';
-  // 🔴 把"他到底回了什么"带一行小字出来。
-  //    只写「想不出来」的话，她截图给我也查不出原因 —— 2026-10-05 就是这么卡住的。
+  // 🔴 把「卡在哪一步」+「他到底回了什么」都带出来。
+  //    只写一句「想不出来」的话，她截图给我也查不出原因 —— 2026-10-05 就是这么卡住的。
   const raw = err && err.raw ? String(err.raw).replace(/\s+/g, ' ').trim().slice(0, 90) : '';
-  const tip = (err && err.finish === 'length')
-    ? '他这次话说了一半就断了（输出长度不够）'
-    : (raw ? `他回的是：${raw}` : '');
+  const lines = [];
+  if (err && err.why) lines.push(err.why);
+  if (err && err.finish === 'length') lines.push('他这次话说了一半就断了（输出长度不够）');
+  if (raw) lines.push(`他回的是：${raw}`);
   el.innerHTML = escHtml(msg)
-    + (tip ? `<small class="why">${escHtml(tip)}</small>` : '')
+    + lines.map(x => `<small class="why">${escHtml(x)}</small>`).join('')
     + '<button>再问他一次</button>';
   el.querySelector('button').onclick = () => { el.remove(); aiTurn(isAiTurn()); };
   log.appendChild(el);

@@ -32,14 +32,26 @@ export function createGame() {
 }
 
 /**
- * `'h8'` / `'H8'` / `'H 8'` → `{ c: 7, r: 7 }`；看不懂就返回 null。
+ * `'h8'` / `'H8'` / `'H 8'` / `'H-8'` / `'"H8"'` / `'Ｈ８'` / `'8H'` → `{ c: 7, r: 7 }`；
+ * 看不懂就返回 null。
  * ⚠️ 别在这里抛异常 —— 模型吐什么都有可能，调用方要靠 null 判断"它写歪了"。
+ * 🔴 2026-10-05 加固：原来只认**严格的** `^[A-O][1-9]$`（大小写和中间一个空格除外），
+ *    全角、加引号、写成 `8H`、结尾带句号都会判成"看不懂" → 走重问 → 还是看不懂 → 「他卡住了」。
+ *    现在先把全角转半角、再抹掉所有非字母数字，然后正反两种写法都认。
+ *    **不猜**：抹完还不是一个干净的坐标就返回 null，宁可问他也不替他走。
  */
 export function parseMove(move) {
-  if (typeof move !== 'string') return null;
-  const m = move.trim().toUpperCase().match(/^([A-O])\s*([1-9]|1[0-5])$/);
-  if (!m) return null;
-  return { c: COLS.indexOf(m[1]), r: Number(m[2]) - 1 };
+  if (typeof move !== 'string' && typeof move !== 'number') return null;
+  let s = String(move).trim()
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  if (!s) return null;
+  let m = s.match(/^([A-O])([1-9]|1[0-5])$/);
+  if (m) return { c: COLS.indexOf(m[1]), r: Number(m[2]) - 1 };
+  m = s.match(/^([1-9]|1[0-5])([A-O])$/);      // 行在前列在后
+  if (m) return { c: COLS.indexOf(m[2]), r: Number(m[1]) - 1 };
+  return null;
 }
 
 /** `{c:7,r:7}` → `'H8'` */
