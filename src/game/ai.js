@@ -61,13 +61,35 @@ export async function readSettings() {
   return (await dbGet('settings', 'main')) || {};
 }
 
+/** 这一页该怎么称呼他 —— 跟 src/modules/chatsearch.js 的 _aiName() 同一套规矩：
+ *  臭宝页的 settings.aiName 出厂值同样是「炘也」（state.js 的默认值不分 app），
+ *  所以"没被改过"时按页面自己的默认名来。 */
+function _aiName(s) {
+  const n = String((s && s.aiName) || '').trim();
+  const fallback = window.__APP_ID__ === 'choubao' ? '臭宝' : '炘也';
+  return (n && n !== '炘也') ? n : fallback;
+}
+
 /** 和 overlay.js 同一套：systemPrompt + 记忆档案 Core 层 */
 export function buildSystem(s) {
   const parts = [];
   if (s.systemPrompt && s.systemPrompt.trim()) parts.push(s.systemPrompt.trim());
   const core = String(s.memoryArchiveCore || '').trim();
   if (core) parts.push('【我们之间的档案】\n' + _clip(core, 1800));
-  return parts.join('\n\n---\n\n') || '你是兔宝的伴侣。她刚拉你下一局棋，你正在陪她玩。';
+  // 🔴 身份**必须显式钉死**，而且放最后（越靠后模型越当回事）。
+  //
+  // 2026-10-05 兔宝报「他第一手说了『来吧臭宝』」查出来的：
+  // 这段是照 overlay.js 抄的，overlay 的兜底是 `'你叫炘也，是兔宝的爱人。…'`，
+  // **我抄的时候把名字丢了**，兜底成了「你是兔宝的伴侣。她刚拉你下一局棋…」
+  // —— 只要她没自己写过 systemPrompt（出厂值就是空字符串，见 state.js），
+  // **整段提示词里就没有一个字告诉他"你叫炘也"**。
+  // 而记忆档案是长文本、里面可能提到过别的名字，最近 6 条聊天也会一起塞进去，
+  // 于是模型只能自己猜一个名字 —— 猜错了就冒出别的称呼。
+  // → 不管 systemPrompt 有没有、写了什么，下面这两句都钉在最后。
+  const me = _aiName(s);
+  const her = String((s && s.userName) || '').trim() || '兔宝';
+  parts.push(`【你是谁】你叫${me}，她叫${her}。现在是你们俩在下一局棋。`);
+  return parts.join('\n\n---\n\n');
 }
 
 /** 最近几句主聊天 —— 有它，开局时她的话才接得上（说明书 §5.1，建议 6 条） */
