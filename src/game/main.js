@@ -513,7 +513,22 @@ function escHtml(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-const escAttr = escHtml;
+/**
+ * 🔴 必须是**函数声明**，不能写成 `const escAttr = escHtml`。
+ *
+ * 2026-10-05 踩的：`renderLobby()` 由文件开头的 IIFE（`init()`）同步调用，
+ * 那时候模块才求值到第 52 行 —— 而 `const` 定义在 516 行，还在暂时性死区。
+ * 结果：**只要她配了命名预设**，第 97 行那个 `.map(p => escAttr(p.name))`
+ * 一执行就抛 `ReferenceError: Cannot access 'escAttr' before initialization`，
+ * `sel.innerHTML` 整个赋值被跳过 → **下拉框是空的**；
+ * 而且 `renderLobby()` 整个中断 → 副标题永远卡在「加载中…」、战绩角标和续局条都不出来。
+ *
+ * ⚠️ **为什么测试没抓到**：测试环境里 `xinye_api_presets` 是空的，
+ * `.map()` 一次都不执行，所以永远碰不到这一行。**空数组把 bug 藏起来了。**
+ * （AGENTS.md 那条「测试素材比真机宽松，等于没验」的又一例。）
+ * → 函数声明会提升，写它就与调用顺序无关。
+ */
+function escAttr(s) { return escHtml(s); }
 
 let _toastTimer = null;
 function toast(msg) {
