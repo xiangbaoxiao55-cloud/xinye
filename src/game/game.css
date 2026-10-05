@@ -150,10 +150,13 @@ html.dark .stone.w{background:radial-gradient(circle at 35% 30%,#fffaf2,#d9cdbd 
 .think i b:nth-child(3){animation-delay:.3s}
 @keyframes _ink{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
 .stuck{
-  align-self:center;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--rouge);
-  border:1px solid var(--rouge);border-radius:999px;padding:6px 12px;background:var(--rouge-soft);
+  align-self:center;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  font-size:12px;color:var(--rouge);text-align:center;max-width:100%;
+  border:1px solid var(--rouge);border-radius:18px;padding:7px 12px;background:var(--rouge-soft);
 }
-.stuck button{border:none;background:var(--rouge);color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer}
+.stuck button{border:none;background:var(--rouge);color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer;order:2;flex:none}
+/* 「他回的是：…」那行小字 —— flex-basis:100% 逼它换到第二行去 */
+.stuck .why{order:3;flex-basis:100%;font-size:11px;line-height:1.55;opacity:.75;word-break:break-all}
 
 .input{display:flex;gap:8px;padding:10px 0 20px;flex:none;align-items:center}
 .input input{

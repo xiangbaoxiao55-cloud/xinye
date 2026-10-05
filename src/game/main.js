@@ -284,10 +284,17 @@ async function aiTurn(mustMove) {
     if (res.note) G.notes.push({ at: Date.now(), text: res.note });
 
     // 先落子（带动画），再出气泡（说明书 §7 最后一条）
-    if (mustMove && res.move && rule.isLegal(G.state, res.move)) {
-      G.state = rule.applyMove(G.state, res.move);
-      addStone(G.state.moves[G.state.moves.length - 1], true);
-      addSys(`第 ${G.state.moves.length} 手 · 他落在 ${res.move}`);
+    if (mustMove) {
+      if (res.move && rule.isLegal(G.state, res.move)) {
+        G.state = rule.applyMove(G.state, res.move);
+        addStone(G.state.moves[G.state.moves.length - 1], true);
+        addSys(`第 ${G.state.moves.length} 手 · 他落在 ${res.move}`);
+      } else {
+        // 🔴 兜底：askAI 说合法、到这儿却落不下去。**绝不静默跳过** ——
+        //    那会让棋局无声卡死（轮次还挂在他那边，页面上一点提示都没有，她只会觉得"玩不下去了"）。
+        //    走 showStuck 那条路，至少她看得见、能再问一次。
+        throw Object.assign(new Error('落子没通过校验'), { code: 'NOT_LEGAL' });
+      }
     }
     await persist();
     updateTurnUI();
@@ -296,8 +303,8 @@ async function aiTurn(mustMove) {
 
     if (G.state.status === 'done') { await finish(); return; }
   } catch (e) {
-    if (e && e.code === 'NOT_LEGAL') showStuck('他想了半天没想出一个能下的位置');
-    else showStuck('他那边连不上：' + ((e && e.message) || e));
+    if (e && e.code === 'NOT_LEGAL') showStuck('他想了半天没想出一个能下的位置', e);
+    else showStuck('他那边连不上：' + ((e && e.message) || e), e);
   } finally {
     busy = false;
     setThinking(false);
@@ -337,14 +344,23 @@ function setThinking(on) {
   }
 }
 
-function showStuck(msg) {
+function showStuck(msg, err) {
   const log = $('talkLog');
   const el = document.createElement('div');
   el.className = 'stuck';
-  el.innerHTML = `${escHtml(msg)}<button>再问他一次</button>`;
+  // 🔴 把"他到底回了什么"带一行小字出来。
+  //    只写「想不出来」的话，她截图给我也查不出原因 —— 2026-10-05 就是这么卡住的。
+  const raw = err && err.raw ? String(err.raw).replace(/\s+/g, ' ').trim().slice(0, 90) : '';
+  const tip = (err && err.finish === 'length')
+    ? '他这次话说了一半就断了（输出长度不够）'
+    : (raw ? `他回的是：${raw}` : '');
+  el.innerHTML = escHtml(msg)
+    + (tip ? `<small class="why">${escHtml(tip)}</small>` : '')
+    + '<button>再问他一次</button>';
   el.querySelector('button').onclick = () => { el.remove(); aiTurn(isAiTurn()); };
   log.appendChild(el);
   el.scrollIntoView({ block: 'end' });
+  console.warn('[game] 卡住了', msg, err);   // vConsole 里能看到完整对象
   toast('他卡住了 —— 可以再问他一次');
 }
 

@@ -155,12 +155,17 @@ async function _once(cfg, messages, maxTokens) {
 
   if (j) {
     if (cfg.apiFormat === 'anthropic') {
-      const m = anthropicToOpenAIResponse(j).choices?.[0]?.message;
+      const ch = anthropicToOpenAIResponse(j).choices?.[0];
+      const m = ch?.message;
       // 思考模型会把正文塞在 reasoning_content 里，取不到 content 时退一步（踩过的坑）
-      return m?.content || m?.reasoning_content || '';
+      return { text: m?.content || m?.reasoning_content || '', finish: ch?.finish_reason || '' };
     }
-    const m = j.choices?.[0]?.message;
-    return m?.content || m?.reasoning_content || m?.thinking || '';
+    const ch = j.choices?.[0];
+    const m = ch?.message;
+    return {
+      text: m?.content || m?.reasoning_content || m?.thinking || '',
+      finish: ch?.finish_reason || '',
+    };
   }
 
   // 有的站子不认 stream:false，照样吐 SSE —— 兜一手
@@ -174,9 +179,13 @@ async function _once(cfg, messages, maxTokens) {
         || (d.type === 'content_block_delta' ? d.delta?.text : '') || '';
     } catch (_) {}
   }
-  return out;
+  return { text: out, finish: '' };
 }
 
+/**
+ * 按顺序试各个配置，返回 `{ text, finish }`（finish === 'length' = 被截断）。
+ * 每个配置最多试 2 次。
+ */
 async function callAI(messages, maxTokens) {
   const cfgs = await _cfgs();
   if (!cfgs.length || !cfgs[0].apiKey) throw new Error('还没配置 API Key');
@@ -304,27 +313,42 @@ export async function askAI({ rule, state, talk = [], note = '', mustMove = true
     { role: 'user', content: buildAsk({ rule, state, talk, note, mustMove, hint }) },
   ];
 
-  let raw = await callAI(messages, 700);
-  let out = _shape(_parseJSON(raw));
+  // 🔴 2026-10-05 兔宝报「他卡住了、再问他一次还是卡住」查出来的：
+  //    原来这儿给的是 **700** —— 对"要算棋"的回合太紧了。
+  //    思考型模型会先把 token 花在 reasoning 上，700 用完正文就空了 / 断了，
+  //    JSON 解不出来 → 判非法 → 内部重问一次（还是 700）→ 又失败 → 弹「他卡住了」；
+  //    而「再问他一次」发的是**一模一样的请求**，所以永远是同一个结果 —— 她感觉"玩不下去了"。
+  //    ⚠️ max_tokens 只是**上限**、不是计费量：没用到就不会消耗，调大基本不花钱。
+  const BUDGET = 2400;
+  let r = await callAI(messages, BUDGET);
+  let out = _shape(_parseJSON(r.text));
 
   // 🔴 非法就带着原因**重新问一次**（说明书 §5.4 第 1 条）
   if (mustMove && (!out || !out.move || !rule.isLegal(state, out.move))) {
     const why = (!out || !out.move)
       ? '你刚才没有给出 move，或者格式不对。'
       : `你给的 ${_whyNot(out.move)}`;
+    // 🔑 重问时**把空位直接摊开给他**：不是替他选，只是把"哪些格子还是空的"这个事实说明白
+    //    （他可能把上一手的 ◆/◇ 看成了空位，或者把行列看串了）。**走哪一步仍然他自己定。**
+    const empties = rule.legalMoves ? rule.legalMoves(state) : [];
     const retry = messages.concat([
-      { role: 'assistant', content: String(raw || '').slice(0, 400) },
-      { role: 'user', content: `${why}\n重新想一步，只回那个 JSON。` },
+      { role: 'assistant', content: String(r.text || '').slice(0, 400) },
+      {
+        role: 'user',
+        content: `${why}\n\n【现在还能下的空位】（从这里挑一个，别的格子都已经被占了）\n`
+          + `${empties.join(' ')}\n\n重新想一步，只回那个 JSON。`,
+      },
     ]);
-    raw = await callAI(retry, 700);
-    out = _shape(_parseJSON(raw));
+    r = await callAI(retry, BUDGET);
+    out = _shape(_parseJSON(r.text));
   }
 
   // 🔴 第二次还不行：**不许由代码替他走**，抛出去让页面问他（说明书 §5.4 第 2 条）
   if (mustMove && (!out || !out.move || !rule.isLegal(state, out.move))) {
     const e = new Error('他卡住了');
     e.code = 'NOT_LEGAL';
-    e.raw = String(raw || '').slice(0, 200);
+    e.raw = String(r.text || '').slice(0, 300);   // 把原始回复带出去，页面上能看到、能截图
+    e.finish = r.finish || '';
     throw e;
   }
   return out || { move: null, say: '', note: '' };
@@ -358,11 +382,12 @@ export async function summarizeGame({ rule, state, talk, result }) {
   L.push('⚠️ 如果她在这局里说了跟棋无关但重要的事（比如「今天好累」「明天要面试」），**必须**在小结里带一句，不然这句话就丢了。');
   L.push('直接写那段话，不要标题、不要 JSON、不要引号。');
 
-  const raw = await callAI([
+  // 小结也要给够 —— 同样别卡在 500 上（见 askAI 里那段注释）
+  const r = await callAI([
     { role: 'system', content: buildSystem(s) + '\n\n' + rule.PROMPT_RULES },
     { role: 'user', content: L.join('\n') },
-  ], 500);
-  return String(raw || '').trim().slice(0, 300);
+  ], 1200);
+  return String(r.text || '').trim().slice(0, 300);
 }
 
 // ── 假 AI（说明书 §11.2）────────────────────────────────────────────────
