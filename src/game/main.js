@@ -361,7 +361,9 @@ function showStuck(msg, err) {
   log.appendChild(el);
   el.scrollIntoView({ block: 'end' });
   console.warn('[game] 卡住了', msg, err);   // vConsole 里能看到完整对象
-  toast('他卡住了 —— 可以再问他一次');
+  // ⚠️ 这里**故意不弹 toast**：toast 是 `position:absolute; bottom:76px`，
+  //    正好压在卡住条上，把「他回的是：…」那行小字挡掉（截图时撞见的）。
+  //    卡住条本身已经写着同样的话、也已经滚到眼前了，再弹一下纯属挡路。
 }
 
 // ── 桌边话 ──────────────────────────────────────────────────────────────
