@@ -35,6 +35,13 @@ let talkTimer = null;    // 她说完话后的 1.5 秒合并窗口
 let gameNo = 1;          // 「第 N 局」
 let destroyed = false;
 /**
+ * 「局次」——每离开一次对局屏就 +1。
+ * 🔴 在途的 AI 请求回来时先对一下：这一趟是不是还属于当前这一局？
+ *    没有它的话，她在「他正在想」的时候点返回，请求回来后 G 已经是 null
+ *    （或者已经换成了她新开的一局），那一手会写错地方。踩过。
+ */
+let gameSeq = 0;
+/**
  * 请求在途时她又做了动作（落子 / 说话）—— 记下来，等这一趟收尾了再补发。
  * 🔴 没有它的话：他在说话的那一两秒里她点了棋盘，那一下会被 busy 吞掉，
  *    界面明明已经显示「轮到你」了，点下去却没反应。踩过。
@@ -223,6 +230,12 @@ function drawBoardBase() {
   $('board').innerHTML = s;
 }
 
+/** 棋子画成什么动物（2026-10-05 兔宝要的：不要圆点，要小动物）。
+ *  换组合只改这一行 —— 形状在 game.html 的 <symbol> 里（icoRabbit / icoCat），
+ *  颜色由 game.html 那段 <style> 的 .stone.b / .stone.w 决定。
+ *  现在这版 = 黑猫（他）+ 白兔（她）—— 她叫兔宝，白兔归她。 */
+const STONE_ANIMAL = { black: 'cat', white: 'rabbit' };
+
 function addStone(m, animate) {
   const board = $('board'), pad = 5, step = (100 - 2 * pad) / (rule.SIZE - 1);
   board.querySelectorAll('.stone.last').forEach(el => el.classList.remove('last'));
@@ -230,6 +243,9 @@ function addStone(m, animate) {
   d.className = `stone ${m.color === 'black' ? 'b' : 'w'} last` + (animate ? ' new' : '');
   d.style.left = (pad + m.c * step) + '%';
   d.style.top = (pad + m.r * step) + '%';
+  // 形状用 <use> 引用 game.html 里定义好的 <symbol>：满盘 225 颗也不会把 DOM 撑大
+  d.innerHTML = `<svg class="ico" aria-hidden="true"><use href="#${
+    STONE_ANIMAL[m.color] === 'cat' ? 'icoCat' : 'icoRabbit'}"/></svg>`;
   board.appendChild(d);
 }
 
@@ -269,6 +285,7 @@ async function humanMove(move) {
 
 async function aiTurn(mustMove) {
   if (busy || !G || G.status !== 'playing') return;
+  const seq = gameSeq;          // 记住这一趟属于哪一局
   busy = true;
   setThinking(true);
   clearTimeout(talkTimer);
@@ -278,7 +295,8 @@ async function aiTurn(mustMove) {
     const res = await ai.askAI({
       rule, state: G.state, talk: G.talk, note, mustMove, hint,
     });
-    if (destroyed) return;
+    // 她可能在这几秒里返回了大厅 / 开了新一局 —— 这一趟作废，什么都不许碰
+    if (destroyed || seq !== gameSeq) return;
 
     note = res.note || '';
     if (res.note) G.notes.push({ at: Date.now(), text: res.note });
@@ -303,17 +321,22 @@ async function aiTurn(mustMove) {
 
     if (G.state.status === 'done') { await finish(); return; }
   } catch (e) {
+    if (seq !== gameSeq) return;   // 已经离开这一局了，别把上一局的错贴到新一局上
     if (e && e.code === 'NOT_LEGAL') showStuck('他想了半天没想出一个能下的位置', e);
     else showStuck('他那边连不上：' + ((e && e.message) || e), e);
   } finally {
-    busy = false;
-    setThinking(false);
-    // 他在说话的那几秒里她可能落了子 / 说了话 —— 这一趟收尾了，补发
-    const what = _afterBusy;
-    _afterBusy = null;
-    if (what) {
-      if (isAiTurn()) aiTurn(true);
-      else if (what === 'talk' && isMyTurn()) aiTurn(false);
+    // 🔴 只在「还是同一局」时才碰这些共享状态。
+    //    否则她返回大厅后立刻续局，这一趟收尾会把新一局的 busy 解锁 / 补发动作抢走。
+    if (seq === gameSeq) {
+      busy = false;
+      setThinking(false);
+      // 他在说话的那几秒里她可能落了子 / 说了话 —— 这一趟收尾了，补发
+      const what = _afterBusy;
+      _afterBusy = null;
+      if (what) {
+        if (isAiTurn()) aiTurn(true);
+        else if (what === 'talk' && isMyTurn()) aiTurn(false);
+      }
     }
   }
 }
@@ -482,6 +505,12 @@ function backToChat() {
 
 async function backToLobby() {
   $('sheet').classList.remove('on');
+  // 🔴 先作废在途的那一趟 AI 请求，再清 G。
+  //    顺序反了的话，请求回来时正好撞上一个半清空的状态。
+  gameSeq++;
+  busy = false;
+  _afterBusy = null;
+  setThinking(false);
   G = null;
   note = '';
   show('scr-lobby');

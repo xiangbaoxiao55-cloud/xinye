@@ -13,6 +13,46 @@
 </script>
 </head>
 <body>
+<!-- 棋子形状（2026-10-05 兔宝要的：棋子画成小动物，不再是圆点）。
+     用 <symbol> 定义一次、每颗子 <use> 引用 —— 满盘 225 颗也不会把 DOM 撑大。
+     ⚠️ 渐变用 userSpaceOnUse：默认的 objectBoundingBox 会让每个图形各自算一份，
+        头 / 身子 / 耳朵叠在一起时接缝处会出现色阶断层。
+     ⚠️ 图形的 fill 故意不写死 —— 让 .stone.b / .stone.w 用 CSS 的 fill:url(#…) 上色，
+        这样「哪个颜色画哪种动物」是 CSS 说了算，换组合不用动形状。 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="gStoneB" gradientUnits="userSpaceOnUse" cx="11" cy="9" r="24">
+      <stop offset="0" stop-color="#75655d"/><stop offset="1" stop-color="#302823"/>
+    </radialGradient>
+    <radialGradient id="gStoneW" gradientUnits="userSpaceOnUse" cx="11" cy="9" r="24">
+      <stop offset="0" stop-color="#fffefb"/><stop offset="1" stop-color="#d7c8ae"/>
+    </radialGradient>
+
+    <symbol id="icoRabbit" viewBox="0 0 32 32">
+      <ellipse cx="12.7" cy="8.8" rx="2.5" ry="6.7" transform="rotate(-8 12.7 8.8)"/>
+      <ellipse cx="19.3" cy="8.8" rx="2.5" ry="6.7" transform="rotate(8 19.3 8.8)"/>
+      <circle cx="16" cy="17.8" r="7"/>
+      <ellipse cx="16" cy="26" rx="7.9" ry="5.3"/>
+    </symbol>
+
+    <symbol id="icoCat" viewBox="0 0 32 32">
+      <path d="M10.4 13.8 L9.3 4.4 L16.3 9.6 Z"/>
+      <path d="M21.6 13.8 L22.7 4.4 L15.7 9.6 Z"/>
+      <circle cx="16" cy="17.8" r="7"/>
+      <ellipse cx="16" cy="26" rx="7.6" ry="5.3"/>
+      <ellipse cx="25.4" cy="22.4" rx="1.95" ry="5.3" transform="rotate(26 25.4 22.4)"/>
+    </symbol>
+  </defs>
+</svg>
+<!-- 🔴 这两条必须写在**文档内**的 <style> 里，不能挪去 src/game/game.css！
+     外部样式表里的 `url(#gStoneB)` 是相对**样式表自己的 URL** 解析的
+     → 会变成 `.../src/game/game.css#gStoneB` → 找不到 → 按 SVG 规范"无效 paint server = 不画"
+     → 棋子形状整个消失，只剩中间那个小红点（2026-10-05 就是这么踩的，截图才看出来）。
+     文档内 <style> 的 url(#…) 才相对文档解析。 -->
+<style>
+  .stone.b .ico{fill:url(#gStoneB)}
+  .stone.w .ico{fill:url(#gStoneW)}
+</style>
 <div id="app">
 
   <!-- ==================== ① 大厅 ==================== -->
@@ -79,7 +119,7 @@
   <!-- ==================== ② 对局 ==================== -->
   <section class="screen" id="scr-play">
     <div class="bar">
-      <span class="x" onclick="leaveGame()">‹</span>
+      <span class="x" onclick="backToLobby()" title="回游戏大厅（这局给你留着，随时能续）">‹</span>
       <span class="t" id="playTitle"><span id="playName">五子棋</span><small id="playSub"></small></span>
       <span class="more" id="btnResign" onclick="resign()">认输</span>
     </div>
