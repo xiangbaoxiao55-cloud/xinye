@@ -17,13 +17,31 @@
 import { openDB, dbGet, dbGetRecent } from '../modules/db.js';
 import {
   buildEndpointUrl, convertRequestBody, buildAnthropicHeaders, anthropicToOpenAIResponse,
+  parseAnthropicEvent,
 } from '../modules/anthropic.js';
 
 /** ?mock=1 → 不发请求，随机走一步 + 固定台词。测 UI 全流程不花一分钱（说明书 §11.2） */
 export const MOCK = new URLSearchParams(location.search).get('mock') === '1';
 
-/** 棋局要"想"，给它 45 秒（说明书 §5.4 建议值） */
-const TIMEOUT_MS = 45000;
+/**
+ * 三道时间闸（2026-10-05 改流式时定的）。
+ *
+ * 原来只有一道 `AbortSignal.timeout(45000)` —— 那有两个毛病：
+ * ① **一个字都不吐的死站子也要占满 45 秒**，然后才换下一条配置；有备用预设就是 45+45 秒。
+ * ② **一直在吐的思考型模型会被 45 秒砍断**（它想得久，但每一步都在正常输出）。
+ *
+ * 现在分开：
+ *   · `FIRST_MS` —— 从发请求到**收到第一个字节**。超过就当这条配置是死的，换下一条。
+ *     ⚠️ **别设太紧**：有些中转站会先把整段缓存下来再一次性给你，
+ *     首字节要等它生成完才来。设紧了会把这些**本来能用的**站子误判成死的
+ *     （那比慢更糟 —— 她直接玩不下去）。
+ *   · `STALL_MS` —— 流到一半**超过这么久没有新字节**，才判成卡住。
+ *     光看总时长不行：一个想得久的模型可能整体 60 秒，但每一秒都在吐。
+ *   · `TOTAL_MS` —— 硬上限，兜底防跑飞。
+ */
+const FIRST_MS = 40000;
+const STALL_MS = 45000;
+const TOTAL_MS = 180000;
 
 // ── 本地开关（前缀跟主 APP 一致）─────────────────────────────────────────
 
@@ -155,35 +173,23 @@ function _body(r) {
   return String((r && (r.text || r.thinking)) || '');
 }
 
-async function _once(cfg, messages, maxTokens) {
-  const body = cfg.apiFormat === 'anthropic'
-    ? convertRequestBody({ model: cfg.model, max_tokens: maxTokens, messages, stream: false })
-    : { model: cfg.model, max_tokens: maxTokens, messages, stream: false };
-  const headers = cfg.apiFormat === 'anthropic'
-    ? buildAnthropicHeaders(cfg.apiKey)
-    : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` };
-
-  const res = await fetch(cfg.url, {
-    method: 'POST', headers, body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${text.slice(0, 120)}`);
-
+/**
+ * 把一段「整段回包」的原文解析出来（非流式 / 站子无视 stream 时走这条）。
+ * 抽出来是因为流式那条路最后也要用它兜底。
+ */
+function _fromWhole(text, isAnthropic) {
   let j = null;
   try { j = JSON.parse(text); } catch (_) {}
 
   if (j) {
-    const ch = cfg.apiFormat === 'anthropic'
-      ? anthropicToOpenAIResponse(j).choices?.[0]
-      : j.choices?.[0];
+    const ch = isAnthropic ? anthropicToOpenAIResponse(j).choices?.[0] : j.choices?.[0];
     const { text: t, thinking } = _split(ch?.message);
     return { text: t, thinking, finish: ch?.finish_reason || '' };
   }
 
   // 有的站子不认 stream:false，照样吐 SSE —— 兜一手
   let out = '', think = '';
-  for (const line of text.split('\n')) {
+  for (const line of String(text || '').split('\n')) {
     const t = line.trim();
     if (!t.startsWith('data: ') || t === 'data: [DONE]') continue;
     try {
@@ -200,11 +206,165 @@ async function _once(cfg, messages, maxTokens) {
 }
 
 /**
- * 按顺序试各个配置，返回 `{ text, thinking, finish }`
- * （`finish === 'length'` = 被截断；`thinking` = 思考通道，正文取不到时的退路）。
- * 每个配置最多试 2 次。
+ * 打一次请求。
+ *
+ * 🔴🔴 **2026-10-05 改成真流式** —— 兔宝报「每轮到炘也下的时候我都要等到睡着了」。
+ *    根因不是"API 慢"，是**这一页在干等**：原来写死 `stream: false`，
+ *    要等整段（思考型模型可能几百上千 token 的 reasoning）全部生成完才回来一个字；
+ *    而主聊天 `chat.js` 一直是流式的，所以聊天里她看着字往外蹦、下棋时却盯着三个点。
+ *
+ * 现在边收边喂 `onDelta({text, thinking})`，页面把「思考」实时显示在「他在想」那条上。
+ *
+ * 三种回包都要吃得下（真机上都会遇到）：
+ *   ① OpenAI 系 SSE（`data: {"choices":[{"delta":{...}}]}`）
+ *   ② Anthropic 系 SSE（`event: content_block_delta` + `data: {...}`）
+ *   ③ 站子无视 `stream:true`、仍然回一整坨 JSON
+ * 判据：**看开头的第一个非空白字符** —— 是 `data:` / `event:` 就是 SSE，是 `{` / `[` 就是 JSON。
  */
-async function callAI(messages, maxTokens) {
+async function _once(cfg, messages, maxTokens, onDelta) {
+  const isAnthropic = cfg.apiFormat === 'anthropic';
+  const body = isAnthropic
+    ? convertRequestBody({ model: cfg.model, max_tokens: maxTokens, messages, stream: true })
+    : { model: cfg.model, max_tokens: maxTokens, messages, stream: true };
+  const headers = isAnthropic
+    ? buildAnthropicHeaders(cfg.apiKey)
+    : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` };
+
+  const ctrl = new AbortController();
+  let firstTimer = setTimeout(
+    () => ctrl.abort(new DOMException('一直没有回应', 'TimeoutError')), FIRST_MS);
+  let stallTimer = null;
+  const totalTimer = setTimeout(
+    () => ctrl.abort(new DOMException('这一趟拖太久了', 'TimeoutError')), TOTAL_MS);
+  const stopTimers = () => {
+    clearTimeout(firstTimer); firstTimer = null;
+    clearTimeout(stallTimer); stallTimer = null;
+    clearTimeout(totalTimer);
+  };
+  /** 每收到一块就把「卡住」那道闸往后推 —— 只要还在吐，就不算卡 */
+  const bumpStall = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(
+      () => ctrl.abort(new DOMException('吐到一半没动静了', 'TimeoutError')), STALL_MS);
+  };
+
+  let res;
+  try {
+    res = await fetch(cfg.url, {
+      method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal,
+    });
+  } catch (e) { stopTimers(); throw e; }
+
+  if (!res.ok) {
+    stopTimers();
+    const t = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${String(t).slice(0, 120)}`);
+  }
+  // 有些站子直接给一整坨、没有流
+  if (!res.body || !res.body.getReader) {
+    stopTimers();
+    return _fromWhole(await res.text(), isAnthropic);
+  }
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let mode = null;          // null = 还没判出来 | 'sse' | 'json'
+  let probe = '', buf = '', raw = '';
+  let text = '', think = '', evtType = '', finish = '';
+  let lastEmit = 0;
+
+  /** 攒够一点或到点了，就把当前进度喂给页面（别每来一个字就动一次 DOM） */
+  const emit = force => {
+    const now = Date.now();
+    if (!force && now - lastEmit < 80) return;
+    lastEmit = now;
+    if (!onDelta) return;
+    try { onDelta({ text, thinking: think }); } catch (_) {}
+  };
+
+  const feed = line => {
+    const lt = line.trim();
+    if (!lt) return;
+    if (isAnthropic) {
+      if (lt.startsWith('event:')) { evtType = lt.slice(6).trim(); return; }
+      if (!lt.startsWith('data:')) return;
+      const ev = parseAnthropicEvent(evtType, lt.slice(5).trim());
+      evtType = '';
+      if (!ev) return;
+      if (ev.content) text += ev.content;
+      else if (ev.thinking) think += ev.thinking;
+      else if (ev.stop_reason) finish = ev.stop_reason === 'max_tokens' ? 'length' : ev.stop_reason;
+    } else {
+      if (!lt.startsWith('data:')) return;
+      const payload = lt.slice(5).trim();
+      if (!payload || payload === '[DONE]') return;
+      let d = null;
+      try { d = JSON.parse(payload); } catch (_) { return; }
+      const ch = d?.choices?.[0] || {};
+      if (ch.finish_reason) finish = ch.finish_reason;
+      const dl = ch.delta || d?.delta || {};
+      if (dl.content) text += dl.content;
+      else if (dl.reasoning_content || dl.reasoning || dl.thinking) {
+        think += dl.reasoning_content || dl.reasoning || dl.thinking;
+      }
+    }
+    emit(false);
+  };
+
+  const eat = chunk => {
+    buf += chunk;
+    const lines = buf.split('\n');
+    buf = lines.pop();          // 最后一段可能是半行，留着等下一块
+    for (const l of lines) feed(l);
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (firstTimer) { clearTimeout(firstTimer); firstTimer = null; }   // 有字节了，撤掉"没回应"那道闸
+      bumpStall();                                                       // 还在吐 → 把"卡住"那道闸往后推
+      const chunk = dec.decode(value, { stream: true });
+
+      if (mode === null) {
+        probe += chunk;
+        const head = probe.replace(/^\uFEFF/, '').trimStart();
+        if (!head) continue;
+        mode = /^(data:|event:)/.test(head) ? 'sse'
+          : (head.startsWith('{') || head.startsWith('[')) ? 'json' : 'sse';
+        if (mode === 'json') { raw = probe; } else { buf = probe; }
+        probe = '';
+        if (mode === 'json') continue;
+        const lines = buf.split('\n'); buf = lines.pop();
+        for (const l of lines) feed(l);
+        continue;
+      }
+      if (mode === 'json') { raw += chunk; continue; }
+      eat(chunk);
+    }
+  } catch (e) {
+    stopTimers();
+    // 已经收到东西了再断 —— 别把到手的部分丢掉（思考型模型常见：想完了、正要吐 JSON 时被掐）
+    if ((text || think) && (e?.name === 'AbortError' || e?.name === 'TimeoutError')) {
+      emit(true);
+      return { text: text.trim(), thinking: think.trim(), finish: 'cut' };
+    }
+    throw e;
+  }
+  stopTimers();
+
+  if (mode === 'json') return _fromWhole(raw, isAnthropic);
+  if (mode === null) return { text: '', thinking: '', finish: '' };   // 一个字都没收到
+  emit(true);
+  return { text: text.trim(), thinking: think.trim(), finish };
+}
+
+/**
+ * 按顺序试各个配置，返回 `{ text, thinking, finish }`
+ * （`finish === 'length'` = 被截断；`'cut'` = 流到一半被时间闸掐了；`thinking` = 思考通道）。
+ * 每个配置最多试 2 次。`onDelta` 会一路透到页面上，让她**看得见他在写**。
+ */
+async function callAI(messages, maxTokens, onDelta) {
   const cfgs = await _cfgs();
   if (!cfgs.length || !cfgs[0].apiKey) throw new Error('还没配置 API Key');
   let lastErr = null;
@@ -212,7 +372,7 @@ async function callAI(messages, maxTokens) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) await new Promise(r => setTimeout(r, 1500));
       try {
-        return await _once(cfg, messages, maxTokens);
+        return await _once(cfg, messages, maxTokens, onDelta);
       } catch (e) {
         lastErr = e;
         // 超时/主动中断就别在同一个配置上再耗一次了，直接换下一个
@@ -365,8 +525,10 @@ function _whyNot(move) {
 /**
  * @returns {Promise<{move:string|null, say:string, note:string}>}
  * @throws  {Error & {code:'NOT_LEGAL'}} 两次都没给出合法步 —— 页面显示「他卡住了」
+ * @param   onDelta 流式进度回调（可选）：`({text, thinking})` 每次攒到一点就调一次。
+ *                  页面拿它把「他在想」那条上的小字实时刷出来。
  */
-export async function askAI({ rule, state, talk = [], note = '', mustMove = true, hint = null }) {
+export async function askAI({ rule, state, talk = [], note = '', mustMove = true, hint = null, onDelta = null }) {
   if (MOCK) return _mockTurn(rule, state, mustMove);
 
   const s = await readSettings();
@@ -394,7 +556,7 @@ export async function askAI({ rule, state, talk = [], note = '', mustMove = true
     return cands.find(x => x.move && rule.isLegal(state, x.move)) || cands[0] || null;
   };
 
-  let r = await callAI(messages, BUDGET);
+  let r = await callAI(messages, BUDGET, onDelta);
   let out = pick(r);
 
   // 🔴 非法就带着原因**重新问一次**（说明书 §5.4 第 1 条）
@@ -416,7 +578,7 @@ export async function askAI({ rule, state, talk = [], note = '', mustMove = true
           + `${empties.join(' ')}\n\n重新想一步。只回那个 JSON，不要写任何解释、不要写思考过程。`,
       },
     ]);
-    r = await callAI(retry, BUDGET);
+    r = await callAI(retry, BUDGET, onDelta);
     out = pick(r);
   }
 
@@ -448,7 +610,7 @@ function _whyStuck(rule, out, body) {
  * 一局下完之后，写一段进主聊天的小结。
  * 有了它，她回到聊天时这件事就"发生过"了 —— 下次正常聊天他也记得输赢。
  */
-export async function summarizeGame({ rule, state, talk, result }) {
+export async function summarizeGame({ rule, state, talk, result, onDelta = null }) {
   if (MOCK) return _mockSummary(state, result);
 
   const s = await readSettings();
@@ -474,7 +636,7 @@ export async function summarizeGame({ rule, state, talk, result }) {
   const r = await callAI([
     { role: 'system', content: buildSystem(s) + '\n\n' + rule.PROMPT_RULES },
     { role: 'user', content: L.join('\n') },
-  ], 1200);
+  ], 1200, onDelta);
   // 正文空就退回思考通道（思考型模型常见）—— 跟 askAI 一个道理
   return _body(r).trim().slice(0, 300);
 }

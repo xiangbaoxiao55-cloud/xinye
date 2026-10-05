@@ -19,9 +19,19 @@ const GAMES = {
   gomoku: { mod: gomoku, name: '五子棋', sub: '两个人 · 一盘十来分钟' },
 };
 
-/** 他执黑先行，她执白（样稿就是这么摆的） */
-const AI_COLOR = 'black';
-const ME_COLOR = 'white';
+/**
+ * 谁执黑 —— **每局随机**（2026-10-05 兔宝定的：原来写死他执黑先走）。
+ * 所以这不能是模块常量，得跟着 `G` 走：`G.aiColor` / `G.meColor`。
+ * ⚠️ 落进库里，续局才认得出谁是谁；旧存档没有这两个字段，`_colorsOf()` 兜底成他执黑。
+ */
+const otherColor = c => (c === 'black' ? 'white' : 'black');
+const COLOR_CN = { black: '黑', white: '白' };
+
+/** 从一条对局记录里读出双方的颜色（旧存档兜底：他执黑） */
+function _colorsOf(g) {
+  const ai = (g && (g.aiColor === 'white' || g.aiColor === 'black')) ? g.aiColor : 'black';
+  return { aiColor: ai, meColor: otherColor(ai) };
+}
 
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -146,17 +156,24 @@ async function startGame(type) {
   rule = g.mod;
   gameNo = (await store.countByType(type)) + 1;
   note = '';
+  // 🎲 谁执黑每局随机 —— 她 2026-10-05 定的（原来写死他执黑先走）
+  const aiFirst = Math.random() < 0.5;
+  const aiColor = aiFirst ? 'black' : 'white';
+  const meColor = otherColor(aiColor);
   G = {
     id: store.newGameId(),
     type,
     startedAt: Date.now(),
     endedAt: null,
     status: 'playing',
-    state: rule.createGame(),
+    // 先手方开局 —— 他先手就是他的色，她先手就是她的色
+    state: rule.createGame(aiFirst ? aiColor : meColor),
     talk: [],
     notes: [],
     result: null,
     summary: '',
+    aiColor,
+    meColor,
     // 🔴 结算卡一局只写一次。finish() 和 backToChat() 都会调 writeResult()，
     //    中间隔着她看结算页的那段时间 —— 主 APP 的轮询会先把第一份取走，
     //    她一点「回聊天」又写一份 → 聊天里两张重复的卡。踩过。
@@ -164,7 +181,7 @@ async function startGame(type) {
   };
   await persist();
   enterPlay();
-  aiTurn(true);          // 他执黑，先开局
+  if (isAiTurn()) aiTurn(true);   // 她先手的话就等她点，别抢
 }
 
 async function resumeGame() {
@@ -179,6 +196,10 @@ async function resumeGame() {
   G = g;
   G.talk = G.talk || [];
   G.notes = G.notes || [];
+  // 颜色是每局随机的，得从存档里读回来；旧存档没这个字段 → 兜底成他执黑
+  const c = _colorsOf(G);
+  G.aiColor = c.aiColor;
+  G.meColor = c.meColor;
   note = (G.notes[G.notes.length - 1] || {}).text || '';
   gameNo = (await store.countByType(g.type)) + 1;
   enterPlay();
@@ -209,13 +230,18 @@ function updateTurnUI() {
   const my = isMyTurn() && G.status === 'playing';
   $('plAi').classList.toggle('active', !my && G.status === 'playing');
   $('plMe').classList.toggle('active', my);
-  $('stAi').textContent = G.status === 'playing' && isAiTurn() ? '执黑 · 在想' : '执黑';
+  // 黑白是每局随机的，这两行小字和那两个小圆点都得跟着走
+  $('stAi').textContent = `执${COLOR_CN[G.aiColor]}`
+    + (G.status === 'playing' && isAiTurn() ? ' · 在想' : '');
+  $('stMe').textContent = `执${COLOR_CN[G.meColor]}`;
+  $('dotAi').className = 'dot ' + (G.aiColor === 'black' ? 'b' : 'w');
+  $('dotMe').className = 'dot ' + (G.meColor === 'black' ? 'b' : 'w');
   $('playSub').textContent = `第 ${gameNo} 局 · 第 ${G.state.moves.length} 手`;
   $('btnResign').style.visibility = G.status === 'playing' ? '' : 'hidden';
 }
 
-const isAiTurn = () => !!G && G.state.turn === AI_COLOR;
-const isMyTurn = () => !!G && G.state.turn === ME_COLOR;
+const isAiTurn = () => !!G && G.state.turn === G.aiColor;
+const isMyTurn = () => !!G && G.state.turn === G.meColor;
 
 function drawBoardBase() {
   const N = rule.SIZE, pad = 5, step = (100 - 2 * pad) / (N - 1);
@@ -236,8 +262,10 @@ function drawBoardBase() {
 /** 棋子画成什么动物（2026-10-05 兔宝要的：不要圆点，要小动物）。
  *  换组合只改这一行 —— 形状在 game.html 的 <symbol> 里（icoRabbit / icoCat），
  *  颜色由 game.html 那段 <style> 的 .stone.b / .stone.w 决定。
- *  现在这版 = 黑猫（他）+ 白兔（她）—— 她叫兔宝，白兔归她。 */
-const STONE_ANIMAL = { black: 'cat', white: 'rabbit' };
+ *  现在这版 = **黑兔（他）+ 白猫（她）** —— 她 2026-10-05 挑的。
+ *  ⚠️ 注意这里是**按颜色**映射的，而颜色每局随机（见 `_colorsOf`）——
+ *     所以"黑兔"永远跟黑棋走，不会跟着人走。这是对的：棋子的形状认的是颜色。 */
+const STONE_ANIMAL = { black: 'rabbit', white: 'cat' };
 
 function addStone(m, animate) {
   const board = $('board'), pad = 5, step = (100 - 2 * pad) / (rule.SIZE - 1);
@@ -297,6 +325,8 @@ async function aiTurn(mustMove) {
     const hint = (ai.getAdvisor() && rule.suggestMoves) ? rule.suggestMoves(G.state, 3) : null;
     const res = await ai.askAI({
       rule, state: G.state, talk: G.talk, note, mustMove, hint,
+      // 边收边贴到「他在想」那条上（她已经离开这一局了就闭嘴）
+      onDelta: d => { if (!destroyed && seq === gameSeq) setThinkingLive(d); },
     });
     // 她可能在这几秒里返回了大厅 / 开了新一局 —— 这一趟作废，什么都不许碰
     if (destroyed || seq !== gameSeq) return;
@@ -354,6 +384,12 @@ async function sayLines(say) {
   }
 }
 
+/**
+ * 「他在想」那条。
+ * 🔴 2026-10-05：加了**实时显示** —— 原来这儿只有三个点在跳，她要干等整段生成完
+ *    （思考型模型可能几十秒）才看见任何东西，所以她说「每轮到炘也下都要等到睡着」。
+ *    现在流式把「思考」喂过来，这条上会滚出他正在想的内容 —— 至少能看出他活着、在想什么。
+ */
 function setThinking(on) {
   const log = $('talkLog');
   let el = log.querySelector('.think');
@@ -361,13 +397,54 @@ function setThinking(on) {
     if (!el) {
       el = document.createElement('div');
       el.className = 'think';
-      el.innerHTML = '<i><b></b><b></b><b></b></i>他在想，你可以接着说';
+      el.innerHTML = '<i><b></b><b></b><b></b></i><span class="tt">他在想，你可以接着说</span>'
+        + '<small class="live"></small>';
       log.appendChild(el);
     }
+    startTicker(el);
     el.scrollIntoView({ block: 'end' });
   } else if (el) {
+    stopTicker();
     el.remove();
   }
+}
+
+// 等了多少秒 —— 有它她才分得清「他在想」和「页面死了」
+let _tickTimer = null;
+let _tickAt = 0;
+function startTicker(el) {
+  stopTicker();
+  _tickAt = Date.now();
+  _tickTimer = setInterval(() => {
+    const t = el.querySelector('.tt');
+    if (!t) return;
+    const s = Math.round((Date.now() - _tickAt) / 1000);
+    t.textContent = `他在想，你可以接着说 · ${s} 秒`;
+  }, 1000);
+}
+function stopTicker() { if (_tickTimer) { clearInterval(_tickTimer); _tickTimer = null; } }
+
+/**
+ * 流式进度：把「他正在写的东西」贴到那条小字上。
+ * ⚠️ **只显示思考通道，不显示正文** —— 正文是那段 JSON（`{"move":"H8"...}`），
+ *    原样滚出来既难看又剧透。思考通道才是"他正在想什么"，也正是耗时的部分。
+ */
+function setThinkingLive({ text, thinking }) {
+  const el = $('talkLog').querySelector('.think');
+  if (!el) return;
+  const live = el.querySelector('.live');
+  if (!live) return;
+  const think = String(thinking || '').replace(/\s+/g, ' ').trim();
+  const tail = think.slice(-46);
+  if (tail) {
+    live.textContent = tail;
+    live.classList.add('on');
+  } else if (text) {
+    // 没有思考通道（普通模型）—— 只能说个大概进度，别把 JSON 露出来
+    live.textContent = `正在写下这一步…（${String(text).length} 字）`;
+    live.classList.add('on');
+  }
+  el.scrollIntoView({ block: 'end' });
 }
 
 function showStuck(msg, err) {
@@ -380,6 +457,7 @@ function showStuck(msg, err) {
   const lines = [];
   if (err && err.why) lines.push(err.why);
   if (err && err.finish === 'length') lines.push('他这次话说了一半就断了（输出长度不够）');
+  if (err && err.finish === 'cut') lines.push('他还在写就被掐断了（等太久了）');
   if (raw) lines.push(`他回的是：${raw}`);
   el.innerHTML = escHtml(msg)
     + lines.map(x => `<small class="why">${escHtml(x)}</small>`).join('')
@@ -453,7 +531,7 @@ async function finish(forced) {
   G.status = 'done';
   G.endedAt = Date.now();
   G.result = forced || (G.state.winner === 'draw' ? 'draw'
-    : (G.state.winner === ME_COLOR ? 'me' : 'ai'));
+    : (G.state.winner === G.meColor ? 'me' : 'ai'));
   G.state = { ...G.state, status: 'done' };
   await persist();
   updateTurnUI();
@@ -461,7 +539,14 @@ async function finish(forced) {
   updateScore();
 
   try {
-    const sum = await ai.summarizeGame({ rule, state: G.state, talk: G.talk, result: G.result });
+    const sum = await ai.summarizeGame({
+      rule, state: G.state, talk: G.talk, result: G.result,
+      // 小结也流式贴出来 —— 原来「他在想怎么跟你说…」也是干等的
+      onDelta: d => {
+        const t = String(d.text || d.thinking || '').replace(/\s+/g, ' ').trim();
+        if (t) $('doneSum').textContent = t;
+      },
+    });
     if (sum) { G.summary = sum; $('doneSum').textContent = sum; await persist(); }
     else $('doneSum').textContent = '（他没说什么。）';
   } catch (e) {
@@ -534,7 +619,7 @@ function leaveGame() {
 function resign() {
   if (!G || G.status !== 'playing') return;
   if (!confirm('认输？这一局就算他赢了。')) return;
-  G.state = { ...G.state, status: 'done', winner: AI_COLOR };
+  G.state = { ...G.state, status: 'done', winner: G.aiColor };
   finish('ai');
 }
 

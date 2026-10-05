@@ -175,11 +175,21 @@ html.dark .stone.w .ico{filter:drop-shadow(0 1px 1.3px rgba(0,0,0,.35))}
 @keyframes _pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .ln.pop{animation:_pop .18s ease-out}
 .sys{align-self:center;font-size:11px;color:var(--ink-faint);letter-spacing:.5px;text-align:center}
-.think{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);font-family:var(--serif)}
-.think i{display:inline-flex;gap:3px}
+.think{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);font-family:var(--serif)}
+.think i{display:inline-flex;gap:3px;flex:none}
 .think i b{width:5px;height:5px;border-radius:50%;background:var(--ink-soft);animation:_ink 1.2s infinite}
 .think i b:nth-child(2){animation-delay:.15s}
 .think i b:nth-child(3){animation-delay:.3s}
+.think .tt{flex:none}
+/* 🔴 流式时实时滚出来的「他正在想的内容」。
+   2026-10-05 之前这里什么都没有 —— 整段生成完才出东西，她要干等几十秒，
+   所以她说「每轮到炘也下都要等到睡着」。单独占一行、太长就省略号收尾
+   （喂进来的是**最后 46 个字**，所以省略号左边永远是最新的那截）。 */
+.think .live{
+  display:none;flex:1 1 100%;font-size:11px;line-height:1.5;opacity:.72;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;
+}
+.think .live.on{display:block}
 @keyframes _ink{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
 .stuck{
   align-self:center;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;

@@ -18,14 +18,19 @@ export const WHITE = 'white';
 const _idx = (c, r) => r * SIZE + c;
 const _val = (color) => (color === BLACK ? 1 : 2);
 
-/** 开一局新的。黑先（第一手永远是黑，规则如此） */
-export function createGame() {
+/**
+ * 开一局新的。**黑先**（规则如此）。
+ * `first` 指定谁先走 —— 不传就是黑先（保持老行为，纯函数测试直接调它）。
+ * 🔴 2026-10-05 兔宝要「随机先手」，所以这一页得能指定先手方：
+ *    `main.js` 随机决定谁执黑，再把他俩里**先手的那一方**传进来。
+ */
+export function createGame(first = BLACK) {
   return {
     type: 'gomoku',
     size: SIZE,
     board: new Array(SIZE * SIZE).fill(0),
     moves: [],
-    turn: BLACK,
+    turn: first === WHITE ? WHITE : BLACK,
     status: 'playing',      // playing | done
     winner: null,           // black | white | draw | null
   };
