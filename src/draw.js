@@ -112,7 +112,7 @@ class DrawDB {
 //    主 app 的 SW 在 scope='/' 上注册，draw.html 也被它管，非 NET_FIRST 路径走
 //    stale-while-revalidate，硬刷新也绕不过一个正在生效的 SW）。
 //    只有代码自己带版本号，才不会撒谎。提交时 pre-commit hook 会把它 bump 成提交时间。
-const DRAW_VER='v2026.10.05-2154';
+const DRAW_VER='v2026.10.05-2305';
 
 // ── State ────────────────────────────────────────────────────
 const db=new DrawDB();
@@ -3382,6 +3382,14 @@ async function loadPersonas(){
 // ── Style Explorer ───────────────────────────────────────────
 let _styleFilter='',_styleSubject='',_styleCatCollapsed={},_styleSeeded=false,_editingStyleId=null,_aiPickBusy=false;
 
+// 「AI 帮我选」上一次挑的结果 —— 2026-10-05 加。
+// 🔴 为什么需要它：她问「选了之后清空再点，怎么还是同样的角色和场景风格？」
+//    查下来不是缓存 bug —— pickStylesWithAI() 每次真发请求，是**送进去的题目一模一样**
+//    （「想画什么」没变 + 候选清单按它排序，所以 prompt 逐字节相同）。
+//    解法：记住上一次的**题目 + 结果**，题目没变时在 prompt 里加一句「换一批」。
+//    ⚠️ 题目变了就**不**排除 —— 免得反而错过最合适的那几个。
+let _lastAiPick={desc:'',ids:[]};
+
 // 「适合主体」宽类命中判断（_styleSubject 为空 = 不限）
 // ⚠️ 没标主体的**保守显示**，不藏：内置 620 + HD 278 全都标了主体，
 //    没标的只有她自己手加的自定义风格。因为缺个字段就让它「消失」太吓人。
@@ -3721,7 +3729,15 @@ async function pickStylesWithAI(){
         :'从中挑 2~4 个最合适、且彼此不冲突的风格（冲突的例子：一个要厚涂一个要平涂、一个写实一个极简）。')
       +'只输出一个 JSON 数组，元素必须来自候选清单里的 style_id，不要解释、不要 markdown 代码块。'
       +'例：["HD032","M012"]';
+    // 2026-10-05：**题目没变**时把上次挑过的排除掉 —— 让她「清空再点」能拿到新组合。
+    //   题目变了就正常挑（不排除），免得反而错过最合适的那几个。
+    //   ⚠️ 只在候选池还够挑的时候才排除（池子太小就别排除，否则大师没得选）。
+    const avoid=(_lastAiPick.desc===desc && _lastAiPick.ids.length)
+      ? _lastAiPick.ids.filter(id=>cand.some(s=>s.style_id===id))
+      : [];
+    const canAvoid=avoid.length>0 && cand.length-avoid.length>=4;
     const user='想画的内容：'+desc
+      +(canAvoid?`\n\n注意：上一次你已经推荐过 ${avoid.join('、')} 了，这次请换一批不同的，不要再选这几个。`:'')
       +(S.aestheticProfile?'\n\n用户审美偏好：\n'+S.aestheticProfile:'')
       +'\n\n候选风格（共 '+cand.length+' 条）：\n'+list;
     const reply=await callMaster([{role:'system',content:sys},{role:'user',content:user}]);
@@ -3737,6 +3753,8 @@ async function pickStylesWithAI(){
     }
     if(!picked.length){toast('大师没挑出有效风格，再试一次？','warn');return}
     if(fusion&&picked.length<2){toast(`大师只挑出 ${picked.length} 个，融合需要 2 个 —— 再点一次或手动补一个`,'warn')}
+    // 记下这次的「题目 + 结果」—— 下次点**同一题目**时会要求大师换一批（2026-10-05）
+    _lastAiPick={desc,ids:picked.map(s=>s.style_id)};
     clearStyles();
     for(const s of picked) toggleStyle(s);
     renderStyles(document.getElementById('style-search-input')?.value||'');
