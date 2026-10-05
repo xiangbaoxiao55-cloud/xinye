@@ -66,6 +66,8 @@ function _refreshDiaryFrame() {
 
 // ── Tab 切换状态 ───────────────────────────────────────────────────────────
 let _diaryLoaded = false, _readingLoaded = false, _galleryLoaded = false, _phoneLoaded = false;
+/** 游戏页（2026-10-05）。和上面几个一个待遇：一个会话只加载一次 —— 切走只是隐藏，回来还在原状态，这就是「续局」 */
+let _gameLoaded = false;
 let _currentTab = 'chat';
 
 export function switchTab(tab) {
@@ -109,15 +111,26 @@ export function switchTab(tab) {
     try { window.__fcPullPosts?.(); } catch(e) {}
   }
 
+  // 游戏页（2026-10-05）。?app= 让臭宝读自己的库和人格；
+  // ?mock=1 是从主 APP 一路透传下来的 —— 本机验证时让游戏页走假 AI，不花一分钱
+  if (tab === 'game' && !_gameLoaded) {
+    const qs = new URLSearchParams();
+    if (window.__APP_ID__ === 'choubao') qs.set('app', 'choubao');
+    if (new URLSearchParams(location.search).get('mock') === '1') qs.set('mock', '1');
+    const gf = document.getElementById('gameFrame');
+    if (gf) gf.src = 'game.html' + (qs.toString() ? '?' + qs.toString() : '');
+    _gameLoaded = true;
+  }
+
   // choubao.html 没有画廊 Tab，取不到就跳过（否则每次切 Tab 都会在这里抛异常）
-  [['diaryOverlayFrame','diary'], ['readingOverlayFrame','reading'], ['galleryOverlayFrame','gallery'], ['phoneOverlayFrame','phone']].forEach(([id, t]) => {
+  [['diaryOverlayFrame','diary'], ['readingOverlayFrame','reading'], ['galleryOverlayFrame','gallery'], ['phoneOverlayFrame','phone'], ['gameOverlayFrame','game']].forEach(([id, t]) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('open', tab === t);
   });
   const fp = document.getElementById('friendsPanel');
   if (fp) fp.classList.toggle('open', tab === 'friends');
 
-  ['chat','diary','reading','gallery','friends','phone'].forEach(t => {
+  ['chat','diary','reading','gallery','friends','phone','game'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.classList.toggle('active', t === tab);
   });
@@ -228,6 +241,12 @@ export function initDiary() {
   // iframe 内部点返回/跳转聊天 → 切回聊天 tab
   window.addEventListener('message', e => {
     if (e.data === 'closeOverlay') switchTab('chat');
+    // 游戏页下完一局、点了「回聊天」：切回聊天，顺手把那张结算卡接进来。
+    // （不能只靠 visibilitychange —— 主 APP 一直在前台，iframe 里点来点去不会触发它）
+    if (e.data?.type === 'gameDone') {
+      switchTab('chat');
+      import('./gamecard.js').then(m => m.consumeGameResult()).catch(() => {});
+    }
     if (e.data?.type === 'switchToChat') {
       switchTab('chat');
       setTimeout(() => {

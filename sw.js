@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xinye-20261002-2301';
+const CACHE_NAME = 'xinye-20261005-1450';
 const LOCAL_CFG  = 'xinye-local-cfg';
 // ⚠️ 加了新模块 / 新页面，**记得同步这里**。
 //    漏了不会立刻坏 —— handleFetch 兜底是 stale-while-revalidate，在线首次访问照样加载、加载完就进缓存；
@@ -39,6 +39,9 @@ const STATIC_ASSETS = [
   '/src/modules/pendingdraw.js',
   '/overlay.html', '/src/overlay.js',
   '/phone.html',
+  '/game.html', '/src/game/main.js', '/src/game/ai.js', '/src/game/store.js',
+  '/src/game/gomoku.js', '/src/game/game.css',
+  '/src/modules/gamecard.js', '/src/styles/gamecard.css',
   '/src/styles/variables.css', '/src/styles/layout.css', '/src/styles/stickers.css',
   '/src/styles/bubbles.css', '/src/styles/panels.css', '/src/styles/components.css',
   '/src/styles/gift.css',

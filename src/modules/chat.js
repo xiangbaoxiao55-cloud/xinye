@@ -389,11 +389,19 @@ export function activeStore() { return window._rpActive ? 'rpMessages' : 'messag
  *   之前只有正式聊天会写它，主动消息（副 API）和覆盖层接话一律没有 ——
  *   她分不清哪条是谁生成的。加在第 5 位是**追加**，老调用点全部不受影响；
  *   而且字段在 store.add() 之前就带上，不会像"先入库再补写"那样漏在渲染之后。
+ * @param extra 2026-10-05 加（游戏页那一批）：额外的字段，直接并进这条消息。
+ *   现在只有一处用它 —— 结算卡要挂一个 `game` 字段（{type,result,moves,durationMs}），
+ *   渲染时靠它认出「这条要画成卡片」。
+ *   ⚠️ role / content 不许被 extra 覆盖（那会把消息本身改掉），显式挡掉。
  */
-export async function addMessage(role, content, images, timestamp, presetName) {
+export async function addMessage(role, content, images, timestamp, presetName, extra) {
   const msg = { role, content, time: timestamp || Date.now() };
   if (images && images.length) msg.images = images;
   if (presetName) msg.presetName = presetName;
+  if (extra && typeof extra === 'object') {
+    const { role: _r, content: _c, ...rest } = extra;
+    Object.assign(msg, rest);
+  }
   const storeName = activeStore();
   const tx = db.transaction(storeName, 'readwrite');
   const store = tx.objectStore(storeName);
@@ -451,7 +459,7 @@ export async function renderMessages() {
     const _isBookmarked = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
     const bookmarkBtn = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked?' active':''}" data-id="${msg.id}" title="${_isBookmarked?'取消收藏':'收藏'}">${_iconBookmark(_isBookmarked)}</button>`;
     const _stickerName = isUser ? window.detectStickerMsg?.(msg.content) : null;
-    const _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
+    let _bubbleCls = _stickerName ? 'msg-bubble bubble-sticker' : 'msg-bubble';
     let _bubbleInner;
     if (_stickerName) {
       _bubbleInner = window.renderStickerHTML?.(_stickerName) || escHtml(msg.content);
@@ -470,6 +478,13 @@ export async function renderMessages() {
     } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
       const _eSubj = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
       _bubbleInner = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj)}」</div>`;
+    } else if (!isUser && msg.game) {
+      // 下完一局回来那张结算卡（src/modules/gamecard.js）。
+      // 挂在 window 上是为了避开 chat.js ↔ gamecard.js 绕成环（同 renderStickerHTML 那个模式）
+      _bubbleCls = 'msg-bubble bubble-game';
+      _bubbleInner = (typeof window.renderGameCardHTML === 'function')
+        ? window.renderGameCardHTML(msg.game, msg.content)
+        : escHtml(msg.content);
     } else {
       _bubbleInner = (isUser ? escHtml(msg.content) : '') + imgHtml;
     }
@@ -488,8 +503,9 @@ export async function renderMessages() {
       </div>`;
     const _isEmailRender = msg.isEmailCard || msg.content?.startsWith('[✉️');
     const _activeContent = getMsgActiveContent(msg);
-    if (!isUser && _activeContent && !msg.isGenImage && !_isEmailRender) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent); }
-    if (msg.content && !msg.isGenImage && !_stickerName && !_isEmailRender) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
+    // ⚠️ 结算卡（msg.game）要跳过这两步：linkifyEl 会重写 innerHTML，把卡片冲掉
+    if (!isUser && _activeContent && !msg.isGenImage && !_isEmailRender && !msg.game) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent); }
+    if (msg.content && !msg.isGenImage && !_stickerName && !_isEmailRender && !msg.game) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
     chatArea.appendChild(row);
   }
   _observeLazyImgs(chatArea);
@@ -535,7 +551,7 @@ export async function appendMsgDOM(msg) {
   const _isBookmarked2 = (settings.bookmarks||[]).some(b => b.msgId === msg.id);
   const bookmarkBtn2 = (isUser || msg.isGenImage) ? '' : `<button class="btn-bookmark${_isBookmarked2?' active':''}" data-id="${msg.id}" title="${_isBookmarked2?'取消收藏':'收藏'}">${_iconBookmark(_isBookmarked2)}</button>`;
   const _sn = isUser ? window.detectStickerMsg?.(msg.content) : null;
-  const _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
+  let _bc = _sn ? 'msg-bubble bubble-sticker' : 'msg-bubble';
   let _bi;
   if (_sn) {
     _bi = window.renderStickerHTML?.(_sn) || escHtml(msg.content);
@@ -549,6 +565,12 @@ export async function appendMsgDOM(msg) {
   } else if (!isUser && (msg.isEmailCard || msg.content?.startsWith('[✉️'))) {
     const _eSubj2 = msg.content?.match(/^\[✉️ (.+?)\]/)?.[1] || '邮件';
     _bi = `<div class="email-sent-tip"><i class="ic ic-mail"></i> 寄了一封信 · 「${escHtml(_eSubj2)}」</div>`;
+  } else if (!isUser && msg.game) {
+    // 结算卡，同 renderMessages 里那段
+    _bc = 'msg-bubble bubble-game';
+    _bi = (typeof window.renderGameCardHTML === 'function')
+      ? window.renderGameCardHTML(msg.game, msg.content)
+      : escHtml(msg.content);
   } else {
     _bi = (isUser ? escHtml(msg.content) : '') + imgHtml;
   }
@@ -567,8 +589,8 @@ export async function appendMsgDOM(msg) {
     </div>`;
   const _isEmailRender2 = msg.isEmailCard || msg.content?.startsWith('[✉️');
   const _activeContent2 = getMsgActiveContent(msg);
-  if (!isUser && _activeContent2 && !msg.isGenImage && !_isEmailRender2) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent2); }
-  if (msg.content && !msg.isGenImage && !_sn && !_isEmailRender2) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
+  if (!isUser && _activeContent2 && !msg.isGenImage && !_isEmailRender2 && !msg.game) { linkifyEl(row.querySelector('.msg-bubble'), _activeContent2); }
+  if (msg.content && !msg.isGenImage && !_sn && !_isEmailRender2 && !msg.game) { window.applyStickerTags?.(row.querySelector('.msg-bubble')); }
   chatArea.appendChild(row);
   window.observeStickerImgs?.(row);
   scrollBottom();

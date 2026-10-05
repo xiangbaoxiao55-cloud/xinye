@@ -18,6 +18,7 @@ import { checkMorningWalk, startReminderPoller } from './modules/walk.js';
 import { checkGift } from './modules/gift.js';
 import { _startEarlyInboxFetch, _discardEarlyInboxFetch, _consumePushInbox, _consumeOverlayReply, _pullPosts, _registerPush, _registerPeriodicSync, _reportOverlayErr } from './modules/inbox.js';
 import { initRp } from './modules/rp.js';
+import { consumeGameResult } from './modules/gamecard.js';
 import { openChatSearch, closeChatSearch, runChatSearch, setChatSearchWho, toggleCsCtx } from './modules/chatsearch.js';
 import { initInputDraft } from './modules/draft.js';
 import { archiveCrashLogs, dumpCrashLogs, classifyRunEnd, endLabel } from './modules/crashlog.js';
@@ -40,6 +41,7 @@ Object.assign(window, {
   // 长截图模式：面板由顶栏按钮 onclick 唤起；另外三个是它进出模式时要调的钩子
   openCapturePanel, enterCaptureMode, exitCaptureMode,
   flushLazyImgs, pauseStickerLazy, mountAllStickers: mountAllStickerImgs,
+  consumeGameResult,
 });
 
 if('serviceWorker' in navigator){
@@ -626,7 +628,7 @@ async function checkPendingMessage() {
 (async () => {
   // 显示版本号
   const _verEl = document.getElementById('appVersion');
-  if (_verEl) _verEl.textContent = 'v2026.10.02-2301';
+  if (_verEl) _verEl.textContent = 'v2026.10.05-1450';
 
   await openDB();
   await migrateFromLocalStorage();
@@ -720,6 +722,7 @@ async function checkPendingMessage() {
   checkGift();
   startReminderPoller();
   _consumeOverlayReply(); // 覆盖层里她回的话，回到聊天页就把它接进来
+  consumeGameResult();    // 下完一局留下的结算卡（游戏页 → localStorage → 这儿）
   _reportOverlayErr();    // 覆盖层上次生成失败的原因，翻出来打进 vConsole
 
   if (!isMobile) userInput.focus(); // 移动端不自动弹键盘
@@ -730,12 +733,12 @@ async function checkPendingMessage() {
 
   // 页面从后台恢复时自动拉取心跳消息
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); autoWriteXinyeDiary(); _pullPosts(); }
+    if (document.visibilityState === 'visible') { _consumePushInbox(); _consumeOverlayReply(); consumeGameResult(); autoWriteXinyeDiary(); _pullPosts(); }
   });
 
   // 前台定时轮询心跳消息（30秒），鸿蒙无FCM靠轮询兜底
   setInterval(() => {
-    if (document.visibilityState === 'visible') { _consumePushInbox(); autoWriteXinyeDiary(); _pullPosts(); }
+    if (document.visibilityState === 'visible') { _consumePushInbox(); consumeGameResult(); autoWriteXinyeDiary(); _pullPosts(); }
   }, 30_000);
 
   // 碎碎念：启动时拉一轮（不跟上面那条挤在一起 —— 补配图可能要好几分钟）
