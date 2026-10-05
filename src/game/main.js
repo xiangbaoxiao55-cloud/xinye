@@ -157,7 +157,10 @@ async function startGame(type) {
     notes: [],
     result: null,
     summary: '',
-    summaryWritten: false,
+    // 🔴 结算卡一局只写一次。finish() 和 backToChat() 都会调 writeResult()，
+    //    中间隔着她看结算页的那段时间 —— 主 APP 的轮询会先把第一份取走，
+    //    她一点「回聊天」又写一份 → 聊天里两张重复的卡。踩过。
+    resultWritten: false,
   };
   await persist();
   enterPlay();
@@ -479,6 +482,7 @@ function showSheet() {
 /** 写进 localStorage，等主 APP 取（说明书 §8）—— 和覆盖层回话走的是同一条路 */
 function writeResult() {
   if (!G || !G.summary) return;
+  if (G.resultWritten) return;   // 这一局已经交出去了，别再来一张
   const pfx = window.__APP_ID__ === 'choubao' ? 'choubao_' : '';
   try {
     localStorage.setItem(pfx + 'xinye_game_result', JSON.stringify({
@@ -491,6 +495,8 @@ function writeResult() {
       presetName: ai.getGameModelChoice() || '',
       at: Date.now(),
     }));
+    // ⚠️ 只在真的写进去之后才立旗 —— 写失败（配额满之类）时留个重试的机会
+    G.resultWritten = true;
   } catch (_) {}
 }
 
