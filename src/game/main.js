@@ -523,11 +523,17 @@ function sendSay() {
   addTalk('me', t, true);
   persist();
 
-  // 轮到她、她只是在说话 → 1.5 秒后合并发一次「只说话」（说明书 §7）
+  // 轮到她、她只是在说话 → 等一小会儿，再合并发一次「只说话」（说明书 §7）。
+  // 🔴 2026-10-08：窗口从 **1.5 秒拉到 4 秒**。她报「我下棋的同时说了话，他按先后回我两次」——
+  //    实测分界就是这个窗口（`test_game_say_timing.mjs`）：
+  //      · 说完话在窗口内落子 → `aiTurn(true)` 开头那句 `clearTimeout(talkTimer)` 把它并成一次；
+  //      · 超过窗口 → 先单独回一次话（`mustMove=false`，不落子）、落子时再回一次 = 两次。
+  //    1.5 秒对真人太短（打字 + 挑位置 + 点棋盘必然超过），等于这个窗口白设。
+  //    ⚠️ 改这个数字前想清楚：**拉长 = 她纯聊天时他应得更慢**，别拉过头。
   clearTimeout(talkTimer);
   if (!isMyTurn() || G.status !== 'playing') return;
   if (busy) { _afterBusy = 'talk'; return; }   // 他还在说话，等他收尾再接
-  talkTimer = setTimeout(() => { if (isMyTurn() && !busy) aiTurn(false); }, 1500);
+  talkTimer = setTimeout(() => { if (isMyTurn() && !busy) aiTurn(false); }, 4000);
 }
 
 // ── 收尾 ────────────────────────────────────────────────────────────────
