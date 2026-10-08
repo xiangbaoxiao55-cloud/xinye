@@ -174,10 +174,10 @@ function _shapeScore(cnt, open) {
 }
 
 /**
- * 挑 n 个看起来不错的点。
- * ⚠️ 返回的是**坐标字符串数组**，不是"这一步最好"的结论 —— 决策权在模型手上。
+ * 给所有空位打分并排序。军师的两个版本共用这一段 —— 别写两份。
+ * 返回 `{ me, opp, cands }`，`cands` 是 `[{ c, r, score }]` 降序。
  */
-export function suggestMoves(state, n = 3) {
+function _rankCandidates(state) {
   const me = _val(state.turn);
   const opp = me === 1 ? 2 : 1;
   const cands = [];
@@ -187,12 +187,59 @@ export function suggestMoves(state, n = 3) {
       if (!_hasNeighbor(state.board, c, r, 2)) continue;
       // 进攻稍微加权：能连自己的，也顺手堵对手的
       const s = _evalPoint(state.board, c, r, me) * 1.15 + _evalPoint(state.board, c, r, opp);
-      cands.push({ move: formatMove(c, r), score: s });
+      cands.push({ c, r, score: s });
     }
   }
-  if (!cands.length) return [formatMove(7, 7)];   // 空盘 → 天元
   cands.sort((a, b) => b.score - a.score);
-  return cands.slice(0, n).map(x => x.move);
+  return { me, opp, cands };
+}
+
+/** 假设 v 落在 (c,r)，能不能连成五 */
+function _winsAt(board, c, r, v) {
+  const b = board.slice();
+  b[_idx(c, r)] = v;
+  return checkWin(b, c, r, v === 1 ? BLACK : WHITE);
+}
+
+/**
+ * 这一手好在哪 —— 给模型看的一句话。
+ * 🔑 2026-10-08：这是「军师」真正起作用的地方。光丢几个坐标他不听，
+ *    说清"为什么值得走"他才会听。判断顺序 = 先看谁能赢，再看威胁大小。
+ */
+function _reason(board, c, r, me, opp) {
+  if (_winsAt(board, c, r, me)) return '落这里你直接连成五，赢了';
+  if (_winsAt(board, c, r, opp)) return '她要在这里连成五，不堵就输了';
+  const mine = _evalPoint(board, c, r, me);
+  const hers = _evalPoint(board, c, r, opp);
+  if (mine >= 10000) return '你落这里能成四，她必须来堵';
+  if (hers >= 10000) return '她落这里会成四 —— 成活四就基本挡不住了，优先堵';
+  if (hers >= 1000) return '她在这里能做活三，早点封住';
+  if (mine >= 1000) return '你在这里能做活三，先手在你';
+  return '顺着自己的棋形往外长';
+}
+
+/**
+ * 挑 n 个看起来不错的点。
+ * ⚠️ 返回的是**坐标字符串数组**，不是"这一步最好"的结论 —— 决策权在模型手上。
+ */
+export function suggestMoves(state, n = 3) {
+  const { cands } = _rankCandidates(state);
+  if (!cands.length) return [formatMove(7, 7)];   // 空盘 → 天元
+  return cands.slice(0, n).map(x => formatMove(x.c, x.r));
+}
+
+/**
+ * 军师用：跟 `suggestMoves` 同一套打分，但每个点**附一句"为什么"**。
+ * 返回 `[{ move: 'H7', why: '她要在这里连成五，不堵就输了' }]`。
+ * 🔴 仍然只是**建议** —— 走哪步由模型定（说明书 §1：代码一步都不替他走）。
+ */
+export function suggestMovesDetailed(state, n = 3) {
+  const { me, opp, cands } = _rankCandidates(state);
+  if (!cands.length) return [{ move: formatMove(7, 7), why: '开局，先占天元' }];
+  return cands.slice(0, n).map(x => ({
+    move: formatMove(x.c, x.r),
+    why: _reason(state.board, x.c, x.r, me, opp),
+  }));
 }
 
 // ── 给模型看的局面文字（说明书 §5.2）────────────────────────────────────
@@ -238,7 +285,20 @@ export function moveCount(state) {
 //    加飞行棋的时候，只要它的规则文件也导出一个 PROMPT_RULES，ai.js 一个字都不用改。
 export const PROMPT_RULES = `【这一局：五子棋】
 15×15 的棋盘，列 A~O、行 1~15。坐标写成「列+行」，比如 H8 是正中间那一格，A1 是左上角。
-你执黑（●）先行，兔宝执白（○）。
 轮流落子，谁先连成五个（横、竖、两条斜线都算）谁赢。
 没有禁手、没有三三禁手这些讲究，就是最简单的五子棋。
-⚠️ 落子只能落在**空位**上，被占的格子不能再下。`;
+⚠️ 落子只能落在**空位**上，被占的格子不能再下。
+🔴 谁执黑**每局随机**（黑先手）—— 你执什么颜色、棋盘上哪个符号是你的，**每次都会在局面里现说**。
+   别按老印象认颜色：认反了就会把自己的子当成她的子，等于在帮她下。`;
+
+/**
+ * 轮到他落子时额外给的战术常识。
+ * 🔑 跟 PROMPT_RULES 一样放规则文件里 —— `ai.js` 不感知具体是哪个游戏
+ *    （见 ai.js 文件头：加飞行棋的时候 ai.js 一个字都不用改）。
+ * 📌 这里只说"**怎么判断**"，一个坐标都不给 —— 选点由军师提供、由他自己定（说明书 §1）。
+ */
+export const PROMPT_TIPS = `【下棋的常识，落子前过一遍】
+- 她连了三个、两头都空着（活三）→ 下一手就是活四、再下一手就赢了，**必须马上堵**，堵住一头就行
+- 你自己能连成四个 → 优先去做，先手在你这边
+- 能直接连成五就**直接赢**，别绕弯子
+- 别只算自己这一手 —— 想一想：你下完，她最可能落在哪、你下一步再怎么接`;

@@ -322,7 +322,13 @@ async function aiTurn(mustMove) {
   clearTimeout(talkTimer);
 
   try {
-    const hint = (ai.getAdvisor() && rule.suggestMoves) ? rule.suggestMoves(G.state, 3) : null;
+    // 军师：**只在他要落子这一轮**才算（她说话那一轮他不用下棋，给了反而跟后面的指令打架）。
+    // 优先用带理由的版本 —— 光丢几个坐标他不听，说清"为什么值得走"才会听（2026-10-08）。
+    let hint = null;
+    if (ai.getAdvisor() && mustMove) {
+      if (rule.suggestMovesDetailed) hint = rule.suggestMovesDetailed(G.state, 3);
+      else if (rule.suggestMoves) hint = rule.suggestMoves(G.state, 3);
+    }
     const res = await ai.askAI({
       rule, state: G.state, talk: G.talk, note, mustMove, hint,
       // 边收边贴到「他在想」那条上（她已经离开这一局了就闭嘴）

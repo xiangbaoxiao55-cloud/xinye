@@ -410,14 +410,37 @@ function buildAsk({ rule, state, talk, note, mustMove, hint }) {
   L.push('【现在的局面】');
   L.push(rule.toPromptText(state));
 
+  // 🔴 谁执什么颜色**每局随机**（2026-10-05 起的规矩），所以每次请求都得现说一遍。
+  //    以前这句是写死在规则文件的 PROMPT_RULES 里的（"你执黑（●）先行"）——
+  //    先手改成随机之后就常年说反：他有一半的局会把**自己的子当成她的子**，
+  //    于是去堵自己的棋、放她的棋过 —— 看着就是"下得实在太菜"（2026-10-08 查出来修的）。
+  //    `mustMove=true` 时 `state.turn` 就是他的颜色；她不落子那一轮（false）则相反。
+  const mine = mustMove ? state.turn : (state.turn === 'black' ? 'white' : 'black');
+  const iAmBlack = mine === 'black';
+  L.push('');
+  L.push(`【你执什么颜色】这一局你执${iAmBlack ? '黑' : '白'}（${iAmBlack ? '●' : '○'}），`
+    + `兔宝执${iAmBlack ? '白' : '黑'}（${iAmBlack ? '○' : '●'}）。`
+    + `棋盘上 ${iAmBlack ? '●' : '○'} 是你的子、${iAmBlack ? '○' : '●'} 是她的子，别认反。`);
+
   if (note) {
     L.push('');
     L.push(`【你上一手给自己留的备忘】${note}`);
   }
 
+  // 战术常识：只在他要落子这一轮给 —— 她说话那一轮他不用下棋，给了反而跟后面的指令打架
+  if (mustMove && rule.PROMPT_TIPS) {
+    L.push('');
+    L.push(rule.PROMPT_TIPS);
+  }
+
   if (hint && hint.length) {
     L.push('');
-    L.push(`【军师（仅供参考）】代码算出来这几个点看着不错：${hint.join('、')}。要不要采纳、走哪一步，仍然你自己决定。`);
+    L.push('【军师】代码把局面按棋形算过一遍了，下面这几个点最值得走，**优先考虑**：');
+    for (const h of hint) {
+      // 兼容两种形状：带理由的 `{move, why}`（gomoku 现在的），和老的纯坐标字符串
+      L.push(typeof h === 'string' ? `- ${h}` : `- ${h.move}：${h.why}`);
+    }
+    L.push('（走哪步最终还是你定 —— 但这几个点是真算过的，别当耳旁风）');
   }
 
   if (talk && talk.length) {
