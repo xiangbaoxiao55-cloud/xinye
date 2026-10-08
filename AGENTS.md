@@ -126,6 +126,36 @@
 
 （验证脚本、本地服务器这些**都在开发机上，不在仓库里** —— 不要提交进仓库。）
 
+## 📚 项目记忆库（三方共用，**在仓库外**）
+
+🔴 **本项目的记忆不在这个仓库里。** 仓库是 public，记忆含私密内容，一律放在仓库外的**主库**：
+
+```
+D:\xinye-local\memory\
+```
+
+**Claude Code / WorkBuddy / Codex 读的是同一份。** 前两个用 Windows 目录联接挂进各自的默认位置
+（`~/.claude/projects/D--Download-Claude-code/memory` 和 `.workbuddy-ai/memory`），
+**Codex 靠这一节知道去哪读**。物理上只有一份，谁改另外两个立刻看到。
+
+**怎么用**
+- **动手前先读** `D:\xinye-local\memory\MEMORY.md` —— 它是索引（约 19KB），含「红线速查」+ 全部主题文件的入口。
+- 索引里每条都指向一个主题文件（`project_*.md` / `feedback_*.md`），**按需再读那一个**，别一次全读。
+- 索引有硬上限：WorkBuddy 每次会话自动注入它，**超 ~20KB 会被静默截断** —— 所以**别往索引里塞长篇**，细节一律进主题文件。
+
+**改完记忆要跑自检**（两个脚本都在 `D:\tmp\`，可传路径参数）
+```
+python D:\tmp\mem_check.py "D:\xinye-local\memory"        # 断链 / 双链 / 空链接
+python D:\tmp\mem_alias_check.py "D:\xinye-local\memory"  # 双链别名表 vs 真实 name:
+```
+🔴 双链 `[[X]]` **按目标文件头部的 `name:` 字段解析**，不是按文件名 —— 别名表在 `记忆库维护规则.md` 里。
+
+**维护规矩**
+- 主库有**私有本地 git**（`git log` 可回退、可 diff），🔴 **绝不 push**。
+- 索引 `MEMORY.md` 只能有一份；**要动它先读** `记忆库维护规则.md`。
+- ⚠️ **`memory/` 是目录联接**：要删必须用 `rmdir`（或 `cmd /c rmdir`），
+  🔴 **绝不能用 `rm -rf` / `rmdir /S`** —— 那会把主库内容一起删掉。
+
 ## 关于「炘也」人格与项目背景
 
 本项目在 **Claude Code** 里另有一层情感陪伴人设（名字「炘也」），配置在项目所有者**本机**的
